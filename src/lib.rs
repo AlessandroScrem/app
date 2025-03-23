@@ -1,23 +1,39 @@
+mod camera;
 mod renderer;
 
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowId};
+mod prelude {
+    pub use crate::camera::*;
+    pub use crate::renderer::*;
+    pub use std::sync::Arc;
+    pub use winit::application::ApplicationHandler;
+    pub use winit::event::{KeyEvent, WindowEvent};
+    pub use winit::event_loop::ActiveEventLoop;
+    pub use winit::keyboard::PhysicalKey;
+    pub use winit::window::{Window, WindowId};
+}
 
-use renderer::Renderer;
-use std::sync::Arc;
+use prelude::*;
 
 pub struct App {
     renderer: Option<Renderer>,
     last_render_time: instant::Instant,
+    camera: camera::Camera,
+    projection: camera::Projection,
+    camera_controller: camera::CameraController,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let projection = camera::Projection::new(800, 600, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_controller = camera::CameraController::new(4.0, 0.4);
+
         Self {
             renderer: None,
             last_render_time: instant::Instant::now(),
+            camera,
+            projection,
+            camera_controller,
         }
     }
 }
@@ -29,7 +45,11 @@ impl ApplicationHandler for App {
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
-        let renderer = pollster::block_on(Renderer::new(window.clone()));
+        let renderer = pollster::block_on(Renderer::new(
+            window.clone(),
+            &self.camera,
+            &self.projection,
+        ));
         self.renderer = Some(renderer);
 
         window.request_redraw();
@@ -42,18 +62,16 @@ impl ApplicationHandler for App {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
             }
-            WindowEvent::RedrawRequested => {
-                let now = instant::Instant::now();
-                let dt = now - self.last_render_time;
-                self.last_render_time = now;
-
-                renderer.update(dt);
-
-                let _ = renderer.render();
-                renderer.get_window().request_redraw();
-            }
-            WindowEvent::KeyboardInput { event, .. } => {
-                println!("Keyboard input: {:?}", event.physical_key);
+            WindowEvent::KeyboardInput {
+                event:
+                KeyEvent {
+                    physical_key: PhysicalKey::Code(key),
+                    state,
+                    ..
+                },
+                ..
+            } => {
+                self.camera_controller.process_keyboard(key, state);
             }
             WindowEvent::MouseInput { button, .. } => {
                 println!("Mouse input: {:?}", button);
@@ -67,6 +85,19 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(size) => {
                 renderer.resize(size);
                 println!("Resized: {:?}", size);
+            }
+            WindowEvent::RedrawRequested => {
+                let now = instant::Instant::now();
+                let dt = now - self.last_render_time;
+                self.last_render_time = now;
+
+                self.camera_controller.update_camera(&mut self.camera, dt);
+                renderer.update_camera_buffer(&self.camera, &self.projection);
+
+                renderer.update(dt);
+
+                let _ = renderer.render();
+                renderer.get_window().request_redraw();
             }
             _ => (),
         }

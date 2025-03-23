@@ -1,22 +1,20 @@
 use wgpu::ShaderModule;
 
-pub fn create_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration,  shader: ShaderModule) -> wgpu::RenderPipeline {
-
-    let render_pipeline_layout = 
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
+pub fn create_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    config: &wgpu::SurfaceConfiguration,
+    shader: ShaderModule,
+) -> wgpu::RenderPipeline {
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Render Pipeline"),
-        layout: Some(&render_pipeline_layout),
+        layout: Some(&layout),
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: Some("vs_main"),
             buffers: &[],
-            compilation_options: wgpu::PipelineCompilationOptions::default()
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
