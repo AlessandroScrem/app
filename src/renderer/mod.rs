@@ -20,7 +20,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>, camera: &Camera, projection: &Projection) -> Self {
+    pub async fn new(window: Arc<Window>, camera: &Camera/* , projection: &Projection */) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -48,7 +48,7 @@ impl Renderer {
         };
 
         let mut camera_uniform = uniform::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera, &projection);
+        camera_uniform.update_view_proj(&camera/* , &projection */);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
@@ -119,11 +119,14 @@ impl Renderer {
     pub fn update(&self, dt: instant::Duration) {
         // Update logic here
     }
-    
-    pub fn update_camera_buffer(&mut self, camera: &Camera, projection: &Projection) {
-        self.camera_uniform
-            .update_view_proj(camera, projection);
-         self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
+
+    pub fn update_camera_buffer(&mut self, camera: &Camera/* , projection: &Projection */) {
+        self.camera_uniform.update_view_proj(camera/* , projection */);
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera_uniform]),
+        );
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
@@ -140,13 +143,20 @@ impl Renderer {
             });
 
         {
+            let clear_color = wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            };
+
             let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                        load: wgpu::LoadOp::Clear(clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
