@@ -20,8 +20,6 @@ pub struct App {
     renderer: Option<Renderer>,
     last_render_time: instant::Instant,
     camera: camera::Camera,
-    // projection: camera::Projection,
-    // camera_controller: camera::CameraController,
     mouse_pressed: Option<MouseButton>,
 }
 
@@ -29,15 +27,11 @@ impl Default for App {
     fn default() -> Self {
         const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
         let camera = camera::Camera::new(FOV, 1.0, 0.1, 100.0);
-        // let projection = camera::Projection::new(800, 600, cgmath::Deg(45.0), 0.1, 100.0);
-        // let camera_controller = camera::CameraController::new(4.0, 0.4);
 
         Self {
             renderer: None,
             last_render_time: instant::Instant::now(),
             camera,
-            // projection,
-            // camera_controller,
             mouse_pressed: None,
         }
     }
@@ -50,11 +44,7 @@ impl ApplicationHandler for App {
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
-        let renderer = pollster::block_on(Renderer::new(
-            window.clone(),
-            &self.camera,
-            // &self.projection,
-        ));
+        let renderer = pollster::block_on(Renderer::new(window.clone(), &self.camera));
         self.renderer = Some(renderer);
 
         window.request_redraw();
@@ -82,6 +72,8 @@ impl ApplicationHandler for App {
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let renderer = self.renderer.as_mut().unwrap();
+
+        renderer.handle_input(&event);
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -91,14 +83,11 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput {
                 event:
                     KeyEvent {
-                        physical_key: PhysicalKey::Code(key),
-                        state,
+                        physical_key: PhysicalKey::Code(_key),
                         ..
                     },
                 ..
-            } => {
-                // self.camera_controller.process_keyboard(key, state);
-            }
+            } => {}
 
             WindowEvent::MouseInput { button, state, .. } => {
                 if state == ElementState::Pressed {
@@ -112,7 +101,6 @@ impl ApplicationHandler for App {
                     MouseScrollDelta::LineDelta(_, y) => y,
                     MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
                 };
-                // self.camera_controller.process_scroll(&delta);
                 self.camera.zoom(scroll_y);
             }
             WindowEvent::Resized(size) => {
@@ -128,12 +116,11 @@ impl ApplicationHandler for App {
                 let dt = now - self.last_render_time;
                 self.last_render_time = now;
 
-                // self.camera_controller.update_camera(&mut self.camera, dt);
-                renderer.update_camera_buffer(&self.camera /* , &self.projection */);
+                renderer.update_camera_buffer(&self.camera);
 
                 renderer.update(dt);
 
-                let _ = renderer.render();
+                let _ = renderer.render(&self.camera);
                 renderer.get_window().request_redraw();
             }
             _ => (),

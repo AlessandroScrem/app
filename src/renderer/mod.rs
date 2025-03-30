@@ -1,6 +1,9 @@
+mod egui_tools;
 mod pipeline;
 mod uniform;
 
+use egui_tools::EguiRenderer;
+use egui_wgpu::ScreenDescriptor;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 
@@ -17,10 +20,14 @@ pub struct Renderer {
     camera_bind_group: wgpu::BindGroup,
     camera_uniform: uniform::CameraUniform,
     camera_buffer: wgpu::Buffer,
+    egui_renderer: EguiRenderer,
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>, camera: &Camera/* , projection: &Projection */) -> Self {
+    pub async fn new(
+        window: Arc<Window>,
+        camera: &Camera,
+    ) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -48,7 +55,7 @@ impl Renderer {
         };
 
         let mut camera_uniform = uniform::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera/* , &projection */);
+        camera_uniform.update_view_proj(&camera);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
@@ -89,6 +96,8 @@ impl Renderer {
         let render_pipeline =
             pipeline::create_pipeline(&device, &render_pipeline_layout, &surface_config, shader);
 
+        let egui_renderer = EguiRenderer::new(&device, surface_config.format, None, 1, &window);
+
         Self {
             size,
             window,
@@ -100,6 +109,7 @@ impl Renderer {
             render_pipeline,
             camera_uniform,
             camera_buffer,
+            egui_renderer,
         }
     }
 
@@ -116,12 +126,17 @@ impl Renderer {
         }
     }
 
-    pub fn update(&self, dt: instant::Duration) {
+    pub fn update(&self, _dt: instant::Duration) {
         // Update logic here
     }
 
-    pub fn update_camera_buffer(&mut self, camera: &Camera/* , projection: &Projection */) {
-        self.camera_uniform.update_view_proj(camera/* , projection */);
+    pub fn handle_input(&mut self, event: &WindowEvent) {
+        self.egui_renderer.handle_input(&self.window, event);
+    }
+
+    pub fn update_camera_buffer(&mut self, camera: &Camera) {
+        self.camera_uniform
+            .update_view_proj(camera);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -129,7 +144,7 @@ impl Renderer {
         );
     }
 
-    pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, camera: &Camera) -> Result<(), wgpu::SurfaceError> {
         let outpot = self.surface.get_current_texture()?;
 
         let view = outpot
@@ -168,6 +183,37 @@ impl Renderer {
             renderpass.set_pipeline(&self.render_pipeline);
             renderpass.set_bind_group(0, &self.camera_bind_group, &[]);
             renderpass.draw(0..3, 0..1);
+        }
+
+        {
+            self.egui_renderer.begin_frame(&self.window);
+            let screen_descriptor = ScreenDescriptor {
+                size_in_pixels: [self.surface_config.width, self.surface_config.height],
+                pixels_per_point: self.window.as_ref().scale_factor() as f32 ,
+            };
+
+            egui::Window::new("winit + egui + wgpu says hello!")
+                .resizable(true)
+                .vscroll(true)
+                .default_open(false)
+                .show(self.egui_renderer.context(), |ui| {
+                    ui.label("Label!");
+                    let label = format!("Camera position: {:?}", camera.get_position());
+                    ui.label(label);
+
+                    if ui.button("Button!").clicked() {
+                        println!("boom!")
+                    }
+                });
+
+            self.egui_renderer.end_frame_and_draw(
+                &self.device,
+                &self.queue,
+                &mut encoder,
+                &self.window,
+                &view,
+                screen_descriptor,
+            );
         }
 
         //submit
