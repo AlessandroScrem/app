@@ -2,14 +2,13 @@ mod egui_tools;
 mod pipeline;
 mod uniform;
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
-use cgmath::Point3;
 use egui_tools::EguiRenderer;
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::EventResponse;
 use wgpu::util::DeviceExt;
-use winit::dpi::PhysicalSize;
+use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
 use crate::prelude::*;
 
@@ -27,7 +26,7 @@ pub struct Renderer {
     egui_renderer: EguiRenderer,
 }
 
-struct DisplayPoint3(Point3<f32>);
+struct DisplayPoint3(cgmath::Point3<f32>);
 
 impl fmt::Display for DisplayPoint3 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

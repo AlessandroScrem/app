@@ -87,18 +87,18 @@ impl Camera {
     }
 
     pub fn pan_speed(&self) -> (f32, f32) {
-        const GAIN: f32 = 0.01;
+        const GAIN: f32 = 0.008;
         const MAX_DELTA: f32 = 2.4;
         const A: f32 = 0.0366;
         const B: f32 = 0.1778;
         const C: f32 = 0.3021;
 
-        let compute_factor = || -> f32 {
-            let value = 1.0_f32.min(MAX_DELTA);
+        let compute_factor = |value: f32| -> f32 {
+            let value = value.min(MAX_DELTA);
             (A * (value * value) - B * value + C) * GAIN
         };
 
-        (compute_factor(), compute_factor() * self.aspect.recip())
+        (compute_factor(1.0), compute_factor(self.aspect.recip()))
     }
 
     fn zoom_speed(&self) -> f32 {

@@ -1,4 +1,4 @@
-use app::App;
+use app_wgpu::prelude::*;
 use winit::event_loop::{ControlFlow, EventLoop};
 
 fn main() {
