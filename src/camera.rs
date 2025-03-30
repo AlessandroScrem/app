@@ -1,6 +1,5 @@
 use cgmath::{
-    EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3,
-    SquareMatrix, Vector3, perspective,
+    perspective, Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix, Vector3
 };
 
 #[rustfmt::skip]
@@ -138,5 +137,13 @@ impl Camera {
             self.distance = distance;
         }
         self.update_view();
+    }
+
+    pub fn get_fov(&self)-> Deg<f32> {
+        self.fov.into()
+    }
+
+    pub fn set_fov(&mut self, fov: Deg<f32>) {
+        self.fov = fov.into();
     }
 }

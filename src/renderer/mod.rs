@@ -2,8 +2,12 @@ mod egui_tools;
 mod pipeline;
 mod uniform;
 
+use std::fmt;
+
+use cgmath::Point3;
 use egui_tools::EguiRenderer;
 use egui_wgpu::ScreenDescriptor;
+use egui_winit::EventResponse;
 use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 
@@ -21,6 +25,14 @@ pub struct Renderer {
     camera_uniform: uniform::CameraUniform,
     camera_buffer: wgpu::Buffer,
     egui_renderer: EguiRenderer,
+}
+
+struct DisplayPoint3(Point3<f32>);
+
+impl fmt::Display for DisplayPoint3 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({:.2}, {:.2}, {:.2})", self.0.x, self.0.y, self.0.z)
+    }
 }
 
 impl Renderer {
@@ -130,8 +142,8 @@ impl Renderer {
         // Update logic here
     }
 
-    pub fn handle_input(&mut self, event: &WindowEvent) {
-        self.egui_renderer.handle_input(&self.window, event);
+    pub fn handle_input(&mut self, event: &WindowEvent)-> EventResponse {
+        self.egui_renderer.handle_input(&self.window, event)
     }
 
     pub fn update_camera_buffer(&mut self, camera: &Camera) {
@@ -144,7 +156,7 @@ impl Renderer {
         );
     }
 
-    pub fn render(&mut self, camera: &Camera) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, camera: &mut Camera) -> Result<(), wgpu::SurfaceError> {
         let outpot = self.surface.get_current_texture()?;
 
         let view = outpot
@@ -198,12 +210,12 @@ impl Renderer {
                 .default_open(false)
                 .show(self.egui_renderer.context(), |ui| {
                     ui.label("Label!");
-                    let label = format!("Camera position: {:?}", camera.get_position());
-                    ui.label(label);
-
-                    if ui.button("Button!").clicked() {
-                        println!("boom!")
-                    }
+                    ui.label(format!("Camera position: ({})", DisplayPoint3(camera.get_position())));
+                    let mut fov: f32 = camera.get_fov().0;
+                    if ui.add(egui::Slider::new(&mut fov, 0.1..=179.0).text("Fov")).changed() {
+                        camera.set_fov(cgmath::Deg(fov));
+                        println!("Fov: {:?}", camera.get_fov());
+                    };
                 });
 
             self.egui_renderer.end_frame_and_draw(

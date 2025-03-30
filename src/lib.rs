@@ -73,7 +73,10 @@ impl ApplicationHandler for App {
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let renderer = self.renderer.as_mut().unwrap();
 
-        renderer.handle_input(&event);
+        if renderer.handle_input(&event).consumed {
+            return;
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -120,7 +123,7 @@ impl ApplicationHandler for App {
 
                 renderer.update(dt);
 
-                let _ = renderer.render(&self.camera);
+                let _ = renderer.render(&mut self.camera);
                 renderer.get_window().request_redraw();
             }
             _ => (),
