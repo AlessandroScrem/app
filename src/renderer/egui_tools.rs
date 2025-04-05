@@ -1,6 +1,6 @@
 use egui::Context;
 use egui_wgpu::wgpu::{CommandEncoder, Device, Queue, StoreOp, TextureFormat, TextureView};
-use egui_wgpu::{wgpu, Renderer, ScreenDescriptor};
+use egui_wgpu::{Renderer, ScreenDescriptor, wgpu};
 use egui_winit::{EventResponse, State};
 use winit::event::WindowEvent;
 use winit::window::Window;
@@ -48,7 +48,7 @@ impl EguiRenderer {
         }
     }
 
-    pub fn handle_input(&mut self, window: &Window, event: &WindowEvent)-> EventResponse {
+    pub fn handle_input(&mut self, window: &Window, event: &WindowEvent) -> EventResponse {
         self.state.on_window_event(window, event)
     }
 
@@ -114,5 +114,19 @@ impl EguiRenderer {
         }
 
         self.frame_started = false;
+    }
+
+    pub fn update_ui<F: FnOnce(&mut egui::Ui)>(&mut self, ui_callback: F) {
+        if !self.frame_started {
+            panic!("begin_frame must be called before update_ui can be called!");
+        }
+
+        egui::Window::new("winit + egui + wgpu says hello!")
+            .resizable(true)
+            .vscroll(true)
+            .default_open(false)
+            .show(self.context(), |ui| {
+                ui_callback(ui);
+            });
     }
 }

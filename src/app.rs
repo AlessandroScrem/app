@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 use crate::camera;
 
+use std::fmt;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::KeyEvent;
@@ -12,6 +13,13 @@ use winit::keyboard::PhysicalKey;
 use winit::window::Window;
 use winit::window::WindowId;
 
+struct DisplayPoint3(cgmath::Point3<f32>);
+
+impl fmt::Display for DisplayPoint3 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({:.2}, {:.2}, {:.2})", self.0.x, self.0.y, self.0.z)
+    }
+}
 
 pub struct App {
     renderer: Option<Renderer>,
@@ -31,6 +39,23 @@ impl Default for App {
             camera,
             mouse_pressed: None,
         }
+    }
+}
+impl App {
+    pub fn update_gui(&mut self, ui: &mut egui::Ui) {
+        ui.label("Label!");
+        ui.label(format!(
+            "Camera position: ({})",
+            DisplayPoint3(self.camera.get_position())
+        ));
+        let mut fov: f32 = self.camera.get_fov().0;
+        if ui
+            .add(egui::Slider::new(&mut fov, 0.1..=179.0).text("Fov"))
+            .changed()
+        {
+            self.camera.set_fov(cgmath::Deg(fov));
+            println!("Fov: {:?}", self.camera.get_fov());
+        };
     }
 }
 
@@ -116,37 +141,48 @@ impl ApplicationHandler for App {
                 let dt = now - self.last_render_time;
                 self.last_render_time = now;
 
+                // 👇 Estrai temporaneamente, lo rimetteremo poi
+                let mut renderer = self.renderer.take().unwrap();
+
                 renderer.update_camera_buffer(&self.camera);
 
                 renderer.update(dt);
 
-                let _ = renderer.render(&mut self.camera);
+                let mut gui_callback = |ui: &mut egui::Ui| {
+                    self.update_gui(ui);
+                };
+
+                let _ = renderer.render(&mut gui_callback);
+
                 renderer.get_window().request_redraw();
+                
+                // 👈 Rimetti il renderer dentro self
+                self.renderer = Some(renderer);
             }
             _ => (),
         }
     }
-    
+
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
         let _ = (event_loop, cause);
     }
-    
+
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: ()) {
         let _ = (event_loop, event);
     }
-    
+
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let _ = event_loop;
     }
-    
+
     fn suspended(&mut self, event_loop: &ActiveEventLoop) {
         let _ = event_loop;
     }
-    
+
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         let _ = event_loop;
     }
-    
+
     fn memory_warning(&mut self, event_loop: &ActiveEventLoop) {
         let _ = event_loop;
     }

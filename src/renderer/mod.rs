@@ -26,6 +26,7 @@ pub struct Renderer {
     egui_renderer: EguiRenderer,
 }
 
+#[allow(dead_code)]
 struct DisplayPoint3(cgmath::Point3<f32>);
 
 impl fmt::Display for DisplayPoint3 {
@@ -34,11 +35,10 @@ impl fmt::Display for DisplayPoint3 {
     }
 }
 
+
+
 impl Renderer {
-    pub async fn new(
-        window: Arc<Window>,
-        camera: &Camera,
-    ) -> Self {
+    pub async fn new(window: Arc<Window>, camera: &Camera) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -141,13 +141,12 @@ impl Renderer {
         // Update logic here
     }
 
-    pub fn handle_input(&mut self, event: &WindowEvent)-> EventResponse {
+    pub fn handle_input(&mut self, event: &WindowEvent) -> EventResponse {
         self.egui_renderer.handle_input(&self.window, event)
     }
 
     pub fn update_camera_buffer(&mut self, camera: &Camera) {
-        self.camera_uniform
-            .update_view_proj(camera);
+        self.camera_uniform.update_view_proj(camera);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -155,7 +154,7 @@ impl Renderer {
         );
     }
 
-    pub fn render(&mut self, camera: &mut Camera) -> Result<(), wgpu::SurfaceError> {
+    pub fn render<F: FnOnce(&mut egui::Ui)>(&mut self, ui_callback: F) -> Result<(), wgpu::SurfaceError> {
         let outpot = self.surface.get_current_texture()?;
 
         let view = outpot
@@ -197,26 +196,13 @@ impl Renderer {
         }
 
         {
-            self.egui_renderer.begin_frame(&self.window);
             let screen_descriptor = ScreenDescriptor {
                 size_in_pixels: [self.surface_config.width, self.surface_config.height],
-                pixels_per_point: self.window.as_ref().scale_factor() as f32 ,
+                pixels_per_point: self.window.as_ref().scale_factor() as f32,
             };
 
-            egui::Window::new("winit + egui + wgpu says hello!")
-                .resizable(true)
-                .vscroll(true)
-                .default_open(false)
-                .show(self.egui_renderer.context(), |ui| {
-                    ui.label("Label!");
-                    ui.label(format!("Camera position: ({})", DisplayPoint3(camera.get_position())));
-                    let mut fov: f32 = camera.get_fov().0;
-                    if ui.add(egui::Slider::new(&mut fov, 0.1..=179.0).text("Fov")).changed() {
-                        camera.set_fov(cgmath::Deg(fov));
-                        println!("Fov: {:?}", camera.get_fov());
-                    };
-                });
-
+            self.egui_renderer.begin_frame(&self.window);
+            self.egui_renderer.update_ui(ui_callback);
             self.egui_renderer.end_frame_and_draw(
                 &self.device,
                 &self.queue,
