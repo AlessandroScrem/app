@@ -116,19 +116,11 @@ impl EguiRenderer {
         self.frame_started = false;
     }
 
-    pub fn update_ui<F: FnOnce(&mut egui::Ui)>(&mut self, ui_callback: F) {
+    pub fn update_ui<F: FnOnce(&Context, &mut egui::Ui)>(&mut self, ui_callback: F) {
         if !self.frame_started {
             panic!("begin_frame must be called before update_ui can be called!");
         }
 
-        egui::SidePanel::left("Camera settings:").show(self.context(), |ui| ui_callback(ui));
-
-        // egui::Window::new("winit + egui + wgpu says hello!")
-        //     .resizable(true)
-        //     .vscroll(true)
-        //     .default_open(false)
-        //     .show(self.context(), |ui| {
-        //         ui_callback(ui);
-        //     });
+        egui::SidePanel::left("Camera settings:").show(self.context(), |ui| ui_callback(self.context(), ui));
     }
 }

@@ -148,7 +148,7 @@ impl Renderer {
         );
     }
 
-    pub fn render<F: FnOnce(&mut egui::Ui)>(&mut self, ui_callback: F) -> Result<(), wgpu::SurfaceError> {
+    pub fn render<F: FnOnce(&egui::Context, &mut egui::Ui)>(&mut self, ui_callback: F) -> Result<(), wgpu::SurfaceError> {
         let outpot = self.surface.get_current_texture()?;
 
         let view = outpot
