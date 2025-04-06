@@ -1,22 +1,15 @@
 use crate::prelude::*;
 
-use crate::camera;
-
-use std::fmt;
-use std::sync::Arc;
 use winit::application::ApplicationHandler;
-use winit::event::KeyEvent;
-use winit::event::WindowEvent;
-use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta};
+use winit::event::{WindowEvent, KeyEvent, DeviceEvent, ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::PhysicalKey;
-use winit::window::Window;
-use winit::window::WindowId;
+use winit::window::{Window, WindowId};
 
 struct DisplayPoint3(cgmath::Point3<f32>);
 
-impl fmt::Display for DisplayPoint3 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for DisplayPoint3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({:.2}, {:.2}, {:.2})", self.0.x, self.0.y, self.0.z)
     }
 }
@@ -24,14 +17,14 @@ impl fmt::Display for DisplayPoint3 {
 pub struct App {
     renderer: Option<Renderer>,
     last_render_time: instant::Instant,
-    camera: camera::Camera,
+    camera: Camera,
     mouse_pressed: Option<MouseButton>,
 }
 
 impl Default for App {
     fn default() -> Self {
         const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
-        let camera = camera::Camera::new(FOV, 1.0, 0.1, 100.0);
+        let camera = Camera::new(FOV, 1.0, 0.1, 100.0);
 
         Self {
             renderer: None,
@@ -43,9 +36,22 @@ impl Default for App {
 }
 impl App {
     pub fn update_gui(&mut self, ui: &mut egui::Ui) {
-        ui.label("Label!");
+        let mut picked_path: Option<String> = None;
+        if ui.button("Open file…").clicked() {
+            if let Some(path) = rfd::FileDialog::new().pick_file() {
+                picked_path = Some(path.display().to_string());
+            }
+        }
+
+        if let Some(picked_path) = &picked_path {
+            ui.horizontal(|ui| {
+                ui.label("Picked file:");
+                ui.monospace(picked_path);
+            });
+        }
+
         ui.label(format!(
-            "Camera position: ({})",
+            "Camera position: {}",
             DisplayPoint3(self.camera.get_position())
         ));
         let mut fov: f32 = self.camera.get_fov().0;
@@ -54,14 +60,13 @@ impl App {
             .changed()
         {
             self.camera.set_fov(cgmath::Deg(fov));
-            println!("Fov: {:?}", self.camera.get_fov());
         };
     }
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window = Arc::new(
+        let window = std::sync::Arc::new(
             event_loop
                 .create_window(Window::default_attributes())
                 .unwrap(),
@@ -133,8 +138,8 @@ impl ApplicationHandler for App {
                     renderer.resize(size);
                     self.camera
                         .set_aspect(size.width as f32 / size.height as f32);
+                    println!("Resized: {:?}", size);
                 }
-                println!("Resized: {:?}", size);
             }
             WindowEvent::RedrawRequested => {
                 let now = instant::Instant::now();
@@ -155,7 +160,7 @@ impl ApplicationHandler for App {
                 let _ = renderer.render(&mut gui_callback);
 
                 renderer.get_window().request_redraw();
-                
+
                 // 👈 Rimetti il renderer dentro self
                 self.renderer = Some(renderer);
             }

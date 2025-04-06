@@ -121,12 +121,14 @@ impl EguiRenderer {
             panic!("begin_frame must be called before update_ui can be called!");
         }
 
-        egui::Window::new("winit + egui + wgpu says hello!")
-            .resizable(true)
-            .vscroll(true)
-            .default_open(false)
-            .show(self.context(), |ui| {
-                ui_callback(ui);
-            });
+        egui::SidePanel::left("Camera settings:").show(self.context(), |ui| ui_callback(ui));
+
+        // egui::Window::new("winit + egui + wgpu says hello!")
+        //     .resizable(true)
+        //     .vscroll(true)
+        //     .default_open(false)
+        //     .show(self.context(), |ui| {
+        //         ui_callback(ui);
+        //     });
     }
 }
