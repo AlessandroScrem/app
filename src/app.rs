@@ -1,3 +1,4 @@
+use crate::model_reader;
 use crate::prelude::*;
 
 pub struct App {
@@ -51,6 +52,10 @@ impl App {
                     }
 
                     if ui.button("Chiudi").clicked() {
+                        let meshes =
+                            model_reader::load_gltf(self.picked_file.as_ref().unwrap()).unwrap();
+                        println!("Loaded {} meshes", meshes.len());
+
                         self.picked_file = None;
                     }
                 });
