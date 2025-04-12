@@ -1,9 +1,10 @@
 use gltf::buffer;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 #[allow(dead_code)]
 pub struct Mesh {
-    vertices: Vec<cgmath::Point3<f32>>,
+    vertices: Vec<cgmath::Vector3<f32>>,
+    normals: Vec<cgmath::Vector3<f32>>,
     indices: Vec<u32>,
 }
 
@@ -23,7 +24,7 @@ pub fn load_gltf(path: &str) -> Result<Vec<Mesh>, Box<dyn std::error::Error>> {
 
     print_meshes(&gltf, buffers.clone());
 
-    Ok(read_mesh(&gltf, buffers))
+    Ok(read_meshes(&gltf, buffers))
 }
 
 fn print_tree(node: &gltf::Node, depth: i32) {
@@ -40,22 +41,38 @@ fn print_tree(node: &gltf::Node, depth: i32) {
     }
 }
 
-fn read_mesh(gltf: &gltf::Document, buffers: Vec<buffer::Data>) -> Vec<Mesh> {
+fn read_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) -> Vec<Mesh> {
     let mut meshes: Vec<Mesh> = Vec::new();
     for mesh in gltf.meshes() {
         for primitive in mesh.primitives() {
-            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-            let positions = reader.read_positions().unwrap();
-            let indices = reader.read_indices().unwrap();
-            meshes.push(Mesh {
-                vertices: positions
-                    .map(|v| cgmath::Point3::new(v[0], v[1], v[2]))
-                    .collect(),
-                indices: indices.into_u32().collect(),
-            });
+            let mesh = read_mesh(&primitive, buffers.clone());
+            meshes.push(mesh);
         }
     }
     meshes
+}
+
+fn read_mesh(primitive: &gltf::Primitive, buffers: Vec<buffer::Data>) -> Mesh {
+    let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+    let positions = reader
+        .read_positions()
+        .unwrap_or_else(|| panic!("primitives must have the POSITION attribute "));
+    let normals = reader
+        .read_normals()
+        .unwrap_or_else(|| panic!("primitives must have the NORMAL attribute "));
+    let indices = reader
+        .read_indices()
+        .unwrap_or_else(|| panic!("primitives must have the INDICES attribute "));
+
+    Mesh {
+        vertices: positions
+            .map(|position| cgmath::Vector3::from(position))
+            .collect(),
+        normals: normals
+            .map(|normal| cgmath::Vector3::from(normal))
+            .collect(),
+        indices: indices.into_u32().collect(),
+    }
 }
 
 fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {

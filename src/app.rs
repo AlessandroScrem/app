@@ -55,6 +55,9 @@ impl App {
                         let meshes =
                             model_reader::load_gltf(self.picked_file.as_ref().unwrap()).unwrap();
                         println!("Loaded {} meshes", meshes.len());
+                        for mesh in meshes {
+                            println!("Mesh: {:?} ", mesh);
+                        }
 
                         self.picked_file = None;
                     }
