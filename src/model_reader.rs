@@ -8,37 +8,15 @@ pub struct Mesh {
     indices: Vec<u32>,
 }
 
-pub fn load_gltf(path: &str) -> Result<Vec<Mesh>, Box<dyn std::error::Error>> {
+pub fn load_gltf(path: &std::path::Path) -> Result<Vec<Mesh>, Box<dyn std::error::Error>> {
+    if path.extension().unwrap_or_default() != "gltf" {
+        return Err("File is not a glTF file".into());
+    }
+    
     let (gltf, buffers, _) = gltf::import(path)?;
-
     // println!("{:#?}", gltf);
 
-    for scene in gltf.scenes() {
-        print!("Scene {}", scene.index());
-        print!(" ({})", scene.name().unwrap_or("<Unnamed>"));
-        println!();
-        for node in scene.nodes() {
-            print_tree(&node, 1);
-        }
-    }
-
-    print_meshes(&gltf, buffers.clone());
-
     Ok(read_meshes(&gltf, buffers))
-}
-
-fn print_tree(node: &gltf::Node, depth: i32) {
-    for _ in 0..(depth - 1) {
-        print!("  ");
-    }
-    print!(" -");
-    print!(" Node {}", node.index());
-    print!(" ({})", node.name().unwrap_or("<Unnamed>"));
-    println!();
-
-    for child in node.children() {
-        print_tree(&child, depth + 1);
-    }
 }
 
 fn read_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) -> Vec<Mesh> {
@@ -75,6 +53,22 @@ fn read_mesh(primitive: &gltf::Primitive, buffers: Vec<buffer::Data>) -> Mesh {
     }
 }
 
+#[allow(dead_code)]
+fn print_tree(node: &gltf::Node, depth: i32) {
+    for _ in 0..(depth - 1) {
+        print!("  ");
+    }
+    print!(" -");
+    print!(" Node {}", node.index());
+    print!(" ({})", node.name().unwrap_or("<Unnamed>"));
+    println!();
+
+    for child in node.children() {
+        print_tree(&child, depth + 1);
+    }
+}
+
+#[allow(dead_code)]
 fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
     for mesh in gltf.meshes() {
         println!("Mesh #{}", mesh.index());

@@ -6,7 +6,6 @@ pub struct App {
     pub(super) last_render_time: instant::Instant,
     pub(super) camera: Camera,
     pub(super) mouse_pressed: Option<winit::event::MouseButton>,
-    picked_file: Option<String>,
 }
 
 impl Default for App {
@@ -19,7 +18,6 @@ impl Default for App {
             last_render_time: instant::Instant::now(),
             camera,
             mouse_pressed: None,
-            picked_file: None,
         }
     }
 }
@@ -32,36 +30,25 @@ impl std::fmt::Display for DisplayPoint3 {
 }
 
 impl App {
-    pub fn update_gui(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn load_gltf(&mut self, path: &std::path::Path) {
+        let meshes = match model_reader::load_gltf(path) {
+            Ok(meshes) => meshes,
+            Err(e) => {
+                println!("Error loading glTF: {}", e);
+                return;
+            }
+        };
+
+        println!("Loaded {} meshes", meshes.len());
+        println!(" {:?}", meshes);
+
+    }
+
+    pub fn update_gui(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui) {
         if ui.button("Open file…").clicked() {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
-                self.picked_file = Some(path.display().to_string());
+                self.load_gltf(path.as_path());
             }
-        }
-
-        if self.picked_file.is_some() {
-            egui::Window::new("File selezionato")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ctx, |ui| {
-                    if let Some(path) = &self.picked_file {
-                        ui.label(format!("Hai selezionato:\n{}", path));
-                    } else {
-                        ui.label("Nessun file selezionato.");
-                    }
-
-                    if ui.button("Chiudi").clicked() {
-                        let meshes =
-                            model_reader::load_gltf(self.picked_file.as_ref().unwrap()).unwrap();
-                        println!("Loaded {} meshes", meshes.len());
-                        for mesh in meshes {
-                            println!("Mesh: {:?} ", mesh);
-                        }
-
-                        self.picked_file = None;
-                    }
-                });
         }
 
         ui.label(format!(
