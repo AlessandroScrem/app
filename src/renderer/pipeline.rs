@@ -5,6 +5,7 @@ pub fn create_pipeline(
     layout: &wgpu::PipelineLayout,
     config: &wgpu::SurfaceConfiguration,
     shader: ShaderModule,
+    buffer_desc: wgpu::VertexBufferLayout<'static>
 ) -> wgpu::RenderPipeline {
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -13,7 +14,7 @@ pub fn create_pipeline(
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: Some("vs_main"),
-            buffers: &[],
+            buffers: &[buffer_desc],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         },
         fragment: Some(wgpu::FragmentState {

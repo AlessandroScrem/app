@@ -1,12 +1,46 @@
-use crate::camera::Camera;
 use super::{egui_tools, pipeline, uniform};
+use crate::camera::Camera;
 
-use std::{fmt, sync::Arc};
 use egui_wgpu::ScreenDescriptor;
 use egui_winit::EventResponse;
+use std::{fmt, sync::Arc};
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        color: [0.0, 0.0, 1.0],
+    },
+];
 
 pub struct Renderer {
     size: PhysicalSize<u32>,
@@ -20,6 +54,7 @@ pub struct Renderer {
     camera_uniform: uniform::CameraUniform,
     camera_buffer: wgpu::Buffer,
     egui_renderer: egui_tools::EguiRenderer,
+    vertex_buffer: wgpu::Buffer,
 }
 
 #[allow(dead_code)]
@@ -99,9 +134,16 @@ impl Renderer {
                 push_constant_ranges: &[],
             });
         let render_pipeline =
-            pipeline::create_pipeline(&device, &render_pipeline_layout, &surface_config, shader);
+            pipeline::create_pipeline(&device, &render_pipeline_layout, &surface_config, shader, Vertex::desc());
 
-        let egui_renderer = egui_tools::EguiRenderer::new(&device, surface_config.format, None, 1, &window);
+        let egui_renderer =
+            egui_tools::EguiRenderer::new(&device, surface_config.format, None, 1, &window);
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         Self {
             size,
@@ -115,6 +157,7 @@ impl Renderer {
             camera_uniform,
             camera_buffer,
             egui_renderer,
+            vertex_buffer,
         }
     }
 
@@ -148,7 +191,10 @@ impl Renderer {
         );
     }
 
-    pub fn render<F: FnOnce(&egui::Context, &mut egui::Ui)>(&mut self, ui_callback: F) -> Result<(), wgpu::SurfaceError> {
+    pub fn render<F: FnOnce(&egui::Context, &mut egui::Ui)>(
+        &mut self,
+        ui_callback: F,
+    ) -> Result<(), wgpu::SurfaceError> {
         let outpot = self.surface.get_current_texture()?;
 
         let view = outpot
@@ -186,6 +232,7 @@ impl Renderer {
 
             renderpass.set_pipeline(&self.render_pipeline);
             renderpass.set_bind_group(0, &self.camera_bind_group, &[]);
+            renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             renderpass.draw(0..3, 0..1);
         }
 
