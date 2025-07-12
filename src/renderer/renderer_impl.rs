@@ -174,7 +174,7 @@ impl Renderer {
         }
     }
 
-    pub fn update(&self, _dt: instant::Duration) {
+    pub fn update(&self, _dt: f32) {
         // Update logic here
     }
 

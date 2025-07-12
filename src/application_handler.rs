@@ -1,11 +1,9 @@
+use crate::input::Input;
 use crate::prelude::*;
 
 use winit::application::ApplicationHandler;
-use winit::event::{
-    DeviceEvent, ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent,
-};
+use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
 impl ApplicationHandler for App {
@@ -15,8 +13,14 @@ impl ApplicationHandler for App {
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
-        let renderer = pollster::block_on(Renderer::new(window.clone(), &self.camera));
-        self.renderer = Some(renderer);
+
+        self.window = Some(window.clone());
+
+        self.renderer = Some(pollster::block_on(Renderer::new(
+            window.clone(),
+            &self.camera,
+        )));
+        self.load();
 
         window.request_redraw();
     }
@@ -27,6 +31,10 @@ impl ApplicationHandler for App {
         _device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
+        {
+            let mut input = self.resources.get_mut::<Input>().unwrap();
+            input.update_device_events(&event);
+        }
         match event {
             DeviceEvent::MouseMotion { delta } => match self.mouse_pressed {
                 Some(MouseButton::Left) => {
@@ -41,7 +49,32 @@ impl ApplicationHandler for App {
         }
     }
 
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        let mut frame_time = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
+        self.frame_time = frame_time * 1000.0;
+
+        while frame_time > 0.0 {
+            self.delta_time = f32::min(frame_time, self.fixed_timestep);
+
+            self.current_scene
+                .update(self.delta_time, &mut self.resources);
+
+            {
+                let mut input = self.resources.get_mut::<Input>().unwrap();
+                input.clear();
+            }
+
+            frame_time -= self.delta_time;
+            self.elapsed_time += self.delta_time;
+        }
+    }
+
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        {
+            let mut input = self.resources.get_mut::<Input>().unwrap();
+            input.update_window_events(&event);
+        }
+
         let renderer = self.renderer.as_mut().unwrap();
 
         if renderer.handle_input(&event).consumed {
@@ -53,15 +86,6 @@ impl ApplicationHandler for App {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
             }
-
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        physical_key: PhysicalKey::Code(_key),
-                        ..
-                    },
-                ..
-            } => {}
 
             WindowEvent::MouseInput { button, state, .. } => {
                 if state == ElementState::Pressed {
@@ -86,16 +110,16 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                let now = instant::Instant::now();
-                let dt = now - self.last_render_time;
-                self.last_render_time = now;
+                self.current_scene
+                    .schedule
+                    .execute(&mut self.current_scene.world, &mut self.resources);
 
                 // 👇 Estrai temporaneamente, lo rimetteremo poi
                 let mut renderer = self.renderer.take().unwrap();
 
                 renderer.update_camera_buffer(&self.camera);
 
-                renderer.update(dt);
+                renderer.update(self.delta_time);
 
                 let mut gui_callback = |ctx: &egui::Context, ui: &mut egui::Ui| {
                     self.update_gui(ctx, ui);
@@ -111,28 +135,4 @@ impl ApplicationHandler for App {
             _ => (),
         }
     }
-
-    // fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
-    //     let _ = (event_loop, cause);
-    // }
-
-    // fn user_event(&mut self, event_loop: &ActiveEventLoop, event: ()) {
-    //     let _ = (event_loop, event);
-    // }
-
-    // fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-    //     let _ = event_loop;
-    // }
-
-    // fn suspended(&mut self, event_loop: &ActiveEventLoop) {
-    //     let _ = event_loop;
-    // }
-
-    // fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-    //     let _ = event_loop;
-    // }
-
-    // fn memory_warning(&mut self, event_loop: &ActiveEventLoop) {
-    //     let _ = event_loop;
-    // }
 }
