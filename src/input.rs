@@ -3,12 +3,6 @@ use winit::keyboard::Key;
 use std::collections::HashSet;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde_support",
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[allow(missing_docs)]
-/// A button on a mouse.
 pub enum MouseButton {
     Left,
     Middle,
@@ -41,7 +35,7 @@ pub struct Input {
     pub mouse_position: Vector2<f32>,
     /// Current mouse_delta.
     pub mouse_delta: Vector2<f32>,
-    mouse_wheel_movement: Vector2<f32>,
+    pub mouse_wheel_movement: Option<Vector2<f32>>,
 }
 
 impl Input {
@@ -56,10 +50,7 @@ impl Input {
             mouse_buttons_released: HashSet::new(),
             mouse_position: Vector2::zero(),
             mouse_delta: Vector2::zero(),
-            mouse_wheel_movement: Vector2::zero(),
-            // current_text_input: None,
-
-            // pads: Vec::new(),
+            mouse_wheel_movement: None,
         }
     }
 
@@ -122,6 +113,12 @@ impl Input {
                     }
                 }
             }
+            winit::event::WindowEvent::MouseWheel { delta, .. } => {
+                self.mouse_wheel_movement = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => Some(Vector2::new(*x, *y)),
+                    winit::event::MouseScrollDelta::PixelDelta(pos) => Some(Vector2::new(pos.x as f32, pos.y as f32)),
+                };
+            }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_position = Vector2::new(position.x as f32, position.y as f32);
             }
@@ -143,7 +140,7 @@ impl Input {
         self.keys_released.clear();
         self.mouse_buttons_pressed.clear();
         self.mouse_buttons_released.clear();
-        self.mouse_wheel_movement = Vector2::zero();
         self.mouse_delta = Vector2::zero();
+        self.mouse_wheel_movement = None;
     }
 }

@@ -7,35 +7,10 @@ use crate::prelude::*;
 use crate::scene::Scene;
 use super::DeltaTime;
 
-use cgmath::Vector3;
-use cgmath::Zero;
 use legion::Resources;
 use legion::Schedule;
 
 
-
-#[derive(Debug)]
-pub struct CameraData {
-    pub yaw: f32,
-    pub pitch: f32,
-    pub position: Vector3<f32>,
-}
-
-impl Default for CameraData {
-    fn default() -> Self {
-        Self { yaw: Default::default(), pitch: Default::default(), position: Vector3::zero() }
-    }
-}
-
-impl CameraData {
-    pub fn update_view(&mut self, eye: Vec3, center: Vec3, up: Vec3) {
-        // Stub function for updating view matrix
-    }
-}
-
-
-// Use your own Vec3 (from glam, nalgebra, etc.)
-pub type Vec3 = Vector3<f32>;
 
 pub fn camera_orbit_system() -> impl legion::systems::Runnable {
     use legion::IntoQuery;
@@ -45,33 +20,26 @@ pub fn camera_orbit_system() -> impl legion::systems::Runnable {
     SystemBuilder::new("Camera Orbit")
         .read_resource::<DeltaTime>()
         .read_resource::<crate::input::Input>()
-        .with_query(<Write<CameraData>>::query())
+        .with_query(<Write<Camera>>::query())
         .build(
             |_cmd, world, (delta_time, input), camera_query| {
                 for camera in camera_query.iter_mut(world) {
-                    if !input.is_mouse_button_down(MouseButton::Left) {
-                        continue;
+                    if input.is_mouse_button_down(MouseButton::Left) {
+                        let delta  = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+                        camera.orbit(delta);                
+                        println!("mouse button left");
                     }
-                                    
-                    println!("mouse button down");
-                    camera.yaw += input.mouse_delta.x * 0.5 * delta_time.0;
-                    camera.pitch += input.mouse_delta.y * 0.5 * delta_time.0;
-
-                    camera.pitch = camera
-                        .pitch
-                        .max(-std::f32::consts::FRAC_PI_2 + 0.0001)
-                        .min(std::f32::consts::FRAC_PI_2 - 0.0001);
-
-                    let eye = Vec3::new(0.0, 0.0, 0.0)
-                        + (5.0
-                            * Vec3::new(
-                                camera.yaw.sin() * camera.pitch.cos(),
-                                camera.pitch.sin(),
-                                camera.yaw.cos() * camera.pitch.cos(),
-                            ));
-
-                    camera.position = eye;
-                    camera.update_view(eye, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
+                    
+                    if input.is_mouse_button_down(MouseButton::Middle) {
+                        let delta  = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+                        camera.pan(delta);
+                        println!("mouse button middle");
+                    }
+                    
+                    if let Some(delta) = input.mouse_wheel_movement {
+                        camera.zoom(delta.y);
+                        println!("mouse scroll {:?}", delta);
+                    }
                 }
             },
         )
@@ -117,9 +85,7 @@ impl Default for App {
 
 impl App {
     pub fn load(&mut self) {
-        // crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
-        self.current_scene.world.push((CameraData::default(), ));
-
+        crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
         self.current_scene.schedule = Schedule::builder()

@@ -1,4 +1,3 @@
-use crate::input::Input;
 use legion::*;
 
 use super::DeltaTime;

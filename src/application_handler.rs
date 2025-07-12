@@ -1,6 +1,7 @@
 use crate::input::Input;
 use crate::prelude::*;
 
+use egui::Event;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -36,12 +37,15 @@ impl ApplicationHandler for App {
             input.update_device_events(&event);
         }
         match event {
-            DeviceEvent::MouseMotion { delta } => match self.mouse_pressed {
-                Some(MouseButton::Left) => {
-                    self.camera.orbit(delta);
-                }
-                Some(MouseButton::Middle) => {
-                    self.camera.pan(delta);
+            DeviceEvent::MouseMotion { .. } => match self.mouse_pressed {
+                Some(MouseButton::Left) | Some(MouseButton::Middle) => {
+                    use legion::IntoQuery;
+                    
+                    // rimuovimi quando la camera verra spostata in ecs
+                    let mut query = <legion::Read<Camera>>::query();
+                    for camera in query.iter_mut(&mut self.current_scene.world) {
+                        self.camera = camera.clone();
+                    }
                 }
                 _ => (),
             },
@@ -90,16 +94,19 @@ impl ApplicationHandler for App {
             WindowEvent::MouseInput { button, state, .. } => {
                 if state == ElementState::Pressed {
                     self.mouse_pressed = Some(button)
+                    
                 } else {
                     self.mouse_pressed = None;
                 }
             }
-            WindowEvent::MouseWheel { delta, .. } => {
-                let scroll_y = match delta {
-                    MouseScrollDelta::LineDelta(_, y) => y,
-                    MouseScrollDelta::PixelDelta(pos) => pos.y as f32,
-                };
-                self.camera.zoom(scroll_y);
+            WindowEvent::MouseWheel { .. } => {
+                use legion::IntoQuery;
+                    
+                // rimuovimi quando la camera verra spostata in ecs
+                let mut query = <legion::Read<Camera>>::query();
+                for camera in query.iter_mut(&mut self.current_scene.world) {
+                    self.camera = camera.clone();
+                }
             }
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
