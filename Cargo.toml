@@ -16,3 +16,4 @@ egui-wgpu = { version = "0.31.1",features = ["winit"] }
 egui-winit = "0.31.1"
 rfd = "0.15.3"
 gltf = "1.4.1"
+legion = "0.4.0"

@@ -11,7 +11,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Camera {
     position: Vector3<f32>,
     aspect: f32,
@@ -26,8 +26,13 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn default() ->Self {
+        const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
+        Camera::new(FOV, 1.0, 0.1, 100.0)
+    }
+
     pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(fov: F, aspect: f32, near: f32, far: f32) -> Self {
-        let mut instance = Self {
+        let mut camera = Self {
             position: Vector3::new(0.0, 0.0, 0.0),
             aspect,
             fov: fov.into(),
@@ -39,8 +44,8 @@ impl Camera {
             distance: 5.0,
             view_matrix: Matrix4::identity(),
         };
-        instance.update_view();
-        instance
+        camera.update_view();
+        camera
     }
 
     pub fn get_matrix(&self) -> Matrix4<f32> {

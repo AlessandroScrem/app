@@ -1,23 +1,34 @@
 use crate::model_reader;
 use crate::prelude::*;
+use crate::scene::Scene;
+
+use legion::Resources;
 
 pub struct App {
     pub(super) renderer: Option<Renderer>,
     pub(super) last_render_time: instant::Instant,
-    pub(super) camera: Camera,
+    pub(super) camera: Camera, // remove me
     pub(super) mouse_pressed: Option<winit::event::MouseButton>,
+    pub current_scene: Scene,
+    pub resources: Resources,
 }
 
 impl Default for App {
     fn default() -> Self {
-        const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
-        let camera = Camera::new(FOV, 1.0, 0.1, 100.0);
+        let camera = Camera::default(); // remove me
+        let mut current_scene = Scene::default();
+        let mut resources = Resources::default();
+
+        // Add camera to Ecs
+        crate::entities::camera::create(&mut current_scene.world, Camera::default());
 
         Self {
             renderer: None,
             last_render_time: instant::Instant::now(),
-            camera,
+            camera, // remove me
             mouse_pressed: None,
+            current_scene,
+            resources,
         }
     }
 }

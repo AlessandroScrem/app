@@ -3,6 +3,8 @@ mod renderer;
 mod app;
 mod application_handler;
 mod model_reader;
+mod scene;
+mod entities;
 
 pub mod prelude {
     pub use super::app::App;
