@@ -31,9 +31,7 @@ pub struct Input {
     mouse_buttons_down: HashSet<MouseButton>,
     mouse_buttons_pressed: HashSet<MouseButton>,
     mouse_buttons_released: HashSet<MouseButton>,
-    /// Current mouse_position
     pub mouse_position: Vector2<f32>,
-    /// Current mouse_delta.
     pub mouse_delta: Vector2<f32>,
     pub mouse_wheel_movement: Option<Vector2<f32>>,
 }
@@ -54,32 +52,26 @@ impl Input {
         }
     }
 
-    /// Will return true if the specified key is down.
     pub fn is_key_down(&self, key: Key) -> bool {
         self.keys_down.contains(&key)
     }
-
-    /// Will return true if the specified key is pressed.
+    
     pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
     }
-
-    /// Will return true if the specified key is released.
+    
     pub fn is_key_released(&self, key: Key) -> bool {
         self.keys_released.contains(&key)
     }
-
-    /// Will return true if the specified mouse button is down.
+    
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
-
-    /// Will return true if the specified mouse button is pressed.
+    
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
     }
-
-    /// Will return true if the specified mouse button is released.
+    
     pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
     }

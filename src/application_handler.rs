@@ -1,9 +1,8 @@
 use crate::input::Input;
 use crate::prelude::*;
 
-use egui::Event;
 use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
@@ -19,7 +18,8 @@ impl ApplicationHandler for App {
 
         self.renderer = Some(pollster::block_on(Renderer::new(
             window.clone(),
-            &self.camera,
+            &mut self.resources,
+            &self.current_scene.world,
         )));
         self.load();
 
@@ -35,21 +35,6 @@ impl ApplicationHandler for App {
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_device_events(&event);
-        }
-        match event {
-            DeviceEvent::MouseMotion { .. } => match self.mouse_pressed {
-                Some(MouseButton::Left) | Some(MouseButton::Middle) => {
-                    use legion::IntoQuery;
-                    
-                    // rimuovimi quando la camera verra spostata in ecs
-                    let mut query = <legion::Read<Camera>>::query();
-                    for camera in query.iter_mut(&mut self.current_scene.world) {
-                        self.camera = camera.clone();
-                    }
-                }
-                _ => (),
-            },
-            _ => (),
         }
     }
 
@@ -79,10 +64,16 @@ impl ApplicationHandler for App {
             input.update_window_events(&event);
         }
 
-        let renderer = self.renderer.as_mut().unwrap();
-
-        if renderer.handle_input(&event).consumed {
-            return;
+        {
+            if let Some(window) = &self.window {
+                let mut egui_renderer = self
+                    .resources
+                    .get_mut::<egui_tools::EguiRenderer>()
+                    .unwrap();
+                if egui_renderer.handle_input(&window, &event).consumed {
+                    return;
+                }
+            }
         }
 
         match event {
@@ -91,53 +82,58 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             }
 
-            WindowEvent::MouseInput { button, state, .. } => {
-                if state == ElementState::Pressed {
-                    self.mouse_pressed = Some(button)
-                    
-                } else {
-                    self.mouse_pressed = None;
-                }
-            }
-            WindowEvent::MouseWheel { .. } => {
-                use legion::IntoQuery;
-                    
-                // rimuovimi quando la camera verra spostata in ecs
-                let mut query = <legion::Read<Camera>>::query();
-                for camera in query.iter_mut(&mut self.current_scene.world) {
-                    self.camera = camera.clone();
-                }
-            }
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
-                    renderer.resize(size);
-                    self.camera
-                        .set_aspect(size.width as f32 / size.height as f32);
-                    println!("Resized: {:?}", size);
+                    let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
+                    let mut surface_config = self
+                        .resources
+                        .get_mut::<wgpu::SurfaceConfiguration>()
+                        .unwrap();
+                    let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+
+                    surface_config.width = size.width;
+                    surface_config.height = size.height;
+                    surface.configure(&device, &surface_config);
+
+                    use legion::IntoQuery;
+                    let mut query = <legion::Write<Camera>>::query();
+                    for camera in query.iter_mut(&mut self.current_scene.world) {
+                        camera.set_aspect(size.width as f32 / size.height as f32);
+                    }
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.current_scene
-                    .schedule
-                    .execute(&mut self.current_scene.world, &mut self.resources);
+                if let Some(renderer) = &self.renderer {
+                    {
+                        let mut resources = &mut self.resources;
+                        self.current_scene
+                            .schedule
+                            .execute(&mut self.current_scene.world, &mut resources);
+                    }
+                    {
+                        // update camera uniform buffer
+                        let mut camera_uniform = self.resources.get_mut::<CameraUniform>().unwrap();
+                        let camera_buffer = self.resources.get::<wgpu::Buffer>().unwrap();
+                        let queue = self.resources.get_mut::<wgpu::Queue>().unwrap();
+                        use legion::IntoQuery;
+                        let mut query = <legion::Read<Camera>>::query();
+                        for camera in query.iter(&self.current_scene.world) {
+                            camera_uniform.update_view_proj(camera);
+                        }
 
-                // 👇 Estrai temporaneamente, lo rimetteremo poi
-                let mut renderer = self.renderer.take().unwrap();
+                        queue.write_buffer(
+                            &camera_buffer,
+                            0,
+                            bytemuck::cast_slice(&[camera_uniform.clone()]),
+                        );
+                    }
 
-                renderer.update_camera_buffer(&self.camera);
+                    let _ = renderer.render(&mut self.resources);
 
-                renderer.update(self.delta_time);
-
-                let mut gui_callback = |ctx: &egui::Context, ui: &mut egui::Ui| {
-                    self.update_gui(ctx, ui);
-                };
-
-                let _ = renderer.render(&mut gui_callback);
-
-                renderer.get_window().request_redraw();
-
-                // 👈 Rimetti il renderer dentro self
-                self.renderer = Some(renderer);
+                    if let Some(window) = &self.window {
+                        window.request_redraw();
+                    }
+                }
             }
             _ => (),
         }

@@ -1,5 +1,4 @@
 use legion::*;
-
 use super::DeltaTime;
 
 pub struct Scene {

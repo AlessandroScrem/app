@@ -5,12 +5,14 @@ mod application_handler;
 mod model_reader;
 mod scene;
 mod entities;
-mod input;
+pub mod input;
 
 pub mod prelude {
     pub use super::app::App;
     pub use crate::camera::Camera;
-    pub use crate::renderer::renderer_impl::Renderer;
+    pub use crate::renderer::renderer::Renderer;
+    pub use crate::renderer::uniform::CameraUniform;
+    pub use crate::renderer::egui_tools;
 }
 
 #[derive(Clone, Copy, Debug)]

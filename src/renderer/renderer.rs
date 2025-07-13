@@ -1,11 +1,9 @@
 use super::{egui_tools, pipeline, uniform};
 use crate::camera::Camera;
 
-use egui_wgpu::ScreenDescriptor;
-use egui_winit::EventResponse;
-use std::{fmt, sync::Arc};
+use std::sync::Arc;
 use wgpu::util::DeviceExt;
-use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
+use winit::window::Window;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -42,32 +40,18 @@ const VERTICES: &[Vertex] = &[
     },
 ];
 
+struct VertexBuffer(wgpu::Buffer);
+
 pub struct Renderer {
-    size: PhysicalSize<u32>,
     window: Arc<Window>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface: wgpu::Surface<'static>,
-    surface_config: wgpu::SurfaceConfiguration,
-    render_pipeline: wgpu::RenderPipeline,
-    camera_bind_group: wgpu::BindGroup,
-    camera_uniform: uniform::CameraUniform,
-    camera_buffer: wgpu::Buffer,
-    egui_renderer: egui_tools::EguiRenderer,
-    vertex_buffer: wgpu::Buffer,
-}
-
-#[allow(dead_code)]
-struct DisplayPoint3(cgmath::Point3<f32>);
-
-impl fmt::Display for DisplayPoint3 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({:.2}, {:.2}, {:.2})", self.0.x, self.0.y, self.0.z)
-    }
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>, camera: &Camera) -> Self {
+    pub async fn new(
+        window: Arc<Window>,
+        resources: &mut legion::Resources,
+        world: &legion::World,
+    ) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -95,7 +79,12 @@ impl Renderer {
         };
 
         let mut camera_uniform = uniform::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
+
+        use legion::IntoQuery;
+        let mut query = <legion::Read<Camera>>::query();
+        for camera in query.iter(world) {
+            camera_uniform.update_view_proj(&camera);
+        }
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
@@ -133,79 +122,56 @@ impl Renderer {
                 bind_group_layouts: &[&camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
-        let render_pipeline =
-            pipeline::create_pipeline(&device, &render_pipeline_layout, &surface_config, shader, Vertex::desc());
+        let render_pipeline = pipeline::create_pipeline(
+            &device,
+            &render_pipeline_layout,
+            &surface_config,
+            shader,
+            Vertex::desc(),
+        );
 
         let egui_renderer =
             egui_tools::EguiRenderer::new(&device, surface_config.format, None, 1, &window);
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let vertex_buffer = VertexBuffer(device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            },
+        ));
 
-        Self {
-            size,
-            window,
-            device,
-            queue,
-            surface,
-            surface_config,
-            camera_bind_group,
-            render_pipeline,
-            camera_uniform,
-            camera_buffer,
-            egui_renderer,
-            vertex_buffer,
-        }
+        resources.insert(camera_uniform);
+        resources.insert(camera_buffer);
+        resources.insert(camera_bind_group);
+        resources.insert(render_pipeline);
+        resources.insert(vertex_buffer);
+        resources.insert(egui_renderer);
+        resources.insert(surface_config);
+        resources.insert(queue);
+        resources.insert(surface);
+        resources.insert(device);
+
+        Self { window }
     }
 
-    pub fn get_window(&self) -> Arc<Window> {
-        self.window.clone()
-    }
 
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.surface_config.width = new_size.width;
-            self.surface_config.height = new_size.height;
-            self.surface.configure(&self.device, &self.surface_config);
-        }
-    }
-
-    pub fn update(&self, _dt: f32) {
-        // Update logic here
-    }
-
-    pub fn handle_input(&mut self, event: &WindowEvent) -> EventResponse {
-        self.egui_renderer.handle_input(&self.window, event)
-    }
-
-    pub fn update_camera_buffer(&mut self, camera: &Camera) {
-        self.camera_uniform.update_view_proj(camera);
-        self.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_uniform]),
-        );
-    }
-
-    pub fn render<F: FnOnce(&egui::Context, &mut egui::Ui)>(
-        &mut self,
-        ui_callback: F,
+    pub fn render/* <F: FnOnce(&egui::Context, &mut egui::Ui)> */(
+        &self,
+        // ui_callback: F,
+        resources: &legion::Resources,
     ) -> Result<(), wgpu::SurfaceError> {
-        let outpot = self.surface.get_current_texture()?;
+        let surface = resources.get_mut::<wgpu::Surface>().unwrap();
+        let device = resources.get_mut::<wgpu::Device>().unwrap();
+        let output = surface.get_current_texture()?;
 
-        let view = outpot
+        let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
 
         {
             let clear_color = wgpu::Color {
@@ -230,34 +196,45 @@ impl Renderer {
                 occlusion_query_set: None,
             });
 
-            renderpass.set_pipeline(&self.render_pipeline);
-            renderpass.set_bind_group(0, &self.camera_bind_group, &[]);
-            renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            let render_pipeline = resources.get::<wgpu::RenderPipeline>().unwrap();
+            let camera_bind_group = resources.get::<wgpu::BindGroup>().unwrap();
+            let vertex_buffer = resources.get::<VertexBuffer>().unwrap();
+
+            renderpass.set_pipeline(&render_pipeline);
+            renderpass.set_bind_group(0, &camera_bind_group.clone(), &[]);
+            renderpass.set_vertex_buffer(0, vertex_buffer.0.slice(..));
             renderpass.draw(0..3, 0..1);
         }
-
+/* 
         {
+            let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
             let screen_descriptor = ScreenDescriptor {
-                size_in_pixels: [self.surface_config.width, self.surface_config.height],
+                size_in_pixels: [surface_config.width, surface_config.height],
                 pixels_per_point: self.window.as_ref().scale_factor() as f32,
             };
 
-            self.egui_renderer.begin_frame(&self.window);
-            self.egui_renderer.update_ui(ui_callback);
-            self.egui_renderer.end_frame_and_draw(
-                &self.device,
-                &self.queue,
+            let mut egui_renderer = resources.get_mut::<egui_tools::EguiRenderer>().unwrap();
+            let queue = resources.get_mut::<wgpu::Queue>().unwrap();
+
+            egui_renderer.update_ui(ui_callback);
+            egui_renderer.begin_frame(&self.window);
+            egui_renderer.end_frame_and_draw(
+                &device,
+                &queue,
                 &mut encoder,
                 &self.window,
                 &view,
                 screen_descriptor,
             );
-        }
+        } */
 
         //submit
-        self.queue.submit([encoder.finish()]);
-        self.window.pre_present_notify();
-        outpot.present();
+
+        if let  Some(queue) = resources.get_mut::<wgpu::Queue>(){
+            queue.submit([encoder.finish()]);
+            self.window.pre_present_notify();
+            output.present();
+        }
 
         Ok(())
     }

@@ -8,6 +8,8 @@ pub struct Mesh {
     indices: Vec<u32>,
 }
 
+
+#[allow(dead_code)]
 pub fn load_gltf(path: &std::path::Path) -> Result<Vec<Mesh>, Box<dyn std::error::Error>> {
     if path.extension().unwrap_or_default() != "gltf" {
         return Err("File is not a glTF file".into());
