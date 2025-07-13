@@ -10,7 +10,7 @@ pub mod input;
 pub mod prelude {
     pub use super::app::App;
     pub use crate::camera::Camera;
-    pub use crate::renderer::renderer::Renderer;
+    pub use crate::renderer::Renderer;
     pub use crate::renderer::uniform::CameraUniform;
     pub use crate::renderer::egui_tools;
 }
