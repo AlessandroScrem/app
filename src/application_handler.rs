@@ -19,7 +19,6 @@ impl ApplicationHandler for App {
         self.renderer = Some(pollster::block_on(Renderer::new(
             window.clone(),
             &mut self.resources,
-            &self.current_scene.world,
         )));
         self.load();
 
@@ -64,17 +63,17 @@ impl ApplicationHandler for App {
             input.update_window_events(&event);
         }
 
-        {
-            if let Some(window) = &self.window {
-                let mut egui_renderer = self
-                    .resources
-                    .get_mut::<egui_tools::EguiRenderer>()
-                    .unwrap();
-                if egui_renderer.handle_input(&window, &event).consumed {
-                    return;
-                }
-            }
-        }
+        // {
+        //     if let Some(window) = &self.window {
+        //         let mut egui_renderer = self
+        //             .resources
+        //             .get_mut::<egui_tools::EguiRenderer>()
+        //             .unwrap();
+        //         if egui_renderer.handle_input(&window, &event).consumed {
+        //             return;
+        //         }
+        //     }
+        // }
 
         match event {
             WindowEvent::CloseRequested => {
@@ -85,11 +84,12 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
                     let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
+                    let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+                    
                     let mut surface_config = self
                         .resources
                         .get_mut::<wgpu::SurfaceConfiguration>()
                         .unwrap();
-                    let device = self.resources.get_mut::<wgpu::Device>().unwrap();
 
                     surface_config.width = size.width;
                     surface_config.height = size.height;
@@ -110,22 +110,11 @@ impl ApplicationHandler for App {
                             .schedule
                             .execute(&mut self.current_scene.world, &mut resources);
                     }
+   
                     {
-                        // update camera uniform buffer
-                        let mut camera_uniform = self.resources.get_mut::<CameraUniform>().unwrap();
-                        let camera_buffer = self.resources.get::<wgpu::Buffer>().unwrap();
-                        let queue = self.resources.get_mut::<wgpu::Queue>().unwrap();
-                        use legion::IntoQuery;
-                        let mut query = <legion::Read<Camera>>::query();
-                        for camera in query.iter(&self.current_scene.world) {
-                            camera_uniform.update_view_proj(camera);
-                        }
-
-                        queue.write_buffer(
-                            &camera_buffer,
-                            0,
-                            bytemuck::cast_slice(&[camera_uniform.clone()]),
-                        );
+                        let mut resources = &mut self.resources;
+                        self.render_schedule
+                            .execute(&mut self.current_scene.world, &mut resources);
                     }
 
                     let _ = renderer.render(&mut self.resources);

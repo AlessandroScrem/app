@@ -6,6 +6,8 @@ mod model_reader;
 mod scene;
 mod entities;
 pub mod input;
+pub mod systems;
+pub mod resources;
 
 pub mod prelude {
     pub use super::app::App;

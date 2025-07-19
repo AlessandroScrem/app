@@ -50,15 +50,21 @@ pub struct App {
     pub frame_time: f32,
     pub delta_time: f32,
     pub last_frame: Instant,
+    pub render_schedule: Schedule,
 }
 
 impl Default for App {
     fn default() -> Self {
+
+        let mut schedule_builder = Schedule::builder();
+        let render_schedule = schedule_builder.build();
+
         Self {
             window: None,
             renderer: None,
             current_scene: Scene::default(),
             resources: Resources::default(),
+            render_schedule,
 
             clock: Instant::now(),
             fixed_timestep: 1.0 / 60.0,
@@ -79,8 +85,9 @@ impl App {
             .add_system(camera_orbit_system())
             .build();
 
-        let delta = self.resources.get_mut::<DeltaTime>().unwrap();
-        println!("delta time is {:?}", delta);
+        let _delta = self.resources.get_mut::<DeltaTime>().unwrap();
+        
+        self.render_schedule = crate::systems::create_render_schedule_builder();
     }
 }
 
