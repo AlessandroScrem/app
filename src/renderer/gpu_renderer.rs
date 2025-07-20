@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use winit::window::Window;
 
+use crate::renderer::pipeline_manager;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -73,9 +75,11 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        let gpu_manager = crate::resources::gpu_manager::GPUResourceManager::new(&device, &surface_config);
+        let gpu_manager = crate::resources::gpu_manager::GPUResourceManager::new(&device);
+        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new();
 
         resources.insert(surface_config);
+        resources.insert(pipeline_manager);
         resources.insert(gpu_manager);
         resources.insert(queue);
         resources.insert(surface);
@@ -124,12 +128,15 @@ impl Renderer {
             });
 
             let gpu_manager = resources.get::<crate::resources::gpu_manager::GPUResourceManager>().unwrap();
+            let pipeline_manager = resources.get::<crate::renderer::pipeline_manager::PipelineManager>().unwrap();
 
-            let render_pipeline = &gpu_manager.render_pipeline;
+            let render_pipeline = pipeline_manager.get_render_pipeline("default").unwrap();
+
             let camera_bind_group = &gpu_manager.camera_bind_group;
             let vertex_buffer = &gpu_manager.vertex_buffer;
 
-            renderpass.set_pipeline(&render_pipeline);
+
+            renderpass.set_pipeline(render_pipeline);
             renderpass.set_bind_group(0, &camera_bind_group.clone(), &[]);
             renderpass.set_vertex_buffer(0, vertex_buffer.0.slice(..));
             renderpass.draw(0..3, 0..1);

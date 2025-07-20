@@ -88,6 +88,8 @@ impl App {
         let _delta = self.resources.get_mut::<DeltaTime>().unwrap();
         
         self.render_schedule = crate::systems::create_render_schedule_builder();
+
+        crate::renderer::pipeline_manager::create_default_pipeline(&self.resources);
     }
 }
 

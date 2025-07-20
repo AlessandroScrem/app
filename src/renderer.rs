@@ -1,5 +1,6 @@
 pub mod egui_tools;
 pub mod pipeline;
+pub mod pipeline_manager;
 pub mod uniform;
 pub mod gpu_renderer;
 
