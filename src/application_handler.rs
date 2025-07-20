@@ -16,10 +16,7 @@ impl ApplicationHandler for App {
 
         self.window = Some(window.clone());
 
-        self.renderer = Some(pollster::block_on(Renderer::new(
-            window.clone(),
-            &mut self.resources,
-        )));
+        pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
         self.load();
 
         window.request_redraw();
@@ -63,18 +60,6 @@ impl ApplicationHandler for App {
             input.update_window_events(&event);
         }
 
-        // {
-        //     if let Some(window) = &self.window {
-        //         let mut egui_renderer = self
-        //             .resources
-        //             .get_mut::<egui_tools::EguiRenderer>()
-        //             .unwrap();
-        //         if egui_renderer.handle_input(&window, &event).consumed {
-        //             return;
-        //         }
-        //     }
-        // }
-
         match event {
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
@@ -85,7 +70,7 @@ impl ApplicationHandler for App {
                 if size.width > 0 && size.height > 0 {
                     let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
                     let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-                    
+
                     let mut surface_config = self
                         .resources
                         .get_mut::<wgpu::SurfaceConfiguration>()
@@ -103,25 +88,16 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(renderer) = &self.renderer {
-                    {
-                        let mut resources = &mut self.resources;
-                        self.current_scene
-                            .schedule
-                            .execute(&mut self.current_scene.world, &mut resources);
-                    }
-   
-                    {
-                        let mut resources = &mut self.resources;
-                        self.render_schedule
-                            .execute(&mut self.current_scene.world, &mut resources);
-                    }
+                if let Some(window) = &self.window {
+                    let mut resources = &mut self.resources;
+                    self.current_scene
+                        .schedule
+                        .execute(&mut self.current_scene.world, &mut resources);
 
-                    let _ = renderer.render(&mut self.resources);
+                    self.render_schedule
+                        .execute(&mut self.current_scene.world, &mut resources);
 
-                    if let Some(window) = &self.window {
-                        window.request_redraw();
-                    }
+                    window.request_redraw();
                 }
             }
             _ => (),

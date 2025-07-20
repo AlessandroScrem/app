@@ -8,9 +8,6 @@ use crate::resources::gpu_manager::GPUResourceManager;
 pub struct PipelineDesc {
     primitive: wgpu::PrimitiveState,
     multisample: wgpu::MultisampleState,
-    depth_stencil: Option<()>,
-    multiview: Option<()>,
-    cache: Option<()>,
 }
 
 impl Default for PipelineDesc {
@@ -30,17 +27,53 @@ impl Default for PipelineDesc {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+        }
+    }
+}
+impl PipelineDesc {
+    pub fn build_pipeline(
+        &self,
+        device: &wgpu::Device,
+        layout: wgpu::PipelineLayout,
+        config: &wgpu::SurfaceConfiguration,
+        shader: wgpu::ShaderModule,
+        buffer_desc: wgpu::VertexBufferLayout<'static>,
+    ) -> wgpu::RenderPipeline {
+        let format = config.format;
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[buffer_desc],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: self.primitive,
+            multisample: self.multisample,
             depth_stencil: None,
             multiview: None,
             cache: None,
-        }
+        });
+
+        render_pipeline
     }
 }
 
 /// An actual Render Pipeline that should be stored in the manager.
 /// Also contains a description of the pipeline.
 pub struct Pipeline {
-    pub desc: PipelineDesc,
     pub render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -70,7 +103,7 @@ impl PipelineManager {
         &mut self,
         name: &str,
         device: &wgpu::Device,
-        resource_manager: &GPUResourceManager,
+        render_pipeline_layout: wgpu::PipelineLayout,
         shader: wgpu::ShaderModule,
         surface_config: &wgpu::SurfaceConfiguration,
     ) {
@@ -78,23 +111,24 @@ impl PipelineManager {
             return;
         }
 
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&resource_manager.camera_bind_group_layout],
-                push_constant_ranges: &[],
-            });
+        let desc = PipelineDesc::default();
+        
+        let buffer_desc = crate::Vertex::desc();
 
-        let buffer_desc = crate::renderer::gpu_renderer::Vertex::desc();
+        let pipeline = desc.build_pipeline(
+            device,
+            render_pipeline_layout,
+            surface_config,
+            shader,
+            buffer_desc,
+        );
 
-        let pipeline = crate::renderer::pipeline::create_pipeline(device, &render_pipeline_layout, surface_config, shader, buffer_desc);
-
-        let pipeline = Pipeline{
-            desc: PipelineDesc::default(),
+        let pipeline = Pipeline {
             render_pipeline: pipeline,
         };
 
-        self.pipelines.insert(name.into() , PipelineType::Pipeline(pipeline));
+        self.pipelines
+            .insert(name.into(), PipelineType::Pipeline(pipeline));
     }
 }
 
@@ -104,7 +138,21 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
+    let bind_group_layouts = &[&resource_manager.camera_bind_group_layout];
+
+    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Render Pipeline Layout"),
+        bind_group_layouts,
+        push_constant_ranges: &[],
+    });
+
     let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
 
-    pipeline_manager.add_pipeline("default", &device, &resource_manager, shader, &surface_config);
+    pipeline_manager.add_pipeline(
+        "default",
+        &device,
+        render_pipeline_layout,
+        shader,
+        &surface_config,
+    );
 }

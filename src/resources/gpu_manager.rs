@@ -1,7 +1,6 @@
-use crate::renderer::{
-    gpu_renderer::{VERTICES, VertexBuffer},
-    uniform::CameraUniform,
-};
+use crate::renderer::{uniform::CameraUniform,};
+
+use crate::{VERTICES, VertexBuffer};
 
 use wgpu::util::DeviceExt;
 
