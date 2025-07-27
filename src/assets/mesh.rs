@@ -2,17 +2,18 @@ use gltf::buffer;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
+#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct MeshVertexData {
     position: [f32; 3],
+    normal: [f32; 3],
     color: [f32; 3],
 }
 
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3];
+impl MeshVertexData {
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3, 2 => Float32x3];
 
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
+    pub fn get_layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -22,7 +23,7 @@ impl Vertex {
 }
 
 pub struct SubMesh {
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<MeshVertexData>,
     pub indices: Vec<u32>,
     pub(crate) vertex_buffer: Option<wgpu::Buffer>,
 }
@@ -45,11 +46,7 @@ pub fn load_gltf(
     Ok(read_meshes(device, &gltf, buffers))
 }
 
-fn read_meshes(
-    device: &wgpu::Device,
-    gltf: &gltf::Document,
-    buffers: Vec<buffer::Data>,
-) -> Mesh {
+fn read_meshes(device: &wgpu::Device, gltf: &gltf::Document, buffers: Vec<buffer::Data>) -> Mesh {
     let mut submeshes: Vec<SubMesh> = Vec::new();
     for mesh in gltf.meshes() {
         for primitive in mesh.primitives() {
@@ -57,7 +54,7 @@ fn read_meshes(
             submeshes.push(mesh);
         }
     }
-    Mesh{submeshes}
+    Mesh { submeshes }
 }
 
 fn read_mesh(
@@ -68,20 +65,24 @@ fn read_mesh(
     let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
     let positions = reader
         .read_positions()
-        .unwrap_or_else(|| panic!("primitives must have the POSITION attribute "));
-    // let normals = reader
-    //     .read_normals()
-    //     .unwrap_or_else(|| panic!("primitives must have the NORMAL attribute "));
+        .expect("primitives must have the POSITION attribute ");
     let indices = reader
         .read_indices()
-        .unwrap_or_else(|| panic!("primitives must have the INDICES attribute "));
+        .expect("primitives must have the INDICES attribute ");
 
-    let vertices: Vec<Vertex> = positions
-        .map(|position| Vertex {
+    let mut vertices: Vec<MeshVertexData> = positions
+        .map(|position| MeshVertexData {
             position,
+            normal: [0.0, 1.0, 0.0],
             color: [1.0, 1.0, 1.0],
         })
         .collect();
+
+    if let Some(normals) = reader.read_normals() {
+        normals.enumerate().for_each(|(i, normal)| {
+            vertices[i].normal = normal;
+        });
+    }
 
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Vertex Buffer"),
@@ -158,10 +159,7 @@ mod tests {
             (adapter, device, queue)
         });
 
-        let result = load_gltf(
-            &device,
-            std::path::Path::new("./assets/cube/cube.gltf"),
-        );
+        let result = load_gltf(&device, std::path::Path::new("./assets/cube/cube.gltf"));
 
         assert!(result.is_ok());
         let mesh = result.unwrap();
