@@ -1,9 +1,12 @@
-use crate::{
-    renderer::pipeline_manager::PipelineManager, resources::gpu_manager::GPUResourceManager,
+use crate::{renderer::pipeline_manager::PipelineManager, resources::gpu_manager::GPUResourceManager
 };
 
 pub fn create() -> impl legion::systems::Runnable {
+    use legion::IntoQuery;
+    use legion::Read;
     use legion::SystemBuilder;
+    use crate::assets::mesh;
+    use std::sync::Arc;
 
     SystemBuilder::new("render mesh")
         .read_resource::<GPUResourceManager>()
@@ -11,8 +14,12 @@ pub fn create() -> impl legion::systems::Runnable {
         .read_resource::<wgpu::Device>()
         .write_resource::<wgpu::Surface>()
         .write_resource::<wgpu::Queue>()
+        .with_query(<Read<Arc<mesh::Mesh>>>::query())
         .build(
-            |_, _world, (gpu_resource_manager, pipeline_manager, device, surface, queue), _| {
+            |_,
+             world,
+             (gpu_resource_manager, pipeline_manager, device, surface, queue),
+             mesh_query| {
                 let output = match surface.get_current_texture() {
                     Ok(out) => out,
                     Err(_) => return,
@@ -49,15 +56,20 @@ pub fn create() -> impl legion::systems::Runnable {
                         occlusion_query_set: None,
                     });
 
-                    let render_pipeline = match pipeline_manager.get_render_pipeline("default") {
-                        Some(pip) => pip,
-                        None => return,
-                    };
+                    let render_pipeline = pipeline_manager.get_render_pipeline("default").expect("expected pipeline: 'default'");
 
-                    renderpass.set_pipeline(render_pipeline);
-                    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
-                    renderpass.set_vertex_buffer(0, gpu_resource_manager.vertex_buffer.0.slice(..));
-                    renderpass.draw(0..3, 0..1);
+                    for mesh in mesh_query.iter(world) {
+                        renderpass.set_pipeline(render_pipeline);
+                        renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+
+                        for submesh in mesh.submeshes.iter() {
+                            let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
+                            let vertex_count = submesh.vertices.len() as u32;
+                            
+                            renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                            renderpass.draw(0..vertex_count, 0..1);
+                        }
+                    }
                 }
 
                 queue.submit([encoder.finish()]);

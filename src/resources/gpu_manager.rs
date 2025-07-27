@@ -1,7 +1,4 @@
 use crate::renderer::{uniform::CameraUniform,};
-
-use crate::{VERTICES, VertexBuffer};
-
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
@@ -9,8 +6,6 @@ pub struct GPUResourceManager {
 
     pub camera_bind_group: wgpu::BindGroup,
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub vertex_buffer: VertexBuffer,
-
 }
 
 impl GPUResourceManager {
@@ -45,19 +40,10 @@ impl GPUResourceManager {
             label: Some("Camera Bind Group"),
         });
 
-        let vertex_buffer = VertexBuffer(device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            },
-        ));
-
         Self {
             camera_bind_group_layout,
             camera_bind_group,
             camera_uniform_buffer,
-            vertex_buffer,
         }
     }
 }

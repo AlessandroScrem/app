@@ -113,7 +113,7 @@ impl PipelineManager {
 
         let desc = PipelineDesc::default();
         
-        let buffer_desc = crate::Vertex::desc();
+        let buffer_desc = crate::assets::mesh::Vertex::desc();
 
         let pipeline = desc.build_pipeline(
             device,
