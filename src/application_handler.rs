@@ -1,5 +1,6 @@
 use crate::input::Input;
 use crate::prelude::*;
+use crate::renderer::gpu_renderer::DepthTexture;
 
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
@@ -68,23 +69,15 @@ impl ApplicationHandler for App {
 
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
-                    let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
-                    let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+                    resize_resources(&mut self.resources, size.width, size.height);
 
-                    let mut surface_config = self
-                        .resources
-                        .get_mut::<wgpu::SurfaceConfiguration>()
-                        .unwrap();
-
-                    surface_config.width = size.width;
-                    surface_config.height = size.height;
-                    surface.configure(&device, &surface_config);
-
+                    // update camera aspect ratio
                     use legion::IntoQuery;
-                    let mut query = <legion::Write<Camera>>::query();
-                    for camera in query.iter_mut(&mut self.current_scene.world) {
-                        camera.set_aspect(size.width as f32 / size.height as f32);
-                    }
+                    let mut query = <&mut Camera>::query();
+                    query
+                        .iter_mut(&mut self.current_scene.world)
+                        .next()
+                        .map(|camera| camera.set_aspect(size.width as f32 / size.height as f32));
                 }
             }
             WindowEvent::RedrawRequested => {
@@ -102,5 +95,40 @@ impl ApplicationHandler for App {
             }
             _ => (),
         }
+    }
+}
+
+fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) {
+    {
+        let mut surface_config = resources.get_mut::<wgpu::SurfaceConfiguration>().unwrap();
+        surface_config.width = width;
+        surface_config.height = height;
+
+        let surface = resources.get_mut::<wgpu::Surface>().unwrap();
+        let device = resources.get_mut::<wgpu::Device>().unwrap();
+
+        surface.configure(&device, &surface_config);
+    }
+    // resize depth texture
+    {
+        let depth_texture = {
+            let device = resources.get_mut::<wgpu::Device>().unwrap();
+            device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("depth_texture"),
+                size: wgpu::Extent3d {
+                    width: width,
+                    height: height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+        };
+        let depth_view = depth_texture.create_view(&Default::default());
+        resources.insert(DepthTexture(depth_view));
     }
 }

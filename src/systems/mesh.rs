@@ -1,11 +1,13 @@
-use crate::{renderer::pipeline_manager::PipelineManager, resources::gpu_manager::GPUResourceManager
+use crate::{
+    renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
+    resources::gpu_manager::GPUResourceManager,
 };
 
 pub fn create() -> impl legion::systems::Runnable {
+    use crate::assets::mesh;
     use legion::IntoQuery;
     use legion::Read;
     use legion::SystemBuilder;
-    use crate::assets::mesh;
     use std::sync::Arc;
 
     SystemBuilder::new("render mesh")
@@ -13,12 +15,13 @@ pub fn create() -> impl legion::systems::Runnable {
         .read_resource::<PipelineManager>()
         .read_resource::<wgpu::Device>()
         .write_resource::<wgpu::Surface>()
+        .read_resource::<DepthTexture>()
         .write_resource::<wgpu::Queue>()
         .with_query(<Read<Arc<mesh::Mesh>>>::query())
         .build(
             |_,
              world,
-             (gpu_resource_manager, pipeline_manager, device, surface, queue),
+             (gpu_resource_manager, pipeline_manager, device, surface, depth_texture, queue),
              mesh_query| {
                 let output = match surface.get_current_texture() {
                     Ok(out) => out,
@@ -51,12 +54,21 @@ pub fn create() -> impl legion::systems::Runnable {
                                 store: wgpu::StoreOp::Store,
                             },
                         })],
-                        depth_stencil_attachment: None,
+                        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                            view: &depth_texture.0,
+                            depth_ops: Some(wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(1.0),
+                                store: wgpu::StoreOp::Store,
+                            }),
+                            stencil_ops: None,
+                        }),
                         timestamp_writes: None,
                         occlusion_query_set: None,
                     });
 
-                    let render_pipeline = pipeline_manager.get_render_pipeline("default").expect("expected pipeline: 'default'");
+                    let render_pipeline = pipeline_manager
+                        .get_render_pipeline("default")
+                        .expect("expected pipeline: 'default'");
 
                     for mesh in mesh_query.iter(world) {
                         renderpass.set_pipeline(render_pipeline);
@@ -65,7 +77,7 @@ pub fn create() -> impl legion::systems::Runnable {
                         for submesh in mesh.submeshes.iter() {
                             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
                             let vertex_count = submesh.vertices.len() as u32;
-                            
+
                             renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
                             renderpass.draw(0..vertex_count, 0..1);
                         }

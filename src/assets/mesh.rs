@@ -2,7 +2,7 @@ use gltf::buffer;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
-#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MeshVertexData {
     position: [f32; 3],
     normal: [f32; 3],
@@ -74,7 +74,7 @@ fn read_mesh(
         .map(|position| MeshVertexData {
             position,
             normal: [0.0, 1.0, 0.0],
-            color: [1.0, 1.0, 1.0],
+            color: [0.5, 0.5, 0.5],
         })
         .collect();
 

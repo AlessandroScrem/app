@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use wgpu::DepthStencilState;
+
 use crate::resources::gpu_manager::GPUResourceManager;
 
 /// A description of a render pipeline.
@@ -62,7 +64,13 @@ impl PipelineDesc {
             }),
             primitive: self.primitive,
             multisample: self.multisample,
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
             multiview: None,
             cache: None,
         });
@@ -112,7 +120,7 @@ impl PipelineManager {
         }
 
         let desc = PipelineDesc::default();
-        
+
         let buffer_desc = crate::assets::mesh::MeshVertexData::get_layout();
 
         let pipeline = desc.build_pipeline(
