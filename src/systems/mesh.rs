@@ -1,3 +1,5 @@
+use wgpu::IndexFormat;
+
 use crate::{
     renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
     resources::gpu_manager::GPUResourceManager,
@@ -76,10 +78,12 @@ pub fn create() -> impl legion::systems::Runnable {
 
                         for submesh in mesh.submeshes.iter() {
                             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
-                            let vertex_count = submesh.vertices.len() as u32;
+                            let index_buffer = submesh.index_buffer.as_ref().unwrap();
+                            let index_count = submesh.index_count as u32;
 
+                            renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
                             renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                            renderpass.draw(0..vertex_count, 0..1);
+                            renderpass.draw_indexed(0..index_count, 0, 0..1);
                         }
                     }
                 }

@@ -9,6 +9,7 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) color: vec3<f32>,
+    @location(3) uv: vec2<f32>,
 };
 
 @group(0) @binding(0)
@@ -19,6 +20,7 @@ struct VertexOutput {
     @location(0) world_pos: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) color: vec3<f32>,
+    @location(3) uv: vec2<f32>,
 };
 
 
@@ -32,6 +34,7 @@ fn vs_main(
     out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
     out.world_pos = model.position;
     out.normal =  normalize(model.normal);
+    out.uv =  model.uv;
     out.color = model.color;
 
     return out;
@@ -75,8 +78,9 @@ fn debug_color(normal: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let color = blinn_phong(input.color, input.normal, input.world_pos);
+    // let color = blinn_phong(input.color, input.normal, input.world_pos);
     // let color = debug_color(input.normal); // Per visualizzare le normali
-    
+    let color  = vec3<f32>(input.uv,  0.0); // Per visualizzare le coordinate UV
+
     return vec4<f32>(color, 1.0);
 }

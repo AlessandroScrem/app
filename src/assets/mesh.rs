@@ -7,11 +7,13 @@ pub struct MeshVertexData {
     position: [f32; 3],
     normal: [f32; 3],
     color: [f32; 3],
+    uv: [f32; 2],
 }
 
+
 impl MeshVertexData {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3, 2 => Float32x3];
+    const ATTRIBS: [wgpu::VertexAttribute; 4] =
+        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x2];
 
     pub fn get_layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -26,6 +28,8 @@ pub struct SubMesh {
     pub vertices: Vec<MeshVertexData>,
     pub indices: Vec<u32>,
     pub(crate) vertex_buffer: Option<wgpu::Buffer>,
+    pub(crate) index_buffer: Option<wgpu::Buffer>,
+    pub(crate) index_count: usize,
 }
 
 pub struct Mesh {
@@ -69,12 +73,14 @@ fn read_mesh(
     let indices = reader
         .read_indices()
         .expect("primitives must have the INDICES attribute ");
+    let indices: Vec<u32> = indices.into_u32().collect();
 
     let mut vertices: Vec<MeshVertexData> = positions
         .map(|position| MeshVertexData {
             position,
             normal: [0.0, 1.0, 0.0],
-            color: [0.5, 0.5, 0.5],
+            color: [0.5, 0.5, 0.5], 
+            uv: [0.0, 0.0],
         })
         .collect();
 
@@ -84,16 +90,32 @@ fn read_mesh(
         });
     }
 
+    if let Some(uvs) = reader.read_tex_coords(0) {
+        uvs.into_f32().enumerate().for_each(|(i, uv)| {
+            vertices[i].uv = uv;
+        });
+    }
+
     let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Vertex Buffer"),
         contents: bytemuck::cast_slice(&vertices),
         usage: wgpu::BufferUsages::VERTEX,
     });
+    
+    let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Index Buffer"),
+        contents: &bytemuck::cast_slice(&indices),
+        usage: wgpu::BufferUsages::INDEX,
+    });
 
+    let index_count = indices.len();
+    
     SubMesh {
         vertices,
-        indices: indices.into_u32().collect(),
+        indices,
         vertex_buffer: Some(vertex_buffer),
+        index_buffer: Some(index_buffer),
+        index_count,
     }
 }
 
