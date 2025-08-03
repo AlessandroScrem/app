@@ -70,17 +70,28 @@ fn blinn_phong(material_color: vec3<f32>, vert_normal: vec3<f32>, frag_pos: vec3
     return clamp(ambient + diffuse + specular, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
-fn debug_color(normal: vec3<f32>) -> vec3<f32> {
-    // Le normali vanno da [-1, 1] → mappiamole a [0, 1] per visualizzarle
+fn debug_normal(normal: vec3<f32>) -> vec3<f32> {
+    // rimap da [-1, 1] → a [0, 1] per visualizzarle
     return normal * 0.5 + vec3<f32>(0.5);
 }
+fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
+    // rimap da [-1, 1] → a [0, 1] per visualizzarle
+    return vec3<f32>(uv * 0.5 + vec2<f32>(0.5), 0.0);
+}
+
+@group(1) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(1) @binding(1)
+var s_diffuse: sampler;
 
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    // let color = blinn_phong(input.color, input.normal, input.world_pos);
-    // let color = debug_color(input.normal); // Per visualizzare le normali
-    let color  = vec3<f32>(input.uv,  0.0); // Per visualizzare le coordinate UV
+    let color = blinn_phong(input.color, input.normal, input.world_pos);
+    // let color = debug_normal(input.normal); // Per visualizzare le normali
+    // let color = debug_uv(input.uv); // Per visualizzare le normali
 
-    return vec4<f32>(color, 1.0);
+    // return vec4<f32>(color, 1.0);
+
+    return textureSample(t_diffuse, s_diffuse, input.uv);
 }

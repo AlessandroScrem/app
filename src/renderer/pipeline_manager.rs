@@ -146,7 +146,7 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
-    let bind_group_layouts = &[&resource_manager.camera_bind_group_layout];
+    let bind_group_layouts = &[&resource_manager.camera_bind_group_layout, &resource_manager.texture_bind_group_layout.as_ref().unwrap()];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Render Pipeline Layout"),

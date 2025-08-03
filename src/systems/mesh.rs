@@ -75,6 +75,7 @@ pub fn create() -> impl legion::systems::Runnable {
                     for mesh in mesh_query.iter(world) {
                         renderpass.set_pipeline(render_pipeline);
                         renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+                        renderpass.set_bind_group(1, gpu_resource_manager.texture_bind_group.as_ref().unwrap(), &[]);
 
                         for submesh in mesh.submeshes.iter() {
                             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();

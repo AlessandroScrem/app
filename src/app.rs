@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use super::DeltaTime;
+use crate::assets;
 use crate::input::Input;
 
 use crate::prelude::*;
@@ -49,6 +50,17 @@ impl App {
     pub fn load(&mut self) {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
+
+        let asset_manager = {
+            let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+            let queue = self.resources.get_mut::<wgpu::Queue>().unwrap();
+
+            assets::asset_manager::AssetManager::new(
+                std::sync::Arc::new(device.clone()),
+                std::sync::Arc::new(queue.clone()),
+            )
+        };
+        self.resources.insert(asset_manager);
 
         crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
         crate::entities::mesh::create(

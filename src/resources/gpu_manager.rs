@@ -1,11 +1,13 @@
-use crate::renderer::{uniform::CameraUniform,};
+use crate::renderer::uniform::CameraUniform;
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
-    pub camera_bind_group_layout:  wgpu::BindGroupLayout,
+    pub camera_bind_group_layout: wgpu::BindGroupLayout,
+    pub texture_bind_group_layout: Option<wgpu::BindGroupLayout>,
 
     pub camera_bind_group: wgpu::BindGroup,
     pub camera_uniform_buffer: wgpu::Buffer,
+    pub texture_bind_group: Option<wgpu::BindGroup>,
 }
 
 impl GPUResourceManager {
@@ -44,6 +46,17 @@ impl GPUResourceManager {
             camera_bind_group_layout,
             camera_bind_group,
             camera_uniform_buffer,
+            texture_bind_group_layout: None,
+            texture_bind_group: None,
         }
+    }
+
+    pub fn add_texture_bind_group(
+        &mut self,
+        bind_group_layout: wgpu::BindGroupLayout,
+        bind_group: wgpu::BindGroup,
+    ) {
+        self.texture_bind_group_layout = Some(bind_group_layout);
+        self.texture_bind_group = Some(bind_group);
     }
 }
