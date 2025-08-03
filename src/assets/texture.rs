@@ -7,7 +7,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, buffer: Vec<u8>) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, buffer: Vec<u8>, is_normal: bool) -> Self {
         let rgba = image::load_from_memory(&buffer).unwrap().to_rgba8();
         let (width, height) = rgba.dimensions();
 
@@ -17,13 +17,20 @@ impl Texture {
             depth_or_array_layers: 1,
         };
 
+        let format = if is_normal {
+            wgpu::TextureFormat::Rgba8Unorm
+        } else {
+            wgpu::TextureFormat::Rgba8UnormSrgb
+
+        };
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size: extent,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb, // Default to Rgba8UnormSrgb
+            format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });

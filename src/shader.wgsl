@@ -83,15 +83,18 @@ fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
 var t_diffuse: texture_2d<f32>;
 @group(1) @binding(1)
 var s_diffuse: sampler;
+@group(1)@binding(2)
+var t_normal: texture_2d<f32>;
+@group(1) @binding(3)
+var s_normal: sampler;
 
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let color = blinn_phong(input.color, input.normal, input.world_pos);
-    // let color = debug_normal(input.normal); // Per visualizzare le normali
-    // let color = debug_uv(input.uv); // Per visualizzare le normali
+    let object_color = textureSample(t_diffuse, s_diffuse, input.uv).rgb;
+    let object_normal = textureSample(t_normal, s_normal, input.uv).rgb;
 
-    // return vec4<f32>(color, 1.0);
+    let color = blinn_phong(object_color, input.normal, input.world_pos);
 
-    return textureSample(t_diffuse, s_diffuse, input.uv);
+    return vec4<f32>(color, 1.0);
 }

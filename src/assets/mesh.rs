@@ -47,14 +47,12 @@ pub fn load_gltf(
     device: &wgpu::Device,
     path: &Path,
 ) -> Result<Mesh, Box<dyn std::error::Error>> {
-
     if path.extension().unwrap_or_default() != "gltf" {
         return Err("File is not a glTF file".into());
     }
 
     let (document, buffers, _) = gltf::import(path)?;
     let images: Vec<gltf::Image<'_>> = document.images().collect();
-    
 
     let gltf_mesh = document.meshes().next().expect("mesh [0] not present");
     let name = gltf_mesh.name().unwrap_or("mesh").to_string();
@@ -120,6 +118,26 @@ pub fn load_gltf(
         );
 
         let main_info = pbr.base_color_texture();
+        let mut normal_texture = None;
+        let normals_texture = gltf_material.normal_texture();
+        if normals_texture.is_some() {
+            let normal_source = normals_texture.unwrap().texture().source().source();
+            match normal_source {
+                gltf::image::Source::Uri { uri, .. } => {
+                    let texture_file_name = Some(
+                        Path::new(&uri)
+                            .file_name()
+                            .and_then(std::ffi::OsStr::to_str)
+                            .unwrap()
+                            .to_string(),
+                    );
+                    if texture_file_name.is_some() {
+                        normal_texture = Some(texture_file_name.unwrap());
+                    }
+                }
+                _ => (),
+            }
+        }
         let roughness_info = pbr.metallic_roughness_texture();
         let roughness = pbr.roughness_factor();
         let metallic = pbr.metallic_factor();
@@ -131,8 +149,8 @@ pub fn load_gltf(
 
         let material = Material {
             main_texture: main_texture.unwrap_or("white.png".to_string()),
-            normal_texture: String::new(),
-            roughness_texture: String::new(),
+            normal_texture: normal_texture.unwrap_or("white.png".to_string()),
+            roughness_texture: roughness_texture.unwrap_or("white.png".to_string()),
             roughness,
             metallic,
             roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },

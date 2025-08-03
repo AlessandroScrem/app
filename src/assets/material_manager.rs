@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{assets::texture::Texture, resources::gpu_manager::GPUResourceManager};
 
@@ -37,7 +41,28 @@ impl MaterialManager {
 
     pub fn add_material(&mut self, mut material: Material, path: PathBuf) {
         let parent_path = path.parent().expect("anable to find parent path");
-        let texture = get_texture(parent_path.join(&material.main_texture), &self.device, &self.queue);
+
+        let main_texture = load_texture(
+            &material.main_texture,
+            parent_path,
+            &self.device,
+            &self.queue,
+            false,
+        );
+        let normal_texture = load_texture(
+            &material.normal_texture,
+            parent_path,
+            &self.device,
+            &self.queue,
+            true,
+        );
+
+        // let roughness_texture = load_texture(
+        //     &material.roughness_texture,
+        //     parent_path,
+        //     &self.device,
+        //     &self.queue,
+        // );
 
         let texture_bind_group_layout =
             self.device
@@ -59,6 +84,23 @@ impl MaterialManager {
                             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
+                        // normal map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
                     ],
                     label: Some("texture_bind_group_layout"),
                 });
@@ -68,14 +110,22 @@ impl MaterialManager {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                    resource: wgpu::BindingResource::TextureView(&main_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&main_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&normal_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
                 },
             ],
-            label: Some("diffuse_bind_group"),
+            label: Some("texture_bind_group"),
         });
 
         self.gpu_manager
@@ -86,16 +136,26 @@ impl MaterialManager {
 
         material
             .textures
-            .insert(material.main_texture.clone(), texture);
+            .insert(material.main_texture.clone(), main_texture);
     }
 }
 
-fn get_texture(
-    path: PathBuf,
+fn load_texture(
+    name: &str,
+    path: &Path,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
+    is_normal: bool,
 ) -> super::texture::Texture {
-    let buffer = std::fs::read(&path).unwrap();
+    let filepath = {
+        let candidate = path.join(name);
+        candidate
+            .is_file()
+            .then(|| candidate)
+            .unwrap_or_else(|| PathBuf::from("assets/core/white.png"))
+    };
+    let buffer =
+        std::fs::read(&filepath).expect(&format!("Impossibile leggere il file {:?}", filepath));
 
-    super::texture::Texture::new(device, queue, buffer)
+    super::texture::Texture::new(device, queue, buffer, is_normal)
 }
