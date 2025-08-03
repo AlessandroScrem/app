@@ -48,10 +48,19 @@ impl Renderer {
         });
         let depth_view = depth_texture.create_view(&Default::default());
 
-        let gpu_resource_manager = Arc::new(crate::resources::gpu_manager::GPUResourceManager::new(&device));
+        let gpu_resource_manager = Arc::new(
+            crate::resources::gpu_manager::GPUResourceManager::new(&device),
+        );
         let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new();
 
+        let material_manager = crate::assets::material_manager::MaterialManager::new(
+            Arc::new(device.clone()),
+            Arc::new(queue.clone()),
+            gpu_resource_manager.clone(),
+        );
+
         resources.insert(surface_config);
+        resources.insert(material_manager);
         resources.insert(pipeline_manager);
         resources.insert(gpu_resource_manager);
         resources.insert(queue);

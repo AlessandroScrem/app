@@ -27,7 +27,6 @@ impl MeshVertexData {
     }
 }
 
-
 pub struct SubMesh {
     pub vertices: Vec<MeshVertexData>,
     pub indices: Vec<u32>,
@@ -48,151 +47,116 @@ pub fn load_gltf(
     device: &wgpu::Device,
     path: &Path,
 ) -> Result<Mesh, Box<dyn std::error::Error>> {
-    let relative_path = path.parent().unwrap();
 
     if path.extension().unwrap_or_default() != "gltf" {
         return Err("File is not a glTF file".into());
     }
 
     let (document, buffers, _) = gltf::import(path)?;
-    Ok(read_meshes(
-        material_manager,
-        device,
-        &document,
-        buffers,
-        relative_path,
-    ))
-}
-
-fn read_meshes(
-    material_manager: &mut MaterialManager,
-    device: &wgpu::Device,
-    document: &gltf::Document,
-    buffers: Vec<buffer::Data>,
-    path: &Path,
-) -> Mesh {
-    let mut submeshes: Vec<SubMesh> = Vec::new();
-    let mut name = String::new();
     let images: Vec<gltf::Image<'_>> = document.images().collect();
+    
 
-    for gltf_mesh in document.meshes() {
-        name = gltf_mesh.name().unwrap_or("mesh").to_string();
+    let gltf_mesh = document.meshes().next().expect("mesh [0] not present");
+    let name = gltf_mesh.name().unwrap_or("mesh").to_string();
 
-        for primitive in gltf_mesh.primitives() {
-            let mesh = read_mesh(
-                material_manager,
-                device,
-                &primitive,
-                buffers.clone(),
-                &images,
-                path,
-            );
-            submeshes.push(mesh);
+    let mut submeshes: Vec<SubMesh> = Vec::new();
+
+    for primitive in gltf_mesh.primitives() {
+        let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+        let positions = reader
+            .read_positions()
+            .expect("primitives must have the POSITION attribute ");
+        let indices = reader
+            .read_indices()
+            .expect("primitives must have the INDICES attribute ");
+        let indices: Vec<u32> = indices.into_u32().collect();
+
+        let mut vertices: Vec<MeshVertexData> = positions
+            .map(|position| MeshVertexData {
+                position,
+                normal: [0.0, 1.0, 0.0],
+                color: [0.5, 0.5, 0.5],
+                uv: [0.0, 0.0],
+            })
+            .collect();
+
+        if let Some(normals) = reader.read_normals() {
+            normals.enumerate().for_each(|(i, normal)| {
+                vertices[i].normal = normal;
+            });
         }
-    }
-    Mesh { name, submeshes }
-}
 
-fn read_mesh(
-    material_manager: &mut MaterialManager,
-    device: &wgpu::Device,
-    primitive: &gltf::Primitive,
-    buffers: Vec<buffer::Data>,
-    images: &Vec<gltf::Image<'_>>,
-    path: &Path,
-) -> SubMesh {
-    let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+        if let Some(uvs) = reader.read_tex_coords(0) {
+            uvs.into_f32().enumerate().for_each(|(i, uv)| {
+                vertices[i].uv = uv;
+            });
+        }
 
-    let positions = reader
-        .read_positions()
-        .expect("primitives must have the POSITION attribute ");
-    let indices = reader
-        .read_indices()
-        .expect("primitives must have the INDICES attribute ");
-    let indices: Vec<u32> = indices.into_u32().collect();
-
-    let mut vertices: Vec<MeshVertexData> = positions
-        .map(|position| MeshVertexData {
-            position,
-            normal: [0.0, 1.0, 0.0],
-            color: [0.5, 0.5, 0.5],
-            uv: [0.0, 0.0],
-        })
-        .collect();
-
-    if let Some(normals) = reader.read_normals() {
-        normals.enumerate().for_each(|(i, normal)| {
-            vertices[i].normal = normal;
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
         });
-    }
 
-    if let Some(uvs) = reader.read_tex_coords(0) {
-        uvs.into_f32().enumerate().for_each(|(i, uv)| {
-            vertices[i].uv = uv;
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: &bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
         });
+
+        let index_count = indices.len();
+
+        let gltf_material: gltf::Material<'_> = primitive.material();
+        let pbr = gltf_material.pbr_metallic_roughness();
+
+        // materials
+        let color_factor = pbr.base_color_factor();
+        let color = cgmath::Vector4::new(
+            color_factor[0],
+            color_factor[1],
+            color_factor[2],
+            color_factor[3],
+        );
+
+        let main_info = pbr.base_color_texture();
+        let roughness_info = pbr.metallic_roughness_texture();
+        let roughness = pbr.roughness_factor();
+        let metallic = pbr.metallic_factor();
+
+        let main_texture = get_texture_url(&main_info, &images);
+        let roughness_texture = get_texture_url(&roughness_info, &images);
+
+        let has_pbr_texture = roughness_texture.is_some();
+
+        let material = Material {
+            main_texture: main_texture.unwrap_or("white.png".to_string()),
+            normal_texture: String::new(),
+            roughness_texture: String::new(),
+            roughness,
+            metallic,
+            roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },
+            metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
+            color,
+            textures: std::collections::HashMap::new(),
+        };
+
+        material_manager.add_material(material, path.to_path_buf());
+
+        let primitive_topology = get_primitive_mode(primitive.mode());
+
+        let submesh = SubMesh {
+            vertices,
+            indices,
+            vertex_buffer: Some(vertex_buffer),
+            index_buffer: Some(index_buffer),
+            index_count,
+            primitive_topology,
+        };
+        submeshes.push(submesh);
     }
 
-    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("Vertex Buffer"),
-        contents: bytemuck::cast_slice(&vertices),
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-
-    let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("Index Buffer"),
-        contents: &bytemuck::cast_slice(&indices),
-        usage: wgpu::BufferUsages::INDEX,
-    });
-
-    let index_count = indices.len();
-
-    let gltf_material: gltf::Material<'_> = primitive.material();
-    let pbr = gltf_material.pbr_metallic_roughness();
-
-    // materials
-    let color_factor = pbr.base_color_factor();
-    let color = cgmath::Vector4::new(
-        color_factor[0],
-        color_factor[1],
-        color_factor[2],
-        color_factor[3],
-    );
-
-    let main_info = pbr.base_color_texture();
-    let roughness_info = pbr.metallic_roughness_texture();
-    let roughness = pbr.roughness_factor();
-    let metallic = pbr.metallic_factor();
-
-    let main_texture = get_texture_url(&main_info, &images);
-    let roughness_texture = get_texture_url(&roughness_info, &images);
-
-    let has_pbr_texture = roughness_texture.is_some();
-
-    let material = Material {
-        main_texture: main_texture.unwrap_or("white.png".to_string()),
-        normal_texture: String::new(),
-        roughness_texture: String::new(),
-        roughness,
-        metallic,
-        roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },
-        metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
-        color,
-        textures: std::collections::HashMap::new(),
-    };
-
-    material_manager.add_material(material, path.to_path_buf());
-
-
-    let primitive_topology = get_primitive_mode(primitive.mode());
-
-    SubMesh {
-        vertices,
-        indices,
-        vertex_buffer: Some(vertex_buffer),
-        index_buffer: Some(index_buffer),
-        index_count,
-        primitive_topology,
-    }
+    Ok(Mesh { name, submeshes })
 }
 
 fn get_texture_url(
@@ -221,8 +185,6 @@ fn get_texture_url(
     }
     file_name
 }
-
-
 
 fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     match mode {
@@ -274,8 +236,8 @@ fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use crate::resources::gpu_manager::GPUResourceManager;
+    use std::sync::Arc;
 
     use super::*;
 
@@ -304,7 +266,8 @@ mod tests {
         });
 
         let gpu_manager = GPUResourceManager::new(&device);
-        let mut material_manager = MaterialManager::new(device.clone(), queue, Arc::new(gpu_manager));
+        let mut material_manager =
+            MaterialManager::new(device.clone(), queue, Arc::new(gpu_manager));
 
         let result = load_gltf(
             &mut material_manager,

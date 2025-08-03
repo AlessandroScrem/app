@@ -18,7 +18,7 @@ pub struct MaterialManager {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     gpu_manager: Arc<GPUResourceManager>,
-    materials: HashMap<PathBuf, Material>,
+    _materials: HashMap<PathBuf, Material>,
 }
 
 impl MaterialManager {
@@ -31,12 +31,13 @@ impl MaterialManager {
             device,
             queue,
             gpu_manager,
-            materials: HashMap::new(),
+            _materials: HashMap::new(),
         }
     }
 
     pub fn add_material(&mut self, mut material: Material, path: PathBuf) {
-        let texture = get_texture(path.join(&material.main_texture), &self.device, &self.queue);
+        let parent_path = path.parent().expect("anable to find parent path");
+        let texture = get_texture(parent_path.join(&material.main_texture), &self.device, &self.queue);
 
         let texture_bind_group_layout =
             self.device

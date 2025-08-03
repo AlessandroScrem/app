@@ -3,11 +3,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::DeltaTime;
-use crate::assets;
 use crate::input::Input;
 
 use crate::prelude::*;
-use crate::resources::gpu_manager::GPUResourceManager;
 use crate::scene::Scene;
 
 use legion::Resources;
@@ -52,19 +50,6 @@ impl App {
     pub fn load(&mut self) {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
-
-        let material_manager = {
-            let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-            let queue = self.resources.get_mut::<wgpu::Queue>().unwrap();
-            let gpu_manager = self.resources.get_mut::<Arc<GPUResourceManager>>().unwrap();
-
-            assets::material_manager::MaterialManager::new(
-                Arc::new(device.clone()),
-                Arc::new(queue.clone()),
-                gpu_manager.clone(),
-            )
-        };
-        self.resources.insert(material_manager);
 
         crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
         crate::entities::mesh::create(
