@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::camera::Camera;
 use crate::renderer::uniform::CameraUniform;
 use crate::resources::gpu_manager::GPUResourceManager;
@@ -7,7 +9,7 @@ pub fn create() -> impl legion::systems::Runnable {
     use legion::{Read, SystemBuilder};
 
     SystemBuilder::new("update globals")
-        .read_resource::<GPUResourceManager>()
+        .read_resource::<Arc<GPUResourceManager>>()
         .write_resource::<wgpu::Queue>()
         .with_query(<(Read<Camera>,)>::query())
         .build(

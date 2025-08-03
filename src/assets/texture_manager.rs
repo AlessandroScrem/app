@@ -1,8 +1,4 @@
-/* use std::{path::PathBuf, sync::Arc};
-
-use egui::ahash::HashMap;
-use wgpu::core::device::queue;
-
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use crate::assets::texture::Texture;
 
 pub struct TextureManager {
@@ -12,7 +8,11 @@ pub struct TextureManager {
 }
 
 impl TextureManager {
-    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) ->Self {
-
+    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
+        Self {
+            device,
+            queue,
+            textures: HashMap::new(),
+        }
     }
-} */
+}

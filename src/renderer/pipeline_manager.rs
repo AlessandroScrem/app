@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use wgpu::DepthStencilState;
 
@@ -142,15 +142,20 @@ impl PipelineManager {
 
 pub fn create_default_pipeline(resources: &legion::Resources) {
     let device = resources.get::<wgpu::Device>().unwrap();
-    let resource_manager = resources.get::<GPUResourceManager>().unwrap();
+    let resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
-    let bind_group_layouts = &[&resource_manager.camera_bind_group_layout, &resource_manager.texture_bind_group_layout.as_ref().unwrap()];
+    let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
+    
+    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+        layout_map.get("camera").unwrap(),
+        layout_map.get("texture").unwrap(),
+    ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Render Pipeline Layout"),
-        bind_group_layouts,
+        bind_group_layouts: &layouts,
         push_constant_ranges: &[],
     });
 

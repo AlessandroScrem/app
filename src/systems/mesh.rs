@@ -13,7 +13,7 @@ pub fn create() -> impl legion::systems::Runnable {
     use std::sync::Arc;
 
     SystemBuilder::new("render mesh")
-        .read_resource::<GPUResourceManager>()
+        .read_resource::<Arc<GPUResourceManager>>()
         .read_resource::<PipelineManager>()
         .read_resource::<wgpu::Device>()
         .write_resource::<wgpu::Surface>()
@@ -72,11 +72,15 @@ pub fn create() -> impl legion::systems::Runnable {
                         .get_render_pipeline("default")
                         .expect("expected pipeline: 'default'");
 
-                    for mesh in mesh_query.iter(world) {
-                        renderpass.set_pipeline(render_pipeline);
-                        renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
-                        renderpass.set_bind_group(1, gpu_resource_manager.texture_bind_group.as_ref().unwrap(), &[]);
+                    let map = gpu_resource_manager.bind_groups.lock().unwrap();
+                    let camera_bind_group = map.get("camera").unwrap();
+                    let texture_bind_group = map.get("texture").unwrap();
 
+                    renderpass.set_pipeline(render_pipeline);
+                    renderpass.set_bind_group(0, camera_bind_group, &[]);
+                    renderpass.set_bind_group(1, texture_bind_group, &[]);
+
+                    for mesh in mesh_query.iter(world) {
                         for submesh in mesh.submeshes.iter() {
                             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
                             let index_buffer = submesh.index_buffer.as_ref().unwrap();

@@ -1,12 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use gltf::buffer;
 use wgpu::util::DeviceExt;
 
-use crate::{
-    assets::texture::Texture,
-    resources::gpu_manager::{GPUResourceManager},
-};
+use crate::assets::material_manager::{Material, MaterialManager};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -30,19 +27,6 @@ impl MeshVertexData {
     }
 }
 
-pub struct PBRMaterial {
-    pub main_texture: String,
-    pub roughness_texture: String,
-    pub normal_texture: String,
-    pub roughness: f32,
-    pub metallic: f32,
-    pub roughness_override: f32,
-    pub metallic_override: f32,
-    pub color: cgmath::Vector4<f32>,
-    pub textures: std::collections::HashMap<String, Texture>,
-}
-
-impl PBRMaterial {}
 
 pub struct SubMesh {
     pub vertices: Vec<MeshVertexData>,
@@ -50,7 +34,6 @@ pub struct SubMesh {
     pub(crate) vertex_buffer: Option<wgpu::Buffer>,
     pub(crate) index_buffer: Option<wgpu::Buffer>,
     pub(crate) index_count: usize,
-    pub material: PBRMaterial,
     pub primitive_topology: wgpu::PrimitiveTopology,
 }
 
@@ -61,9 +44,8 @@ pub struct Mesh {
 
 #[allow(dead_code)]
 pub fn load_gltf(
-    gpu_manager: &mut GPUResourceManager,
+    material_manager: &mut MaterialManager,
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     path: &Path,
 ) -> Result<Mesh, Box<dyn std::error::Error>> {
     let relative_path = path.parent().unwrap();
@@ -74,9 +56,8 @@ pub fn load_gltf(
 
     let (document, buffers, _) = gltf::import(path)?;
     Ok(read_meshes(
-        gpu_manager,
+        material_manager,
         device,
-        queue,
         &document,
         buffers,
         relative_path,
@@ -84,9 +65,8 @@ pub fn load_gltf(
 }
 
 fn read_meshes(
-    gpu_manager: &mut GPUResourceManager,
+    material_manager: &mut MaterialManager,
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     document: &gltf::Document,
     buffers: Vec<buffer::Data>,
     path: &Path,
@@ -100,9 +80,8 @@ fn read_meshes(
 
         for primitive in gltf_mesh.primitives() {
             let mesh = read_mesh(
-                gpu_manager,
+                material_manager,
                 device,
-                &queue,
                 &primitive,
                 buffers.clone(),
                 &images,
@@ -115,9 +94,8 @@ fn read_meshes(
 }
 
 fn read_mesh(
-    gpu_manager: &mut GPUResourceManager,
+    material_manager: &mut MaterialManager,
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     primitive: &gltf::Primitive,
     buffers: Vec<buffer::Data>,
     images: &Vec<gltf::Image<'_>>,
@@ -190,7 +168,7 @@ fn read_mesh(
 
     let has_pbr_texture = roughness_texture.is_some();
 
-    let mut material = PBRMaterial {
+    let material = Material {
         main_texture: main_texture.unwrap_or("white.png".to_string()),
         normal_texture: String::new(),
         roughness_texture: String::new(),
@@ -202,51 +180,8 @@ fn read_mesh(
         textures: std::collections::HashMap::new(),
     };
 
-    let texture = get_texture(path.join(&material.main_texture), device, queue);
+    material_manager.add_material(material, path.to_path_buf());
 
-    let texture_bind_group_layout =
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
-
-    let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &texture_bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&texture.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(&texture.sampler),
-            },
-        ],
-        label: Some("diffuse_bind_group"),
-    });
-
-    gpu_manager.add_texture_bind_group(texture_bind_group_layout, diffuse_bind_group);
-
-    material
-        .textures
-        .insert(material.main_texture.clone(), texture);
 
     let primitive_topology = get_primitive_mode(primitive.mode());
 
@@ -256,7 +191,6 @@ fn read_mesh(
         vertex_buffer: Some(vertex_buffer),
         index_buffer: Some(index_buffer),
         index_count,
-        material,
         primitive_topology,
     }
 }
@@ -288,15 +222,7 @@ fn get_texture_url(
     file_name
 }
 
-fn get_texture(
-    path: PathBuf,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-) -> super::texture::Texture {
-    let buffer = std::fs::read(&path).unwrap();
 
-    super::texture::Texture::new(device, queue, buffer)
-}
 
 fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     match mode {
@@ -348,6 +274,9 @@ fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use crate::resources::gpu_manager::GPUResourceManager;
+
     use super::*;
 
     #[test]
@@ -368,15 +297,18 @@ mod tests {
                 .await
                 .unwrap();
 
-            (adapter, device, queue)
+            let arc_device = Arc::new(device);
+            let arc_queue = Arc::new(queue);
+
+            (adapter, arc_device, arc_queue)
         });
 
-        let mut gpu_resource_manager = GPUResourceManager::new(&device);
+        let gpu_manager = GPUResourceManager::new(&device);
+        let mut material_manager = MaterialManager::new(device.clone(), queue, Arc::new(gpu_manager));
 
         let result = load_gltf(
-            &mut gpu_resource_manager,
+            &mut material_manager,
             &device,
-            &queue,
             std::path::Path::new("./assets/cube/cube.gltf"),
         );
 

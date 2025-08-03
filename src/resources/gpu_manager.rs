@@ -1,13 +1,13 @@
+use std::{collections::HashMap, sync::Mutex};
+
 use crate::renderer::uniform::CameraUniform;
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
-    pub camera_bind_group_layout: wgpu::BindGroupLayout,
-    pub texture_bind_group_layout: Option<wgpu::BindGroupLayout>,
-
-    pub camera_bind_group: wgpu::BindGroup,
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub texture_bind_group: Option<wgpu::BindGroup>,
+
+    pub bind_group_layouts: Mutex<HashMap<String, wgpu::BindGroupLayout>>,
+    pub bind_groups: Mutex<HashMap<String, wgpu::BindGroup>>,
 }
 
 impl GPUResourceManager {
@@ -42,21 +42,28 @@ impl GPUResourceManager {
             label: Some("Camera Bind Group"),
         });
 
+        let mut  layouts = HashMap::new();
+        layouts.insert("camera".into(), camera_bind_group_layout);
+
+        let mut groups = HashMap::new();
+        groups.insert("camera".into(), camera_bind_group);
+
+
+
         Self {
-            camera_bind_group_layout,
-            camera_bind_group,
             camera_uniform_buffer,
-            texture_bind_group_layout: None,
-            texture_bind_group: None,
+            bind_groups: Mutex::new(groups),
+            bind_group_layouts: Mutex::new(layouts),
         }
     }
 
-    pub fn add_texture_bind_group(
-        &mut self,
-        bind_group_layout: wgpu::BindGroupLayout,
-        bind_group: wgpu::BindGroup,
-    ) {
-        self.texture_bind_group_layout = Some(bind_group_layout);
-        self.texture_bind_group = Some(bind_group);
+    pub fn add_bind_group_layout(&self, name: &str, bind_group_layout: wgpu::BindGroupLayout) {
+        let mut map = self.bind_group_layouts.lock().unwrap();
+        map.insert(name.into(), bind_group_layout);
+    }
+
+    pub fn add_bind_group(&self, name: &str, bind_group: wgpu::BindGroup) {
+        let mut map = self.bind_groups.lock().unwrap();
+        map.insert(name.to_string(), bind_group);
     }
 }

@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Instant;
 
 use super::DeltaTime;
@@ -6,13 +7,14 @@ use crate::assets;
 use crate::input::Input;
 
 use crate::prelude::*;
+use crate::resources::gpu_manager::GPUResourceManager;
 use crate::scene::Scene;
 
 use legion::Resources;
 use legion::Schedule;
 
 pub struct App {
-    pub(super) window: Option<std::sync::Arc<winit::window::Window>>,
+    pub(super) window: Option<Arc<winit::window::Window>>,
     pub current_scene: Scene,
     pub resources: Resources,
 
@@ -51,16 +53,18 @@ impl App {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
 
-        let asset_manager = {
+        let material_manager = {
             let device = self.resources.get_mut::<wgpu::Device>().unwrap();
             let queue = self.resources.get_mut::<wgpu::Queue>().unwrap();
+            let gpu_manager = self.resources.get_mut::<Arc<GPUResourceManager>>().unwrap();
 
-            assets::asset_manager::AssetManager::new(
-                std::sync::Arc::new(device.clone()),
-                std::sync::Arc::new(queue.clone()),
+            assets::material_manager::MaterialManager::new(
+                Arc::new(device.clone()),
+                Arc::new(queue.clone()),
+                gpu_manager.clone(),
             )
         };
-        self.resources.insert(asset_manager);
+        self.resources.insert(material_manager);
 
         crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
         crate::entities::mesh::create(
