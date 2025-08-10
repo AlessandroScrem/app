@@ -25,6 +25,7 @@ pub struct App {
     pub last_frame: Instant,
     pub render_schedule: Schedule,
     pub imgui: Option<ImguiState>,
+    pub is_minimized: bool,
 }
 
 impl Default for App {
@@ -45,6 +46,7 @@ impl Default for App {
             delta_time: 0.0,
             last_frame: Instant::now(),
             imgui: None,
+            is_minimized: false,
         }
     }
 }

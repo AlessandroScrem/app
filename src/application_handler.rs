@@ -1,7 +1,6 @@
 use crate::input::Input;
-use crate::renderer::gpu_renderer::DepthTexture;
 use crate::prelude::*;
-
+use crate::renderer::gpu_renderer::DepthTexture;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -91,7 +90,22 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        {
+        
+        let mut imgui_capture_events = false;
+        //imgui
+        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+            let full_event: winit::event::Event<()> = winit::event::Event::WindowEvent  {
+                window_id,
+                event: event.clone(),
+            };
+            imgui
+                .platform
+                .handle_event(imgui.context.io_mut(), window, &full_event);
+            imgui_capture_events = imgui.context.io().want_capture_mouse;
+            imgui_capture_events |= imgui.context.io().want_capture_keyboard;
+        }
+
+        if !imgui_capture_events {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_window_events(&event);
         }
@@ -104,6 +118,7 @@ impl ApplicationHandler for App {
 
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
+                    self.is_minimized = false;
                     resize_resources(&mut self.resources, size.width, size.height);
 
                     // update camera aspect ratio
@@ -113,9 +128,15 @@ impl ApplicationHandler for App {
                         .iter_mut(&mut self.current_scene.world)
                         .next()
                         .map(|camera| camera.set_aspect(size.width as f32 / size.height as f32));
+                } else {
+                    self.is_minimized = true;
                 }
             }
             WindowEvent::RedrawRequested => {
+                if self.is_minimized {
+                    return;
+                }
+
                 if let Some(window) = &self.window {
                     {
                         let mut resources = &mut self.resources;
@@ -125,18 +146,19 @@ impl ApplicationHandler for App {
                     }
 
                     let (frame, view, encoder) = {
-                        let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-                        let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
-                        let frame = surface.get_current_texture().expect("RedrawRequested: Failed to get current texture");
+                        let device = self.resources.get::<wgpu::Device>().unwrap();
+                        let surface = self.resources.get::<wgpu::Surface>().unwrap();
+                        let frame = surface
+                            .get_current_texture()
+                            .expect("Failed to get current texture");
                         let view = frame.texture.create_view(&Default::default());
                         let encoder = device.create_command_encoder(&Default::default());
                         (frame, view, encoder)
                     };
 
-
                     self.resources.insert(encoder);
                     self.resources.insert(view);
-                    
+
                     if let Some(imgui) = &mut self.imgui {
                         let mut resources = &mut self.resources;
                         imgui.update_ui(window, &mut resources);
@@ -148,12 +170,10 @@ impl ApplicationHandler for App {
                             .execute(&mut self.current_scene.world, &mut resources);
                     }
 
-
                     let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
                     let queue = self.resources.get::<wgpu::Queue>().unwrap();
 
                     queue.submit([encoder.finish()]);
-
 
                     frame.present();
 
@@ -161,15 +181,6 @@ impl ApplicationHandler for App {
                 }
             }
             _ => (),
-        }
-
-        //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                &window,
-                &winit::event::Event::WindowEvent { window_id, event },
-            );
         }
     }
 }
@@ -180,15 +191,15 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
         surface_config.width = width;
         surface_config.height = height;
 
-        let surface = resources.get_mut::<wgpu::Surface>().unwrap();
-        let device = resources.get_mut::<wgpu::Device>().unwrap();
+        let surface = resources.get::<wgpu::Surface>().unwrap();
+        let device = resources.get::<wgpu::Device>().unwrap();
 
         surface.configure(&device, &surface_config);
     }
     // resize depth texture
     {
         let depth_texture = {
-            let device = resources.get_mut::<wgpu::Device>().unwrap();
+            let device = resources.get::<wgpu::Device>().unwrap();
             device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("depth_texture"),
                 size: wgpu::Extent3d {
