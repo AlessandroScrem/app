@@ -1,6 +1,8 @@
+use std::cell::RefCell;
+
 use crate::input::Input;
-use crate::prelude::*;
 use crate::renderer::gpu_renderer::DepthTexture;
+use crate::prelude::*;
 
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
@@ -9,29 +11,50 @@ use winit::window::{Window, WindowId};
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window = std::sync::Arc::new(
-            event_loop
-                .create_window(Window::default_attributes())
-                .unwrap(),
-        );
+        let size = winit::dpi::LogicalSize::new(1280.0, 720.0);
+        let attributes = Window::default_attributes()
+            .with_inner_size(size)
+            .with_title(format!("App"));
+        let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
 
         self.window = Some(window.clone());
 
         pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
         self.load();
+        self.create_gui();
 
         window.request_redraw();
+    }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
+        //imgui
+        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+            imgui.platform.handle_event::<()>(
+                imgui.context.io_mut(),
+                &window,
+                &winit::event::Event::UserEvent(event),
+            );
+        }
     }
 
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
+        device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_device_events(&event);
+        }
+
+        //imgui
+        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+            imgui.platform.handle_event::<()>(
+                imgui.context.io_mut(),
+                &window,
+                &winit::event::Event::DeviceEvent { device_id, event },
+            );
         }
     }
 
@@ -53,9 +76,23 @@ impl ApplicationHandler for App {
             frame_time -= self.delta_time;
             self.elapsed_time += self.delta_time;
         }
+
+        //imgui
+        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+            imgui.platform.handle_event::<()>(
+                imgui.context.io_mut(),
+                &window,
+                &winit::event::Event::AboutToWait,
+            );
+        }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_window_events(&event);
@@ -82,18 +119,82 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 if let Some(window) = &self.window {
-                    let mut resources = &mut self.resources;
-                    self.current_scene
-                        .schedule
-                        .execute(&mut self.current_scene.world, &mut resources);
+                    {
+                        let mut resources = &mut self.resources;
+                        self.current_scene
+                            .schedule
+                            .execute(&mut self.current_scene.world, &mut resources);
+                    }
 
-                    self.render_schedule
-                        .execute(&mut self.current_scene.world, &mut resources);
+                    let encoder = {
+                        let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+                        device.create_command_encoder(&Default::default())
+                    };
+
+                    let frame = {
+                        let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
+                        surface.get_current_texture().expect("Failed to get current texture")
+                    };
+
+                    {
+                        let resources = &mut self.resources;
+                        resources.insert(RefCell::new(Some(encoder)));
+                        resources.insert(RefCell::new(Some(frame)));
+                    }
+
+                    {
+                        let mut resources = &mut self.resources;
+                        self.render_schedule
+                            .execute(&mut self.current_scene.world, &mut resources);
+                    }
+
+                    if let Some(imgui) = &mut self.imgui {
+                        let mut resources = &mut self.resources;
+                        imgui.update_ui(window, &mut resources);
+                    }
+
+                    let encoder = {
+                        let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+                        let encoder_cell = self
+                            .resources
+                            .get_mut::<RefCell<Option<wgpu::CommandEncoder>>>()
+                            .unwrap();
+                        std::mem::replace(
+                            &mut *encoder_cell.borrow_mut(),
+                            Some(device.create_command_encoder(&Default::default())),
+                        )
+                    };
+
+                    let queue = self.resources.get::<wgpu::Queue>().unwrap();
+
+                    let encoder = encoder.expect("CommandEncoder missing");
+                    queue.submit([encoder.finish()]);
+
+                    let surface_texture_cell = self
+                        .resources
+                        .get::<RefCell<Option<wgpu::SurfaceTexture>>>()
+                        .expect("SurfaceTexture missing");
+
+                    let surface_texture = surface_texture_cell
+                        .borrow_mut()
+                        .take()
+                        .expect("SurfaceTexture missing");
+
+                    surface_texture.present();
 
                     window.request_redraw();
                 }
             }
             _ => (),
+        }
+
+        //imgui
+        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+            imgui.platform.handle_event::<()>(
+                imgui.context.io_mut(),
+                &window,
+                &winit::event::Event::WindowEvent { window_id, event },
+            );
         }
     }
 }

@@ -13,30 +13,22 @@ pub fn create() -> impl legion::systems::Runnable {
     use std::sync::Arc;
 
     SystemBuilder::new("render mesh")
+        .write_resource::<std::cell::RefCell<Option<wgpu::SurfaceTexture>>>()
+        .write_resource::<std::cell::RefCell<Option<wgpu::CommandEncoder>>>()
         .read_resource::<Arc<GPUResourceManager>>()
         .read_resource::<PipelineManager>()
-        .read_resource::<wgpu::Device>()
-        .write_resource::<wgpu::Surface>()
         .read_resource::<DepthTexture>()
-        .write_resource::<wgpu::Queue>()
         .with_query(<Read<Arc<mesh::Mesh>>>::query())
         .build(
             |_,
              world,
-             (gpu_resource_manager, pipeline_manager, device, surface, depth_texture, queue),
+             (frame, encoder, gpu_resource_manager, pipeline_manager, depth_texture),
              mesh_query| {
-                let output = match surface.get_current_texture() {
-                    Ok(out) => out,
-                    Err(_) => return,
-                };
 
-                let view = output
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
-
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("mesh"),
-                });
+ 
+                let frame_opt = frame.borrow_mut();
+                let surface_texture = frame_opt.as_ref().expect("SurfaceTexture missing");
+                let view = surface_texture.texture.create_view(&Default::default());
 
                 {
                     let clear_color = wgpu::Color {
@@ -45,6 +37,9 @@ pub fn create() -> impl legion::systems::Runnable {
                         b: 0.3,
                         a: 1.0,
                     };
+
+                    let mut encoder_opt = encoder.borrow_mut();
+                    let encoder = encoder_opt.as_mut().expect("error");
 
                     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Render Pass"),
@@ -86,17 +81,18 @@ pub fn create() -> impl legion::systems::Runnable {
                             let index_buffer = submesh.index_buffer.as_ref().unwrap();
                             let index_count = submesh.index_count as u32;
 
-                            renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+                            renderpass
+                                .set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
                             renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
                             renderpass.draw_indexed(0..index_count, 0, 0..1);
                         }
                     }
                 }
 
-                queue.submit([encoder.finish()]);
+                // queue.submit([encoder.finish()]);
                 // TODO: check if it's mandatory
                 // self.window.pre_present_notify();
-                output.present();
+                // output.present();
             },
         )
 }

@@ -5,7 +5,9 @@ use std::time::Instant;
 use super::DeltaTime;
 use crate::input::Input;
 
+use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
+use crate::resources;
 use crate::scene::Scene;
 
 use legion::Resources;
@@ -23,7 +25,9 @@ pub struct App {
     pub delta_time: f32,
     pub last_frame: Instant,
     pub render_schedule: Schedule,
+    pub  imgui: Option<ImguiState>,
 }
+
 
 impl Default for App {
     fn default() -> Self {
@@ -42,6 +46,7 @@ impl Default for App {
             frame_time: 0.0,
             delta_time: 0.0,
             last_frame: Instant::now(),
+            imgui: None,
         }
     }
 }
@@ -65,5 +70,20 @@ impl App {
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
         crate::renderer::pipeline_manager::create_default_pipeline(&self.resources);
+    }
+
+    pub fn create_gui(&mut self) {
+        if let Some(window) = &self.window {
+
+            let imgui = {                
+                let device = self.resources.get::<wgpu::Device>().unwrap();
+                let queue = self.resources.get::<wgpu::Queue>().unwrap();
+                let surface_config = self.resources.get::<wgpu::SurfaceConfiguration>().unwrap();
+                
+                imgui_tools::ImguiState::setup_imgui(&device, &queue, window.clone().as_ref(), surface_config.format)
+            };
+            
+            self.imgui = Some(imgui);
+        }
     }
 }
