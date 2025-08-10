@@ -90,19 +90,23 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        
+        let window = match &mut self.window {
+            Some(window) => window,
+            None => return,
+        };
+
         let mut imgui_capture_events = false;
-        //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
-            let full_event: winit::event::Event<()> = winit::event::Event::WindowEvent  {
-                window_id,
-                event: event.clone(),
-            };
-            imgui
-                .platform
-                .handle_event(imgui.context.io_mut(), window, &full_event);
-            imgui_capture_events = imgui.context.io().want_capture_mouse;
-            imgui_capture_events |= imgui.context.io().want_capture_keyboard;
+        if let Some(imgui) = &mut self.imgui {
+            imgui.platform.handle_event::<()>(
+                imgui.context.io_mut(),
+                window,
+                &winit::event::Event::WindowEvent {
+                    window_id,
+                    event: event.clone(),
+                },
+            );
+            imgui_capture_events =
+                imgui.context.io().want_capture_mouse || imgui.context.io().want_capture_keyboard;
         }
 
         if !imgui_capture_events {
@@ -120,14 +124,6 @@ impl ApplicationHandler for App {
                 if size.width > 0 && size.height > 0 {
                     self.is_minimized = false;
                     resize_resources(&mut self.resources, size.width, size.height);
-
-                    // update camera aspect ratio
-                    use legion::IntoQuery;
-                    let mut query = <&mut Camera>::query();
-                    query
-                        .iter_mut(&mut self.current_scene.world)
-                        .next()
-                        .map(|camera| camera.set_aspect(size.width as f32 / size.height as f32));
                 } else {
                     self.is_minimized = true;
                 }
@@ -138,12 +134,9 @@ impl ApplicationHandler for App {
                 }
 
                 if let Some(window) = &self.window {
-                    {
-                        let mut resources = &mut self.resources;
-                        self.current_scene
-                            .schedule
-                            .execute(&mut self.current_scene.world, &mut resources);
-                    }
+                    self.current_scene
+                        .schedule
+                        .execute(&mut self.current_scene.world, &mut self.resources);
 
                     let (frame, view, encoder) = {
                         let device = self.resources.get::<wgpu::Device>().unwrap();
@@ -160,15 +153,11 @@ impl ApplicationHandler for App {
                     self.resources.insert(view);
 
                     if let Some(imgui) = &mut self.imgui {
-                        let mut resources = &mut self.resources;
-                        imgui.update_ui(window, &mut resources);
+                        imgui.update_ui(window, &mut self.resources);
                     }
 
-                    {
-                        let mut resources = &mut self.resources;
-                        self.render_schedule
-                            .execute(&mut self.current_scene.world, &mut resources);
-                    }
+                    self.render_schedule
+                        .execute(&mut self.current_scene.world, &mut self.resources);
 
                     let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
                     let queue = self.resources.get::<wgpu::Queue>().unwrap();
