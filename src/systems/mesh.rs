@@ -13,8 +13,8 @@ pub fn create() -> impl legion::systems::Runnable {
     use std::sync::Arc;
 
     SystemBuilder::new("render mesh")
-        .write_resource::<std::cell::RefCell<Option<wgpu::SurfaceTexture>>>()
-        .write_resource::<std::cell::RefCell<Option<wgpu::CommandEncoder>>>()
+        .read_resource::<wgpu::TextureView>()
+        .write_resource::<wgpu::CommandEncoder>()
         .read_resource::<Arc<GPUResourceManager>>()
         .read_resource::<PipelineManager>()
         .read_resource::<DepthTexture>()
@@ -22,15 +22,10 @@ pub fn create() -> impl legion::systems::Runnable {
         .build(
             |_,
              world,
-             (frame, encoder, gpu_resource_manager, pipeline_manager, depth_texture),
+             (frame_view, encoder, gpu_resource_manager, pipeline_manager, depth_texture),
              mesh_query| {
 
  
-                let frame_opt = frame.borrow_mut();
-                let surface_texture = frame_opt.as_ref().expect("SurfaceTexture missing");
-                let view = surface_texture.texture.create_view(&Default::default());
-
-                {
                     let clear_color = wgpu::Color {
                         r: 0.1,
                         g: 0.2,
@@ -38,13 +33,10 @@ pub fn create() -> impl legion::systems::Runnable {
                         a: 1.0,
                     };
 
-                    let mut encoder_opt = encoder.borrow_mut();
-                    let encoder = encoder_opt.as_mut().expect("error");
-
                     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("Render Pass"),
                         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view: &view,
+                            view: frame_view,
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(clear_color),
@@ -87,12 +79,6 @@ pub fn create() -> impl legion::systems::Runnable {
                             renderpass.draw_indexed(0..index_count, 0, 0..1);
                         }
                     }
-                }
-
-                // queue.submit([encoder.finish()]);
-                // TODO: check if it's mandatory
-                // self.window.pre_present_notify();
-                // output.present();
             },
         )
 }

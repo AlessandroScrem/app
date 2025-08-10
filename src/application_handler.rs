@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use crate::input::Input;
 use crate::renderer::gpu_renderer::DepthTexture;
 use crate::prelude::*;
@@ -126,20 +124,22 @@ impl ApplicationHandler for App {
                             .execute(&mut self.current_scene.world, &mut resources);
                     }
 
-                    let encoder = {
+                    let (frame, view, encoder) = {
                         let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-                        device.create_command_encoder(&Default::default())
-                    };
-
-                    let frame = {
                         let surface = self.resources.get_mut::<wgpu::Surface>().unwrap();
-                        surface.get_current_texture().expect("Failed to get current texture")
+                        let frame = surface.get_current_texture().expect("RedrawRequested: Failed to get current texture");
+                        let view = frame.texture.create_view(&Default::default());
+                        let encoder = device.create_command_encoder(&Default::default());
+                        (frame, view, encoder)
                     };
 
-                    {
-                        let resources = &mut self.resources;
-                        resources.insert(RefCell::new(Some(encoder)));
-                        resources.insert(RefCell::new(Some(frame)));
+
+                    self.resources.insert(encoder);
+                    self.resources.insert(view);
+                    
+                    if let Some(imgui) = &mut self.imgui {
+                        let mut resources = &mut self.resources;
+                        imgui.update_ui(window, &mut resources);
                     }
 
                     {
@@ -148,39 +148,14 @@ impl ApplicationHandler for App {
                             .execute(&mut self.current_scene.world, &mut resources);
                     }
 
-                    if let Some(imgui) = &mut self.imgui {
-                        let mut resources = &mut self.resources;
-                        imgui.update_ui(window, &mut resources);
-                    }
 
-                    let encoder = {
-                        let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-                        let encoder_cell = self
-                            .resources
-                            .get_mut::<RefCell<Option<wgpu::CommandEncoder>>>()
-                            .unwrap();
-                        std::mem::replace(
-                            &mut *encoder_cell.borrow_mut(),
-                            Some(device.create_command_encoder(&Default::default())),
-                        )
-                    };
-
+                    let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
                     let queue = self.resources.get::<wgpu::Queue>().unwrap();
 
-                    let encoder = encoder.expect("CommandEncoder missing");
                     queue.submit([encoder.finish()]);
 
-                    let surface_texture_cell = self
-                        .resources
-                        .get::<RefCell<Option<wgpu::SurfaceTexture>>>()
-                        .expect("SurfaceTexture missing");
 
-                    let surface_texture = surface_texture_cell
-                        .borrow_mut()
-                        .take()
-                        .expect("SurfaceTexture missing");
-
-                    surface_texture.present();
+                    frame.present();
 
                     window.request_redraw();
                 }

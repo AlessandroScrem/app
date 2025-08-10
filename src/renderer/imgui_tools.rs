@@ -3,13 +3,11 @@ use std::time::Instant;
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
-use wgpu::{Device, Queue, TextureFormat};
 use winit::window::Window;
 
 pub struct ImguiState {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
-    pub renderer: Renderer,
     pub clear_color: wgpu::Color,
     pub demo_open: bool,
     pub last_frame: Instant,
@@ -17,11 +15,9 @@ pub struct ImguiState {
 }
 
 impl ImguiState {
-    pub fn setup_imgui(
-        device: &Device,
-        queue: &Queue,
+    pub fn create_imgui(
         window: &Window,
-        format: TextureFormat,
+        resources: &mut legion::Resources,
     ) -> Self {
         let mut context = imgui::Context::create();
         let mut platform = WinitPlatform::new(&mut context);
@@ -53,20 +49,26 @@ impl ImguiState {
             a: 1.0,
         };
 
-        let renderer_config = RendererConfig {
-            texture_format: format,
-            ..Default::default()
-        };
-
-        let renderer = Renderer::new(&mut context, device, queue, renderer_config);
         let last_frame = Instant::now();
         let last_cursor = None;
         let demo_open = true;
+        
+        let renderer = { 
+            let device = resources.get::<wgpu::Device>().unwrap();
+            let queue = resources.get::<wgpu::Queue>().unwrap();
+            let format = resources.get::<wgpu::SurfaceConfiguration>().unwrap().format;
+            let renderer_config = RendererConfig {
+                texture_format: format,
+                ..Default::default()
+            };
+            Renderer::new(&mut context, &device, &queue, renderer_config) 
+        };
 
+        resources.insert(renderer);
+        
         Self {
             context,
             platform,
-            renderer,
             clear_color,
             demo_open,
             last_frame,
@@ -90,7 +92,8 @@ impl ImguiState {
         {
             let window = ui.window("Hello world");
             window
-                .size([300.0, 100.0], Condition::FirstUseEver)
+                .size([300.0, 300.0], Condition::FirstUseEver)
+                .position([0.0, 0.0], Condition::FirstUseEver)
                 .build(|| {
                     ui.text("Hello world!");
                     ui.text("This...is...imgui-rs on WGPU!");
@@ -103,8 +106,8 @@ impl ImguiState {
                 });
             let window = ui.window("Hello too");
             window
-                .size([400.0, 200.0], Condition::FirstUseEver)
-                .position([400.0, 200.0], Condition::FirstUseEver)
+                .size([300.0, 100.0], Condition::FirstUseEver)
+                .position([0.0, 300.0], Condition::FirstUseEver)
                 .build(|| {
                     ui.text(format!("Frametime: {delta_s:?}"));
                 });
