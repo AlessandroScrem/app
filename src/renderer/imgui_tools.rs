@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{sync::RwLock, time::Instant};
 
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
@@ -15,10 +15,7 @@ pub struct ImguiState {
 }
 
 impl ImguiState {
-    pub fn create_imgui(
-        window: &Window,
-        resources: &mut legion::Resources,
-    ) -> Self {
+    pub fn create_imgui(window: &Window, resources: &mut legion::Resources) -> Self {
         let mut context = imgui::Context::create();
         let mut platform = WinitPlatform::new(&mut context);
         let hidpi_factor = window.scale_factor();
@@ -31,7 +28,7 @@ impl ImguiState {
 
         context.set_ini_filename(None);
 
-        let font_size = (13.0 * hidpi_factor) as f32;
+        let font_size = (10.0 * hidpi_factor) as f32;
 
         context.fonts().add_font(&[FontSource::DefaultFontData {
             config: Some(imgui::FontConfig {
@@ -52,20 +49,23 @@ impl ImguiState {
         let last_frame = Instant::now();
         let last_cursor = None;
         let demo_open = true;
-        
-        let renderer = { 
+
+        let renderer = {
             let device = resources.get::<wgpu::Device>().unwrap();
             let queue = resources.get::<wgpu::Queue>().unwrap();
-            let format = resources.get::<wgpu::SurfaceConfiguration>().unwrap().format;
+            let format = resources
+                .get::<wgpu::SurfaceConfiguration>()
+                .unwrap()
+                .format;
             let renderer_config = RendererConfig {
                 texture_format: format,
                 ..Default::default()
             };
-            Renderer::new(&mut context, &device, &queue, renderer_config) 
+            Renderer::new(&mut context, &device, &queue, renderer_config)
         };
 
         resources.insert(renderer);
-        
+
         Self {
             context,
             platform,
@@ -75,10 +75,13 @@ impl ImguiState {
             last_cursor,
         }
     }
-
+    
+    
     pub fn update_ui(&mut self, window: &Window, resources: &mut legion::Resources) {
+        static MY_VEC3: RwLock<[f32; 3]> = RwLock::new([0.0, 0.0, 0.0]);
         let delta_s = self.last_frame.elapsed();
         let now = Instant::now();
+
         self.context
             .io_mut()
             .update_delta_time(now - self.last_frame);
@@ -106,10 +109,15 @@ impl ImguiState {
                 });
             let window = ui.window("Hello too");
             window
-                .size([300.0, 100.0], Condition::FirstUseEver)
+                .size([300.0, 300.0], Condition::FirstUseEver)
                 .position([0.0, 300.0], Condition::FirstUseEver)
                 .build(|| {
                     ui.text(format!("Frametime: {delta_s:?}"));
+                    ui.separator();
+                    if let Ok(mut vec3) = MY_VEC3.write() {
+                        let slice: &mut [f32] = &mut *vec3;
+                        Drag::new("Vec3").range(0f32, 10f32).speed(0.01).build_array(ui, slice);
+                    }
                 });
         }
 
