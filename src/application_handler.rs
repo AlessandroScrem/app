@@ -24,6 +24,8 @@ impl ApplicationHandler for App {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
+        println!("user_event");
+
         //imgui
         if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
             imgui.platform.handle_event::<()>(
@@ -40,6 +42,8 @@ impl ApplicationHandler for App {
         device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
+        println!("device_event");
+
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_device_events(&event);
@@ -56,8 +60,15 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        let window = match &mut self.window {
+            Some(window) => window,
+            None => return,
+        };
+        println!("about_to_wait");
+
         let mut frame_time = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
         self.frame_time = frame_time * 1000.0;
+
 
         while frame_time > 0.0 {
             self.delta_time = f32::min(frame_time, self.fixed_timestep);
@@ -75,13 +86,15 @@ impl ApplicationHandler for App {
         }
 
         //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
+        if let Some(imgui) = &mut self.imgui {
             imgui.platform.handle_event::<()>(
                 imgui.context.io_mut(),
                 &window,
                 &winit::event::Event::AboutToWait,
             );
         }
+
+        window.request_redraw();
     }
 
     fn window_event(
@@ -90,12 +103,15 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        println!("window_event");
+
         let window = match &mut self.window {
             Some(window) => window,
             None => return,
         };
 
         let mut imgui_capture_events = false;
+
         if let Some(imgui) = &mut self.imgui {
             imgui.platform.handle_event::<()>(
                 imgui.context.io_mut(),
@@ -133,41 +149,37 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                if let Some(window) = &self.window {
-                    self.current_scene
-                        .schedule
-                        .execute(&mut self.current_scene.world, &mut self.resources);
+                self.current_scene
+                    .schedule
+                    .execute(&mut self.current_scene.world, &mut self.resources);
 
-                    let (frame, view, encoder) = {
-                        let device = self.resources.get::<wgpu::Device>().unwrap();
-                        let surface = self.resources.get::<wgpu::Surface>().unwrap();
-                        let frame = surface
-                            .get_current_texture()
-                            .expect("Failed to get current texture");
-                        let view = frame.texture.create_view(&Default::default());
-                        let encoder = device.create_command_encoder(&Default::default());
-                        (frame, view, encoder)
-                    };
+                let (frame, view, encoder) = {
+                    let device = self.resources.get::<wgpu::Device>().unwrap();
+                    let surface = self.resources.get::<wgpu::Surface>().unwrap();
+                    let frame = surface
+                        .get_current_texture()
+                        .expect("Failed to get current texture");
+                    let view = frame.texture.create_view(&Default::default());
+                    let encoder = device.create_command_encoder(&Default::default());
+                    (frame, view, encoder)
+                };
 
-                    self.resources.insert(encoder);
-                    self.resources.insert(view);
+                self.resources.insert(encoder);
+                self.resources.insert(view);
 
-                    if let Some(imgui) = &mut self.imgui {
-                        imgui.update_ui(window, &mut self.resources);
-                    }
-
-                    self.render_schedule
-                        .execute(&mut self.current_scene.world, &mut self.resources);
-
-                    let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
-                    let queue = self.resources.get::<wgpu::Queue>().unwrap();
-
-                    queue.submit([encoder.finish()]);
-
-                    frame.present();
-
-                    window.request_redraw();
+                if let Some(imgui) = &mut self.imgui {
+                    imgui.update_ui(window, &mut self.resources);
                 }
+
+                self.render_schedule
+                    .execute(&mut self.current_scene.world, &mut self.resources);
+
+                let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
+                let queue = self.resources.get::<wgpu::Queue>().unwrap();
+
+                queue.submit([encoder.finish()]);
+
+                frame.present();
             }
             _ => (),
         }

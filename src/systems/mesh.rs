@@ -1,23 +1,25 @@
 use wgpu::IndexFormat;
 
 use crate::{
-    renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
-    resources::gpu_manager::GPUResourceManager,
-    assets::mesh::Mesh,
+    assets::mesh::Mesh, renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager}, resources::gpu_manager::GPUResourceManager
 };
 
-use legion::*;
+use legion::{world::SubWorld, *};
 use std::sync::Arc;
 
-#[system(for_each)]
+#[system]
+#[read_component(Arc<Mesh>)]
 pub fn mesh(
-    mesh: &mut Arc<Mesh>,
+    world: &mut SubWorld,
     #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
 ) {
+
+    let mut mesh_query = <&Arc<Mesh>>::query();
+
     let clear_color = wgpu::Color {
         r: 0.1,
         g: 0.2,
@@ -59,13 +61,15 @@ pub fn mesh(
     renderpass.set_bind_group(0, camera_bind_group, &[]);
     renderpass.set_bind_group(1, texture_bind_group, &[]);
 
-    for submesh in mesh.submeshes.iter() {
-        let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
-        let index_buffer = submesh.index_buffer.as_ref().unwrap();
-        let index_count = submesh.index_count as u32;
-
-        renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
-        renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        renderpass.draw_indexed(0..index_count, 0, 0..1);
+    for mesh in mesh_query.iter(world) {   
+        for submesh in mesh.submeshes.iter() {
+            let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
+            let index_buffer = submesh.index_buffer.as_ref().unwrap();
+            let index_count = submesh.index_count as u32;
+            
+            renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+            renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            renderpass.draw_indexed(0..index_count, 0, 0..1);
+        }
     }
 }
