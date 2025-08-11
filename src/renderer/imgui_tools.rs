@@ -1,5 +1,6 @@
-use std::{sync::RwLock, time::Instant};
+use std::time::Instant;
 
+use cgmath::Deg;
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
@@ -75,12 +76,20 @@ impl ImguiState {
             last_cursor,
         }
     }
-    
-    
-    pub fn update_ui(&mut self, window: &Window, resources: &mut legion::Resources) {
-        static MY_VEC3: RwLock<[f32; 3]> = RwLock::new([0.0, 0.0, 0.0]);
+
+    pub fn update_ui(
+        &mut self,
+        window: &Window,
+        world: &mut legion::World,
+        resources: &mut legion::Resources,
+    ) {
         let delta_s = self.last_frame.elapsed();
         let now = Instant::now();
+
+        use legion::*;
+        let mut camera_query = <&mut crate::camera::Camera>::query();
+
+        let camera = camera_query.iter_mut(world).next();
 
         self.context
             .io_mut()
@@ -93,32 +102,61 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
-            let window = ui.window("Hello world");
+            let window = ui.window("General info");
             window
                 .size([300.0, 300.0], Condition::FirstUseEver)
                 .position([0.0, 0.0], Condition::FirstUseEver)
                 .build(|| {
-                    ui.text("Hello world!");
-                    ui.text("This...is...imgui-rs on WGPU!");
                     ui.separator();
+                    ui.text(format!("Frametime: {delta_s:?}"));
                     let mouse_pos = ui.io().mouse_pos;
                     ui.text(format!(
                         "Mouse position: ({:.1},{:.1})",
                         mouse_pos[0], mouse_pos[1]
                     ));
                 });
-            let window = ui.window("Hello too");
-            window
-                .size([300.0, 300.0], Condition::FirstUseEver)
-                .position([0.0, 300.0], Condition::FirstUseEver)
-                .build(|| {
-                    ui.text(format!("Frametime: {delta_s:?}"));
-                    ui.separator();
-                    if let Ok(mut vec3) = MY_VEC3.write() {
-                        let slice: &mut [f32] = &mut *vec3;
-                        Drag::new("Vec3").range(0f32, 10f32).speed(0.01).build_array(ui, slice);
-                    }
-                });
+
+            if let Some(camera) = camera {
+                let window = ui.window("Camera");
+                window
+                    .size([300.0, 300.0], Condition::FirstUseEver)
+                    .position([0.0, 300.0], Condition::FirstUseEver)
+                    .build(|| {
+                        ui.text(format!("Position: {:?}", camera.get_position()));
+                        ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
+                        ui.text(format!("Yaw/Pitch: {:.1} {:.1}", camera.get_yaw(), camera.get_pitch()));
+                        ui.text(format!("Near/Far: {:.1} {:.1}", camera.near, camera.far));
+                        let mut fov = camera.get_fov().0;
+                        ui.text(format!("Fov: {:.1}", fov));
+                        if Drag::new("Fov")
+                            .range(1.0f32, 179.0f32)
+                            .speed(1.0)
+                            .build(ui, &mut fov)
+                        {
+                            camera.set_fov(Deg(fov));
+                        }
+                        ui.separator();
+                        let mut distance = camera.get_distance();
+                        if Drag::new("Distance")
+                            .range(0f32, 10f32)
+                            .speed(0.01)
+                            .build(ui, &mut distance)
+                        {
+                            camera.set_distance(distance);
+                        }
+                        let mut near = camera.near; 
+                        let mut far = camera.far; 
+                        if DragRange::new("Near/Far")
+                            .range(0.1, 100.0)
+                            .speed(0.01)
+                            .build(ui,  &mut near, &mut far) {
+                                let near = near.max(0.1); 
+                                let far = far.max(near + 0.1); 
+                                camera.near = near;
+                                camera.far = far;
+                            }
+                    });
+            }
         }
 
         if self.last_cursor != ui.mouse_cursor() {

@@ -168,7 +168,8 @@ impl ApplicationHandler for App {
                 self.resources.insert(view);
 
                 if let Some(imgui) = &mut self.imgui {
-                    imgui.update_ui(window, &mut self.resources);
+                    let mut scene_world = &mut self.current_scene.world;
+                    imgui.update_ui(window, &mut scene_world, &mut self.resources);
                 }
 
                 self.render_schedule
