@@ -86,11 +86,6 @@ impl ImguiState {
         let delta_s = self.last_frame.elapsed();
         let now = Instant::now();
 
-        use legion::*;
-        let mut camera_query = <&mut crate::camera::Camera>::query();
-
-        let camera = camera_query.iter_mut(world).next();
-
         self.context
             .io_mut()
             .update_delta_time(now - self.last_frame);
@@ -100,6 +95,10 @@ impl ImguiState {
             .prepare_frame(self.context.io_mut(), &window)
             .expect("failed_to prepare frame");
 
+        use legion::query::IntoQuery;
+        let mut camera_query = <&mut crate::camera::Camera>::query();
+        let camera = camera_query.iter_mut(world).next();
+        
         let ui = self.context.frame();
         {
             let window = ui.window("General info");
@@ -116,45 +115,8 @@ impl ImguiState {
                     ));
                 });
 
-            if let Some(camera) = camera {
-                let window = ui.window("Camera");
-                window
-                    .size([300.0, 300.0], Condition::FirstUseEver)
-                    .position([0.0, 100.0], Condition::FirstUseEver)
-                    .build(|| {
-                        ui.text(format!("Position: {:?}", camera.get_position()));
-                        ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
-                        ui.text(format!("Yaw/Pitch: {:.1} {:.1}", camera.get_yaw_pitch().0, camera.get_yaw_pitch().1));
-                        ui.separator();
-                        let mut fov = Deg::from(camera.fov).0;
-                        if Drag::new("Fov")
-                            .range(1.0f32, 179.0f32)
-                            .speed(1.0)
-                            .build(ui, &mut fov)
-                        {
-                            camera.fov = Rad(fov.to_radians());
-                        }
-                        let mut distance = camera.get_distance();
-                        if Drag::new("Distance")
-                            .range(0f32, 10f32)
-                            .speed(0.01)
-                            .build(ui, &mut distance)
-                        {
-                            camera.set_distance(distance);
-                        }
-                        let mut near = camera.near; 
-                        let mut far = camera.far; 
-                        if DragRange::new("Near/Far")
-                            .range(0.1, 100.0)
-                            .speed(0.01)
-                            .build(ui,  &mut near, &mut far) {
-                                let near = near.max(0.1); 
-                                let far = far.max(near + 0.1); 
-                                camera.near = near;
-                                camera.far = far;
-                            }
-                    });
-            }
+            ui.camera_window(camera);
+            
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -165,5 +127,64 @@ impl ImguiState {
         let draw_data: &DrawData = self.context.render();
         let owned = OwnedDrawData::from(draw_data);
         resources.insert(owned);
+    }
+}
+
+use crate::camera::Camera;
+pub trait UiCameraExt {
+    fn camera_window(&self, camera: Option<&mut Camera>);
+}
+
+impl UiCameraExt for imgui::Ui {
+    fn camera_window(&self, camera: Option<&mut Camera>) {
+        let camera = match camera {
+            Some(camera) => camera,
+            None => return,
+        };
+        let window = self.window("Camera");
+        window
+            .size([300.0, 300.0], Condition::FirstUseEver)
+            .position([0.0, 100.0], Condition::FirstUseEver)
+            .build(|| {
+                self.text(format!("Position: {:?}", camera.get_position()));
+                self.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
+                self.text(format!(
+                    "Yaw/Pitch: {:.1} {:.1}",
+                    camera.get_yaw_pitch().0,
+                    camera.get_yaw_pitch().1
+                ));
+                self.separator();
+
+                let mut fov = Deg::from(camera.fov).0;
+                if Drag::new("Fov")
+                    .range(1.0f32, 179.0f32)
+                    .speed(1.0)
+                    .build(self, &mut fov)
+                {
+                    camera.fov = Rad(fov.to_radians());
+                }
+
+                let mut distance = camera.get_distance();
+                if Drag::new("Distance")
+                    .range(0f32, 10f32)
+                    .speed(0.01)
+                    .build(self, &mut distance)
+                {
+                    camera.set_distance(distance);
+                }
+
+                let mut near = camera.near;
+                let mut far = camera.far;
+                if DragRange::new("Near/Far")
+                    .range(0.1, 100.0)
+                    .speed(0.01)
+                    .build(self, &mut near, &mut far)
+                {
+                    let near = near.max(0.1);
+                    let far = far.max(near + 0.1);
+                    camera.near = near;
+                    camera.far = far;
+                }
+            });
     }
 }
