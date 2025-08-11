@@ -84,21 +84,16 @@ impl ImguiState {
         resources: &mut legion::Resources,
     ) {
         let delta_s = self.last_frame.elapsed();
-        let now = Instant::now();
+        self.last_frame = Instant::now();
 
         self.context
             .io_mut()
-            .update_delta_time(now - self.last_frame);
-        self.last_frame = now;
-
-        self.platform
-            .prepare_frame(self.context.io_mut(), &window)
-            .expect("failed_to prepare frame");
+            .update_delta_time(delta_s);
 
         use legion::query::IntoQuery;
         let mut camera_query = <&mut crate::camera::Camera>::query();
         let camera = camera_query.iter_mut(world).next();
-        
+
         let ui = self.context.frame();
         {
             let window = ui.window("General info");
@@ -116,7 +111,6 @@ impl ImguiState {
                 });
 
             ui.camera_window(camera);
-            
         }
 
         if self.last_cursor != ui.mouse_cursor() {

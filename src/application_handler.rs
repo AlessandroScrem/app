@@ -24,8 +24,6 @@ impl ApplicationHandler for App {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
-        // println!("user_event");
-
         //imgui
         if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
             imgui.platform.handle_event::<()>(
@@ -42,8 +40,6 @@ impl ApplicationHandler for App {
         device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
-        // println!("device_event");
-
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_device_events(&event);
@@ -64,22 +60,33 @@ impl ApplicationHandler for App {
             Some(window) => window,
             None => return,
         };
-        // println!("about_to_wait");
 
         let mut frame_time = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
         self.frame_time = frame_time * 1000.0;
 
-
         while frame_time > 0.0 {
+            // Cosa aggiornare dentro questo loop
+            // Fisica
+            //      Movimento di entità in base a velocità/accelerazione
+            //      Collision detection e collision response
+            // Gravità e forze varie
+            //      Animazioni non legate al rendering
+            //      Avanzamento di animazioni di scheletri, timeline di eventi
+            // Logica di gioco
+            //      AI (aggiornamento percorsi, decisioni)
+            //      Stati di missioni/eventi
+            // Timer e cooldown
+            //      Conti alla rovescia, spawn di nemici, ecc.
+            // Sistemi ECS
+            //      Tutti i sistemi che dipendono dal tempo e non devono "saltare frame"
+
             self.delta_time = f32::min(frame_time, self.fixed_timestep);
 
             self.current_scene
                 .update(self.delta_time, &mut self.resources);
 
-            {
-                let mut input = self.resources.get_mut::<Input>().unwrap();
-                input.clear();
-            }
+            let mut input = self.resources.get_mut::<Input>().unwrap();
+            input.clear();
 
             frame_time -= self.delta_time;
             self.elapsed_time += self.delta_time;
@@ -103,8 +110,6 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        // println!("window_event");
-
         let window = match &mut self.window {
             Some(window) => window,
             None => return,
@@ -149,9 +154,13 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                self.current_scene
-                    .schedule
-                    .execute(&mut self.current_scene.world, &mut self.resources);
+                // scheduler di update ecs (camera, mesh, etc)
+                self.current_scene.schedule.execute(&mut self.current_scene.world, &mut self.resources);
+
+                if let Some(imgui) = &mut self.imgui {
+                    let mut scene_world = &mut self.current_scene.world;
+                    imgui.update_ui(window, &mut scene_world, &mut self.resources);
+                }
 
                 let (frame, view, encoder) = {
                     let device = self.resources.get::<wgpu::Device>().unwrap();
@@ -167,11 +176,7 @@ impl ApplicationHandler for App {
                 self.resources.insert(encoder);
                 self.resources.insert(view);
 
-                if let Some(imgui) = &mut self.imgui {
-                    let mut scene_world = &mut self.current_scene.world;
-                    imgui.update_ui(window, &mut scene_world, &mut self.resources);
-                }
-
+                // scheduler di rendering (mesh, gui)
                 self.render_schedule
                     .execute(&mut self.current_scene.world, &mut self.resources);
 
