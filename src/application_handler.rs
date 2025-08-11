@@ -24,7 +24,7 @@ impl ApplicationHandler for App {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
-        println!("user_event");
+        // println!("user_event");
 
         //imgui
         if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
@@ -42,7 +42,7 @@ impl ApplicationHandler for App {
         device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
-        println!("device_event");
+        // println!("device_event");
 
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
@@ -64,7 +64,7 @@ impl ApplicationHandler for App {
             Some(window) => window,
             None => return,
         };
-        println!("about_to_wait");
+        // println!("about_to_wait");
 
         let mut frame_time = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
         self.frame_time = frame_time * 1000.0;
@@ -103,7 +103,7 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        println!("window_event");
+        // println!("window_event");
 
         let window = match &mut self.window {
             Some(window) => window,

@@ -1,5 +1,5 @@
 use cgmath::{
-    Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix,
+    EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix,
     Vector3, perspective,
 };
 
@@ -7,7 +7,7 @@ use cgmath::{
 pub struct Camera {
     position: Vector3<f32>,
     aspect: f32,
-    fov: Rad<f32>,
+    pub fov: Rad<f32>,
     pub near: f32,
     pub far: f32,
     yaw: f32,
@@ -45,21 +45,6 @@ impl Camera {
         camera
     }
 
-    pub fn get_matrix(&self) -> Matrix4<f32> {
-        self.view_matrix
-    }
-
-    pub fn get_projection(&self) -> Matrix4<f32> {
-        #[rustfmt::skip]
-        pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 0.5, 0.0,
-            0.0, 0.0, 0.5, 1.0,
-        );
-        OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
-    }
-
     pub fn update_view(&mut self) {
         self.position = self.calculate_position();
         let orientation = self.get_orientation();
@@ -67,77 +52,7 @@ impl Camera {
         self.view_matrix = (translation * Matrix4::from(orientation)).invert().unwrap();
     }
 
-    fn get_forward_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(0.0, 0.0, -1.0)).normalize()
-    }
-
-    fn get_right_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(1.0, 0.0, 0.0)).normalize()
-    }
-
-    fn get_up_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(0.0, 1.0, 0.0)).normalize()
-    }
-
-    fn get_orientation(&self) -> Quaternion<f32> {
-        Quaternion::from_angle_y(Rad(-self.yaw)) * Quaternion::from_angle_x(Rad(-self.pitch))
-    }
-
-    pub fn get_position(&self) -> Point3<f32> {
-        EuclideanSpace::from_vec(self.position)
-    }
-
-    pub fn get_focal_point(&self) -> Point3<f32> {
-        EuclideanSpace::from_vec(self.focal_point)
-    }
-
-    pub fn get_yaw(&self) -> f32 {
-        self.yaw
-    }
-    pub fn get_pitch(&self) -> f32 {
-        self.pitch
-    }
-
-    pub fn get_distance(&self) -> f32 {
-        self.distance
-    }
-    pub fn set_distance(&mut self, distance: f32) {
-        self.distance = distance;
-        self.update_view();
-    }
-
-    fn calculate_position(&self) -> Vector3<f32> {
-        self.focal_point - self.get_forward_direction() * self.distance
-    }
-
-    pub fn set_aspect(&mut self, aspect: f32) {
-        self.aspect = aspect;
-    }
-
-    pub fn pan_speed(&self) -> (f32, f32) {
-        const GAIN: f32 = 0.008;
-        const MAX_DELTA: f32 = 2.4;
-        const A: f32 = 0.0366;
-        const B: f32 = 0.1778;
-        const C: f32 = 0.3021;
-
-        let compute_factor = |value: f32| -> f32 {
-            let value = value.min(MAX_DELTA);
-            (A * (value * value) - B * value + C) * GAIN
-        };
-
-        (compute_factor(1.0), compute_factor(self.aspect.recip()))
-    }
-
-    fn zoom_speed(&self) -> f32 {
-        let max_speed = self.far - self.near;
-        const ZOOM_GAIN: f32 = 0.2;
-        let mut distance = self.distance * ZOOM_GAIN;
-        distance = distance.max(0.0);
-        let speed = distance.min(max_speed);
-        speed
-    }
-
+    // move camera in screen asis [left/right] [up/bottom]
     pub fn pan(&mut self, delta: (f64, f64)) {
         let dx = delta.0 as f32;
         let dy = delta.1 as f32;
@@ -159,6 +74,7 @@ impl Camera {
         self.update_view();
     }
 
+    // move camera position [back/forward] to focal_point  
     pub fn zoom(&mut self, delta: f32) {
         let distance = self.distance - delta * self.zoom_speed();
         if distance > 0.0 {
@@ -167,11 +83,90 @@ impl Camera {
         self.update_view();
     }
 
-    pub fn get_fov(&self) -> Deg<f32> {
-        self.fov.into()
+    // getters
+    pub fn get_matrix(&self) -> Matrix4<f32> {
+        self.view_matrix
     }
 
-    pub fn set_fov(&mut self, fov: Deg<f32>) {
-        self.fov = fov.into();
+    pub fn get_projection(&self) -> Matrix4<f32> {
+        #[rustfmt::skip]
+        pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            0.0, 0.0, 0.5, 1.0,
+        );
+        OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
+    }
+
+    pub fn get_position(&self) -> Point3<f32> {
+        EuclideanSpace::from_vec(self.position)
+    }
+
+    pub fn get_focal_point(&self) -> Point3<f32> {
+        EuclideanSpace::from_vec(self.focal_point)
+    }
+
+    pub fn get_yaw_pitch(&self) -> (f32, f32) {
+        (self.yaw, self.pitch)
+    }
+
+    pub fn get_distance(&self) -> f32 {
+        self.distance
+    }
+
+    // setters
+    pub fn set_distance(&mut self, distance: f32) {
+        self.distance = distance;
+        self.update_view();
+    }
+
+    pub fn set_aspect(&mut self, aspect: f32) {
+        self.aspect = aspect;
+    }
+
+    // private
+    fn get_forward_direction(&self) -> Vector3<f32> {
+        (self.get_orientation() * Vector3::new(0.0, 0.0, -1.0)).normalize()
+    }
+
+    fn get_right_direction(&self) -> Vector3<f32> {
+        (self.get_orientation() * Vector3::new(1.0, 0.0, 0.0)).normalize()
+    }
+
+    fn get_up_direction(&self) -> Vector3<f32> {
+        (self.get_orientation() * Vector3::new(0.0, 1.0, 0.0)).normalize()
+    }
+
+    fn get_orientation(&self) -> Quaternion<f32> {
+        Quaternion::from_angle_y(Rad(-self.yaw)) * Quaternion::from_angle_x(Rad(-self.pitch))
+    }
+
+    fn calculate_position(&self) -> Vector3<f32> {
+        self.focal_point - self.get_forward_direction() * self.distance
+    }
+
+    fn pan_speed(&self) -> (f32, f32) {
+        const GAIN: f32 = 0.008;
+        const MAX_DELTA: f32 = 2.4;
+        const A: f32 = 0.0366;
+        const B: f32 = 0.1778;
+        const C: f32 = 0.3021;
+
+        let compute_factor = |value: f32| -> f32 {
+            let value = value.min(MAX_DELTA);
+            (A * (value * value) - B * value + C) * GAIN
+        };
+
+        (compute_factor(1.0), compute_factor(self.aspect.recip()))
+    }
+
+    fn zoom_speed(&self) -> f32 {
+        let max_speed = self.far - self.near;
+        const ZOOM_GAIN: f32 = 0.2;
+        let mut distance = self.distance * ZOOM_GAIN;
+        distance = distance.max(0.0);
+        let speed = distance.min(max_speed);
+        speed
     }
 }

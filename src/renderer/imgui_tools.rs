@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use cgmath::Deg;
+use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
@@ -29,7 +29,7 @@ impl ImguiState {
 
         context.set_ini_filename(None);
 
-        let font_size = (10.0 * hidpi_factor) as f32;
+        let font_size = (9.0 * hidpi_factor) as f32;
 
         context.fonts().add_font(&[FontSource::DefaultFontData {
             config: Some(imgui::FontConfig {
@@ -104,7 +104,7 @@ impl ImguiState {
         {
             let window = ui.window("General info");
             window
-                .size([300.0, 300.0], Condition::FirstUseEver)
+                .size([300.0, 100.0], Condition::FirstUseEver)
                 .position([0.0, 0.0], Condition::FirstUseEver)
                 .build(|| {
                     ui.separator();
@@ -120,22 +120,20 @@ impl ImguiState {
                 let window = ui.window("Camera");
                 window
                     .size([300.0, 300.0], Condition::FirstUseEver)
-                    .position([0.0, 300.0], Condition::FirstUseEver)
+                    .position([0.0, 100.0], Condition::FirstUseEver)
                     .build(|| {
                         ui.text(format!("Position: {:?}", camera.get_position()));
                         ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
-                        ui.text(format!("Yaw/Pitch: {:.1} {:.1}", camera.get_yaw(), camera.get_pitch()));
-                        ui.text(format!("Near/Far: {:.1} {:.1}", camera.near, camera.far));
-                        let mut fov = camera.get_fov().0;
-                        ui.text(format!("Fov: {:.1}", fov));
+                        ui.text(format!("Yaw/Pitch: {:.1} {:.1}", camera.get_yaw_pitch().0, camera.get_yaw_pitch().1));
+                        ui.separator();
+                        let mut fov = Deg::from(camera.fov).0;
                         if Drag::new("Fov")
                             .range(1.0f32, 179.0f32)
                             .speed(1.0)
                             .build(ui, &mut fov)
                         {
-                            camera.set_fov(Deg(fov));
+                            camera.fov = Rad(fov.to_radians());
                         }
-                        ui.separator();
                         let mut distance = camera.get_distance();
                         if Drag::new("Distance")
                             .range(0f32, 10f32)
