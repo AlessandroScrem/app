@@ -1,23 +1,15 @@
 use cgmath::{
-    perspective, Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix, Vector3
+    EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix,
+    Vector3, perspective,
 };
-
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.5,
-    0.0, 0.0, 0.0, 1.0,
-);
-
 
 #[derive(Clone, Debug)]
 pub struct Camera {
     position: Vector3<f32>,
     aspect: f32,
-    fov: Rad<f32>,
-    near: f32,
-    far: f32,
+    pub fov: Rad<f32>,
+    pub near: f32,
+    pub far: f32,
     yaw: f32,
     pitch: f32,
     focal_point: Vector3<f32>,
@@ -26,12 +18,17 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn default() ->Self {
+    pub fn default() -> Self {
         const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
 
-    pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(fov: F, aspect: f32, near: f32, far: f32) -> Self {
+    pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(
+        fov: F,
+        aspect: f32,
+        near: f32,
+        far: f32,
+    ) -> Self {
         let mut camera = Self {
             position: Vector3::new(0.0, 0.0, 0.0),
             aspect,
@@ -48,14 +45,6 @@ impl Camera {
         camera
     }
 
-    pub fn get_matrix(&self) -> Matrix4<f32> {
-        self.view_matrix
-    }
-
-    pub fn get_projection(&self) -> Matrix4<f32> {
-         OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
-    }
-
     pub fn update_view(&mut self) {
         self.position = self.calculate_position();
         let orientation = self.get_orientation();
@@ -63,6 +52,80 @@ impl Camera {
         self.view_matrix = (translation * Matrix4::from(orientation)).invert().unwrap();
     }
 
+    // move camera in screen asis [left/right] [up/bottom]
+    pub fn pan(&mut self, delta: (f64, f64)) {
+        let dx = delta.0 as f32;
+        let dy = delta.1 as f32;
+        let (xspeed, yspeed) = self.pan_speed();
+        self.focal_point += -self.get_right_direction() * dx * xspeed * self.distance;
+        self.focal_point += self.get_up_direction() * dy * yspeed * self.distance;
+        self.update_view();
+    }
+
+    // Orbit the camera
+    pub fn orbit(&mut self, delta: (f64, f64)) {
+        const SPEED: f32 = 0.01;
+        let dx = delta.0 as f32;
+        let dy = delta.1 as f32;
+        let yaw_sign = self.get_up_direction().y.signum();
+
+        self.yaw += yaw_sign * dx * SPEED;
+        self.pitch += dy * SPEED;
+        self.update_view();
+    }
+
+    // move camera position [back/forward] to focal_point  
+    pub fn zoom(&mut self, delta: f32) {
+        let distance = self.distance - delta * self.zoom_speed();
+        if distance > 0.0 {
+            self.distance = distance;
+        }
+        self.update_view();
+    }
+
+    // getters
+    pub fn get_matrix(&self) -> Matrix4<f32> {
+        self.view_matrix
+    }
+
+    pub fn get_projection(&self) -> Matrix4<f32> {
+        #[rustfmt::skip]
+        pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 0.5, 0.0,
+            0.0, 0.0, 0.5, 1.0,
+        );
+        OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
+    }
+
+    pub fn get_position(&self) -> Point3<f32> {
+        EuclideanSpace::from_vec(self.position)
+    }
+
+    pub fn get_focal_point(&self) -> Point3<f32> {
+        EuclideanSpace::from_vec(self.focal_point)
+    }
+
+    pub fn get_yaw_pitch(&self) -> (f32, f32) {
+        (self.yaw, self.pitch)
+    }
+
+    pub fn get_distance(&self) -> f32 {
+        self.distance
+    }
+
+    // setters
+    pub fn set_distance(&mut self, distance: f32) {
+        self.distance = distance;
+        self.update_view();
+    }
+
+    pub fn set_aspect(&mut self, aspect: f32) {
+        self.aspect = aspect;
+    }
+
+    // private
     fn get_forward_direction(&self) -> Vector3<f32> {
         (self.get_orientation() * Vector3::new(0.0, 0.0, -1.0)).normalize()
     }
@@ -79,19 +142,11 @@ impl Camera {
         Quaternion::from_angle_y(Rad(-self.yaw)) * Quaternion::from_angle_x(Rad(-self.pitch))
     }
 
-    pub fn get_position(&self) -> Point3<f32> {
-        EuclideanSpace::from_vec(self.position)
-    }
-
     fn calculate_position(&self) -> Vector3<f32> {
         self.focal_point - self.get_forward_direction() * self.distance
     }
 
-    pub fn set_aspect(&mut self, aspect: f32){
-        self.aspect = aspect;
-    }
-
-    pub fn pan_speed(&self) -> (f32, f32) {
+    fn pan_speed(&self) -> (f32, f32) {
         const GAIN: f32 = 0.008;
         const MAX_DELTA: f32 = 2.4;
         const A: f32 = 0.0366;
@@ -113,42 +168,5 @@ impl Camera {
         distance = distance.max(0.0);
         let speed = distance.min(max_speed);
         speed
-    }
-
-    pub fn pan(&mut self, delta: (f64, f64))  {
-        let dx = delta.0 as f32;
-        let dy = delta.1 as f32;
-        let (xspeed, yspeed) = self.pan_speed();
-        self.focal_point += -self.get_right_direction() * dx * xspeed * self.distance;
-        self.focal_point += self.get_up_direction() * dy * yspeed * self.distance;
-        self.update_view();
-    }
-
-    // Orbit the camera
-    pub fn orbit(&mut self, delta: (f64, f64)) {
-        const  SPEED: f32  = 0.01; 
-        let dx = delta.0 as f32;
-        let dy = delta.1 as f32;
-        let yaw_sign = self.get_up_direction().y.signum();
-
-        self.yaw += yaw_sign * dx * SPEED;
-        self.pitch += dy * SPEED;
-        self.update_view();
-    }
-
-    pub fn zoom(&mut self, delta: f32) {
-        let distance = self.distance - delta * self.zoom_speed();
-        if distance > 0.0 {
-            self.distance = distance;
-        }
-        self.update_view();
-    }
-
-    pub fn get_fov(&self)-> Deg<f32> {
-        self.fov.into()
-    }
-
-    pub fn set_fov(&mut self, fov: Deg<f32>) {
-        self.fov = fov.into();
     }
 }

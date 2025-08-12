@@ -273,7 +273,7 @@ mod tests {
                 .unwrap();
 
             let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor::default(), None)
+                .request_device(&wgpu::DeviceDescriptor::default())
                 .await
                 .unwrap();
 

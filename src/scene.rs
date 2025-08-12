@@ -1,5 +1,5 @@
-use legion::*;
 use super::DeltaTime;
+use legion::*;
 
 pub struct Scene {
     pub world: World,
@@ -17,11 +17,7 @@ impl Scene {
     }
 
     pub(crate) fn update(&mut self, delta_time: f32, resources: &mut Resources) {
-        {
-            let mut delta = resources.get_mut::<DeltaTime>().unwrap();
-            *delta = DeltaTime(delta_time);
-        }
-
-        self.schedule.execute(&mut self.world, resources);
+        let mut delta = resources.get_mut::<DeltaTime>().unwrap();
+        *delta = DeltaTime(delta_time);
     }
 }

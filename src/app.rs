@@ -5,8 +5,10 @@ use std::time::Instant;
 use super::DeltaTime;
 use crate::input::Input;
 
+use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
+use crate::transform::Transform;
 
 use legion::Resources;
 use legion::Schedule;
@@ -23,6 +25,8 @@ pub struct App {
     pub delta_time: f32,
     pub last_frame: Instant,
     pub render_schedule: Schedule,
+    pub imgui: Option<ImguiState>,
+    pub is_minimized: bool,
 }
 
 impl Default for App {
@@ -42,6 +46,8 @@ impl Default for App {
             frame_time: 0.0,
             delta_time: 0.0,
             last_frame: Instant::now(),
+            imgui: None,
+            is_minimized: false,
         }
     }
 }
@@ -52,6 +58,7 @@ impl App {
         self.resources.insert(DeltaTime(10.0));
 
         crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
+        crate::entities::transform::create(&mut self.current_scene.world, Transform::default());
         crate::entities::mesh::create(
             &mut self.current_scene.world,
             &self.resources,
@@ -65,5 +72,13 @@ impl App {
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
         crate::renderer::pipeline_manager::create_default_pipeline(&self.resources);
+    }
+
+    pub fn create_gui(&mut self) {
+        if let Some(window) = &self.window {
+            let imgui = imgui_tools::ImguiState::create_imgui(window, &mut self.resources);
+            
+            self.imgui = Some(imgui);
+        }
     }
 }

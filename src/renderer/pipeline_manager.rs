@@ -151,6 +151,7 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
         layout_map.get("camera").unwrap(),
         layout_map.get("texture").unwrap(),
+        layout_map.get("model").unwrap(),
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
