@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
@@ -86,9 +86,11 @@ impl ImguiState {
         let delta_s = self.last_frame.elapsed();
         self.last_frame = Instant::now();
 
-        self.context
-            .io_mut()
-            .update_delta_time(delta_s);
+        self.context.io_mut().update_delta_time(delta_s);
+
+        self.platform
+            .prepare_frame(self.context.io_mut(), &window)
+            .expect("failed_to prepare frame");
 
         use legion::query::IntoQuery;
         let mut camera_query = <&mut crate::camera::Camera>::query();
@@ -96,27 +98,14 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
-            let window = ui.window("General info");
-            window
-                .size([300.0, 100.0], Condition::FirstUseEver)
-                .position([0.0, 0.0], Condition::FirstUseEver)
-                .build(|| {
-                    ui.separator();
-                    ui.text(format!("Frametime: {delta_s:?}"));
-                    let mouse_pos = ui.io().mouse_pos;
-                    ui.text(format!(
-                        "Mouse position: ({:.1},{:.1})",
-                        mouse_pos[0], mouse_pos[1]
-                    ));
-                });
-
-            ui.camera_window(camera);
+            draw_ui(ui, delta_s);
+            draw_ui_camera(ui, camera);
         }
 
         if self.last_cursor != ui.mouse_cursor() {
             self.last_cursor = ui.mouse_cursor();
             self.platform.prepare_render(ui, window);
-        }
+        };
 
         let draw_data: &DrawData = self.context.render();
         let owned = OwnedDrawData::from(draw_data);
@@ -124,61 +113,72 @@ impl ImguiState {
     }
 }
 
-use crate::camera::Camera;
-pub trait UiCameraExt {
-    fn camera_window(&self, camera: Option<&mut Camera>);
+fn draw_ui(ui: &imgui::Ui, delta_s: Duration) {
+    let window = ui.window("General info");
+    window
+        .size([300.0, 100.0], Condition::FirstUseEver)
+        .position([0.0, 0.0], Condition::FirstUseEver)
+        .build(|| {
+            ui.separator();
+            ui.text(format!("Frametime: {delta_s:?}"));
+            let mouse_pos = ui.io().mouse_pos;
+            ui.text(format!(
+                "Mouse position: ({:.1},{:.1})",
+                mouse_pos[0], mouse_pos[1]
+            ));
+        });
 }
 
-impl UiCameraExt for imgui::Ui {
-    fn camera_window(&self, camera: Option<&mut Camera>) {
-        let camera = match camera {
-            Some(camera) => camera,
-            None => return,
-        };
-        let window = self.window("Camera");
-        window
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .position([0.0, 100.0], Condition::FirstUseEver)
-            .build(|| {
-                self.text(format!("Position: {:?}", camera.get_position()));
-                self.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
-                self.text(format!(
-                    "Yaw/Pitch: {:.1} {:.1}",
-                    camera.get_yaw_pitch().0,
-                    camera.get_yaw_pitch().1
-                ));
-                self.separator();
+use crate::camera::Camera;
 
-                let mut fov = Deg::from(camera.fov).0;
-                if Drag::new("Fov")
-                    .range(1.0f32, 179.0f32)
-                    .speed(1.0)
-                    .build(self, &mut fov)
-                {
-                    camera.fov = Rad(fov.to_radians());
-                }
+fn draw_ui_camera(ui: &imgui::Ui, camera: Option<&mut Camera>) {
+    let camera = match camera {
+        Some(camera) => camera,
+        None => return,
+    };
+    let window = ui.window("Camera");
+    window
+        .size([300.0, 300.0], Condition::FirstUseEver)
+        .position([0.0, 100.0], Condition::FirstUseEver)
+        .build(|| {
+            ui.text(format!("Position: {:?}", camera.get_position()));
+            ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
+            ui.text(format!(
+                "Yaw/Pitch: {:.1} {:.1}",
+                camera.get_yaw_pitch().0,
+                camera.get_yaw_pitch().1
+            ));
+            ui.separator();
 
-                let mut distance = camera.get_distance();
-                if Drag::new("Distance")
-                    .range(0f32, 10f32)
-                    .speed(0.01)
-                    .build(self, &mut distance)
-                {
-                    camera.set_distance(distance);
-                }
+            let mut fov = Deg::from(camera.fov).0;
+            if Drag::new("Fov")
+                .range(1.0f32, 179.0f32)
+                .speed(1.0)
+                .build(ui, &mut fov)
+            {
+                camera.fov = Rad(fov.to_radians());
+            }
 
-                let mut near = camera.near;
-                let mut far = camera.far;
-                if DragRange::new("Near/Far")
-                    .range(0.1, 100.0)
-                    .speed(0.01)
-                    .build(self, &mut near, &mut far)
-                {
-                    let near = near.max(0.1);
-                    let far = far.max(near + 0.1);
-                    camera.near = near;
-                    camera.far = far;
-                }
-            });
-    }
+            let mut distance = camera.get_distance();
+            if Drag::new("Distance")
+                .range(0f32, 10f32)
+                .speed(0.01)
+                .build(ui, &mut distance)
+            {
+                camera.set_distance(distance);
+            }
+
+            let mut near = camera.near;
+            let mut far = camera.far;
+            if DragRange::new("Near/Far")
+                .range(0.1, 100.0)
+                .speed(0.01)
+                .build(ui, &mut near, &mut far)
+            {
+                let near = near.max(0.1);
+                let far = far.max(near + 0.1);
+                camera.near = near;
+                camera.far = far;
+            }
+        });
 }
