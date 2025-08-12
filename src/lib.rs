@@ -8,6 +8,7 @@ pub mod input;
 pub mod systems;
 pub mod resources;
 pub mod assets;
+pub mod transform;
 
 pub mod prelude {
     pub use super::app::App;

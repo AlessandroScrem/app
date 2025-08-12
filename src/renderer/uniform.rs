@@ -1,4 +1,4 @@
-use crate::camera;
+use cgmath::SquareMatrix;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -16,19 +16,16 @@ impl Default for CameraUniform {
     }
 }
 
-impl CameraUniform {
-    pub fn new() -> Self {
-        use cgmath::SquareMatrix;
-        Self {
-            view_position: [0.0; 4],
-            view_proj: cgmath::Matrix4::identity().into(),
-        }
-    }
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ModelUniform {
+    pub model: [[f32; 4]; 4],
+}
 
-    pub fn update_view_proj(&mut self, camera: &camera::Camera/* , projection: &camera::Projection */) {
-        // self.view_position = camera.position.to_homogeneous().into();
-        // self.view_proj = (projection.calc_matrix() * camera.get_matrix()).into();
-        self.view_position = camera.get_position().to_homogeneous().into();
-        self.view_proj = (camera.get_projection() * camera.get_matrix()).into();
+impl Default for ModelUniform {
+    fn default() -> Self {
+        Self {
+            model: cgmath::Matrix4::<f32>::identity().into(),
+        }
     }
 }

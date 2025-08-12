@@ -56,10 +56,12 @@ pub fn mesh(
     let map = gpu_resource_manager.bind_groups.lock().unwrap();
     let camera_bind_group = map.get("camera").unwrap();
     let texture_bind_group = map.get("texture").unwrap();
+    let model_bind_group = map.get("model").unwrap();
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, camera_bind_group, &[]);
     renderpass.set_bind_group(1, texture_bind_group, &[]);
+    renderpass.set_bind_group(2, model_bind_group, &[]);
 
     for mesh in mesh_query.iter(world) {   
         for submesh in mesh.submeshes.iter() {

@@ -93,13 +93,16 @@ impl ImguiState {
             .expect("failed_to prepare frame");
 
         use legion::query::IntoQuery;
-        let mut camera_query = <&mut crate::camera::Camera>::query();
-        let camera = camera_query.iter_mut(world).next();
-
+        
         let ui = self.context.frame();
         {
             draw_ui(ui, delta_s);
+            let mut camera_query = <&mut crate::camera::Camera>::query();
+            let camera = camera_query.iter_mut(world).next();
             draw_ui_camera(ui, camera);
+            let mut transform_query = <&mut Transform>::query();
+            let transform = transform_query.iter_mut(world).next();
+            draw_ui_model_transform(ui, transform);
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -129,7 +132,7 @@ fn draw_ui(ui: &imgui::Ui, delta_s: Duration) {
         });
 }
 
-use crate::camera::Camera;
+use crate::{camera::Camera, transform::Transform};
 
 fn draw_ui_camera(ui: &imgui::Ui, camera: Option<&mut Camera>) {
     let camera = match camera {
@@ -180,5 +183,25 @@ fn draw_ui_camera(ui: &imgui::Ui, camera: Option<&mut Camera>) {
                 camera.near = near;
                 camera.far = far;
             }
+        });
+}
+
+fn draw_ui_model_transform(ui: &imgui::Ui, transform: Option<&mut Transform>) {
+    let transform = match transform {
+        Some(transform) => transform,
+        None => return,
+    };
+    let window = ui.window("Model Transform");
+    window
+        .size([300.0, 300.0], Condition::FirstUseEver)
+        .position([0.0, 400.0], Condition::FirstUseEver)
+        .build(|| {
+            ui.text(format!("Position: {:?}", transform.position));
+            ui.separator();
+
+            Drag::new("Move <->")
+                .range(-10.0, 10.0)
+                .speed(0.1)
+                .build_array(ui, &mut transform.position);
         });
 }
