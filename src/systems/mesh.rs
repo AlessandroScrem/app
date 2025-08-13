@@ -84,34 +84,17 @@ pub fn mesh(
 }
 
 use crate::renderer::uniform::ModelUniform;
-use cgmath::Vector3;
 pub fn update_trnsform(
     transform: &Transform,
     queue: &wgpu::Queue,
     gpu_resource_manager: &GPUResourceManager,
 ) {
-    let updated_uniforms = ModelUniform {
-        model: cgmath::Matrix4::from_translation(Vector3::from(transform.position)).into(),
-    };
-
+    let model_matrix = transform.compute_model_matrix();
+    let updated_uniforms = ModelUniform::new(model_matrix);
+    
     queue.write_buffer(
         &gpu_resource_manager.model_uniform_buffer,
         0,
         bytemuck::bytes_of(&updated_uniforms),
     );
-    /*
-    use cgmath::{BaseFloat, Matrix3, Matrix4, Quaternion};
-    fn compute_model_matrix<T: BaseFloat>(translation: Vector3<T>, rotation: Quaternion<T>, scale: Vector3<T>) -> Matrix4<T> {
-        let t = Matrix4::from_translation(translation);
-        let r = Matrix4::from(rotation);
-        let s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
-
-        t * r * s
-    }
-
-    // Per la normal matrix puoi usare solo la matrice di rotazione:
-    fn compute_normal_matrix<T: BaseFloat>(rotation: Quaternion<T>) -> Matrix3<T> {
-        Matrix3::from(rotation)
-    }
-     */
 }

@@ -7,6 +7,7 @@ struct Camera {
 
 struct Model {
     model: mat4x4<f32>,
+    normal_matrix: mat4x4<f32>,
 }
 
 struct VertexInput {
@@ -34,14 +35,11 @@ fn vs_main(
 ) -> VertexOutput {
 
     var out: VertexOutput;
-
     let world_position = model.model * vec4<f32>(vertex.position, 1.0);
-    // calcolare la normalmatrix lato CPU
-    // var normal_matrix : mat3x3<f32> = mat3x3<f32>(transpose(inverse(model))); 
 
     out.clip_position = camera.view_proj * world_position;
     out.world_pos = world_position.xyz;
-    out.normal =  normalize(vertex.normal); // da moltiplicare per la matrice normale se non è identità
+    out.normal = normalize((model.normal_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
     out.uv =  vertex.uv;
     out.color = vertex.color;
 

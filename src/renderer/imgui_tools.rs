@@ -1,4 +1,4 @@
-use std::{time::{Duration, Instant}};
+use std::time::{Duration, Instant};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
@@ -93,7 +93,7 @@ impl ImguiState {
             .expect("failed_to prepare frame");
 
         use legion::query::IntoQuery;
-        
+
         let ui = self.context.frame();
         {
             draw_ui(ui, delta_s);
@@ -102,7 +102,7 @@ impl ImguiState {
                 draw_ui_camera(ui, camera);
             }
             let mut transform_query = <(&Mesh, &mut Transform)>::query();
-            if let Some((_, transform )) = transform_query.iter_mut(world).next(){
+            if let Some((_, transform)) = transform_query.iter_mut(world).next() {
                 draw_ui_model_transform(ui, transform);
             }
         }
@@ -191,11 +191,18 @@ fn draw_ui_model_transform(ui: &imgui::Ui, transform: &mut Transform) {
         .position([0.0, 400.0], Condition::FirstUseEver)
         .build(|| {
             ui.text(format!("Position: {:?}", transform.position));
+            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
+            ui.text(format!("Scale: {:?}", transform.scale));
             ui.separator();
 
-            Drag::new("Move <->")
-                .range(-10.0, 10.0)
+            Drag::new("Move")
                 .speed(0.1)
                 .build_array(ui, &mut transform.position);
+            Drag::new("Rot[rad]")
+                .speed(0.01)
+                .build_array(ui, &mut transform.rotation);
+            Drag::new("Scale")
+                .speed(0.1)
+                .build_array(ui, &mut transform.scale);
         });
 }
