@@ -1,9 +1,9 @@
 use crate::input::MouseButton;
 use legion::*;
 
-#[system(for_each)]
+#[system]
 pub fn camera_orbit(
-    camera: &mut crate::camera::Camera,
+    #[resource] camera: &mut crate::camera::Camera,
     #[resource] input: &crate::input::Input,
     #[resource] surface_configuration: &wgpu::SurfaceConfiguration,
 ) {

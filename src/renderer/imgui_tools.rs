@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::{time::{Duration, Instant}};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
@@ -97,12 +97,14 @@ impl ImguiState {
         let ui = self.context.frame();
         {
             draw_ui(ui, delta_s);
-            let mut camera_query = <&mut crate::camera::Camera>::query();
-            let camera = camera_query.iter_mut(world).next();
-            draw_ui_camera(ui, camera);
-            let mut transform_query = <&mut Transform>::query();
-            let transform = transform_query.iter_mut(world).next();
-            draw_ui_model_transform(ui, transform);
+
+            if let Some(camera) = resources.get_mut::<Camera>().as_deref_mut() {
+                draw_ui_camera(ui, camera);
+            }
+            let mut transform_query = <(&Mesh, &mut Transform)>::query();
+            if let Some((_, transform )) = transform_query.iter_mut(world).next(){
+                draw_ui_model_transform(ui, transform);
+            }
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -132,13 +134,9 @@ fn draw_ui(ui: &imgui::Ui, delta_s: Duration) {
         });
 }
 
-use crate::{camera::Camera, transform::Transform};
+use crate::{assets::mesh::Mesh, camera::Camera, transform::Transform};
 
-fn draw_ui_camera(ui: &imgui::Ui, camera: Option<&mut Camera>) {
-    let camera = match camera {
-        Some(camera) => camera,
-        None => return,
-    };
+fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
     let window = ui.window("Camera");
     window
         .size([300.0, 300.0], Condition::FirstUseEver)
@@ -186,11 +184,7 @@ fn draw_ui_camera(ui: &imgui::Ui, camera: Option<&mut Camera>) {
         });
 }
 
-fn draw_ui_model_transform(ui: &imgui::Ui, transform: Option<&mut Transform>) {
-    let transform = match transform {
-        Some(transform) => transform,
-        None => return,
-    };
+fn draw_ui_model_transform(ui: &imgui::Ui, transform: &mut Transform) {
     let window = ui.window("Model Transform");
     window
         .size([300.0, 300.0], Condition::FirstUseEver)

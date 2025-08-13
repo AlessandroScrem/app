@@ -1,7 +1,7 @@
 
-use std::{path::{Path}, sync::Arc};
+use std::path::{Path};
 
-use crate::assets::{material_manager::MaterialManager, mesh::*};
+use crate::{assets::{material_manager::MaterialManager, mesh::*}, transform::Transform};
 use legion::*;
 
 /// A function to help create a mesh entity.
@@ -11,7 +11,7 @@ pub fn create(world: &mut World, resources: &Resources, path: &Path) -> Entity {
 
      let mesh = load_gltf(&mut material_manager, &device, path).unwrap();
 
-     world.push((Arc::new(mesh), ))
+     world.push((mesh, Transform::default()))
 }
 
 

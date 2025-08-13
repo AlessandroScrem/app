@@ -4,13 +4,15 @@ use crate::{
     assets::mesh::Mesh,
     renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
     resources::gpu_manager::GPUResourceManager,
+    transform::Transform,
 };
 
 use legion::{world::SubWorld, *};
 use std::sync::Arc;
 
 #[system]
-#[read_component(Arc<Mesh>)]
+#[read_component(Mesh)]
+#[read_component(Transform)]
 pub fn mesh(
     world: &mut SubWorld,
     #[resource] frame_view: &wgpu::TextureView,
@@ -18,8 +20,9 @@ pub fn mesh(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
+    #[resource] queue: &wgpu::Queue,
 ) {
-    let mut mesh_query = <&Arc<Mesh>>::query();
+    let mut mesh_query = <(&Mesh, &Transform)>::query();
 
     let clear_color = wgpu::Color {
         r: 0.1,
@@ -60,9 +63,11 @@ pub fn mesh(
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, camera_bind_group, &[]);
-    renderpass.set_bind_group(2, model_bind_group, &[]);
 
-    for mesh in mesh_query.iter(world) {
+    for (mesh, transform) in mesh_query.iter(world) {
+        update_trnsform(transform, queue, gpu_resource_manager);
+        renderpass.set_bind_group(2, model_bind_group, &[]);
+
         for submesh in mesh.submeshes.iter() {
             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
             let index_buffer = submesh.index_buffer.as_ref().unwrap();
@@ -76,4 +81,37 @@ pub fn mesh(
             renderpass.draw_indexed(0..index_count, 0, 0..1);
         }
     }
+}
+
+use crate::renderer::uniform::ModelUniform;
+use cgmath::Vector3;
+pub fn update_trnsform(
+    transform: &Transform,
+    queue: &wgpu::Queue,
+    gpu_resource_manager: &GPUResourceManager,
+) {
+    let updated_uniforms = ModelUniform {
+        model: cgmath::Matrix4::from_translation(Vector3::from(transform.position)).into(),
+    };
+
+    queue.write_buffer(
+        &gpu_resource_manager.model_uniform_buffer,
+        0,
+        bytemuck::bytes_of(&updated_uniforms),
+    );
+    /*
+    use cgmath::{BaseFloat, Matrix3, Matrix4, Quaternion};
+    fn compute_model_matrix<T: BaseFloat>(translation: Vector3<T>, rotation: Quaternion<T>, scale: Vector3<T>) -> Matrix4<T> {
+        let t = Matrix4::from_translation(translation);
+        let r = Matrix4::from(rotation);
+        let s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+
+        t * r * s
+    }
+
+    // Per la normal matrix puoi usare solo la matrice di rotazione:
+    fn compute_normal_matrix<T: BaseFloat>(rotation: Quaternion<T>) -> Matrix3<T> {
+        Matrix3::from(rotation)
+    }
+     */
 }

@@ -8,8 +8,6 @@ use crate::input::Input;
 use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
-use crate::transform::Transform;
-
 use legion::Resources;
 use legion::Schedule;
 
@@ -56,9 +54,8 @@ impl App {
     pub fn load(&mut self) {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
+        self.resources.insert(Camera::default());
 
-        crate::entities::camera::create(&mut self.current_scene.world, Camera::default());
-        crate::entities::transform::create(&mut self.current_scene.world, Transform::default());
         crate::entities::mesh::create(
             &mut self.current_scene.world,
             &self.resources,

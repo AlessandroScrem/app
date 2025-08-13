@@ -5,11 +5,11 @@ use crate::resources::gpu_manager::GPUResourceManager;
 use std::sync::Arc;
 use legion::*;
 
-#[system(for_each)]
+#[system]
 pub fn global(
-    camera: &Camera,
     #[resource] resource_manager: &Arc<GPUResourceManager>,
     #[resource] queue: &wgpu::Queue,
+    #[resource] camera: &Camera,
 ) {
     update_globals(camera, queue, resource_manager);
 }
