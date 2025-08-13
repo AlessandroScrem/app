@@ -90,7 +90,7 @@ impl MaterialManager {
         let roughness_info = pbr.metallic_roughness_texture();
         let roughness = pbr.roughness_factor();
         let metallic = pbr.metallic_factor();
-        
+
         let roughness_texture = get_texture_url(&roughness_info, &images);
         let has_pbr_texture = roughness_texture.is_some();
         let main_texture = get_texture_url(&main_info, &images).unwrap_or("white.png".to_string());
@@ -99,13 +99,8 @@ impl MaterialManager {
 
         let mut textures: HashMap<TextureType, TextureBinding> = HashMap::new();
 
-        let main_texture = load_texture(
-            &main_texture,
-            parent_path,
-            &self.device,
-            &self.queue,
-            true,
-        );
+        let main_texture =
+            load_texture(&main_texture, parent_path, &self.device, &self.queue, true);
         let normal_texture = load_texture(
             &normal_texture,
             parent_path,
@@ -121,48 +116,47 @@ impl MaterialManager {
             true,
         );
 
-        
-        
+        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
         let texture_bind_group_layout = self
             .gpu_manager
             .get_layout("texture")
             .expect("unable to find bind group layout");
-        
+
         let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&main_texture.texture.view),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&normal_texture.texture.sampler),
+                    resource: wgpu::BindingResource::TextureView(&main_texture.texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&roughness_texture.texture.view),
+                    resource: wgpu::BindingResource::TextureView(&normal_texture.texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&roughness_texture.texture.sampler),
+                    resource: wgpu::BindingResource::TextureView(&roughness_texture.texture.view),
                 },
-                ],
-                label: Some("texture_bind_group"),
-            });
-            
-            textures.insert(
-                TextureType::Main,
-                main_texture,
-            );
-            textures.insert(
-                TextureType::Normal,
-                normal_texture,
-            );
-            textures.insert(
-                TextureType::Roughness,
-                roughness_texture,
-            );
+            ],
+            label: Some("texture_bind_group"),
+        });
+
+        textures.insert(TextureType::Main, main_texture);
+        textures.insert(TextureType::Normal, normal_texture);
+        textures.insert(TextureType::Roughness, roughness_texture);
 
         Material {
             roughness,
@@ -171,7 +165,7 @@ impl MaterialManager {
             metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
             color,
             textures,
-            bind_group:  Some(diffuse_bind_group),
+            bind_group: Some(diffuse_bind_group),
         }
     }
 }

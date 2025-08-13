@@ -16,10 +16,8 @@ struct VertexInput {
     @location(3) uv: vec2<f32>,
 };
 
-@group(0) @binding(0)
-var<uniform> camera: Camera;
-@group(2) @binding(0)
-var<uniform> model: Model;
+@group(0) @binding(0) var<uniform> camera: Camera;
+@group(2) @binding(0) var<uniform> model: Model;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -89,20 +87,16 @@ fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
     return vec3<f32>(uv * 0.5 + vec2<f32>(0.5), 0.0);
 }
 
-@group(1) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(1) @binding(1)
-var s_diffuse: sampler;
-@group(1)@binding(2)
-var t_normal: texture_2d<f32>;
-@group(1) @binding(3)
-var s_normal: sampler;
+@group(1) @binding(0) var tex_sampler: sampler;
+@group(1) @binding(1) var main_map: texture_2d<f32>;
+@group(1) @binding(2) var normal_map: texture_2d<f32>;
+@group(1) @binding(3) var roughness_map: texture_2d<f32>;
 
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let object_color = textureSample(t_diffuse, s_diffuse, input.uv).rgb;
-    let object_normal = textureSample(t_normal, s_normal, input.uv).rgb;
+    let object_color = textureSample(main_map, tex_sampler, input.uv).rgb;
+    let object_normal = textureSample(normal_map, tex_sampler, input.uv).rgb;
 
     let color = blinn_phong(object_color, input.normal, input.world_pos);
 
