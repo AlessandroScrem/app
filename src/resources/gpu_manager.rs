@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use crate::renderer::uniform::{CameraUniform, ModelUniform};
 use wgpu::util::DeviceExt;
@@ -7,7 +7,7 @@ pub struct GPUResourceManager {
     pub camera_uniform_buffer: wgpu::Buffer,
     pub model_uniform_buffer: wgpu::Buffer,
 
-    pub bind_group_layouts: Mutex<HashMap<String, wgpu::BindGroupLayout>>,
+    pub bind_group_layouts: Mutex<HashMap<String, Arc<wgpu::BindGroupLayout>>>,
     pub bind_groups: Mutex<HashMap<String, wgpu::BindGroup>>,
 }
 
@@ -42,6 +42,47 @@ impl GPUResourceManager {
             label: Some("Camera Bind Group"),
         });
 
+        let texture_bind_group_layout =
+            device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // normal map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("Texture_bind_group_layout"),
+                });
+
         let model_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -73,8 +114,9 @@ impl GPUResourceManager {
         });
 
         let mut layouts = HashMap::new();
-        layouts.insert("camera".into(), camera_bind_group_layout);
-        layouts.insert("model".into(), model_bind_group_layout);
+        layouts.insert("camera".into(), Arc::new(camera_bind_group_layout));
+        layouts.insert("texture".into(), Arc::new(texture_bind_group_layout));
+        layouts.insert("model".into(), Arc::new(model_bind_group_layout));
 
         let mut groups = HashMap::new();
         groups.insert("camera".into(), camera_bind_group);
@@ -88,14 +130,11 @@ impl GPUResourceManager {
         }
     }
 
-    pub fn add_bind_group_layout(&self, name: &str, bind_group_layout: wgpu::BindGroupLayout) {
-        let mut map = self.bind_group_layouts.lock().unwrap();
-        map.insert(name.into(), bind_group_layout);
+    pub fn get_layout(&self, name: &str) -> Option<Arc<wgpu::BindGroupLayout>> {
+        let map = self.bind_group_layouts.lock().unwrap();
+        match map.get(name) {
+            Some(layout) => Some(layout.clone()),
+            None => None,
+        }
     }
-
-    pub fn add_bind_group(&self, name: &str, bind_group: wgpu::BindGroup) {
-        let mut map = self.bind_groups.lock().unwrap();
-        map.insert(name.to_string(), bind_group);
-    }
-    
 }

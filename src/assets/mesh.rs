@@ -34,6 +34,7 @@ pub struct SubMesh {
     pub(crate) index_buffer: Option<wgpu::Buffer>,
     pub(crate) index_count: usize,
     pub primitive_topology: wgpu::PrimitiveTopology,
+    pub material:Material,
 }
 
 pub struct Mesh {
@@ -105,61 +106,9 @@ pub fn load_gltf(
 
         let index_count = indices.len();
 
+        // begin material
         let gltf_material: gltf::Material<'_> = primitive.material();
-        let pbr = gltf_material.pbr_metallic_roughness();
-
-        // materials
-        let color_factor = pbr.base_color_factor();
-        let color = cgmath::Vector4::new(
-            color_factor[0],
-            color_factor[1],
-            color_factor[2],
-            color_factor[3],
-        );
-
-        let main_info = pbr.base_color_texture();
-        let mut normal_texture = None;
-        let normals_texture = gltf_material.normal_texture();
-        if normals_texture.is_some() {
-            let normal_source = normals_texture.unwrap().texture().source().source();
-            match normal_source {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let texture_file_name = Some(
-                        Path::new(&uri)
-                            .file_name()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .unwrap()
-                            .to_string(),
-                    );
-                    if texture_file_name.is_some() {
-                        normal_texture = Some(texture_file_name.unwrap());
-                    }
-                }
-                _ => (),
-            }
-        }
-        let roughness_info = pbr.metallic_roughness_texture();
-        let roughness = pbr.roughness_factor();
-        let metallic = pbr.metallic_factor();
-
-        let main_texture = get_texture_url(&main_info, &images);
-        let roughness_texture = get_texture_url(&roughness_info, &images);
-
-        let has_pbr_texture = roughness_texture.is_some();
-
-        let material = Material {
-            main_texture: main_texture.unwrap_or("white.png".to_string()),
-            normal_texture: normal_texture.unwrap_or("white.png".to_string()),
-            roughness_texture: roughness_texture.unwrap_or("white.png".to_string()),
-            roughness,
-            metallic,
-            roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },
-            metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
-            color,
-            textures: std::collections::HashMap::new(),
-        };
-
-        material_manager.add_material(material, path.to_path_buf());
+        let material = material_manager.create_material(&gltf_material, &images, path.to_path_buf());
 
         let primitive_topology = get_primitive_mode(primitive.mode());
 
@@ -170,38 +119,12 @@ pub fn load_gltf(
             index_buffer: Some(index_buffer),
             index_count,
             primitive_topology,
+            material
         };
         submeshes.push(submesh);
     }
 
     Ok(Mesh { name, submeshes })
-}
-
-fn get_texture_url(
-    info: &Option<gltf::texture::Info<'_>>,
-    images: &Vec<gltf::Image<'_>>,
-) -> Option<String> {
-    let mut file_name = None;
-    if info.is_some() {
-        let info = info.as_ref().unwrap();
-        let tex = info.texture();
-
-        let image: Option<&gltf::Image<'_>> = images.get(tex.index());
-        if image.is_some() {
-            let image = image.unwrap();
-            let source = image.source();
-            match source {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let texture_file_name = Some(Path::new(&uri).to_str().unwrap().to_string());
-                    if texture_file_name.is_some() {
-                        file_name = Some(texture_file_name.unwrap());
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
-    file_name
 }
 
 fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
