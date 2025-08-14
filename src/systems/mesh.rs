@@ -20,10 +20,7 @@ pub fn mesh(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
-    #[resource] queue: &wgpu::Queue,
 ) {
-    let mut mesh_query = <(&Mesh, &Transform)>::query();
-
     let clear_color = wgpu::Color {
         r: 0.1,
         g: 0.2,
@@ -59,14 +56,13 @@ pub fn mesh(
 
     let map = gpu_resource_manager.bind_groups.lock().unwrap();
     let camera_bind_group = map.get("camera").unwrap();
-    let model_bind_group = map.get("model").unwrap();
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, camera_bind_group, &[]);
-
-    for (mesh, transform) in mesh_query.iter(world) {
-        update_trnsform(transform, queue, gpu_resource_manager);
-        renderpass.set_bind_group(2, model_bind_group, &[]);
+    
+    let mut mesh_query = <(&Mesh, &Transform)>::query();
+    for (mesh, _) in mesh_query.iter(world) {
+        renderpass.set_bind_group(2, &mesh.model_bind_group, &[]);
 
         for submesh in mesh.submeshes.iter() {
             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
@@ -83,18 +79,22 @@ pub fn mesh(
     }
 }
 
+
 use crate::renderer::uniform::ModelUniform;
+#[system(for_each)]
 pub fn update_trnsform(
     transform: &Transform,
-    queue: &wgpu::Queue,
-    gpu_resource_manager: &GPUResourceManager,
+    mesh: &Mesh,
+    #[resource] queue: &wgpu::Queue,
 ) {
     let model_matrix = transform.compute_model_matrix();
     let updated_uniforms = ModelUniform::new(model_matrix);
     
     queue.write_buffer(
-        &gpu_resource_manager.model_uniform_buffer,
+        &mesh.model_uniform_buffer,
         0,
         bytemuck::bytes_of(&updated_uniforms),
     );
 }
+
+

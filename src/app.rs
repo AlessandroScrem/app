@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -59,7 +58,6 @@ impl App {
         crate::entities::mesh::create(
             &mut self.current_scene.world,
             &self.resources,
-            Path::new("./assets/cube/cube.gltf"),
         );
 
         self.current_scene.schedule = Schedule::builder()

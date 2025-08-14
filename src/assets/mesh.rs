@@ -3,7 +3,10 @@ use std::path::Path;
 use gltf::buffer;
 use wgpu::util::DeviceExt;
 
-use crate::assets::material_manager::{Material, MaterialManager};
+use crate::{
+    assets::material_manager::{Material, MaterialManager},
+    resources::gpu_manager::GPUResourceManager,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -34,17 +37,20 @@ pub struct SubMesh {
     pub(crate) index_buffer: Option<wgpu::Buffer>,
     pub(crate) index_count: usize,
     pub primitive_topology: wgpu::PrimitiveTopology,
-    pub material:Material,
+    pub material: Material,
 }
 
 pub struct Mesh {
     pub name: String,
     pub submeshes: Vec<SubMesh>,
+    pub model_uniform_buffer: wgpu::Buffer,
+    pub model_bind_group: wgpu::BindGroup,
 }
 
 #[allow(dead_code)]
 pub fn load_gltf(
     material_manager: &mut MaterialManager,
+    gpu_resource_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
 ) -> Result<Mesh, Box<dyn std::error::Error>> {
@@ -108,7 +114,8 @@ pub fn load_gltf(
 
         // begin material
         let gltf_material: gltf::Material<'_> = primitive.material();
-        let material = material_manager.create_material(&gltf_material, &images, path.to_path_buf());
+        let material =
+            material_manager.create_material(&gltf_material, &images, path.to_path_buf());
 
         let primitive_topology = get_primitive_mode(primitive.mode());
 
@@ -119,12 +126,36 @@ pub fn load_gltf(
             index_buffer: Some(index_buffer),
             index_count,
             primitive_topology,
-            material
+            material,
         };
         submeshes.push(submesh);
     }
 
-    Ok(Mesh { name, submeshes })
+    let model_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Model Uniform Buffer"),
+        contents: bytemuck::cast_slice(&[crate::renderer::uniform::ModelUniform::default()]),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+
+    let model_bind_group_layout = gpu_resource_manager
+        .get_layout("model")
+        .expect("unable to find bind group layout");
+
+    let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &model_bind_group_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: model_uniform_buffer.as_entire_binding(),
+        }],
+        label: Some("Model Bind Group"),
+    });
+
+    Ok(Mesh {
+        name,
+        submeshes,
+        model_uniform_buffer,
+        model_bind_group,
+    })
 }
 
 fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
@@ -207,11 +238,13 @@ mod tests {
         });
 
         let gpu_manager = GPUResourceManager::new(&device);
+        let gpu_manager = Arc::new(gpu_manager);
         let mut material_manager =
-            MaterialManager::new(device.clone(), queue, Arc::new(gpu_manager));
+            MaterialManager::new(device.clone(), queue, gpu_manager.clone());
 
         let result = load_gltf(
             &mut material_manager,
+            &gpu_manager,
             &device,
             std::path::Path::new("./assets/cube/cube.gltf"),
         );

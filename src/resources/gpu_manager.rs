@@ -1,11 +1,10 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::renderer::uniform::{CameraUniform, ModelUniform};
+use crate::renderer::uniform::{CameraUniform};
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub model_uniform_buffer: wgpu::Buffer,
 
     pub bind_group_layouts: Mutex<HashMap<String, Arc<wgpu::BindGroupLayout>>>,
     pub bind_groups: Mutex<HashMap<String, wgpu::BindGroup>>,
@@ -105,21 +104,6 @@ impl GPUResourceManager {
                 label: Some("Model Bind Group Layout"),
             });
 
-        let model_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Model Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[ModelUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &model_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: model_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Model Bind Group"),
-        });
-
         let mut layouts = HashMap::new();
         layouts.insert("camera".into(), Arc::new(camera_bind_group_layout));
         layouts.insert("texture".into(), Arc::new(texture_bind_group_layout));
@@ -127,11 +111,9 @@ impl GPUResourceManager {
 
         let mut groups = HashMap::new();
         groups.insert("camera".into(), camera_bind_group);
-        groups.insert("model".into(), model_bind_group);
 
         Self {
             camera_uniform_buffer,
-            model_uniform_buffer,
             bind_groups: Mutex::new(groups),
             bind_group_layouts: Mutex::new(layouts),
         }
