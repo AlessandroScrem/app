@@ -4,7 +4,7 @@ use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
-use legion::World;
+use legion::{Entity, World};
 use winit::window::Window;
 
 pub struct ImguiState {
@@ -14,6 +14,7 @@ pub struct ImguiState {
     pub demo_open: bool,
     pub last_frame: Instant,
     pub last_cursor: Option<MouseCursor>,
+    pub entity_selected: Option<Entity>,
 }
 
 impl ImguiState {
@@ -75,6 +76,7 @@ impl ImguiState {
             demo_open,
             last_frame,
             last_cursor,
+            entity_selected: None,
         }
     }
 
@@ -101,8 +103,7 @@ impl ImguiState {
                 draw_ui_camera(ui, camera);
             }
 
-            draw_ui_model_transform(ui, world);
-            
+            draw_ui_mesh(ui, world, &mut self.entity_selected);
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -182,36 +183,53 @@ fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
         });
 }
 
-fn draw_ui_model_transform(ui: &imgui::Ui, world: &mut World) {
+fn draw_ui_mesh(ui: &imgui::Ui, world: &mut World, selected: &mut Option<Entity>) {
     use legion::query::IntoQuery;
-    let mut transform_query = <(&Mesh, &mut Transform)>::query();
-    let window = ui.window("Model");
+    let mut query = <(Entity, &Mesh, &mut Transform)>::query();
+
+    let window = ui.window("Mesh");
     window
         .size([300.0, 300.0], Condition::FirstUseEver)
         .position([0.0, 300.0], Condition::FirstUseEver)
         .build(|| {
-            for (mesh, transform) in transform_query.iter_mut(world) {
-                draw_model_controls(ui, &mesh.name, transform);
+            for (entity, mesh, _transform) in query.iter_mut(world) {
+                if ui
+                    .selectable_config(&mesh.name)
+                    .selected(selected.map(|e| e == *entity).unwrap_or(false))
+                    .build()
+                {
+                    *selected = Some(*entity);
+                }
+            }
+            ui.separator();
+            if let Some(selected) = selected {
+                if let Ok((_, mesh, transform)) = query.get_mut(world, selected.clone()) {
+                    draw_ui_transform(ui, &mesh.name, transform);
+                }
             }
         });
 }
 
-fn draw_model_controls(ui: &imgui::Ui, name: &str, transform: &mut Transform) {
-    ui.text(format!("Name: {:?}", name));
-    ui.text(format!("Position: {:?}", transform.position));
-    ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
-    ui.text(format!("Scale: {:?}", transform.scale));
-    ui.separator();
-    
-    let id = ui.push_id(name);
-    Drag::new("Move")
-        .speed(0.1)
-        .build_array(ui, &mut transform.position);
-    Drag::new("Rot[rad]")
-        .speed(0.01)
-        .build_array(ui, &mut transform.rotation);
-    Drag::new("Scale")
-        .speed(0.1)
-        .build_array(ui, &mut transform.scale);
-    id.pop();
+fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut Transform) {
+    if ui.collapsing_header(
+        name,
+        TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+    ) {
+        ui.text(format!("Position: {:?}", transform.position));
+        ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
+        ui.text(format!("Scale: {:?}", transform.scale));
+        ui.separator();
+
+        let id = ui.push_id(name);
+        Drag::new("Move")
+            .speed(0.1)
+            .build_array(ui, &mut transform.position);
+        Drag::new("Rot[rad]")
+            .speed(0.01)
+            .build_array(ui, &mut transform.rotation);
+        Drag::new("Scale")
+            .speed(0.1)
+            .build_array(ui, &mut transform.scale);
+        id.pop();
+    }
 }
