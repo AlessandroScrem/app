@@ -4,6 +4,7 @@ use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
+use legion::World;
 use winit::window::Window;
 
 pub struct ImguiState {
@@ -92,8 +93,6 @@ impl ImguiState {
             .prepare_frame(self.context.io_mut(), &window)
             .expect("failed_to prepare frame");
 
-        use legion::query::IntoQuery;
-
         let ui = self.context.frame();
         {
             draw_ui(ui, delta_s);
@@ -101,10 +100,9 @@ impl ImguiState {
             if let Some(camera) = resources.get_mut::<Camera>().as_deref_mut() {
                 draw_ui_camera(ui, camera);
             }
-            let mut transform_query = <(&Mesh, &mut Transform)>::query();
-            if let Some((_, transform)) = transform_query.iter_mut(world).next() {
-                draw_ui_model_transform(ui, transform);
-            }
+
+            draw_ui_model_transform(ui, world);
+            
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -139,7 +137,7 @@ use crate::{assets::mesh::Mesh, camera::Camera, transform::Transform};
 fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
     let window = ui.window("Camera");
     window
-        .size([300.0, 300.0], Condition::FirstUseEver)
+        .size([300.0, 200.0], Condition::FirstUseEver)
         .position([0.0, 100.0], Condition::FirstUseEver)
         .build(|| {
             ui.text(format!("Position: {:?}", camera.get_position()));
@@ -184,25 +182,36 @@ fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
         });
 }
 
-fn draw_ui_model_transform(ui: &imgui::Ui, transform: &mut Transform) {
-    let window = ui.window("Model Transform");
+fn draw_ui_model_transform(ui: &imgui::Ui, world: &mut World) {
+    use legion::query::IntoQuery;
+    let mut transform_query = <(&Mesh, &mut Transform)>::query();
+    let window = ui.window("Model");
     window
         .size([300.0, 300.0], Condition::FirstUseEver)
-        .position([0.0, 400.0], Condition::FirstUseEver)
+        .position([0.0, 300.0], Condition::FirstUseEver)
         .build(|| {
-            ui.text(format!("Position: {:?}", transform.position));
-            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
-            ui.text(format!("Scale: {:?}", transform.scale));
-            ui.separator();
-
-            Drag::new("Move")
-                .speed(0.1)
-                .build_array(ui, &mut transform.position);
-            Drag::new("Rot[rad]")
-                .speed(0.01)
-                .build_array(ui, &mut transform.rotation);
-            Drag::new("Scale")
-                .speed(0.1)
-                .build_array(ui, &mut transform.scale);
+            for (mesh, transform) in transform_query.iter_mut(world) {
+                draw_model_controls(ui, &mesh.name, transform);
+            }
         });
+}
+
+fn draw_model_controls(ui: &imgui::Ui, name: &str, transform: &mut Transform) {
+    ui.text(format!("Name: {:?}", name));
+    ui.text(format!("Position: {:?}", transform.position));
+    ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
+    ui.text(format!("Scale: {:?}", transform.scale));
+    ui.separator();
+    
+    let id = ui.push_id(name);
+    Drag::new("Move")
+        .speed(0.1)
+        .build_array(ui, &mut transform.position);
+    Drag::new("Rot[rad]")
+        .speed(0.01)
+        .build_array(ui, &mut transform.rotation);
+    Drag::new("Scale")
+        .speed(0.1)
+        .build_array(ui, &mut transform.scale);
+    id.pop();
 }
