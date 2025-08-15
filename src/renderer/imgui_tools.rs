@@ -4,8 +4,10 @@ use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
-use legion::{Entity, World};
+use legion::{Entity, Resources, World};
 use winit::window::Window;
+
+use crate::{LightComponent, assets::mesh::Mesh, camera::Camera, transform::Transform};
 
 pub struct ImguiState {
     pub context: imgui::Context,
@@ -97,13 +99,12 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
-            draw_ui(ui, delta_s);
+            draw_window_general_info(ui, delta_s);
+            draw_window_camera(ui, &resources);
 
-            if let Some(camera) = resources.get_mut::<Camera>().as_deref_mut() {
-                draw_ui_camera(ui, camera);
-            }
-
-            draw_ui_mesh(ui, world, &mut self.entity_selected);
+            draw_window_entities(ui, world, &mut self.entity_selected);
+            draw_window_properties(ui, world, self.entity_selected);
+            
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -117,7 +118,7 @@ impl ImguiState {
     }
 }
 
-fn draw_ui(ui: &imgui::Ui, delta_s: Duration) {
+fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration) {
     let window = ui.window("General info");
     window
         .size([300.0, 100.0], Condition::FirstUseEver)
@@ -133,9 +134,12 @@ fn draw_ui(ui: &imgui::Ui, delta_s: Duration) {
         });
 }
 
-use crate::{assets::mesh::Mesh, camera::Camera, transform::Transform};
+fn draw_window_camera(ui: &imgui::Ui, resources: &Resources) {
+    let mut camera = match resources.get_mut::<Camera>() {
+        Some(camera) => camera,
+        None => return,
+    };
 
-fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
     let window = ui.window("Camera");
     window
         .size([300.0, 200.0], Condition::FirstUseEver)
@@ -183,31 +187,81 @@ fn draw_ui_camera(ui: &imgui::Ui, camera: &mut Camera) {
         });
 }
 
-fn draw_ui_mesh(ui: &imgui::Ui, world: &mut World, selected: &mut Option<Entity>) {
+fn draw_window_entities(ui: &imgui::Ui, world: &World, selected: &mut Option<Entity>) {
     use legion::query::IntoQuery;
-    let mut query = <(Entity, &Mesh, &mut Transform)>::query();
+    let mut query = <Entity>::query();
 
-    let window = ui.window("Mesh");
+    let window = ui.window("Entities");
     window
-        .size([300.0, 300.0], Condition::FirstUseEver)
+        .size([300.0, 100.0], Condition::FirstUseEver)
         .position([0.0, 300.0], Condition::FirstUseEver)
         .build(|| {
-            for (entity, mesh, _transform) in query.iter_mut(world) {
+            for entity in query.iter(world) {
                 if ui
-                    .selectable_config(&mesh.name)
+                    .selectable_config(format!("Entity {:?}", entity))
                     .selected(selected.map(|e| e == *entity).unwrap_or(false))
                     .build()
                 {
                     *selected = Some(*entity);
                 }
             }
-            ui.separator();
-            if let Some(selected) = selected {
-                if let Ok((_, mesh, transform)) = query.get_mut(world, selected.clone()) {
-                    draw_ui_transform(ui, &mesh.name, transform);
-                }
-            }
         });
+}
+
+fn draw_window_properties(ui: &imgui::Ui, world: &mut World, selected: Option<Entity>) {
+    let entity = match selected {
+        Some(entity) => entity,
+        None => return,
+    };
+
+    let window = ui.window(format!("Properties for {:?}", entity));
+    window
+        .size([300.0, 300.0], Condition::FirstUseEver)
+        .position([0.0, 400.0], Condition::FirstUseEver)
+        .build(|| {
+            ui.separator();
+            draw_ui_mesh(ui, world, entity.clone());
+            ui.separator();
+            draw_ui_light(ui, world, entity.clone());
+        });
+}
+
+fn draw_ui_mesh(ui: &imgui::Ui, world: &mut World, entity: Entity) {
+    use legion::query::IntoQuery;
+    let mut query = <(&Mesh, &mut Transform)>::query();
+
+    if let Ok((mesh, transform)) = query.get_mut(world, entity) {
+        ui.collapsing_header(&mesh.name, TreeNodeFlags::DEFAULT_OPEN);
+        draw_ui_transform(ui, "Mesh Transform", transform);
+    }
+}
+
+fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
+    use legion::query::IntoQuery;
+    let mut query = <&mut LightComponent>::query();
+
+    if let Ok(light) = query.get_mut(world, entity) {
+        ui.collapsing_header(&light.name, TreeNodeFlags::DEFAULT_OPEN);
+
+        let data = &mut light.data;
+        Drag::new("Position")
+            .speed(0.1)
+            .build_array(ui, &mut data.position);
+        ui.color_edit3("Color", &mut data.color);
+        {
+            let mut directional = data.directional != 0;
+            if ui.checkbox("Directional", &mut directional) {
+                data.directional = directional as u32;
+            }
+        }
+
+        {
+            let mut cast_shadow = data.cast_shadow != 0;
+            if ui.checkbox("Cast Shadow", &mut cast_shadow) {
+                data.cast_shadow = cast_shadow as u32;
+            }
+        }
+    }
 }
 
 fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut Transform) {

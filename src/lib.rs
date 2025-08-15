@@ -21,3 +21,18 @@ pub mod prelude {
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub f32);
 
+#[derive(Default, Clone)]
+pub struct LightComponent {
+    pub name: String,
+    pub data: Light,
+}
+
+#[repr(C)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Light {
+    color: [f32; 3],
+    directional: u32,
+    position: [f32; 3],
+    cast_shadow: u32,
+}
+
