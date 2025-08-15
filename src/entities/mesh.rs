@@ -1,9 +1,9 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
+    MeshComponent, TagComponent, TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*},
     resources::gpu_manager::GPUResourceManager,
-    transform::Transform,
 };
 use legion::*;
 
@@ -21,8 +21,11 @@ pub fn create(world: &mut World, resources: &Resources) {
     )
     .expect("unable_load mesh");
     world.push((
-        avocado,
-        Transform {
+        TagComponent {
+            name: avocado.name.clone(),
+        },
+        MeshComponent { data: avocado },
+        TransformComponent {
             position: [2.0, 0.0, 0.0],
             scale: [10.0f32, 10.0, 10.0],
             ..Default::default()
@@ -36,5 +39,11 @@ pub fn create(world: &mut World, resources: &Resources) {
         Path::new("./assets/cube/cube.gltf"),
     )
     .expect("unable_load mesh");
-    world.push((cube, Transform::default()));
+    world.push((
+        TagComponent {
+            name: cube.name.clone(),
+        },
+        MeshComponent { data: cube },
+        TransformComponent::default(),
+    ));
 }

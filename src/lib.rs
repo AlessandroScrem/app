@@ -21,11 +21,6 @@ pub mod prelude {
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub f32);
 
-#[derive(Default, Clone)]
-pub struct LightComponent {
-    pub name: String,
-    pub data: Light,
-}
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -36,3 +31,22 @@ pub struct Light {
     cast_shadow: u32,
 }
 
+// Ecs Components
+#[derive(Default, Clone)]
+pub struct LightComponent {
+    pub data: Light,
+}
+
+pub struct MeshComponent {
+    data: assets::mesh::Mesh,
+}
+
+pub struct TransformComponent {
+    pub position: [f32; 3],
+    pub rotation: [f32; 3],
+    pub scale: [f32; 3],
+}
+
+pub struct TagComponent {
+    pub name: String,
+}

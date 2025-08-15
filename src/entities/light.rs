@@ -1,13 +1,11 @@
 
 use legion::*;
 
-use crate::LightComponent;
+use crate::{LightComponent, TagComponent};
 
 /// A function to help create a light entity.
 pub fn create(world: &mut World, _resources: &Resources) {
 
-    let light = LightComponent {name: "Directional".to_string(), ..Default::default()};
-
-    world.push((light,));
+    world.push((TagComponent {name: "Directional1".to_string()}, LightComponent::default()));
 
 }

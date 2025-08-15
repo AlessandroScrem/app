@@ -7,7 +7,7 @@ use imgui_winit_support::WinitPlatform;
 use legion::{Entity, Resources, World};
 use winit::window::Window;
 
-use crate::{LightComponent, assets::mesh::Mesh, camera::Camera, transform::Transform};
+use crate::{camera::Camera, LightComponent, MeshComponent, TagComponent, TransformComponent};
 
 pub struct ImguiState {
     pub context: imgui::Context,
@@ -101,7 +101,6 @@ impl ImguiState {
         {
             draw_window_general_info(ui, delta_s);
             draw_window_camera(ui, &resources);
-
             draw_window_entities(ui, world, &mut self.entity_selected);
             draw_window_properties(ui, world, self.entity_selected);
             
@@ -189,16 +188,16 @@ fn draw_window_camera(ui: &imgui::Ui, resources: &Resources) {
 
 fn draw_window_entities(ui: &imgui::Ui, world: &World, selected: &mut Option<Entity>) {
     use legion::query::IntoQuery;
-    let mut query = <Entity>::query();
+    let mut query = <(Entity, &TagComponent)>::query();
 
     let window = ui.window("Entities");
     window
         .size([300.0, 100.0], Condition::FirstUseEver)
         .position([0.0, 300.0], Condition::FirstUseEver)
         .build(|| {
-            for entity in query.iter(world) {
+            for (entity, tag) in query.iter(world) {
                 if ui
-                    .selectable_config(format!("Entity {:?}", entity))
+                    .selectable_config(format!("{} {:?}", tag.name, entity))
                     .selected(selected.map(|e| e == *entity).unwrap_or(false))
                     .build()
                 {
@@ -228,10 +227,9 @@ fn draw_window_properties(ui: &imgui::Ui, world: &mut World, selected: Option<En
 
 fn draw_ui_mesh(ui: &imgui::Ui, world: &mut World, entity: Entity) {
     use legion::query::IntoQuery;
-    let mut query = <(&Mesh, &mut Transform)>::query();
+    let mut query = <(&MeshComponent, &mut TransformComponent)>::query();
 
-    if let Ok((mesh, transform)) = query.get_mut(world, entity) {
-        ui.collapsing_header(&mesh.name, TreeNodeFlags::DEFAULT_OPEN);
+    if let Ok((_mesh, transform)) = query.get_mut(world, entity) {
         draw_ui_transform(ui, "Mesh Transform", transform);
     }
 }
@@ -241,7 +239,7 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
     let mut query = <&mut LightComponent>::query();
 
     if let Ok(light) = query.get_mut(world, entity) {
-        ui.collapsing_header(&light.name, TreeNodeFlags::DEFAULT_OPEN);
+        ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN);
 
         let data = &mut light.data;
         Drag::new("Position")
@@ -264,7 +262,7 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
     }
 }
 
-fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut Transform) {
+fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformComponent) {
     if ui.collapsing_header(
         name,
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,

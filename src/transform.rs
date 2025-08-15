@@ -1,10 +1,4 @@
-pub struct Transform {
-    pub position: [f32; 3],
-    pub rotation: [f32; 3],
-    pub scale: [f32; 3],
-}
-
-impl Default for Transform {
+impl Default for TransformComponent {
     fn default() -> Self {
         Self {
             position: [0.0, 0.0, 0.0],
@@ -16,7 +10,9 @@ impl Default for Transform {
 
 use cgmath::{Matrix4, Quaternion};
 use cgmath::{Euler, Rad, Vector3};
-impl Transform {
+
+use crate::TransformComponent;
+impl TransformComponent {
     pub fn compute_model_matrix(&self) -> Matrix4<f32> {
         // converte la rotazione xyz "Radianti" in Quaternion
         fn to_quat(r: &[f32; 3]) -> Quaternion<f32> {

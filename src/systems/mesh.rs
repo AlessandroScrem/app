@@ -1,18 +1,17 @@
 use wgpu::IndexFormat;
 
 use crate::{
-    assets::mesh::Mesh,
+    MeshComponent, TransformComponent,
     renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
     resources::gpu_manager::GPUResourceManager,
-    transform::Transform,
 };
 
 use legion::{world::SubWorld, *};
 use std::sync::Arc;
 
 #[system]
-#[read_component(Mesh)]
-#[read_component(Transform)]
+#[read_component(MeshComponent)]
+#[read_component(TransformComponent)]
 pub fn mesh(
     world: &mut SubWorld,
     #[resource] frame_view: &wgpu::TextureView,
@@ -59,12 +58,12 @@ pub fn mesh(
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, camera_bind_group, &[]);
-    
-    let mut mesh_query = <(&Mesh, &Transform)>::query();
-    for (mesh, _) in mesh_query.iter(world) {
-        renderpass.set_bind_group(2, &mesh.model_bind_group, &[]);
 
-        for submesh in mesh.submeshes.iter() {
+    let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
+    for (mesh, _) in mesh_query.iter(world) {
+        renderpass.set_bind_group(2, &mesh.data.model_bind_group, &[]);
+
+        for submesh in mesh.data.submeshes.iter() {
             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
             let index_buffer = submesh.index_buffer.as_ref().unwrap();
             let index_count = submesh.index_count as u32;
@@ -79,22 +78,19 @@ pub fn mesh(
     }
 }
 
-
 use crate::renderer::uniform::ModelUniform;
 #[system(for_each)]
 pub fn update_trnsform(
-    transform: &Transform,
-    mesh: &Mesh,
+    transform: &TransformComponent,
+    mesh: &MeshComponent,
     #[resource] queue: &wgpu::Queue,
 ) {
     let model_matrix = transform.compute_model_matrix();
     let updated_uniforms = ModelUniform::new(model_matrix);
-    
+
     queue.write_buffer(
-        &mesh.model_uniform_buffer,
+        &mesh.data.model_uniform_buffer,
         0,
         bytemuck::bytes_of(&updated_uniforms),
     );
 }
-
-
