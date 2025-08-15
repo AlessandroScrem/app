@@ -5,6 +5,13 @@ struct Camera {
     view_proj: mat4x4<f32>,
 };
 
+struct Light {
+    color: vec3<f32>,
+    directional: u32,
+    position: vec3<f32>,
+    cast_shadow: u32,
+}
+
 struct Model {
     model: mat4x4<f32>,
     normal_matrix: mat4x4<f32>,
@@ -49,14 +56,18 @@ fn vs_main(
 /// Fragment shader
 ///
 
-const LIGHT_DIRECTION: vec3<f32> = vec3<f32>(0.0, 0.0, -1.0);
-const LIGHT_COLOR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+// const LIGHT_DIRECTION: vec3<f32> = vec3<f32>(0.0, 0.0, -1.0);
+const LIGHT_TARGET: vec3<f32> = vec3<f32>(0.0, 0.0, .0);
+// const LIGHT_COLOR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 const AMBIENT_COLOR: vec3<f32> = vec3<f32>(0.2, 0.2, 0.2);
 const MATERIAL_SHININESS: f32 = 4.0;
 const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 
 /// Calcola il colore secondo il modello Blinn-Phong
 fn blinn_phong(material_color: vec3<f32>, vert_normal: vec3<f32>, frag_pos: vec3<f32>) -> vec3<f32> {
+    let LIGHT_COLOR = light.color;
+    let LIGHT_DIRECTION = LIGHT_TARGET - light.position;
+
     let light_dir = normalize(-LIGHT_DIRECTION);
     let view_dir = normalize(camera.view_pos - frag_pos);
     let halfway_dir = normalize(light_dir + view_dir);
@@ -90,6 +101,7 @@ fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
 @group(1) @binding(3) var roughness_map: texture_2d<f32>;
 
+@group(3) @binding(0) var<uniform> light: Light;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {

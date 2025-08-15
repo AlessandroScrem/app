@@ -55,9 +55,11 @@ pub fn mesh(
 
     let map = gpu_resource_manager.bind_groups.lock().unwrap();
     let camera_bind_group = map.get("camera").unwrap();
+    let light_bind_group = map.get("light").unwrap();
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, camera_bind_group, &[]);
+    renderpass.set_bind_group(3, light_bind_group, &[]);
 
     let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
     for (mesh, _) in mesh_query.iter(world) {
@@ -80,7 +82,7 @@ pub fn mesh(
 
 use crate::renderer::uniform::ModelUniform;
 #[system(for_each)]
-pub fn update_trnsform(
+pub fn update_light(
     transform: &TransformComponent,
     mesh: &MeshComponent,
     #[resource] queue: &wgpu::Queue,

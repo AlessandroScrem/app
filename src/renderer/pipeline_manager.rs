@@ -112,6 +112,7 @@ impl PipelineManager {
         name: &str,
         device: &wgpu::Device,
         render_pipeline_layout: wgpu::PipelineLayout,
+        buffer_desc: wgpu::VertexBufferLayout<'static>,
         shader: wgpu::ShaderModule,
         surface_config: &wgpu::SurfaceConfiguration,
     ) {
@@ -120,8 +121,6 @@ impl PipelineManager {
         }
 
         let desc = PipelineDesc::default();
-
-        let buffer_desc = crate::assets::mesh::MeshVertexData::get_layout();
 
         let pipeline = desc.build_pipeline(
             device,
@@ -147,11 +146,12 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
     let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
-    
+
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(),
-        layout_map.get("texture").unwrap(),
-        layout_map.get("model").unwrap(),
+        layout_map.get("camera").unwrap(),  // 0
+        layout_map.get("texture").unwrap(), // 1
+        layout_map.get("model").unwrap(),   // 2
+        layout_map.get("light").unwrap(),   // 3
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -162,10 +162,46 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
 
     let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
 
+    let buffer_desc = crate::assets::mesh::MeshVertexData::get_layout();
+
     pipeline_manager.add_pipeline(
         "default",
         &device,
         render_pipeline_layout,
+        buffer_desc,
+        shader,
+        &surface_config,
+    );
+}
+
+pub fn create_light_pipeline(resources: &legion::Resources) {
+    let device = resources.get::<wgpu::Device>().unwrap();
+    let resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
+    let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
+    let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
+
+    let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
+
+    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+        layout_map.get("camera").unwrap(), // 0
+        layout_map.get("model").unwrap(),  // 1
+    ];
+
+    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Render Pipeline Layout"),
+        bind_group_layouts: &layouts,
+        push_constant_ranges: &[],
+    });
+
+    let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
+
+    let buffer_desc = crate::systems::light::Vertex::get_layout();
+
+    pipeline_manager.add_pipeline(
+        "light",
+        &device,
+        render_pipeline_layout,
+        buffer_desc,
         shader,
         &surface_config,
     );

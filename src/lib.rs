@@ -23,12 +23,22 @@ pub struct DeltaTime(pub f32);
 
 
 #[repr(C)]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
     color: [f32; 3],
     directional: u32,
     position: [f32; 3],
     cast_shadow: u32,
+}
+impl Default for Light {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0],
+            cast_shadow: 0,
+            directional: 1,
+            position: [0.0, 0.0, -1.0],
+        }
+    } 
 }
 
 // Ecs Components
@@ -36,6 +46,7 @@ pub struct Light {
 pub struct LightComponent {
     pub data: Light,
 }
+
 
 pub struct MeshComponent {
     data: assets::mesh::Mesh,
