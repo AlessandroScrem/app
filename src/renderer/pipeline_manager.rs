@@ -39,7 +39,7 @@ impl PipelineDesc {
         layout: wgpu::PipelineLayout,
         config: &wgpu::SurfaceConfiguration,
         shader: wgpu::ShaderModule,
-        buffer_desc: wgpu::VertexBufferLayout<'static>,
+        buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
         let format = config.format;
 
@@ -49,7 +49,7 @@ impl PipelineDesc {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[buffer_desc],
+                buffers,
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -112,7 +112,7 @@ impl PipelineManager {
         name: &str,
         device: &wgpu::Device,
         render_pipeline_layout: wgpu::PipelineLayout,
-        buffer_desc: wgpu::VertexBufferLayout<'static>,
+        buffers: &[wgpu::VertexBufferLayout<'static>],
         shader: wgpu::ShaderModule,
         surface_config: &wgpu::SurfaceConfiguration,
     ) {
@@ -127,7 +127,7 @@ impl PipelineManager {
             render_pipeline_layout,
             surface_config,
             shader,
-            buffer_desc,
+            buffers,
         );
 
         let pipeline = Pipeline {
@@ -162,7 +162,7 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
 
     let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
 
-    let buffer_desc = crate::assets::mesh::MeshVertexData::get_layout();
+    let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
 
     pipeline_manager.add_pipeline(
         "default",
@@ -184,7 +184,7 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
 
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
         layout_map.get("camera").unwrap(), // 0
-        layout_map.get("model").unwrap(),  // 1
+        layout_map.get("light").unwrap(),  // 1
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -195,13 +195,13 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
 
     let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
 
-    let buffer_desc = crate::systems::light::Vertex::get_layout();
+    let buffers = &[];
 
     pipeline_manager.add_pipeline(
         "light",
         &device,
         render_pipeline_layout,
-        buffer_desc,
+        buffers,
         shader,
         &surface_config,
     );

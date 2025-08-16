@@ -1,10 +1,12 @@
 use cgmath::{Matrix, Matrix4, SquareMatrix};
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     pub view_position: [f32; 4],
-    pub view_proj: [[f32; 4]; 4],
+    pub view_proj: [[f32; 4]; 4],   
+    pub screen_size: [f32; 2],
+    pub _pad: [f32; 2],
 }
 
 impl Default for CameraUniform {
@@ -12,6 +14,8 @@ impl Default for CameraUniform {
         Self {
             view_position: [0f32; 4],
             view_proj: [[0f32; 4]; 4],
+            screen_size: [1.0f32; 2],
+            _pad: [0f32; 2],
         }
     }
 }
