@@ -183,8 +183,9 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
     let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
 
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(), // 0
-        layout_map.get("light").unwrap(),  // 1
+        layout_map.get("camera").unwrap(),        // 0
+        layout_map.get("light").unwrap(),         // 1
+        layout_map.get("light_texture").unwrap(), // 2
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

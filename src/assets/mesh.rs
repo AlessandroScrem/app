@@ -237,7 +237,7 @@ mod tests {
             (adapter, arc_device, arc_queue)
         });
 
-        let gpu_manager = GPUResourceManager::new(&device);
+        let gpu_manager = GPUResourceManager::new(&device, &queue);
         let gpu_manager = Arc::new(gpu_manager);
         let mut material_manager =
             MaterialManager::new(device.clone(), queue, gpu_manager.clone());

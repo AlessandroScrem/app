@@ -47,12 +47,15 @@ pub fn light(
 
     let camera_bind_group = map.get("camera").unwrap().clone();
     let light_bind_group = map.get("light").unwrap().clone();
+    let light_texture_bind_group = map.get("light_texture").unwrap().clone();
+
+    renderpass.set_pipeline(&pipeline);
+    renderpass.set_bind_group(0, &camera_bind_group, &[]);
+    renderpass.set_bind_group(1, &light_bind_group, &[]);
+    renderpass.set_bind_group(2, &light_texture_bind_group, &[]);
 
     let mut query = <&LightComponent>::query();
     for _light in query.iter(world) {
-        renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &camera_bind_group, &[]);
-        renderpass.set_bind_group(1, &light_bind_group, &[]);
         renderpass.draw(0..6, 0..1);
     }
 }

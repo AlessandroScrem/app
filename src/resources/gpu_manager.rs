@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::renderer::uniform::CameraUniform;
+use crate::{assets::texture::Texture, renderer::uniform::CameraUniform};
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
@@ -15,7 +15,7 @@ pub struct GPUResourceManager {
 }
 
 impl GPUResourceManager {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         // Camera
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -68,13 +68,13 @@ impl GPUResourceManager {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let light_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: light_uniform_buffer.as_entire_binding(),
             }],
-            label: Some("Light Bind Group"),
+            label: Some("Light uniform Bind Group"),
         });
 
         // Texture
@@ -140,15 +140,71 @@ impl GPUResourceManager {
                 label: Some("Model Bind Group Layout"),
             });
 
+        // Light Texture
+        let light_texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // main
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("Light Texture_bind_group_layout"),
+            });
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        let diffuse_bytes = include_bytes!("../../assets/core/lightbulb-icon32.png");
+        let light_texture = Texture::new(device, queue, diffuse_bytes.to_vec(), false);
+
+        let light_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&light_texture.view),
+                },
+            ],
+            label: Some("light texture_bind_group"),
+        });
+
         let mut layouts = HashMap::new();
         layouts.insert("camera".into(), Arc::new(camera_bind_group_layout));
         layouts.insert("texture".into(), Arc::new(texture_bind_group_layout));
         layouts.insert("model".into(), Arc::new(model_bind_group_layout));
         layouts.insert("light".into(), Arc::new(light_bind_group_layout));
-        
+        layouts.insert("light_texture".into(), Arc::new(light_texture_bind_group_layout));
+
         let mut groups = HashMap::new();
         groups.insert("camera".into(), camera_bind_group);
-        groups.insert("light".into(), light_bind_group);
+        groups.insert("light".into(), light_uniform_bind_group);
+        groups.insert("light_texture".into(), light_texture_bind_group);
 
         Self {
             camera_uniform_buffer,
