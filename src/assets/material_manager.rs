@@ -1,22 +1,10 @@
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use crate::{assets::texture::Texture, resources::gpu_manager::GPUResourceManager};
+use crate::{assets::{texture_manager::{TextureManager}}, resources::gpu_manager::GPUResourceManager};
 
-#[derive(PartialEq, Eq, Hash)]
-pub enum TextureType {
-    Main,
-    Normal,
-    Roughness,
-}
-
-pub struct TextureBinding {
-    pub name: String,
-    texture: Texture,
-}
 
 pub struct Material {
     pub roughness: f32,
@@ -24,31 +12,28 @@ pub struct Material {
     pub roughness_override: f32,
     pub metallic_override: f32,
     pub color: cgmath::Vector4<f32>,
-    pub textures: HashMap<TextureType, TextureBinding>,
     pub bind_group: Option<wgpu::BindGroup>,
 }
 
 pub struct MaterialManager {
     device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
     gpu_manager: Arc<GPUResourceManager>,
 }
 
 impl MaterialManager {
     pub fn new(
         device: Arc<wgpu::Device>,
-        queue: Arc<wgpu::Queue>,
         gpu_manager: Arc<GPUResourceManager>,
     ) -> Self {
         Self {
             device,
-            queue,
             gpu_manager,
         }
     }
-
+    
     pub fn create_material(
         &mut self,
+        texture_manager: &mut TextureManager,
         gltf_material: &gltf::Material,
         images: &Vec<gltf::Image<'_>>,
         path: PathBuf,
@@ -97,24 +82,10 @@ impl MaterialManager {
         let normal_texture = normal_texture.unwrap_or("white.png".to_string());
         let roughness_texture = roughness_texture.unwrap_or("white.png".to_string());
 
-        let mut textures: HashMap<TextureType, TextureBinding> = HashMap::new();
+        let bind0 = texture_manager.load_texture(parent_path.join(main_texture), false);
+        let bind1 = texture_manager.load_texture(parent_path.join(normal_texture), true);
+        let bind2 = texture_manager.load_texture(parent_path.join(roughness_texture), false);
 
-        let main_texture =
-            load_texture(&main_texture, parent_path, &self.device, &self.queue, true);
-        let normal_texture = load_texture(
-            &normal_texture,
-            parent_path,
-            &self.device,
-            &self.queue,
-            true,
-        );
-        let roughness_texture = load_texture(
-            &roughness_texture,
-            parent_path,
-            &self.device,
-            &self.queue,
-            true,
-        );
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -140,23 +111,20 @@ impl MaterialManager {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&main_texture.texture.view),
+                    resource: wgpu::BindingResource::TextureView(&bind0.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&normal_texture.texture.view),
+                    resource: wgpu::BindingResource::TextureView(&bind1.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&roughness_texture.texture.view),
+                    resource: wgpu::BindingResource::TextureView(&bind2.view),
                 },
             ],
             label: Some("texture_bind_group"),
         });
 
-        textures.insert(TextureType::Main, main_texture);
-        textures.insert(TextureType::Normal, normal_texture);
-        textures.insert(TextureType::Roughness, roughness_texture);
 
         Material {
             roughness,
@@ -164,34 +132,8 @@ impl MaterialManager {
             roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },
             metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
             color,
-            textures,
             bind_group: Some(diffuse_bind_group),
         }
-    }
-}
-
-fn load_texture(
-    name: &str,
-    path: &Path,
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    is_normal: bool,
-) -> TextureBinding {
-    let filepath = {
-        let candidate = path.join(name);
-        candidate
-            .is_file()
-            .then(|| candidate)
-            .unwrap_or_else(|| PathBuf::from("assets/core/white.png"))
-    };
-    let buffer =
-        std::fs::read(&filepath).expect(&format!("Impossibile leggere il file {:?}", filepath));
-
-    let texture = Texture::new(device, queue, buffer, is_normal);
-
-    TextureBinding {
-        name: name.to_string(),
-        texture,
     }
 }
 

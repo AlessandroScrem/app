@@ -2,19 +2,22 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     MeshComponent, TagComponent, TransformComponent,
-    assets::{material_manager::MaterialManager, mesh::*},
+    assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
     resources::gpu_manager::GPUResourceManager,
 };
+
 use legion::*;
 
 /// A function to help create a mesh entity.
 pub fn create(world: &mut World, resources: &Resources) {
     let device = resources.get::<wgpu::Device>().unwrap();
     let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
+    let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
     let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
 
     let avocado = load_gltf(
         &mut material_manager,
+        &mut texture_manager,
         &gpu_resource_manager,
         &device,
         Path::new("./assets/avocado/avocado.gltf"),
@@ -34,6 +37,7 @@ pub fn create(world: &mut World, resources: &Resources) {
 
     let cube = load_gltf(
         &mut material_manager,
+        &mut texture_manager,
         &gpu_resource_manager,
         &device,
         Path::new("./assets/cube/cube.gltf"),

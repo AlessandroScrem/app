@@ -55,14 +55,19 @@ impl Renderer {
 
         let material_manager = crate::assets::material_manager::MaterialManager::new(
             Arc::new(device.clone()),
-            Arc::new(queue.clone()),
             gpu_resource_manager.clone(),
+        );
+
+        let texture_manager = crate::assets::texture_manager::TextureManager::new(
+            Arc::new(device.clone()),
+            Arc::new(queue.clone()),
         );
 
         resources.insert(surface_config);
         resources.insert(material_manager);
         resources.insert(pipeline_manager);
         resources.insert(gpu_resource_manager);
+        resources.insert(texture_manager);
         resources.insert(queue);
         resources.insert(surface);
         resources.insert(DepthTexture(depth_view));

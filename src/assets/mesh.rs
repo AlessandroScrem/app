@@ -4,7 +4,10 @@ use gltf::buffer;
 use wgpu::util::DeviceExt;
 
 use crate::{
-    assets::material_manager::{Material, MaterialManager},
+    assets::{
+        material_manager::{Material, MaterialManager},
+        texture_manager::TextureManager,
+    },
     resources::gpu_manager::GPUResourceManager,
 };
 
@@ -50,6 +53,7 @@ pub struct Mesh {
 #[allow(dead_code)]
 pub fn load_gltf(
     material_manager: &mut MaterialManager,
+    texture_manager: &mut TextureManager,
     gpu_resource_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
@@ -114,8 +118,12 @@ pub fn load_gltf(
 
         // begin material
         let gltf_material: gltf::Material<'_> = primitive.material();
-        let material =
-            material_manager.create_material(&gltf_material, &images, path.to_path_buf());
+        let material = material_manager.create_material(
+            texture_manager,
+            &gltf_material,
+            &images,
+            path.to_path_buf(),
+        );
 
         let primitive_topology = get_primitive_mode(primitive.mode());
 
@@ -239,11 +247,12 @@ mod tests {
 
         let gpu_manager = GPUResourceManager::new(&device, &queue);
         let gpu_manager = Arc::new(gpu_manager);
-        let mut material_manager =
-            MaterialManager::new(device.clone(), queue, gpu_manager.clone());
+        let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone());
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let result = load_gltf(
             &mut material_manager,
+            &mut texture_manager,
             &gpu_manager,
             &device,
             std::path::Path::new("./assets/cube/cube.gltf"),
