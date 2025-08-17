@@ -57,19 +57,14 @@ fn vs_main(
 /// Fragment shader
 ///
 
-// const LIGHT_DIRECTION: vec3<f32> = vec3<f32>(0.0, 0.0, -1.0);
-const LIGHT_TARGET: vec3<f32> = vec3<f32>(0.0, 0.0, .0);
-// const LIGHT_COLOR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+const LIGHT_TARGET: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 const AMBIENT_COLOR: vec3<f32> = vec3<f32>(0.2, 0.2, 0.2);
 const MATERIAL_SHININESS: f32 = 4.0;
 const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 
 /// Calcola il colore secondo il modello Blinn-Phong
 fn blinn_phong(material_color: vec3<f32>, vert_normal: vec3<f32>, frag_pos: vec3<f32>) -> vec3<f32> {
-    let LIGHT_COLOR = light.color;
-    let LIGHT_DIRECTION = LIGHT_TARGET - light.position;
-
-    let light_dir = normalize(-LIGHT_DIRECTION);
+    let light_dir = normalize(light.position - LIGHT_TARGET);
     let view_dir = normalize(camera.view_pos - frag_pos);
     let halfway_dir = normalize(light_dir + view_dir);
     let normal = normalize(vert_normal);
@@ -79,11 +74,11 @@ fn blinn_phong(material_color: vec3<f32>, vert_normal: vec3<f32>, frag_pos: vec3
 
     // Diffuse
     let diff = max(dot(normal, light_dir), 0.0);
-    let diffuse = material_color  * diff * LIGHT_COLOR;
+    let diffuse = material_color  * diff * light.color;
 
     // Specular
     let spec = pow(max(dot(normal, halfway_dir), 0.0), MATERIAL_SHININESS);
-    let specular = MATERIAL_SPECULAR * spec * LIGHT_COLOR;
+    let specular = MATERIAL_SPECULAR * spec * light.color;
 
     return clamp(ambient + diffuse + specular, vec3<f32>(0.0), vec3<f32>(1.0));
 }

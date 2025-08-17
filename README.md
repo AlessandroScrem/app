@@ -8,7 +8,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Phong shading
 - [x] Imgui
 - [x] Mesh entity
-- [ ] Light entity
+- [x] Light entity
 - [ ] Hierarchy entity
 - [ ] Mesh Bounding box
 - [ ] Entity selection
