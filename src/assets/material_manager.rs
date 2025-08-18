@@ -3,8 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{assets::{texture_manager::{TextureManager}}, resources::gpu_manager::GPUResourceManager};
-
+use crate::{assets::texture_manager::TextureManager, resources::gpu_manager::GPUResourceManager};
 
 pub struct Material {
     pub roughness: f32,
@@ -21,16 +20,13 @@ pub struct MaterialManager {
 }
 
 impl MaterialManager {
-    pub fn new(
-        device: Arc<wgpu::Device>,
-        gpu_manager: Arc<GPUResourceManager>,
-    ) -> Self {
+    pub fn new(device: Arc<wgpu::Device>, gpu_manager: Arc<GPUResourceManager>) -> Self {
         Self {
             device,
             gpu_manager,
         }
     }
-    
+
     pub fn create_material(
         &mut self,
         texture_manager: &mut TextureManager,
@@ -82,10 +78,9 @@ impl MaterialManager {
         let normal_texture = normal_texture.unwrap_or("white.png".to_string());
         let roughness_texture = roughness_texture.unwrap_or("white.png".to_string());
 
-        let bind0 = texture_manager.load_texture(parent_path.join(main_texture), false);
-        let bind1 = texture_manager.load_texture(parent_path.join(normal_texture), true);
-        let bind2 = texture_manager.load_texture(parent_path.join(roughness_texture), false);
-
+        let bind0 = texture_manager.get_or_create(&parent_path.join(main_texture), false);
+        let bind1 = texture_manager.get_or_create(&parent_path.join(normal_texture), true);
+        let bind2 = texture_manager.get_or_create(&parent_path.join(roughness_texture), false);
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -97,10 +92,7 @@ impl MaterialManager {
             ..Default::default()
         });
 
-        let texture_bind_group_layout = self
-            .gpu_manager
-            .get_layout("texture")
-            .expect("unable to find bind group layout");
+        let texture_bind_group_layout = self.gpu_manager.get_layout("texture");
 
         let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
@@ -124,7 +116,6 @@ impl MaterialManager {
             ],
             label: Some("texture_bind_group"),
         });
-
 
         Material {
             roughness,

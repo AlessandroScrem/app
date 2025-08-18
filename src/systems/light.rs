@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::{
     LightComponent,
-    renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
+    renderer::{
+        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::PipelineManager,
+    },
     resources::gpu_manager::GPUResourceManager,
 };
 
@@ -17,6 +19,7 @@ pub fn light(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
+    #[resource] light_manager: &LightManager,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -43,16 +46,10 @@ pub fn light(
 
     let pipeline = pipeline_manager.get_render_pipeline("light").unwrap();
 
-    let map = gpu_resource_manager.bind_groups.lock().unwrap();
-
-    let camera_bind_group = map.get("camera").unwrap().clone();
-    let light_bind_group = map.get("light").unwrap().clone();
-    let light_texture_bind_group = map.get("light_texture").unwrap().clone();
-
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &camera_bind_group, &[]);
-    renderpass.set_bind_group(1, &light_bind_group, &[]);
-    renderpass.set_bind_group(2, &light_texture_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+    renderpass.set_bind_group(1, &light_manager.light_uniform_bind_group, &[]);
+    renderpass.set_bind_group(2, &light_manager.light_texture_bind_group, &[]);
 
     let mut query = <&LightComponent>::query();
     for _light in query.iter(world) {
@@ -64,10 +61,10 @@ pub fn light(
 pub fn update_trnsform(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
-    #[resource] gpu_manager: &Arc<GPUResourceManager>,
+    #[resource] light_manager: &LightManager,
 ) {
     queue.write_buffer(
-        &gpu_manager.light_uniform_buffer,
+        &light_manager.light_uniform_buffer,
         0,
         bytemuck::bytes_of(&light.data),
     );

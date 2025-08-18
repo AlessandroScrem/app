@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use winit::window::Window;
 
+use crate::renderer::light_manager;
+
 pub struct Renderer {}
 pub struct DepthTexture(pub wgpu::TextureView);
 
@@ -49,7 +51,7 @@ impl Renderer {
         let depth_view = depth_texture.create_view(&Default::default());
 
         let gpu_resource_manager = Arc::new(
-            crate::resources::gpu_manager::GPUResourceManager::new(&device, &queue),
+            crate::resources::gpu_manager::GPUResourceManager::new(&device),
         );
         let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new();
 
@@ -63,11 +65,18 @@ impl Renderer {
             Arc::new(queue.clone()),
         );
 
+        let light_manager = light_manager::LightManager::new(
+            &gpu_resource_manager,
+            Arc::new(device.clone()),
+            Arc::new(queue.clone()),
+        );
+
         resources.insert(surface_config);
         resources.insert(material_manager);
         resources.insert(pipeline_manager);
         resources.insert(gpu_resource_manager);
         resources.insert(texture_manager);
+        resources.insert(light_manager);
         resources.insert(queue);
         resources.insert(surface);
         resources.insert(DepthTexture(depth_view));

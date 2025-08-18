@@ -9,58 +9,52 @@ pub struct TextureManager {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     textures: HashMap<PathBuf, Arc<Texture>>,
+    white_texture: Arc<Texture>,
 }
 
 impl TextureManager {
     pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
-        let mut textures = HashMap::new();
-        let lightbulb: PathBuf = "assets/core/lightbulb-icon32.png".into();
-        let white: PathBuf = "assets/core/white.png".into();
-
-        textures.insert(
-            lightbulb.clone(),
-            Arc::new(Texture::new(&device, &queue, Self::read(&lightbulb), false)),
-        );
-
-        textures.insert(
-            white.clone(),
-            Arc::new(Texture::new(&device, &queue, Self::read(&white), false)),
-        );
+        let buffer = include_bytes!("../../assets/core/white.png");
+        let white_texture = Texture::new(&device, &queue, buffer.to_vec(), false);
 
         Self {
             device,
             queue,
-            textures,
+            textures: HashMap::new(),
+            white_texture: Arc::new(white_texture),
         }
     }
 
-    pub fn load_texture(&mut self, filepath: PathBuf, is_normal: bool) -> Arc<Texture> {
-        let filepath = {
-            let candidate = filepath;
-            candidate
-                .is_file()
-                .then(|| candidate)
-                .unwrap_or_else(|| PathBuf::from("assets/core/white.png"))
-        };
-
-        if self.textures.contains_key(&filepath) {
-            println!("Found: {:?}", filepath);
-            return self.textures.get(&filepath).unwrap().clone();
-        } else {
-            println!("Add to texture: {:?}", filepath);
-            let texture = Arc::new(Texture::new(
-                &self.device,
-                &self.queue,
-                Self::read(&filepath),
-                is_normal,
-            ));
-            self.textures.insert(filepath, texture.clone());
-
-            return texture;
+    pub fn get_or_create(&mut self, filepath: &Path, is_normal: bool) -> Arc<Texture> {
+        match self.textures.get(&filepath.to_path_buf()) {
+            Some(texture) => texture.clone(),
+            None => self.create_texture(filepath, is_normal),
         }
     }
 
-    fn read(filepath: &Path) -> Vec<u8> {
-        std::fs::read(filepath).expect(&format!("Impossibile leggere il file {:?}", filepath))
+    fn create_texture(&mut self, filepath: &Path, is_normal: bool) -> Arc<Texture> {
+        match Self::read(filepath) {
+            Some(buffer) => {
+                let texture = Arc::new(Texture::new(&self.device, &self.queue, buffer, is_normal));
+                println!("filepath {}", filepath.display());
+                self.textures.insert(filepath.to_path_buf(), texture.clone());
+                texture.clone()
+            }
+            None => self.white_texture.clone(),
+        }
+    }
+
+    fn read(filepath: &Path) -> Option<Vec<u8>> {
+        match std::fs::read(filepath) {
+            Ok(buffer) => Some(buffer),
+            Err(err) => {
+                println!(
+                    "{}, Impossibile leggere il file {}",
+                    err,
+                    filepath.display()
+                );
+                None
+            }
+        }
     }
 }

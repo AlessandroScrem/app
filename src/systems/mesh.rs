@@ -2,7 +2,9 @@ use wgpu::IndexFormat;
 
 use crate::{
     MeshComponent, TransformComponent,
-    renderer::{gpu_renderer::DepthTexture, pipeline_manager::PipelineManager},
+    renderer::{
+        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::PipelineManager,
+    },
     resources::gpu_manager::GPUResourceManager,
 };
 
@@ -19,6 +21,7 @@ pub fn mesh(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
+    #[resource] light_manager: &LightManager,
 ) {
     let clear_color = wgpu::Color {
         r: 0.1,
@@ -53,13 +56,9 @@ pub fn mesh(
         .get_render_pipeline("default")
         .expect("expected pipeline: 'default'");
 
-    let map = gpu_resource_manager.bind_groups.lock().unwrap();
-    let camera_bind_group = map.get("camera").unwrap();
-    let light_bind_group = map.get("light").unwrap();
-
     renderpass.set_pipeline(render_pipeline);
-    renderpass.set_bind_group(0, camera_bind_group, &[]);
-    renderpass.set_bind_group(3, light_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+    renderpass.set_bind_group(3, &light_manager.light_uniform_bind_group, &[]);
 
     let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
     for (mesh, _) in mesh_query.iter(world) {

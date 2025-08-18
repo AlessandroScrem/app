@@ -145,9 +145,7 @@ pub fn load_gltf(
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let model_bind_group_layout = gpu_resource_manager
-        .get_layout("model")
-        .expect("unable to find bind group layout");
+    let model_bind_group_layout = gpu_resource_manager.get_layout("model");
 
     let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &model_bind_group_layout,
@@ -245,7 +243,7 @@ mod tests {
             (adapter, arc_device, arc_queue)
         });
 
-        let gpu_manager = GPUResourceManager::new(&device, &queue);
+        let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
         let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone());
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());

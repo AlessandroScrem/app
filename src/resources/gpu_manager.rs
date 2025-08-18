@@ -3,19 +3,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{assets::texture::Texture, renderer::uniform::CameraUniform};
+use crate::{renderer::uniform::CameraUniform};
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
     pub camera_uniform_buffer: wgpu::Buffer,
-    pub light_uniform_buffer: wgpu::Buffer,
+    pub camera_bind_group: wgpu::BindGroup,
 
     pub bind_group_layouts: Mutex<HashMap<String, Arc<wgpu::BindGroupLayout>>>,
-    pub bind_groups: Mutex<HashMap<String, wgpu::BindGroup>>,
 }
 
 impl GPUResourceManager {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         // Camera
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -61,21 +60,6 @@ impl GPUResourceManager {
                 }],
                 label: Some("Light Bind Group Layout"),
             });
-
-        let light_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[crate::Light::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let light_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Light uniform Bind Group"),
-        });
 
         // Texture
         let texture_bind_group_layout =
@@ -166,34 +150,7 @@ impl GPUResourceManager {
                 label: Some("Light Texture_bind_group_layout"),
             });
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        let diffuse_bytes = include_bytes!("../../assets/core/lightbulb-icon32.png");
-        let light_texture = Texture::new(device, queue, diffuse_bytes.to_vec(), false);
-
-        let light_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&light_texture.view),
-                },
-            ],
-            label: Some("light texture_bind_group"),
-        });
-
+    
         let mut layouts = HashMap::new();
         layouts.insert("camera".into(), Arc::new(camera_bind_group_layout));
         layouts.insert("texture".into(), Arc::new(texture_bind_group_layout));
@@ -201,24 +158,16 @@ impl GPUResourceManager {
         layouts.insert("light".into(), Arc::new(light_bind_group_layout));
         layouts.insert("light_texture".into(), Arc::new(light_texture_bind_group_layout));
 
-        let mut groups = HashMap::new();
-        groups.insert("camera".into(), camera_bind_group);
-        groups.insert("light".into(), light_uniform_bind_group);
-        groups.insert("light_texture".into(), light_texture_bind_group);
 
         Self {
             camera_uniform_buffer,
-            light_uniform_buffer,
-            bind_groups: Mutex::new(groups),
+            camera_bind_group,
             bind_group_layouts: Mutex::new(layouts),
         }
     }
 
-    pub fn get_layout(&self, name: &str) -> Option<Arc<wgpu::BindGroupLayout>> {
+    pub fn get_layout(&self, name: &str) -> Arc<wgpu::BindGroupLayout> {
         let map = self.bind_group_layouts.lock().unwrap();
-        match map.get(name) {
-            Some(layout) => Some(layout.clone()),
-            None => None,
-        }
+        map.get(name).expect(format!("unable to find bind group layout: {}", name).as_str()).clone()
     }
 }
