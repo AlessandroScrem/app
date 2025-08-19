@@ -6,18 +6,17 @@ edition = "2024"
 [dependencies]
 winit = "0.30.9"
 wgpu = "25.0"
-pollster = "0.4.0"
-env_logger = "0.11.7"
-instant = "0.1.13"
-cgmath = "0.18.0"
-bytemuck = { version = "1.16", features = [ "derive" ] }
-egui = "0.31.1"
-egui-wgpu = { version = "0.31.1",features = ["winit"] }
-egui-winit = "0.31.1"
-rfd = "0.15.3"
-gltf = "1.4.1"
-legion = "0.4.0"
-image = "0.25.6"
+
 imgui-wgpu = "0.25.0"
 imgui = "0.12.0"
 imgui-winit-support = "0.13.0"
+
+legion = "0.4.0"
+
+cgmath = "0.18.0"
+bytemuck = { version = "1.16", features = [ "derive" ] }
+
+pollster = "0.4.0"
+gltf = "1.4.1"
+image = "0.25.6"
+
