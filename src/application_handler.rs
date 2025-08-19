@@ -1,3 +1,4 @@
+use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
 use crate::prelude::*;
 use crate::renderer::gpu_renderer::DepthTexture;
@@ -17,8 +18,8 @@ impl ApplicationHandler for App {
         self.window = Some(window.clone());
 
         pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
-        self.load();
         self.create_gui();
+        self.load();
 
         window.request_redraw();
     }
@@ -99,6 +100,15 @@ impl ApplicationHandler for App {
                 &window,
                 &winit::event::Event::AboutToWait,
             );
+
+            let mut registry = self.resources.get_mut::<imgui_tools::ImGuiTextureRegistry>().unwrap();
+            let mut renderer = self.resources.get_mut::<imgui_wgpu::Renderer>().unwrap();
+
+            let device = self.resources.get::<wgpu::Device>().unwrap();
+            let manager = self.resources.get::<TextureManager>().unwrap();
+
+            // TODO: maybe use an event handler for avoid to sync each frame
+            imgui_tools::sync_with_registry(&device, &manager, &mut registry, &mut renderer);
         }
 
         window.request_redraw();

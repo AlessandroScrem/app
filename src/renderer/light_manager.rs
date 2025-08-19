@@ -14,8 +14,13 @@ impl LightManager {
         device: Arc<wgpu::Device>,
         queue: Arc<wgpu::Queue>,
     ) -> Self {
-        let diffuse_bytes = include_bytes!("../../assets/core/lightbulb-icon32.png");
-        let light_texture = Texture::new(&device, &queue, diffuse_bytes.to_vec(), false);
+        let light_texture = {
+            let buffer = include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/assets/core/lightbulb-icon32.png"
+            ));
+            Texture::new(&device, &queue, buffer, false)
+        };
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,

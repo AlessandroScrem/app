@@ -1,13 +1,83 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
-use imgui_wgpu::{Renderer, RendererConfig};
+use imgui_wgpu::{RawTextureConfig, Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 use legion::{Entity, Resources, World};
 use winit::window::Window;
 
-use crate::{camera::Camera, LightComponent, MeshComponent, TagComponent, TransformComponent};
+use crate::{
+    LightComponent, MeshComponent, TagComponent, TransformComponent,
+    assets::texture_manager::TextureManager, camera::Camera,
+};
+
+// registro imgui separato
+pub struct ImGuiTextureRegistry {
+    pub ids: HashMap<PathBuf, TextureId>,
+}
+
+impl ImGuiTextureRegistry {
+    pub fn new() -> Self {
+        Self {
+            ids: HashMap::new(),
+        }
+    }
+}
+
+// Sync texture with TextureManager textures
+pub fn sync_with_registry(
+    device: &wgpu::Device,
+    manager: &TextureManager,
+    registry: &mut ImGuiTextureRegistry,
+    renderer: &mut imgui_wgpu::Renderer,
+) {
+    // record new textures
+    for (path, tex) in &manager.textures {
+        if !registry.ids.contains_key(path) {
+            let texture_config = RawTextureConfig {
+                label: None,
+                sampler_desc: wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::Repeat,
+                    address_mode_w: wgpu::AddressMode::Repeat,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                },
+            };
+            let id = renderer
+                .textures
+                .insert(imgui_wgpu::Texture::from_raw_parts(
+                    device,
+                    renderer,
+                    tex.inner.clone(),
+                    tex.view.clone(),
+                    None,
+                    Some(&texture_config),
+                    tex.extent,
+                ));
+            registry.ids.insert(path.clone(), id);
+            println!("add to registry {} with id {}", path.display(), id.id());
+        }
+    }
+    
+    // rimuove quelle che non esistono più nel texture manager
+    registry.ids.retain(|path, id| {
+        if !manager.textures.contains_key(path) {
+            renderer.textures.remove(*id);
+            println!("remove from registry {} with id {}", path.display(), id.id());
+            false
+        } else {
+            true
+        }
+    });
+}
 
 pub struct ImguiState {
     pub context: imgui::Context,
@@ -69,7 +139,10 @@ impl ImguiState {
             Renderer::new(&mut context, &device, &queue, renderer_config)
         };
 
+        let registry = ImGuiTextureRegistry::new();
+
         resources.insert(renderer);
+        resources.insert(registry);
 
         Self {
             context,
@@ -102,8 +175,7 @@ impl ImguiState {
             draw_window_general_info(ui, delta_s);
             draw_window_camera(ui, &resources);
             draw_window_entities(ui, world, &mut self.entity_selected);
-            draw_window_properties(ui, world, self.entity_selected);
-            
+            draw_window_properties(ui, world, &resources, self.entity_selected);
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -207,11 +279,18 @@ fn draw_window_entities(ui: &imgui::Ui, world: &World, selected: &mut Option<Ent
         });
 }
 
-fn draw_window_properties(ui: &imgui::Ui, world: &mut World, selected: Option<Entity>) {
+fn draw_window_properties(
+    ui: &imgui::Ui,
+    world: &mut World,
+    resources: &Resources,
+    selected: Option<Entity>,
+) {
     let entity = match selected {
         Some(entity) => entity,
         None => return,
     };
+
+    let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
 
     let window = ui.window(format!("Properties for {:?}", entity));
     window
@@ -219,18 +298,59 @@ fn draw_window_properties(ui: &imgui::Ui, world: &mut World, selected: Option<En
         .position([0.0, 400.0], Condition::FirstUseEver)
         .build(|| {
             ui.separator();
-            draw_ui_mesh(ui, world, entity.clone());
+            draw_ui_mesh(ui, world, &registry, entity.clone());
             ui.separator();
             draw_ui_light(ui, world, entity.clone());
         });
 }
 
-fn draw_ui_mesh(ui: &imgui::Ui, world: &mut World, entity: Entity) {
+fn draw_ui_mesh(
+    ui: &imgui::Ui,
+    world: &mut World,
+    registry: &ImGuiTextureRegistry,
+    entity: Entity,
+) {
     use legion::query::IntoQuery;
     let mut query = <(&MeshComponent, &mut TransformComponent)>::query();
 
     if let Ok((_mesh, transform)) = query.get_mut(world, entity) {
+        for submesh in _mesh.data.submeshes.iter() {
+            let main = &submesh.material.main_texture;
+            let normal = &submesh.material.normal_texture;
+            let roughness = &submesh.material.roughness_texture;
+            if let Some(id) = registry.ids.get(main) {
+                let name = main
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("no name");
+                ui.image_button(name, *id, [100.0, 100.0]);
+                ui.same_line();
+                ui.text(name);
+                ui.separator();
+            }
+            if let Some(id) = registry.ids.get(normal) {
+                let name = normal
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("no name");
+                ui.image_button(name, *id, [100.0, 100.0]);
+                ui.same_line();
+                ui.text(name);
+                ui.separator();
+            }
+            if let Some(id) = registry.ids.get(roughness) {
+                let name = roughness
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("no name");
+                ui.image_button(name, *id, [100.0, 100.0]);
+                ui.same_line();
+                ui.text(name);
+                ui.separator();
+            }
+        }
         draw_ui_transform(ui, "Mesh Transform", transform);
+        ui.separator();
     }
 }
 

@@ -8,45 +8,53 @@ use std::{
 pub struct TextureManager {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
-    textures: HashMap<PathBuf, Arc<Texture>>,
+    pub textures: HashMap<PathBuf, Arc<Texture>>,
     white_texture: Arc<Texture>,
 }
 
 impl TextureManager {
     pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
-        let buffer = include_bytes!("../../assets/core/white.png");
-        let white_texture = Texture::new(&device, &queue, buffer.to_vec(), false);
+        let buffer = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/core/white.png"
+        ));
+        let white_texture = Arc::new(Texture::new(&device, &queue, buffer, false));
 
         Self {
             device,
             queue,
             textures: HashMap::new(),
-            white_texture: Arc::new(white_texture),
+            white_texture,
         }
     }
 
     pub fn get_or_create(&mut self, filepath: &Path, is_normal: bool) -> Arc<Texture> {
-        match self.textures.get(&filepath.to_path_buf()) {
-            Some(texture) => texture.clone(),
-            None => self.create_texture(filepath, is_normal),
-        }
+        if self.textures.contains_key(filepath) {
+            return self.textures.get(filepath).unwrap().clone();
+        };
+
+        self.create_texture(filepath, is_normal)
     }
 
     fn create_texture(&mut self, filepath: &Path, is_normal: bool) -> Arc<Texture> {
-        match Self::read(filepath) {
+        match Self::read_bytes(filepath) {
             Some(buffer) => {
-                let texture = Arc::new(Texture::new(&self.device, &self.queue, buffer, is_normal));
-                println!("filepath {}", filepath.display());
-                self.textures.insert(filepath.to_path_buf(), texture.clone());
-                texture.clone()
+                let texture = Arc::new(Texture::new(&self.device, &self.queue, &buffer, is_normal));
+                self.textures
+                    .insert(filepath.to_path_buf(), texture.clone());
+
+                texture
             }
             None => self.white_texture.clone(),
         }
     }
 
-    fn read(filepath: &Path) -> Option<Vec<u8>> {
+    fn read_bytes(filepath: &Path) -> Option<Vec<u8>> {
         match std::fs::read(filepath) {
-            Ok(buffer) => Some(buffer),
+            Ok(buffer) => {
+                println!("read filepath {}", filepath.display());
+                Some(buffer)
+            }
             Err(err) => {
                 println!(
                     "{}, Impossibile leggere il file {}",

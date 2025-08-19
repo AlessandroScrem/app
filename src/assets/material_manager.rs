@@ -6,6 +6,10 @@ use std::{
 use crate::{assets::texture_manager::TextureManager, resources::gpu_manager::GPUResourceManager};
 
 pub struct Material {
+    pub main_texture: PathBuf,
+    pub normal_texture: PathBuf,
+    pub roughness_texture: PathBuf,
+
     pub roughness: f32,
     pub metallic: f32,
     pub roughness_override: f32,
@@ -74,13 +78,20 @@ impl MaterialManager {
 
         let roughness_texture = get_texture_url(&roughness_info, &images);
         let has_pbr_texture = roughness_texture.is_some();
-        let main_texture = get_texture_url(&main_info, &images).unwrap_or("white.png".to_string());
-        let normal_texture = normal_texture.unwrap_or("white.png".to_string());
-        let roughness_texture = roughness_texture.unwrap_or("white.png".to_string());
 
-        let bind0 = texture_manager.get_or_create(&parent_path.join(main_texture), false);
-        let bind1 = texture_manager.get_or_create(&parent_path.join(normal_texture), true);
-        let bind2 = texture_manager.get_or_create(&parent_path.join(roughness_texture), false);
+        let main_texture = get_texture_url(&main_info, &images)
+            .map(|s| parent_path.join(s))
+            .unwrap_or("no-name".into());
+        let normal_texture = normal_texture
+            .map(|s| parent_path.join(s))
+            .unwrap_or("no-name".into());
+        let roughness_texture = roughness_texture
+            .map(|s| parent_path.join(s))
+            .unwrap_or("no-name".into());
+
+        let bind0 = texture_manager.get_or_create(&main_texture, false);
+        let bind1 = texture_manager.get_or_create(&normal_texture, true);
+        let bind2 = texture_manager.get_or_create(&roughness_texture, false);
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -118,6 +129,9 @@ impl MaterialManager {
         });
 
         Material {
+            main_texture,
+            normal_texture,
+            roughness_texture,
             roughness,
             metallic,
             roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },

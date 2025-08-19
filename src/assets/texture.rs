@@ -1,13 +1,14 @@
+use std::sync::Arc;
 
 pub struct Texture {
-    pub inner: wgpu::Texture,
-    pub view: wgpu::TextureView,
+    pub inner: Arc<wgpu::Texture>,
+    pub view: Arc<wgpu::TextureView>,
     pub extent: wgpu::Extent3d,
 }
 
 impl Texture {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, buffer: Vec<u8>, is_normal: bool) -> Self {
-        let rgba = image::load_from_memory(&buffer).unwrap().to_rgba8();
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, buffer: &[u8], is_normal: bool) -> Self {
+        let rgba = image::load_from_memory(buffer).unwrap().to_rgba8();
         let (width, height) = rgba.dimensions();
 
         let extent = wgpu::Extent3d {
@@ -53,8 +54,8 @@ impl Texture {
 
         Texture {
             extent,
-            inner: texture,
-            view,
+            inner: Arc::new(texture),
+            view: Arc::new(view),
         }
     }
 }

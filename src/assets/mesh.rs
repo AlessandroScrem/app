@@ -246,6 +246,7 @@ mod tests {
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
         let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone());
+
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let result = load_gltf(
