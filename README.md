@@ -9,6 +9,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Imgui
 - [x] Mesh entity
 - [x] Light entity
+- [x] SkyBox
 - [ ] Hierarchy entity
 - [ ] Mesh Bounding box
 - [ ] Entity selection

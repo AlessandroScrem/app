@@ -7,13 +7,6 @@ struct Camera {
     screen_size: vec2<f32>,
 };
 
-struct Light {
-    color: vec3<f32>,
-    directional: u32,
-    position: vec3<f32>,
-    cast_shadow: u32,
-}
-
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(1) @binding(0) var tex_sampler: sampler;
 @group(1) @binding(1) var env_map: texture_cube<f32>;
@@ -27,7 +20,7 @@ struct VertexOutput {
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
 
-    // quad locale [-0.5,0.5] in XY
+    //local cube [-1 1]
     var skybox: array<vec3<f32>, 36> = array<vec3<f32>, 36>(
         vec3<f32>(-1.0, -1.0, -1.0),
         vec3<f32>( 1.0,  1.0, -1.0),

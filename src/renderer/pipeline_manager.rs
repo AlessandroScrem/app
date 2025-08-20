@@ -10,8 +10,9 @@ use crate::resources::gpu_manager::GPUResourceManager;
 pub struct PipelineDesc {
     primitive: wgpu::PrimitiveState,
     multisample: wgpu::MultisampleState,
+    depth_write: bool,
+    depth_compare: wgpu::CompareFunction,
 }
-
 impl Default for PipelineDesc {
     fn default() -> Self {
         Self {
@@ -29,24 +30,24 @@ impl Default for PipelineDesc {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            depth_write: true,
+            depth_compare: wgpu::CompareFunction::Less,
         }
     }
 }
 impl PipelineDesc {
     pub fn build_pipeline(
         &self,
+        name: &str,
         device: &wgpu::Device,
         layout: wgpu::PipelineLayout,
         config: &wgpu::SurfaceConfiguration,
         shader: wgpu::ShaderModule,
         buffers: &[wgpu::VertexBufferLayout<'static>],
-        depth_write: bool,
-        depth_compare: wgpu::CompareFunction,
     ) -> wgpu::RenderPipeline {
-        let format = config.format;
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some(&format!("Render Pipeline {}", name)),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -58,7 +59,7 @@ impl PipelineDesc {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format,
+                    format: config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -68,8 +69,8 @@ impl PipelineDesc {
             multisample: self.multisample,
             depth_stencil: Some(DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
-                depth_write_enabled: depth_write,
-                depth_compare,
+                depth_write_enabled: self.depth_write,
+                depth_compare: self.depth_compare,
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -117,23 +118,19 @@ impl PipelineManager {
         buffers: &[wgpu::VertexBufferLayout<'static>],
         shader: wgpu::ShaderModule,
         surface_config: &wgpu::SurfaceConfiguration,
-        depth_write: bool,
-        depth_compare: wgpu::CompareFunction,
+        pipeline_desc: &PipelineDesc,
     ) {
         if self.pipelines.contains_key(name) {
             return;
         }
 
-        let desc = PipelineDesc::default();
-
-        let pipeline = desc.build_pipeline(
+        let pipeline = pipeline_desc.build_pipeline(
+            name,
             device,
             render_pipeline_layout,
             surface_config,
             shader,
             buffers,
-            depth_write,
-            depth_compare,
         );
 
         let pipeline = Pipeline {
@@ -167,10 +164,9 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     });
 
     let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
-
     let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
-    let depth_write = true;
-    let depth_compare = wgpu::CompareFunction::Less;
+
+    let pipeline_desc = PipelineDesc::default();
 
     pipeline_manager.add_pipeline(
         "default",
@@ -179,8 +175,7 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
         buffer_desc,
         shader,
         &surface_config,
-        depth_write,
-        depth_compare,
+        &pipeline_desc,
     );
 }
 
@@ -207,8 +202,7 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
     let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
 
     let buffers = &[];
-    let depth_write = true;
-    let depth_compare = wgpu::CompareFunction::Less;
+    let pipeline_desc = PipelineDesc::default();
 
     pipeline_manager.add_pipeline(
         "light",
@@ -217,8 +211,7 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
         buffers,
         shader,
         &surface_config,
-        depth_write,
-        depth_compare,
+        &pipeline_desc,
     );
 }
 
@@ -244,8 +237,12 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
     let shader = device.create_shader_module(wgpu::include_wgsl!("../skybox.wgsl"));
 
     let buffers = &[];
-    let depth_write = true;
-    let depth_compare = wgpu::CompareFunction::LessEqual;
+
+    let pipeline_desc = PipelineDesc {
+        depth_compare: wgpu::CompareFunction::LessEqual,
+        depth_write: false,
+        ..Default::default()
+    };
 
     pipeline_manager.add_pipeline(
         "skybox",
@@ -254,7 +251,6 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
         buffers,
         shader,
         &surface_config,
-        depth_write,
-        depth_compare,
+        &pipeline_desc,
     );
 }
