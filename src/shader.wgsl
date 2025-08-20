@@ -2,7 +2,8 @@
 
 struct Camera {
     view_pos: vec3<f32>,
-    view_proj: mat4x4<f32>,
+    view: mat4x4<f32>,
+    proj: mat4x4<f32>,
     screen_size: vec2<f32>,
 };
 
@@ -45,7 +46,7 @@ fn vs_main(
     var out: VertexOutput;
     let world_position = model.model * vec4<f32>(vertex.position, 1.0);
 
-    out.clip_position = camera.view_proj * world_position;
+    out.clip_position = camera.proj * camera.view * world_position;
     out.world_pos = world_position.xyz;
     out.normal = normalize((model.normal_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
     out.uv =  vertex.uv;

@@ -92,12 +92,12 @@ impl Camera {
     }
 
     // getters
-    pub fn get_matrix(&self) -> Matrix4<f32> {
+    pub fn get_view_mat(&self) -> Matrix4<f32> {
         self.view_matrix
     }
 
     // Ottiene una projection RH con correzione da opengl [-1, 1] a Vulkan(wgpu) Z [0, 1]
-    pub fn get_projection(&self) -> Matrix4<f32> {
+    pub fn get_projection_mat(&self) -> Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
     }
 
@@ -192,7 +192,7 @@ mod tests {
 
         // Aggiorna la view matrix
         cam.update_view();
-        let view = cam.get_matrix();
+        let view = cam.get_view_mat();
 
         // Estrai i vettori della camera dalla view matrix
         // Column-major: view = inv(translation * rotation)
@@ -243,7 +243,7 @@ mod tests {
         // Proiezione RH con z[0, 1]
         let camera = Camera::new(fovy, aspect, near, far);
 
-        let proj = camera.get_projection();
+        let proj = camera.get_projection_mat();
 
         // Near plane: z = -near (perché RH guarda lungo -Z)
         let near_point = vec4(0.0, 0.0, -near, 1.0);

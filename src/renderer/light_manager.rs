@@ -19,7 +19,7 @@ impl LightManager {
                 env!("CARGO_MANIFEST_DIR"),
                 "/assets/core/lightbulb-icon32.png"
             ));
-            Texture::new(&device, &queue, buffer, false)
+            Texture::new(&device, &queue, buffer, wgpu::TextureFormat::Rgba8UnormSrgb)
         };
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {

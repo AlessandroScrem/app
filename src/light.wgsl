@@ -2,7 +2,8 @@
 
 struct Camera {
     view_pos: vec3<f32>,
-    view_proj: mat4x4<f32>,
+    view: mat4x4<f32>,
+    proj: mat4x4<f32>,
     screen_size: vec2<f32>,
 };
 
@@ -54,7 +55,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
     // calcola centro in clip space
     let world_center = vec4<f32>(light.position, 1.0);
-    let clip_center = camera.view_proj * world_center;
+    let clip_center = camera.proj * camera.view * world_center;
 
     // calcola offset in pixel → NDC
     let pixel_size = 2.0 / camera.screen_size; // 2.0 perché NDC va da -1 a 1

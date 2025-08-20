@@ -22,9 +22,11 @@ pub fn update_globals<'a>(
     camera_uniform_buffer: &wgpu::Buffer,
     screen_size: [f32; 2],
 ) {
+
     let updated_uniforms = CameraUniform {
         view_position: camera.get_position().to_homogeneous().into(),
-        view_proj: (camera.get_projection() * camera.get_matrix()).into(),
+        view: camera.get_view_mat().into(),
+        proj: camera.get_projection_mat().into(),
         screen_size,
         ..Default::default()
     };

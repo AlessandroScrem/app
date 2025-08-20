@@ -2,6 +2,7 @@
 name = "app_wgpu"
 version = "0.1.0"
 edition = "2024"
+default-run = "app_wgpu"
 
 [dependencies]
 winit = "0.30.9"
