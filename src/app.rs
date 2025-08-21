@@ -2,7 +2,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::DeltaTime;
-use crate::create_skybox;
 use crate::input::Input;
 
 use crate::prelude::imgui_tools::ImguiState;
@@ -56,7 +55,8 @@ impl App {
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
 
-        create_skybox(&mut self.resources);
+        crate::create_skybox(&mut self.resources);
+        crate::create_hdr(&mut self.resources);
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 

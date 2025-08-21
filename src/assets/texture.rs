@@ -15,15 +15,36 @@ impl Texture {
         buffer: &[u8],
         format: TextureFormat,
     ) -> Self {
-        let (image, pixel_size) = match format {
+        // assert!(width != 0 && height != 0, "image: dimension must > 0");
+
+        let (raw_data, width, height, pixel_size) = match format {
             TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Unorm => {
-                (image::load_from_memory(buffer).unwrap().to_rgba8(), 4)
+                let image = image::load_from_memory(buffer).unwrap().to_rgba8();
+                let (width, height) = image.dimensions();
+                let raw = image.into_raw(); // già Vec<u8>
+                (raw, width, height, 4)
             }
-            TextureFormat::Rgba16Float => unimplemented!(),
+            // formato non compatibile con imgui perchè non filterable
+            TextureFormat::Rgba32Float => {
+                let image = image::load_from_memory(buffer).unwrap().to_rgba32f();
+                let (width, height) = image.dimensions();
+                let raw_f32: Vec<f32> = image.into_raw();
+                let raw_u8: Vec<u8> = bytemuck::cast_slice(&raw_f32).to_vec(); // ✅ copia sicura in Vec<u8>
+                (raw_u8, width, height, 16)
+            }
+            TextureFormat::Rgba16Float => {
+                let image = image::load_from_memory(buffer).unwrap().to_rgba32f();
+                let (width, height) = image.dimensions();
+                let raw_f32: Vec<f32> = image.into_raw();
+                // conversione diretta in Vec<u8> per Rgba16Float
+                let raw_u8: Vec<u8> = raw_f32
+                    .iter()
+                    .flat_map(|f| half::f16::from_f32(*f).to_le_bytes())
+                    .collect();
+                (raw_u8, width, height, 8)
+            }
             _ => panic!("Unsopported TextureFormat"),
         };
-
-        let (width, height) = image.dimensions();
 
         let extent = wgpu::Extent3d {
             width,
@@ -48,7 +69,7 @@ impl Texture {
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
-            &image,
+            &raw_data,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(pixel_size * width),

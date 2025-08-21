@@ -141,4 +141,70 @@ mod tests {
 
         assert_eq!(cube.extent.depth_or_array_layers, 6);
     }
+
+    #[test]
+    fn should_load_hdr_texture_rgba32float() {
+        let (_adapter, device, queue) = pollster::block_on(async {
+            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::None,
+                    compatible_surface: None,
+                    ..Default::default()
+                })
+                .await
+                .unwrap();
+
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor::default())
+                .await
+                .unwrap();
+
+            let arc_device = Arc::new(device);
+            let arc_queue = Arc::new(queue);
+
+            (adapter, arc_device, arc_queue)
+        });
+
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+
+        let hdr = texture_manager.get_or_create(f0, TextureFormat::Rgba32Float);
+
+        assert_eq!(hdr.inner.format(), TextureFormat::Rgba32Float);
+    }
+
+    #[test]
+    fn should_load_hdr_texture_rgba16float() {
+        let (_adapter, device, queue) = pollster::block_on(async {
+            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::None,
+                    compatible_surface: None,
+                    ..Default::default()
+                })
+                .await
+                .unwrap();
+
+            let (device, queue) = adapter
+                .request_device(&wgpu::DeviceDescriptor::default())
+                .await
+                .unwrap();
+
+            let arc_device = Arc::new(device);
+            let arc_queue = Arc::new(queue);
+
+            (adapter, arc_device, arc_queue)
+        });
+
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+
+        let hdr = texture_manager.get_or_create(f0, TextureFormat::Rgba16Float);
+
+        assert_eq!(hdr.inner.format(), TextureFormat::Rgba16Float);
+    }
 }

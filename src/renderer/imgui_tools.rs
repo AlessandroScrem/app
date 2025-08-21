@@ -42,9 +42,6 @@ pub fn sync_with_registry(
             let texture_config = RawTextureConfig {
                 label: None,
                 sampler_desc: wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::Repeat,
-                    address_mode_v: wgpu::AddressMode::Repeat,
-                    address_mode_w: wgpu::AddressMode::Repeat,
                     mag_filter: wgpu::FilterMode::Linear,
                     min_filter: wgpu::FilterMode::Linear,
                     mipmap_filter: wgpu::FilterMode::Linear,
@@ -66,12 +63,16 @@ pub fn sync_with_registry(
             println!("add to registry {} with id {}", path.display(), id.id());
         }
     }
-    
+
     // rimuove quelle che non esistono più nel texture manager
     registry.ids.retain(|path, id| {
         if !manager.textures.contains_key(path) {
             renderer.textures.remove(*id);
-            println!("remove from registry {} with id {}", path.display(), id.id());
+            println!(
+                "remove from registry {} with id {}",
+                path.display(),
+                id.id()
+            );
             false
         } else {
             true
@@ -164,6 +165,9 @@ impl ImguiState {
         let delta_s = self.last_frame.elapsed();
         self.last_frame = Instant::now();
 
+        let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
+        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+
         self.context.io_mut().update_delta_time(delta_s);
 
         self.platform
@@ -176,7 +180,20 @@ impl ImguiState {
             draw_window_camera(ui, &resources);
             draw_window_entities(ui, world, &mut self.entity_selected);
             draw_window_properties(ui, world, &resources, self.entity_selected);
+
+            if let Some(id) = registry.ids.get(hdr_path) {
+                let name = hdr_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("no name");
+                ui.image_button(name, *id, [500.0, 500.0]);
+                ui.same_line();
+                ui.text(name);
+                ui.separator();
+            }
         }
+
+        drop(registry);
 
         if self.last_cursor != ui.mouse_cursor() {
             self.last_cursor = ui.mouse_cursor();

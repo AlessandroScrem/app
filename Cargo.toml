@@ -20,4 +20,5 @@ bytemuck = { version = "1.16", features = [ "derive" ] }
 pollster = "0.4.0"
 gltf = "1.4.1"
 image = "0.25.6"
+half = "2.6.0"
 

@@ -119,3 +119,11 @@ pub fn create_skybox(resources: &mut legion::Resources) {
 
     resources.insert(SkyboxBindGroup(skybox_bind_group));
 }
+
+pub fn create_hdr(resources: &mut legion::Resources) {
+    #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+
+    let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
+
+    texture_manager.get_or_create(f0, wgpu::TextureFormat::Rgba16Float);
+}

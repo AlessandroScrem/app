@@ -95,6 +95,7 @@ dependencies = [
  "bytemuck",
  "cgmath",
  "gltf",
+ "half",
  "image",
  "imgui",
  "imgui-wgpu",

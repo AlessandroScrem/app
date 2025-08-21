@@ -36,6 +36,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     let image = image::load_from_memory(&buffer).unwrap();
+    println!("Read image : {:?}", image.color());
 
     let elapsed = start.elapsed();
     println!(
