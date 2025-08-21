@@ -219,29 +219,28 @@ mod tests {
 
     use super::*;
 
+    static DEVICE_AND_QUEUE: std::sync::OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = std::sync::OnceLock::new();
+
+    fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
+        DEVICE_AND_QUEUE.get_or_init(|| {
+            let instance = wgpu::Instance::default();
+            let adapter = pollster::block_on(
+                instance.request_adapter(&wgpu::RequestAdapterOptions::default()),
+            )
+            .unwrap();
+
+            let (device, queue) = pollster::block_on(
+                adapter.request_device(&wgpu::DeviceDescriptor::default()),
+            )
+            .unwrap();
+
+            (Arc::new(device), Arc::new(queue))
+        })
+    }
+
     #[test]
     fn should_load_mesh() {
-        let (_adapter, device, queue) = pollster::block_on(async {
-            let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-            let adapter = instance
-                .request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::None,
-                    compatible_surface: None,
-                    ..Default::default()
-                })
-                .await
-                .unwrap();
-
-            let (device, queue) = adapter
-                .request_device(&wgpu::DeviceDescriptor::default())
-                .await
-                .unwrap();
-
-            let arc_device = Arc::new(device);
-            let arc_queue = Arc::new(queue);
-
-            (adapter, arc_device, arc_queue)
-        });
+        let (device, queue) = get_device_and_queue();
 
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
