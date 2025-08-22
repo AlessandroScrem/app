@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{renderer::uniform::CameraUniform};
+use crate::renderer::uniform::CameraUniform;
 use wgpu::util::DeviceExt;
 
 pub struct GPUResourceManager {
@@ -176,15 +176,46 @@ impl GPUResourceManager {
                 label: Some("Skybox bind_group_layout"),
             });
 
-    
+        // equirectangular texture
+        let equirectangular_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // main
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                ],
+                label: Some("Equirectangular_Texture_bind_group_layout"),
+            });
+
         let mut layouts = HashMap::new();
         layouts.insert("camera".into(), Arc::new(camera_bind_group_layout));
         layouts.insert("texture".into(), Arc::new(texture_bind_group_layout));
         layouts.insert("model".into(), Arc::new(model_bind_group_layout));
         layouts.insert("light".into(), Arc::new(light_bind_group_layout));
-        layouts.insert("light_texture".into(), Arc::new(light_texture_bind_group_layout));
+        layouts.insert(
+            "light_texture".into(),
+            Arc::new(light_texture_bind_group_layout),
+        );
+        layouts.insert(
+            "equirectangular".into(),
+            Arc::new(equirectangular_bind_group_layout),
+        );
         layouts.insert("skybox".into(), Arc::new(skybox_bind_group_layout));
-
 
         Self {
             camera_uniform_buffer,
@@ -195,6 +226,8 @@ impl GPUResourceManager {
 
     pub fn get_layout(&self, name: &str) -> Arc<wgpu::BindGroupLayout> {
         let map = self.bind_group_layouts.lock().unwrap();
-        map.get(name).expect(format!("unable to find bind group layout: {}", name).as_str()).clone()
+        map.get(name)
+            .expect(format!("unable to find bind group layout: {}", name).as_str())
+            .clone()
     }
 }

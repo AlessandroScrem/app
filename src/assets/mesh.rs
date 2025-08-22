@@ -216,31 +216,11 @@ fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
 mod tests {
     use crate::resources::gpu_manager::GPUResourceManager;
     use std::sync::Arc;
-
     use super::*;
-
-    static DEVICE_AND_QUEUE: std::sync::OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = std::sync::OnceLock::new();
-
-    fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
-        DEVICE_AND_QUEUE.get_or_init(|| {
-            let instance = wgpu::Instance::default();
-            let adapter = pollster::block_on(
-                instance.request_adapter(&wgpu::RequestAdapterOptions::default()),
-            )
-            .unwrap();
-
-            let (device, queue) = pollster::block_on(
-                adapter.request_device(&wgpu::DeviceDescriptor::default()),
-            )
-            .unwrap();
-
-            (Arc::new(device), Arc::new(queue))
-        })
-    }
 
     #[test]
     fn should_load_mesh() {
-        let (device, queue) = get_device_and_queue();
+        let (device, queue) = crate::get_device_and_queue();
 
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);

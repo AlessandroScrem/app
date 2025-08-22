@@ -93,7 +93,8 @@ impl MaterialManager {
 
         let bind0 = texture_manager.get_or_create(&main_texture, TextureFormat::Rgba8UnormSrgb);
         let bind1 = texture_manager.get_or_create(&normal_texture, TextureFormat::Rgba8Unorm);
-        let bind2 = texture_manager.get_or_create(&roughness_texture, TextureFormat::Rgba8UnormSrgb);
+        let bind2 =
+            texture_manager.get_or_create(&roughness_texture, TextureFormat::Rgba8UnormSrgb);
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,

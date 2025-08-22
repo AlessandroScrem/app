@@ -101,29 +101,9 @@ impl TextureManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-
-    static DEVICE_AND_QUEUE: std::sync::OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = std::sync::OnceLock::new();
-
-    fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
-        DEVICE_AND_QUEUE.get_or_init(|| {
-            let instance = wgpu::Instance::default();
-            let adapter = pollster::block_on(
-                instance.request_adapter(&wgpu::RequestAdapterOptions::default()),
-            )
-            .unwrap();
-
-            let (device, queue) = pollster::block_on(
-                adapter.request_device(&wgpu::DeviceDescriptor::default()),
-            )
-            .unwrap();
-
-            (Arc::new(device), Arc::new(queue))
-        })
-    }
 
     fn create_manager() -> TextureManager {
-        let (device, queue) = get_device_and_queue();
+        let (device, queue) = crate::get_device_and_queue();
         TextureManager::new(device.clone(), queue.clone())
     }
 

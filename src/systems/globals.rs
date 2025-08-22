@@ -16,7 +16,7 @@ pub fn global(
     update_globals(camera, queue, &resource_manager.camera_uniform_buffer, screen_size);
 }
 
-pub fn update_globals<'a>(
+pub fn update_globals(
     camera: &crate::camera::Camera,
     queue: &wgpu::Queue,
     camera_uniform_buffer: &wgpu::Buffer,

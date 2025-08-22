@@ -55,8 +55,10 @@ impl App {
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
 
-        crate::create_skybox(&mut self.resources);
-        crate::create_hdr(&mut self.resources);
+        // crate::create_skybox(&mut self.resources);
+        // crate::create_hdr(&mut self.resources);
+        crate::create_skybox_from_hdr(&mut self.resources);
+        
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
@@ -69,6 +71,8 @@ impl App {
         crate::renderer::pipeline_manager::create_default_pipeline(&self.resources);
         crate::renderer::pipeline_manager::create_light_pipeline(&self.resources);
         crate::renderer::pipeline_manager::create_skybox_pipeline(&self.resources);
+
+        // crate::renderer::pipeline_manager::create_equirectangular_to_cubemap_pipeline(&self.resources);
     }
 
     pub fn create_gui(&mut self) {

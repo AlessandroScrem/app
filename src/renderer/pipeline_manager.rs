@@ -8,10 +8,9 @@ use crate::resources::gpu_manager::GPUResourceManager;
 /// Note: You can call `default()` to get a base implementation.
 #[derive(Debug, Hash, Clone)]
 pub struct PipelineDesc {
-    primitive: wgpu::PrimitiveState,
-    multisample: wgpu::MultisampleState,
-    depth_write: bool,
-    depth_compare: wgpu::CompareFunction,
+    pub primitive: wgpu::PrimitiveState,
+    pub multisample: wgpu::MultisampleState,
+    pub depth_stencil: Option<DepthStencilState>,
 }
 impl Default for PipelineDesc {
     fn default() -> Self {
@@ -30,18 +29,23 @@ impl Default for PipelineDesc {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            depth_write: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_stencil: Some(DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
         }
     }
 }
 impl PipelineDesc {
     pub fn build_pipeline(
-        &self,
+        self,
         name: &str,
         device: &wgpu::Device,
         layout: wgpu::PipelineLayout,
-        config: &wgpu::SurfaceConfiguration,
+        format: wgpu::TextureFormat,
         shader: wgpu::ShaderModule,
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
@@ -59,7 +63,7 @@ impl PipelineDesc {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
+                    format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -67,13 +71,7 @@ impl PipelineDesc {
             }),
             primitive: self.primitive,
             multisample: self.multisample,
-            depth_stencil: Some(DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
-                depth_write_enabled: self.depth_write,
-                depth_compare: self.depth_compare,
-                stencil: Default::default(),
-                bias: Default::default(),
-            }),
+            depth_stencil: self.depth_stencil,
             multiview: None,
             cache: None,
         });
@@ -117,8 +115,8 @@ impl PipelineManager {
         render_pipeline_layout: wgpu::PipelineLayout,
         buffers: &[wgpu::VertexBufferLayout<'static>],
         shader: wgpu::ShaderModule,
-        surface_config: &wgpu::SurfaceConfiguration,
-        pipeline_desc: &PipelineDesc,
+        format: wgpu::TextureFormat,
+        pipeline_desc: PipelineDesc,
     ) {
         if self.pipelines.contains_key(name) {
             return;
@@ -128,7 +126,7 @@ impl PipelineManager {
             name,
             device,
             render_pipeline_layout,
-            surface_config,
+            format,
             shader,
             buffers,
         );
@@ -174,8 +172,8 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
         render_pipeline_layout,
         buffer_desc,
         shader,
-        &surface_config,
-        &pipeline_desc,
+        surface_config.format,
+        pipeline_desc,
     );
 }
 
@@ -210,8 +208,8 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
         render_pipeline_layout,
         buffers,
         shader,
-        &surface_config,
-        &pipeline_desc,
+        surface_config.format,
+        pipeline_desc,
     );
 }
 
@@ -239,10 +237,16 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
     let buffers = &[];
 
     let pipeline_desc = PipelineDesc {
-        depth_compare: wgpu::CompareFunction::LessEqual,
-        depth_write: false,
+        depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float, 
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: Default::default(),
+                bias: Default::default(),
+        }),
         ..Default::default()
     };
+
 
     pipeline_manager.add_pipeline(
         "skybox",
@@ -250,7 +254,8 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
         render_pipeline_layout,
         buffers,
         shader,
-        &surface_config,
-        &pipeline_desc,
+        surface_config.format,
+        pipeline_desc,
     );
 }
+
