@@ -1,4 +1,4 @@
-use crate::resources::gpu_manager::{GPUResourceManager, LayoutKind};
+use crate::renderer::gpu_manager::{GPUResourceManager, LayoutKind};
 use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
@@ -128,7 +128,7 @@ fn create_pipeline(
                 bind_group_layouts: &layouts,
                 push_constant_ranges: &[],
             });
-            let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
             let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
             
             let pipeline_desc = PipelineDesc::default();
@@ -156,7 +156,7 @@ fn create_pipeline(
                     push_constant_ranges: &[],
                 });
 
-            let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/light.wgsl"));
 
             let buffer_desc = &[];
             let pipeline_desc = PipelineDesc::default();
@@ -184,7 +184,7 @@ fn create_pipeline(
                     push_constant_ranges: &[],
                 });
 
-            let shader = device.create_shader_module(wgpu::include_wgsl!("../skybox.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/skybox.wgsl"));
 
             let buffer_desc = &[];
 
@@ -224,7 +224,7 @@ fn create_pipeline(
             let format =  wgpu::TextureFormat::Rgba8Unorm;
 
             let shader = device
-                .create_shader_module(wgpu::include_wgsl!("../equirectangular_to_cubemap.wgsl"));
+                .create_shader_module(wgpu::include_wgsl!("shaders/equirectangular_to_cubemap.wgsl"));
 
             let buffer_desc = &[];
 

@@ -7,7 +7,7 @@
 
 use crate::{
     renderer::pipeline_manager::{PipelineKind, PipelineManager},
-    resources::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
 pub fn create_equirect_bind_group(

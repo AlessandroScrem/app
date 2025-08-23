@@ -8,7 +8,7 @@ use crate::{
         material_manager::{Material, MaterialManager},
         texture_manager::TextureManager,
     },
-    resources::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
 #[repr(C)]
@@ -214,7 +214,7 @@ fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::resources::gpu_manager::GPUResourceManager;
+    use crate::renderer::gpu_manager::GPUResourceManager;
     use std::sync::Arc;
     use super::*;
 

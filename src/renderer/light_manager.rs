@@ -1,4 +1,4 @@
-use crate::{assets::texture::Texture, resources::gpu_manager::{GPUResourceManager, LayoutKind}};
+use crate::{assets::texture::Texture, renderer::gpu_manager::{GPUResourceManager, LayoutKind}};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 

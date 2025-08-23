@@ -5,7 +5,7 @@ use std::{
 
 use wgpu::TextureFormat;
 
-use crate::{assets::texture_manager::TextureManager, resources::gpu_manager::{GPUResourceManager, LayoutKind}};
+use crate::{assets::texture_manager::TextureManager, renderer::gpu_manager::{GPUResourceManager, LayoutKind}};
 
 pub struct Material {
     pub main_texture: PathBuf,

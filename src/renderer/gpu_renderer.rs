@@ -52,7 +52,7 @@ impl Renderer {
         let depth_view = depth_texture.create_view(&Default::default());
 
         let gpu_resource_manager = Arc::new(
-            crate::resources::gpu_manager::GPUResourceManager::new(&device),
+            crate::renderer::gpu_manager::GPUResourceManager::new(&device),
         );
         let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(&device, &gpu_resource_manager, surface_config.format);
 

@@ -6,8 +6,8 @@ use crate::{
         gpu_renderer::DepthTexture,
         light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
+        gpu_manager::GPUResourceManager,
     },
-    resources::gpu_manager::GPUResourceManager,
 };
 
 use legion::{world::SubWorld, *};

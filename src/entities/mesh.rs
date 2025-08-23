@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
     MeshComponent, TagComponent, TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
-    resources::gpu_manager::GPUResourceManager,
+    renderer::gpu_manager::GPUResourceManager,
 };
 
 use legion::*;

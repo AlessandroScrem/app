@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
 use crate::{
+    LightComponent,
     renderer::{
-        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::{PipelineManager, PipelineKind},
-    }, resources::gpu_manager::GPUResourceManager, LightComponent
+        gpu_manager::GPUResourceManager,
+        gpu_renderer::DepthTexture,
+        light_manager::LightManager,
+        pipeline_manager::{PipelineKind, PipelineManager},
+    },
 };
 
 use legion::{world::SubWorld, *};

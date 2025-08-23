@@ -1,10 +1,3 @@
-use std::{
-    path::Path,
-    sync::{Arc, OnceLock},
-};
-
-use crate::assets::texture_manager::TextureManager;
-
 mod app;
 mod application_handler;
 pub mod assets;
@@ -12,7 +5,6 @@ mod camera;
 mod entities;
 pub mod input;
 mod renderer;
-pub mod resources;
 mod scene;
 pub mod systems;
 pub mod transform;
@@ -25,6 +17,7 @@ pub mod prelude {
     pub use crate::renderer::uniform::CameraUniform;
 }
 
+use std::sync::{Arc, OnceLock};
 static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
 pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
     DEVICE_AND_QUEUE.get_or_init(|| {
@@ -80,13 +73,4 @@ pub struct TransformComponent {
 
 pub struct TagComponent {
     pub name: String,
-}
-
-
-pub fn create_hdr(resources: &mut legion::Resources) {
-    #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-
-    let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
-
-    texture_manager.get_or_create(f0, wgpu::TextureFormat::Rgba16Float);
 }
