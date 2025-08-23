@@ -6,10 +6,9 @@
 // CreatePrefilterMap(skybox);
 
 use crate::{
-    renderer::pipeline_manager::{PipelineManager, PipelineKind},
+    renderer::pipeline_manager::{PipelineKind, PipelineManager},
     resources::gpu_manager::{GPUResourceManager, LayoutKind},
 };
-
 
 pub fn create_equirect_bind_group(
     device: &wgpu::Device,
@@ -176,8 +175,7 @@ pub fn render_to_cubemap(
         occlusion_query_set: None,
     });
 
-    let render_pipeline = pipeline_manager
-        .get_render_pipeline(PipelineKind::Equirect);
+    let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Equirect);
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
@@ -188,7 +186,7 @@ pub fn render_to_cubemap(
 pub fn create_cubemap_texture_from_hdr(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    pipeline_manager: &mut PipelineManager,
+    pipeline_manager: &PipelineManager,
     gpu_resource_manager: &GPUResourceManager,
 ) -> wgpu::Texture {
     // CubemapFromHDR(skybox);
@@ -239,22 +237,176 @@ pub fn create_cubemap_texture_from_hdr(
     dest_texture
 }
 
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum SkyboxKind {
+    Default,
+}
+
+pub struct SkyboxManager {
+    skyboxes: Vec<wgpu::BindGroup>,
+}
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
+impl SkyboxManager {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        gpu_resource_manager: &GPUResourceManager,
+        pipeline_manager: &PipelineManager,
+    ) -> Self {
+        let skyboxes: Vec<wgpu::BindGroup> = SkyboxKind::iter()
+            .map(|kind| create_skybox(device, queue, gpu_resource_manager, pipeline_manager, kind))
+            .collect();
+
+        Self { skyboxes }
+    }
+
+    pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
+        &self.skyboxes[kind as usize]
+    }
+}
+
+fn create_skybox(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    gpu_resource_manager: &GPUResourceManager,
+    pipeline_manager: &PipelineManager,
+    kind: SkyboxKind,
+) -> wgpu::BindGroup {
+    match kind {
+        SkyboxKind::Default => {
+            let texture = create_cubemap_texture_from_hdr(
+                device,
+                queue,
+                pipeline_manager,
+                gpu_resource_manager,
+            );
+            let view = texture.create_view(&wgpu::TextureViewDescriptor {
+                dimension: Some(wgpu::TextureViewDimension::Cube),
+                ..Default::default()
+            });
+
+            let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            });
+
+            let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
+
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&view),
+                    },
+                ],
+                label: Some("skybox_bind_group"),
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
+    use std::{path::Path};
+
     use super::*;
-    use crate::renderer::pipeline_manager::PipelineManager;
+    use crate::{
+        assets::texture_manager::TextureManager, renderer::pipeline_manager::PipelineManager,
+    };
 
     #[test]
     fn should_create_cubemap_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
         let gpu_resource_manager = GPUResourceManager::new(&device);
-        let mut pipeline_manager = PipelineManager::new(&device, &gpu_resource_manager, wgpu::TextureFormat::Rgba8Unorm);
+        let pipeline_manager = PipelineManager::new(
+            &device,
+            &gpu_resource_manager,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
         let gpu_manager = GPUResourceManager::new(&device);
-
+        
         let texture =
-            create_cubemap_texture_from_hdr(&device, &queue, &mut pipeline_manager, &gpu_manager);
-
+        create_cubemap_texture_from_hdr(&device, &queue, &pipeline_manager, &gpu_manager);
+        
         assert_eq!(texture.size().depth_or_array_layers, 6);
+    }
+    
+    #[test]
+    fn skybox_manager_is_initialized() {
+        let (device, queue) = crate::get_device_and_queue();
+        let gpu_resource_manager = GPUResourceManager::new(&device);
+        let pipeline_manager = PipelineManager::new(
+            &device,
+            &gpu_resource_manager,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+
+        let manager = SkyboxManager::new(&device, &queue, &gpu_resource_manager, &pipeline_manager);
+        assert_eq!(manager.skyboxes.len(), SkyboxKind::iter().count());
+    }
+
+    #[test]
+    fn should_create_skybox_from_6_images() {
+        let (device, queue) = crate::get_device_and_queue();
+        let gpu_resource_manager = GPUResourceManager::new(&device);
+
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/right.png"));
+        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/left.png"));
+        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/top.png"));
+        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/bottom.png"));
+        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/front.png"));
+        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/back.png"));
+
+        let cube = texture_manager.create_cubemap(
+            f0,
+            f1,
+            f2,
+            f3,
+            f4,
+            f5,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+        );
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        let skybox_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
+
+        let _ = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &skybox_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&cube.view),
+                },
+            ],
+            label: Some("skybox_bind_group"),
+        });
     }
 }

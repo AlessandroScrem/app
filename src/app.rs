@@ -54,10 +54,6 @@ impl App {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
-
-        // crate::create_skybox(&mut self.resources);
-        // crate::create_hdr(&mut self.resources);
-        crate::create_skybox_from_hdr(&mut self.resources);
         
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);

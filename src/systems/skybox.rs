@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
 use crate::{
+    LightComponent,
     renderer::{
-        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::{PipelineManager, PipelineKind},
-    }, resources::gpu_manager::GPUResourceManager, LightComponent, SkyboxBindGroup
+        skybox_manager::{SkyboxKind, SkyboxManager},
+        gpu_renderer::DepthTexture,
+        light_manager::LightManager,
+        pipeline_manager::{PipelineKind, PipelineManager},
+    },
+    resources::gpu_manager::GPUResourceManager,
 };
 
 use legion::*;
@@ -15,7 +20,7 @@ pub fn skybox(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
-    #[resource] skybox_bind_group: &SkyboxBindGroup,
+    #[resource] skybox_manager: &SkyboxManager,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -41,12 +46,12 @@ pub fn skybox(
     });
 
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
+    let skybox_bind_group = skybox_manager.get_skybox(SkyboxKind::Default);
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
-    renderpass.set_bind_group(1, &skybox_bind_group.0, &[]);
+    renderpass.set_bind_group(1, skybox_bind_group, &[]);
     renderpass.draw(0..36, 0..1);
-
 }
 
 #[system(for_each)]

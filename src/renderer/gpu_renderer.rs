@@ -2,6 +2,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::renderer::light_manager;
+use crate::renderer::skybox_manager;
 
 pub struct Renderer {}
 pub struct DepthTexture(pub wgpu::TextureView);
@@ -71,17 +72,20 @@ impl Renderer {
             Arc::new(queue.clone()),
         );
 
+        let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager, &pipeline_manager);
+
         println!("Texture format is {:?}", surface_config.format);
 
-        resources.insert(surface_config);
-        resources.insert(material_manager);
-        resources.insert(pipeline_manager);
-        resources.insert(gpu_resource_manager);
-        resources.insert(texture_manager);
-        resources.insert(light_manager);
+        resources.insert(device);
         resources.insert(queue);
         resources.insert(surface);
+        resources.insert(surface_config);
+        resources.insert(gpu_resource_manager);
+        resources.insert(pipeline_manager);
+        resources.insert(material_manager);
+        resources.insert(texture_manager);
+        resources.insert(light_manager);
+        resources.insert(skybox_manager);
         resources.insert(DepthTexture(depth_view));
-        resources.insert(device);
     }
 }
