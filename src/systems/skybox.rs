@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     renderer::{
-        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::PipelineManager,
+        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::{PipelineManager, PipelineKind},
     }, resources::gpu_manager::GPUResourceManager, LightComponent, SkyboxBindGroup
 };
 
@@ -40,7 +40,7 @@ pub fn skybox(
         occlusion_query_set: None,
     });
 
-    let pipeline = pipeline_manager.get_render_pipeline("skybox").unwrap();
+    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);

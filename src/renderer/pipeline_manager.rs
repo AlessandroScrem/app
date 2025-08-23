@@ -1,8 +1,5 @@
-use std::{collections::HashMap, sync::Arc};
-
-use wgpu::DepthStencilState;
-
 use crate::resources::gpu_manager::{GPUResourceManager, LayoutKind};
+use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
 /// Note: You can call `default()` to get a base implementation.
@@ -42,7 +39,6 @@ impl Default for PipelineDesc {
 impl PipelineDesc {
     pub fn build_pipeline(
         self,
-        name: &str,
         device: &wgpu::Device,
         layout: wgpu::PipelineLayout,
         format: wgpu::TextureFormat,
@@ -50,7 +46,7 @@ impl PipelineDesc {
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some(&format!("Render Pipeline {}", name)),
+            label: Some(&format!("Render Pipeline")),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -79,175 +75,170 @@ impl PipelineDesc {
     }
 }
 
-/// An actual Render Pipeline that should be stored in the manager.
-/// Also contains a description of the pipeline.
-pub struct Pipeline {
-    pub render_pipeline: wgpu::RenderPipeline,
-}
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
-pub enum PipelineType {
-    Pipeline(Pipeline),
+#[derive(Debug, Clone, Copy, EnumIter )]
+pub enum PipelineKind {
+    Default,
+    Light,
+    Skybox,
+    Equirect,
 }
 
 pub struct PipelineManager {
-    pipelines: HashMap<String, PipelineType>,
+    pipelines: Vec<wgpu::RenderPipeline>,
 }
 
 impl PipelineManager {
-    pub fn new() -> Self {
+    pub fn new(device: &wgpu::Device, gpu_resource_manager: &GPUResourceManager, format: wgpu::TextureFormat) -> Self {
+
+        let pipelines:Vec<wgpu::RenderPipeline> = PipelineKind::iter()
+            .map(|kind| create_pipeline(device, gpu_resource_manager, kind, format))
+            .collect();
+
+
         Self {
-            pipelines: HashMap::new(),
+            pipelines,
         }
     }
 
-    pub fn get_render_pipeline(&self, name: &str) -> Option<&wgpu::RenderPipeline> {
-        match self.pipelines.get(name) {
-            Some(PipelineType::Pipeline(p)) => Some(&p.render_pipeline),
-            _ => None,
-        }
-    }
-
-    pub fn add_pipeline(
-        &mut self,
-        name: &str,
-        device: &wgpu::Device,
-        render_pipeline_layout: wgpu::PipelineLayout,
-        buffers: &[wgpu::VertexBufferLayout<'static>],
-        shader: wgpu::ShaderModule,
-        format: wgpu::TextureFormat,
-        pipeline_desc: PipelineDesc,
-    ) {
-        if self.pipelines.contains_key(name) {
-            return;
-        }
-
-        let pipeline = pipeline_desc.build_pipeline(
-            name,
-            device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffers,
-        );
-
-        let pipeline = Pipeline {
-            render_pipeline: pipeline,
-        };
-
-        self.pipelines
-            .insert(name.into(), PipelineType::Pipeline(pipeline));
+    pub fn get_render_pipeline(&self, kind: PipelineKind) -> &wgpu::RenderPipeline {
+        &self.pipelines[kind as usize]
     }
 }
 
-pub fn create_default_pipeline(resources: &legion::Resources) {
-    let device = resources.get::<wgpu::Device>().unwrap();
-    let resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-    let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
-    let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
+fn create_pipeline(
+    device: &wgpu::Device,
+    gpu_resource_manager: &GPUResourceManager,
+    kind: PipelineKind,
+    format: wgpu::TextureFormat
+) -> wgpu::RenderPipeline {
+    match kind {
+        PipelineKind::Default => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Texture), //1
+                gpu_resource_manager.get_layout(LayoutKind::Model),  //2
+                gpu_resource_manager.get_layout(LayoutKind::Light),  //3
+            ];
+            let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &layouts,
+                push_constant_ranges: &[],
+            });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
+            let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
+            
+            let pipeline_desc = PipelineDesc::default();
+            // let format =  wgpu::TextureFormat::Rgba8Unorm;
+            
+            pipeline_desc.build_pipeline(
+                device,
+                render_pipeline_layout,
+                format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Light => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Light),  //1
+                gpu_resource_manager.get_layout(LayoutKind::LightTexture), //2
+            ];
 
-    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        resource_manager.get_layout(LayoutKind::Camera),  //0
-        resource_manager.get_layout(LayoutKind::Texture), //1
-        resource_manager.get_layout(LayoutKind::Model),   //2
-        resource_manager.get_layout(LayoutKind::Light),   //3
-    ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
 
-    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &layouts,
-        push_constant_ranges: &[],
-    });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
 
-    let shader = device.create_shader_module(wgpu::include_wgsl!("../shader.wgsl"));
-    let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
-
-    let pipeline_desc = PipelineDesc::default();
-
-    pipeline_manager.add_pipeline(
-        "default",
-        &device,
-        render_pipeline_layout,
-        buffer_desc,
-        shader,
-        surface_config.format,
-        pipeline_desc,
-    );
-}
-
-pub fn create_light_pipeline(resources: &legion::Resources) {
-    let device = resources.get::<wgpu::Device>().unwrap();
-    let resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-    let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
-    let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
-
-    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        resource_manager.get_layout(LayoutKind::Camera), //0
-        resource_manager.get_layout(LayoutKind::Light),  //1
-        resource_manager.get_layout(LayoutKind::LightTexture), //2
-    ];
-
-    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &layouts,
-        push_constant_ranges: &[],
-    });
-
-    let shader = device.create_shader_module(wgpu::include_wgsl!("../light.wgsl"));
-
-    let buffers = &[];
-    let pipeline_desc = PipelineDesc::default();
-
-    pipeline_manager.add_pipeline(
-        "light",
-        &device,
-        render_pipeline_layout,
-        buffers,
-        shader,
-        surface_config.format,
-        pipeline_desc,
-    );
-}
-
-pub fn create_skybox_pipeline(resources: &legion::Resources) {
-    let device = resources.get::<wgpu::Device>().unwrap();
-    let resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-    let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
-    let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
+            let buffer_desc = &[];
+            let pipeline_desc = PipelineDesc::default();
+            // let format =  wgpu::TextureFormat::Rgba8Unorm;
 
 
-    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        resource_manager.get_layout(LayoutKind::Camera), //0
-        resource_manager.get_layout(LayoutKind::Skybox), //1
-    ];
+            pipeline_desc.build_pipeline(
+                device,
+                render_pipeline_layout,
+                format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Skybox => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Skybox), //1
+            ];
 
-    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &layouts,
-        push_constant_ranges: &[],
-    });
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
 
-    let shader = device.create_shader_module(wgpu::include_wgsl!("../skybox.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("../skybox.wgsl"));
 
-    let buffers = &[];
+            let buffer_desc = &[];
 
-    let pipeline_desc = PipelineDesc {
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: false,
-            depth_compare: wgpu::CompareFunction::LessEqual,
-            stencil: Default::default(),
-            bias: Default::default(),
-        }),
-        ..Default::default()
-    };
+            let pipeline_desc = PipelineDesc {
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: false,
+                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                ..Default::default()
+            };
+            // let format =  wgpu::TextureFormat::Rgba8Unorm;
 
-    pipeline_manager.add_pipeline(
-        "skybox",
-        &device,
-        render_pipeline_layout,
-        buffers,
-        shader,
-        surface_config.format,
-        pipeline_desc,
-    );
+
+            pipeline_desc.build_pipeline(
+                device,
+                render_pipeline_layout,
+                format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Equirect => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Equirect), //0
+            ];
+
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+            let format =  wgpu::TextureFormat::Rgba8Unorm;
+
+            let shader = device
+                .create_shader_module(wgpu::include_wgsl!("../equirectangular_to_cubemap.wgsl"));
+
+            let buffer_desc = &[];
+
+            let pipeline_desc = crate::renderer::pipeline_manager::PipelineDesc {
+                depth_stencil: None,
+                ..Default::default()
+            };
+            pipeline_desc.build_pipeline(
+                device,
+                render_pipeline_layout,
+                format,
+                shader,
+                buffer_desc,
+            )
+        }
+    }
 }

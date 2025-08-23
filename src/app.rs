@@ -68,11 +68,6 @@ impl App {
 
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
-        crate::renderer::pipeline_manager::create_default_pipeline(&self.resources);
-        crate::renderer::pipeline_manager::create_light_pipeline(&self.resources);
-        crate::renderer::pipeline_manager::create_skybox_pipeline(&self.resources);
-
-        // crate::renderer::pipeline_manager::create_equirectangular_to_cubemap_pipeline(&self.resources);
     }
 
     pub fn create_gui(&mut self) {

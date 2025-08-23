@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(PartialEq, Eq, Hash, EnumIter )]
+#[derive(Debug, Clone, Copy, EnumIter )]
 pub enum LayoutKind {
     Camera,
     Light,

@@ -3,7 +3,9 @@ use wgpu::IndexFormat;
 use crate::{
     MeshComponent, TransformComponent,
     renderer::{
-        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::PipelineManager,
+        gpu_renderer::DepthTexture,
+        light_manager::LightManager,
+        pipeline_manager::{PipelineKind, PipelineManager},
     },
     resources::gpu_manager::GPUResourceManager,
 };
@@ -52,9 +54,7 @@ pub fn mesh(
         occlusion_query_set: None,
     });
 
-    let render_pipeline = pipeline_manager
-        .get_render_pipeline("default")
-        .expect("expected pipeline: 'default'");
+    let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Default);
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);

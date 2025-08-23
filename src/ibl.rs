@@ -6,48 +6,10 @@
 // CreatePrefilterMap(skybox);
 
 use crate::{
-    renderer::pipeline_manager::PipelineManager,
+    renderer::pipeline_manager::{PipelineManager, PipelineKind},
     resources::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
-pub fn create_equirectangular_to_cubemap_pipeline(
-    device: &wgpu::Device,
-    gpu_resource_manager: &GPUResourceManager,
-    pipeline_manager: &mut PipelineManager,
-    texture_format: wgpu::TextureFormat,
-) {
-
-    let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        gpu_resource_manager.get_layout(LayoutKind::Camera), //0
-        gpu_resource_manager.get_layout(LayoutKind::Equirect), //0
-    ];
-
-    let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &layouts,
-        push_constant_ranges: &[],
-    });
-
-    let shader =
-        device.create_shader_module(wgpu::include_wgsl!("equirectangular_to_cubemap.wgsl"));
-
-    let buffers = &[];
-
-    let pipeline_desc = crate::renderer::pipeline_manager::PipelineDesc {
-        depth_stencil: None,
-        ..Default::default()
-    };
-
-    pipeline_manager.add_pipeline(
-        "equirectangular_to_cubemap_pipeline",
-        &device,
-        render_pipeline_layout,
-        buffers,
-        shader,
-        texture_format,
-        pipeline_desc,
-    );
-}
 
 pub fn create_equirect_bind_group(
     device: &wgpu::Device,
@@ -215,8 +177,7 @@ pub fn render_to_cubemap(
     });
 
     let render_pipeline = pipeline_manager
-        .get_render_pipeline("equirectangular_to_cubemap_pipeline")
-        .expect("expected pipeline: 'equirectangular'");
+        .get_render_pipeline(PipelineKind::Equirect);
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
@@ -249,14 +210,6 @@ pub fn create_cubemap_texture_from_hdr(
     let hdr_texture = crate::assets::texture::Texture::new(device, queue, &buffer, src_format);
 
     // create dest: cubemap texture LDR (TODO: add tonemap)
-
-    create_equirectangular_to_cubemap_pipeline(
-        &device,
-        gpu_resource_manager,
-        pipeline_manager,
-        dest_format,
-    );
-
     let dest_texture = create_dest_cube_texture(&device, width, height, dest_format);
     let cube_dest_views = create_texture_views(&dest_texture);
 
@@ -295,7 +248,8 @@ mod tests {
     #[test]
     fn should_create_cubemap_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
-        let mut pipeline_manager = PipelineManager::new();
+        let gpu_resource_manager = GPUResourceManager::new(&device);
+        let mut pipeline_manager = PipelineManager::new(&device, &gpu_resource_manager, wgpu::TextureFormat::Rgba8Unorm);
         let gpu_manager = GPUResourceManager::new(&device);
 
         let texture =

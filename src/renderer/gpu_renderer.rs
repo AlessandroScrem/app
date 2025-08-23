@@ -53,7 +53,7 @@ impl Renderer {
         let gpu_resource_manager = Arc::new(
             crate::resources::gpu_manager::GPUResourceManager::new(&device),
         );
-        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new();
+        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(&device, &gpu_resource_manager, surface_config.format);
 
         let material_manager = crate::assets::material_manager::MaterialManager::new(
             Arc::new(device.clone()),
@@ -70,6 +70,8 @@ impl Renderer {
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
+
+        println!("Texture format is {:?}", surface_config.format);
 
         resources.insert(surface_config);
         resources.insert(material_manager);

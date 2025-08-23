@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    LightComponent,
     renderer::{
-        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::PipelineManager,
-    },
-    resources::gpu_manager::GPUResourceManager,
+        gpu_renderer::DepthTexture, light_manager::LightManager, pipeline_manager::{PipelineManager, PipelineKind},
+    }, resources::gpu_manager::GPUResourceManager, LightComponent
 };
 
 use legion::{world::SubWorld, *};
@@ -44,7 +42,7 @@ pub fn light(
         occlusion_query_set: None,
     });
 
-    let pipeline = pipeline_manager.get_render_pipeline("light").unwrap();
+    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
