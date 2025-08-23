@@ -1,0 +1,14 @@
+{
+"version": "0.2.0",
+"configurations": [
+
+    {
+        "name": "Rust Launch",
+        "type": "cppvsdbg",
+        "request": "launch",
+        "stopAtEntry": false,
+        "program": "${workspaceRoot}/target/debug/app_wgpu",
+        "cwd": "${workspaceFolder}",
+    }
+]
+}
