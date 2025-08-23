@@ -8,7 +8,7 @@ use crate::{
         material_manager::{Material, MaterialManager},
         texture_manager::TextureManager,
     },
-    resources::gpu_manager::GPUResourceManager,
+    resources::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
 #[repr(C)]
@@ -145,7 +145,7 @@ pub fn load_gltf(
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let model_bind_group_layout = gpu_resource_manager.get_layout("model");
+    let model_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Model);
 
     let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &model_bind_group_layout,

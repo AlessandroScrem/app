@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     assets::texture_manager::TextureManager, renderer::pipeline_manager::PipelineManager,
-    resources::gpu_manager::GPUResourceManager,
+    resources::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
 mod app;
@@ -121,7 +121,7 @@ pub fn create_skybox(resources: &mut legion::Resources) {
         });
 
         let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-        let skybox_bind_group_layout = gpu_resource_manager.get_layout("skybox");
+        let skybox_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
 
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &skybox_bind_group_layout,
@@ -171,7 +171,7 @@ pub fn create_skybox_from_hdr(resources: &mut legion::Resources) {
         });
 
         let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-        let skybox_bind_group_layout = gpu_resource_manager.get_layout("skybox");
+        let skybox_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
 
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &skybox_bind_group_layout,

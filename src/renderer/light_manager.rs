@@ -1,4 +1,4 @@
-use crate::{assets::texture::Texture, resources::gpu_manager::GPUResourceManager};
+use crate::{assets::texture::Texture, resources::gpu_manager::{GPUResourceManager, LayoutKind}};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
@@ -32,7 +32,7 @@ impl LightManager {
             ..Default::default()
         });
 
-        let light_texture_bind_group_layout = gpu_resource_manager.get_layout("light_texture");
+        let light_texture_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::LightTexture);
 
         let light_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_texture_bind_group_layout,
@@ -55,7 +55,7 @@ impl LightManager {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let light_bind_group_layout = gpu_resource_manager.get_layout("light");
+        let light_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Light);
         let light_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {

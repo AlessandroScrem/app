@@ -21,4 +21,6 @@ pollster = "0.4.0"
 gltf = "1.4.1"
 image = "0.25.6"
 half = "2.6.0"
+strum = "0.27.2"
+strum_macros = "0.27.2"
 

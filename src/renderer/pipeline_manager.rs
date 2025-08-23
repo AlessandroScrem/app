@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use wgpu::DepthStencilState;
 
-use crate::resources::gpu_manager::GPUResourceManager;
+use crate::resources::gpu_manager::{GPUResourceManager, LayoutKind};
 
 /// A description of a render pipeline.
 /// Note: You can call `default()` to get a base implementation.
@@ -49,7 +49,6 @@ impl PipelineDesc {
         shader: wgpu::ShaderModule,
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
-
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(&format!("Render Pipeline {}", name)),
             layout: Some(&layout),
@@ -146,13 +145,11 @@ pub fn create_default_pipeline(resources: &legion::Resources) {
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
-    let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
-
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(),  // 0
-        layout_map.get("texture").unwrap(), // 1
-        layout_map.get("model").unwrap(),   // 2
-        layout_map.get("light").unwrap(),   // 3
+        resource_manager.get_layout(LayoutKind::Camera),  //0
+        resource_manager.get_layout(LayoutKind::Texture), //1
+        resource_manager.get_layout(LayoutKind::Model),   //2
+        resource_manager.get_layout(LayoutKind::Light),   //3
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -183,12 +180,10 @@ pub fn create_light_pipeline(resources: &legion::Resources) {
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
-    let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
-
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(),        // 0
-        layout_map.get("light").unwrap(),         // 1
-        layout_map.get("light_texture").unwrap(), // 2
+        resource_manager.get_layout(LayoutKind::Camera), //0
+        resource_manager.get_layout(LayoutKind::Light),  //1
+        resource_manager.get_layout(LayoutKind::LightTexture), //2
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -219,11 +214,10 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
     let mut pipeline_manager = resources.get_mut::<PipelineManager>().unwrap();
     let surface_config = resources.get::<wgpu::SurfaceConfiguration>().unwrap();
 
-    let layout_map = resource_manager.bind_group_layouts.lock().unwrap();
 
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(), // 0
-        layout_map.get("skybox").unwrap(), // 1
+        resource_manager.get_layout(LayoutKind::Camera), //0
+        resource_manager.get_layout(LayoutKind::Skybox), //1
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -238,15 +232,14 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
 
     let pipeline_desc = PipelineDesc {
         depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float, 
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: Default::default(),
-                bias: Default::default(),
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: false,
+            depth_compare: wgpu::CompareFunction::LessEqual,
+            stencil: Default::default(),
+            bias: Default::default(),
         }),
         ..Default::default()
     };
-
 
     pipeline_manager.add_pipeline(
         "skybox",
@@ -258,4 +251,3 @@ pub fn create_skybox_pipeline(resources: &legion::Resources) {
         pipeline_desc,
     );
 }
-

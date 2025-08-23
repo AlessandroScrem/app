@@ -6,7 +6,8 @@
 // CreatePrefilterMap(skybox);
 
 use crate::{
-    renderer::pipeline_manager::PipelineManager, resources::gpu_manager::GPUResourceManager,
+    renderer::pipeline_manager::PipelineManager,
+    resources::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
 pub fn create_equirectangular_to_cubemap_pipeline(
@@ -15,11 +16,10 @@ pub fn create_equirectangular_to_cubemap_pipeline(
     pipeline_manager: &mut PipelineManager,
     texture_format: wgpu::TextureFormat,
 ) {
-    let layout_map = gpu_resource_manager.bind_group_layouts.lock().unwrap();
 
     let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-        layout_map.get("camera").unwrap(),          // 0
-        layout_map.get("equirectangular").unwrap(), // 1
+        gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+        gpu_resource_manager.get_layout(LayoutKind::Equirect), //0
     ];
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -64,7 +64,7 @@ pub fn create_equirect_bind_group(
         ..Default::default()
     });
 
-    let equirect_bind_group_layout = gpu_resource_manager.get_layout("equirectangular");
+    let equirect_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Equirect);
     let equirect_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &equirect_bind_group_layout,
         entries: &[
@@ -224,7 +224,6 @@ pub fn render_to_cubemap(
     renderpass.draw(0..36, 0..1);
 }
 
-
 pub fn create_cubemap_texture_from_hdr(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -295,12 +294,12 @@ mod tests {
 
     #[test]
     fn should_create_cubemap_from_hdr() {
-
         let (device, queue) = crate::get_device_and_queue();
         let mut pipeline_manager = PipelineManager::new();
         let gpu_manager = GPUResourceManager::new(&device);
 
-        let texture = create_cubemap_texture_from_hdr(&device, &queue, &mut pipeline_manager, &gpu_manager);
+        let texture =
+            create_cubemap_texture_from_hdr(&device, &queue, &mut pipeline_manager, &gpu_manager);
 
         assert_eq!(texture.size().depth_or_array_layers, 6);
     }

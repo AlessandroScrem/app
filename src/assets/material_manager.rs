@@ -5,7 +5,7 @@ use std::{
 
 use wgpu::TextureFormat;
 
-use crate::{assets::texture_manager::TextureManager, resources::gpu_manager::GPUResourceManager};
+use crate::{assets::texture_manager::TextureManager, resources::gpu_manager::{GPUResourceManager, LayoutKind}};
 
 pub struct Material {
     pub main_texture: PathBuf,
@@ -106,7 +106,7 @@ impl MaterialManager {
             ..Default::default()
         });
 
-        let texture_bind_group_layout = self.gpu_manager.get_layout("texture");
+        let texture_bind_group_layout = self.gpu_manager.get_layout(LayoutKind::Texture);
 
         let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
