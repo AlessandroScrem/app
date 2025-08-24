@@ -242,8 +242,14 @@ pub enum SkyboxKind {
     Default,
 }
 
+struct Skybox {
+    _texture: wgpu::Texture,
+    _view: wgpu::TextureView,
+    bind_group: wgpu::BindGroup,
+}
+
 pub struct SkyboxManager {
-    skyboxes: Vec<wgpu::BindGroup>,
+    skyboxes: Vec<Skybox>,
 }
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -255,7 +261,7 @@ impl SkyboxManager {
         gpu_resource_manager: &GPUResourceManager,
         pipeline_manager: &PipelineManager,
     ) -> Self {
-        let skyboxes: Vec<wgpu::BindGroup> = SkyboxKind::iter()
+        let skyboxes: Vec<Skybox> = SkyboxKind::iter()
             .map(|kind| create_skybox(device, queue, gpu_resource_manager, pipeline_manager, kind))
             .collect();
 
@@ -263,7 +269,7 @@ impl SkyboxManager {
     }
 
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
-        &self.skyboxes[kind as usize]
+        &self.skyboxes[kind as usize].bind_group
     }
 }
 
@@ -273,16 +279,16 @@ fn create_skybox(
     gpu_resource_manager: &GPUResourceManager,
     pipeline_manager: &PipelineManager,
     kind: SkyboxKind,
-) -> wgpu::BindGroup {
+) -> Skybox {
     match kind {
         SkyboxKind::Default => {
-            let texture = create_cubemap_texture_from_hdr(
+            let _texture = create_cubemap_texture_from_hdr(
                 device,
                 queue,
                 pipeline_manager,
                 gpu_resource_manager,
             );
-            let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
                 dimension: Some(wgpu::TextureViewDimension::Cube),
                 ..Default::default()
             });
@@ -299,7 +305,7 @@ fn create_skybox(
 
             let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
 
-            device.create_bind_group(&wgpu::BindGroupDescriptor {
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -308,11 +314,12 @@ fn create_skybox(
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&view),
+                        resource: wgpu::BindingResource::TextureView(&_view),
                     },
                 ],
                 label: Some("skybox_bind_group"),
-            })
+            });
+            Skybox {_texture, _view, bind_group }
         }
     }
 }
