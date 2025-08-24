@@ -83,7 +83,6 @@ pub enum PipelineKind {
     Default,
     Light,
     Skybox,
-    Equirect,
 }
 
 pub struct PipelineManager {
@@ -209,36 +208,5 @@ fn create_pipeline(
                 buffer_desc,
             )
         }
-        PipelineKind::Equirect => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
-                gpu_resource_manager.get_layout(LayoutKind::Equirect), //0
-            ];
-
-            let render_pipeline_layout =
-                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
-                });
-            let format =  wgpu::TextureFormat::Rgba8Unorm;
-
-            let shader = device
-                .create_shader_module(wgpu::include_wgsl!("shaders/equirectangular_to_cubemap.wgsl"));
-
-            let buffer_desc = &[];
-
-            let pipeline_desc = crate::renderer::pipeline_manager::PipelineDesc {
-                depth_stencil: None,
-                ..Default::default()
-            };
-            pipeline_desc.build_pipeline(
-                device,
-                render_pipeline_layout,
-                format,
-                shader,
-                buffer_desc,
-            )
-        }
-    }
+   }
 }

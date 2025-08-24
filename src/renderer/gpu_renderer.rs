@@ -72,7 +72,7 @@ impl Renderer {
             Arc::new(queue.clone()),
         );
 
-        let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager, &pipeline_manager);
+        let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
 
         println!("Texture format is {:?}", surface_config.format);
 
