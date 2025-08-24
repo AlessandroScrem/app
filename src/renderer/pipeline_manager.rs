@@ -8,6 +8,7 @@ pub struct PipelineDesc {
     pub primitive: wgpu::PrimitiveState,
     pub multisample: wgpu::MultisampleState,
     pub depth_stencil: Option<DepthStencilState>,
+    pub blend: Option<wgpu::BlendState>,
 }
 impl Default for PipelineDesc {
     fn default() -> Self {
@@ -33,6 +34,7 @@ impl Default for PipelineDesc {
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
+            blend: Some(wgpu::BlendState::REPLACE),
         }
     }
 }
@@ -59,7 +61,7 @@ impl PipelineDesc {
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: self.blend,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),

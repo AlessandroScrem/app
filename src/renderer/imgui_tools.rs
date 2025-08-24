@@ -166,7 +166,7 @@ impl ImguiState {
         self.last_frame = Instant::now();
 
         let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
-        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let debug_tex_path = std::path::Path::new("lut");
 
         self.context.io_mut().update_delta_time(delta_s);
 
@@ -181,8 +181,8 @@ impl ImguiState {
             draw_window_entities(ui, world, &mut self.entity_selected);
             draw_window_properties(ui, world, &resources, self.entity_selected);
 
-            if let Some(id) = registry.ids.get(hdr_path) {
-                let name = hdr_path
+            if let Some(id) = registry.ids.get(debug_tex_path) {
+                let name = debug_tex_path
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("no name");

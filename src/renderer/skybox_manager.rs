@@ -1,5 +1,4 @@
-// passi per creare un IBL
-
+// passi per creare un environment IBL
 // CreateBRDFintegrationMap();
 // CubemapFromHDR(skybox);
 // CreateIrradiance(skybox);
@@ -10,10 +9,9 @@ use crate::renderer::{
     pipeline_manager, uniform,
 };
 
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, wgt::TextureViewDescriptor};
 
 use crate::assets::texture;
-
 
 struct EquirectResources {
     pipeline: wgpu::RenderPipeline,
@@ -151,9 +149,113 @@ impl EquirectResources {
             label: Some("equirect_bind_group"),
         })
     }
-
-    // …metodi privati come nel tuo codice
 }
+
+pub struct BRDFLUTBuilder {
+}
+
+impl BRDFLUTBuilder {
+    pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
+        let format = wgpu::TextureFormat::Rg16Float;
+        let pipeline = Self::create_pipeline(device, format);
+        let size = 512;
+    
+    
+        let dest_texture = Self::create_dest_brdflut_texture(device, size, size, format);
+        let dest_view = dest_texture.create_view(&TextureViewDescriptor::default());
+    
+        let mut encoder = device.create_command_encoder(&Default::default());
+        Self::render_to_texture(&mut encoder, &pipeline, &dest_view);
+    
+        queue.submit([encoder.finish()]);
+    
+        dest_texture
+    }
+
+
+    fn render_to_texture(
+        encoder: &mut wgpu::CommandEncoder,
+        pipeline: &wgpu::RenderPipeline,
+        frame_view: &wgpu::TextureView,
+    ) {
+        let clear_color = wgpu::Color::BLACK;
+
+        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: frame_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        renderpass.set_pipeline(pipeline);
+        renderpass.draw(0..6, 0..1);
+    }
+
+    fn create_dest_brdflut_texture(
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::Texture {
+        let extent = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("BRDF_LUT"),
+            size: extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        texture
+    }
+
+
+    fn create_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("BRDFLUT Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/brdflut.wgsl"));
+        let buffer_desc = &[];
+
+        let pipeline_desc = pipeline_manager::PipelineDesc {
+            depth_stencil: None,
+            blend: None,
+            ..Default::default()
+        };
+
+        let pipeline = pipeline_desc.build_pipeline(
+            &device,
+            render_pipeline_layout,
+            format,
+            shader,
+            buffer_desc,
+        );
+
+        pipeline
+    }
+}
+
 pub struct Hdr {
     hdr_texture: texture::Texture,
 }
@@ -166,6 +268,12 @@ impl Hdr {
         filepath: &std::path::Path,
         format: wgpu::TextureFormat,
     ) -> Self {
+        assert_eq!(
+            format,
+            wgpu::TextureFormat::Rgba16Float,
+            "Hdr support only Rgba16Float"
+        );
+
         let buffer = std::fs::read(filepath).unwrap();
         let hdr_texture = crate::assets::texture::Texture::new(device, queue, &buffer, format);
 
@@ -186,20 +294,13 @@ impl Hdr {
         // -- set 6 camera view matrix each for cube side
         // -- render equirect to cubemap 6faces
 
-        let src_format = self.hdr_texture.inner.format();
         let dest_format = wgpu::TextureFormat::Rgba8Unorm;
         let width = size;
         let height = size;
 
-        assert_eq!(
-            src_format,
-            wgpu::TextureFormat::Rgba16Float,
-            "Hdr support only Rgba16Float"
-        );
-
         // create dest: cubemap texture LDR (TODO: add tonemap)
         let dest_texture = Self::create_dest_cube_texture(&device, width, height, dest_format);
-        let cube_dest_views = Self::create_texture_views(&dest_texture);
+        let cube_dest_views = Self::create_cube_texture_views(&dest_texture);
 
         // create camera buffer
         // create bindgrouplayout for hdr attachement
@@ -257,20 +358,20 @@ impl Hdr {
         texture
     }
 
-    fn create_texture_views(cube_texture: &wgpu::Texture) -> [wgpu::TextureView; Self::CUBE_FACES] {
-        std::array::from_fn(|i|{
-                cube_texture.create_view(&wgpu::TextureViewDescriptor {
-                    label: Some(&format!("Cubemap Face {}", i)),
-                    dimension: Some(wgpu::TextureViewDimension::D2),
-                    base_array_layer: i as u32,
-                    base_mip_level: 0,
-                    mip_level_count: Some(1),
-                    array_layer_count: Some(1),
-                    aspect: wgpu::TextureAspect::All,
-                    format: None,
-                    ..Default::default()
-                })
+    fn create_cube_texture_views(cube_texture: &wgpu::Texture) -> [wgpu::TextureView; Self::CUBE_FACES] {
+        std::array::from_fn(|i| {
+            cube_texture.create_view(&wgpu::TextureViewDescriptor {
+                label: Some(&format!("Cubemap Face {}", i)),
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                base_array_layer: i as u32,
+                base_mip_level: 0,
+                mip_level_count: Some(1),
+                array_layer_count: Some(1),
+                aspect: wgpu::TextureAspect::All,
+                format: None,
+                ..Default::default()
             })
+        })
     }
 
     fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
@@ -459,13 +560,22 @@ mod tests {
     #[test]
     fn should_create_cubemap_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
-
+        
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-
+        
         let cubemap = hdr.to_cubemap(&device, &queue, 1024);
-
+        
         assert_eq!(cubemap.size().depth_or_array_layers, 6);
+    }
+
+    #[test]
+    fn should_create_brdflut_texture() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let brdflut = BRDFLUTBuilder::build(device, queue);
+
+        assert_eq!(brdflut.format(), wgpu::TextureFormat::Rg16Float);
     }
 
     #[test]

@@ -5,7 +5,7 @@ pub struct Texture {
     pub inner: Arc<wgpu::Texture>,
     pub view: Arc<wgpu::TextureView>,
     pub extent: wgpu::Extent3d,
-    _format: TextureFormat,
+    pub _format: TextureFormat,
 }
 
 impl Texture {

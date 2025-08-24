@@ -2,13 +2,17 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::DeltaTime;
+use crate::assets::texture_manager;
 use crate::input::Input;
 
 use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
+use crate::renderer;
 use crate::scene::Scene;
+
 use legion::Resources;
 use legion::Schedule;
+use wgpu::wgt::TextureViewDescriptor;
 
 pub struct App {
     pub(super) window: Option<Arc<winit::window::Window>>,
@@ -57,6 +61,7 @@ impl App {
         
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
+        create_lut(&self.resources);
 
         self.current_scene.schedule = Schedule::builder()
             .add_system(crate::systems::camera_orbit::camera_orbit_system())
@@ -73,4 +78,21 @@ impl App {
             self.imgui = Some(imgui);
         }
     }
+}
+
+
+fn create_lut(resources: &Resources) {
+    let mut texture_manager = resources.get_mut::<texture_manager::TextureManager>().unwrap();
+    let texture =  {
+        let device = resources.get::<wgpu::Device>().unwrap(); 
+        let queue = resources.get::<wgpu::Queue>().unwrap();
+    
+        let lut = Arc::new(renderer::skybox_manager::BRDFLUTBuilder::build(&device, &queue));
+        let view = Arc::new(lut.create_view(&TextureViewDescriptor::default()));
+        let extent = wgpu::Extent3d {height: lut.width(), width: lut.width(), ..Default::default()};
+        let format = lut.format();
+        Arc::new(crate::assets::texture::Texture {inner: lut, view,  extent, _format: format })
+    };
+
+    texture_manager.textures.insert("lut".into(), texture);
 }

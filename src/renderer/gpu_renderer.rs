@@ -74,7 +74,7 @@ impl Renderer {
 
         let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
 
-        println!("Texture format is {:?}", surface_config.format);
+        println!("Surface config format is {:?}", surface_config.format);
 
         resources.insert(device);
         resources.insert(queue);
