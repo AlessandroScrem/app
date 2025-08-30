@@ -9,6 +9,7 @@ use crate::renderer::{
     pipeline_manager, uniform,
 };
 
+use anyhow::Ok;
 use wgpu::{util::DeviceExt, wgt::TextureViewDescriptor};
 
 use crate::assets::texture;
@@ -151,27 +152,24 @@ impl EquirectResources {
     }
 }
 
-pub struct BRDFLUTBuilder {
-}
+pub struct BRDFLUTBuilder {}
 
 impl BRDFLUTBuilder {
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
         let pipeline = Self::create_pipeline(device, format);
         let size = 512;
-    
-    
+
         let dest_texture = Self::create_dest_brdflut_texture(device, size, size, format);
         let dest_view = dest_texture.create_view(&TextureViewDescriptor::default());
-    
+
         let mut encoder = device.create_command_encoder(&Default::default());
         Self::render_to_texture(&mut encoder, &pipeline, &dest_view);
-    
+
         queue.submit([encoder.finish()]);
-    
+
         dest_texture
     }
-
 
     fn render_to_texture(
         encoder: &mut wgpu::CommandEncoder,
@@ -225,7 +223,6 @@ impl BRDFLUTBuilder {
         });
         texture
     }
-
 
     fn create_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
         let render_pipeline_layout =
@@ -358,7 +355,9 @@ impl Hdr {
         texture
     }
 
-    fn create_cube_texture_views(cube_texture: &wgpu::Texture) -> [wgpu::TextureView; Self::CUBE_FACES] {
+    fn create_cube_texture_views(
+        cube_texture: &wgpu::Texture,
+    ) -> [wgpu::TextureView; Self::CUBE_FACES] {
         std::array::from_fn(|i| {
             cube_texture.create_view(&wgpu::TextureViewDescriptor {
                 label: Some(&format!("Cubemap Face {}", i)),
@@ -464,6 +463,114 @@ impl Hdr {
     }
 }
 
+fn save_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    filename: &str,
+    texture: &wgpu::Texture,
+) -> anyhow::Result<()> {
+    let texture_size = texture.width();
+
+    let u32_size = std::mem::size_of::<u32>() as u32;
+
+    let output_buffer_size = (u32_size * texture_size * texture_size) as wgpu::BufferAddress;
+    let output_buffer_desc = wgpu::BufferDescriptor {
+        size: output_buffer_size,
+        usage: wgpu::BufferUsages::COPY_DST
+        // this tells wpgu that we want to read this buffer from the cpu
+        | wgpu::BufferUsages::MAP_READ,
+        label: None,
+        mapped_at_creation: false,
+    };
+    let output_buffer = device.create_buffer(&output_buffer_desc);
+
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+    {
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                aspect: wgpu::TextureAspect::All,
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &output_buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(u32_size * texture_size),
+                    rows_per_image: Some(texture_size),
+                },
+            },
+            texture.size(),
+        );
+
+        queue.submit(Some(encoder.finish()));
+    }
+
+    // We need to scope the mapping variables so that we can
+    // unmap the buffer
+    {
+        let buffer_slice = output_buffer.slice(..);
+
+        // The mapping process is async, so we'll need to create a channel to get
+        // the success flag for our mapping
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        // We send the success or failure of our mapping via a callback
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            tx.send(result).unwrap();
+        });
+
+        // The callback we submitted to map async will only get called after the
+        // device is polled or the queue submitted
+        device.poll(wgpu::PollType::Wait)?;
+
+        // We check if the mapping was successful here
+        rx.recv()??;
+
+        let data_rg16f = buffer_slice.get_mapped_range();
+
+        let data_rgba8 = rg16float_to_rgba8(&data_rg16f, texture_size, texture_size);
+
+        use image::{ImageBuffer, Rgba};
+        let buffer =
+            ImageBuffer::<Rgba<u8>, _>::from_raw(texture_size, texture_size, data_rgba8).unwrap();
+        buffer.save(filename).unwrap();
+    }
+    output_buffer.unmap();
+
+    Ok(())
+}
+
+fn rg16float_to_rgba8(raw: &[u8], width: u32, height: u32) -> Vec<u8> {
+    use half::f16;
+    let mut out = Vec::with_capacity((width * height * 4) as usize);
+
+    for i in 0..(width * height) as usize {
+        // Ogni pixel = 4 byte = 2 half-float
+        let offset = i * 4;
+        let r_half = u16::from_le_bytes([raw[offset], raw[offset + 1]]);
+        let g_half = u16::from_le_bytes([raw[offset + 2], raw[offset + 3]]);
+
+        let r = f16::from_bits(r_half).to_f32();
+        let g = f16::from_bits(g_half).to_f32();
+
+        // Converti in [0,255]
+        let r_u8 = (r.clamp(0.0, 1.0) * 255.0).round() as u8;
+        let g_u8 = (g.clamp(0.0, 1.0) * 255.0).round() as u8;
+
+        // B=0, A=255 (o come preferisci)
+        out.push(r_u8);
+        out.push(g_u8);
+        out.push(0);
+        out.push(255);
+    }
+
+    out
+}
+
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum SkyboxKind {
     Default,
@@ -560,12 +667,12 @@ mod tests {
     #[test]
     fn should_create_cubemap_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
-        
+
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-        
+
         let cubemap = hdr.to_cubemap(&device, &queue, 1024);
-        
+
         assert_eq!(cubemap.size().depth_or_array_layers, 6);
     }
 
@@ -576,6 +683,15 @@ mod tests {
         let brdflut = BRDFLUTBuilder::build(device, queue);
 
         assert_eq!(brdflut.format(), wgpu::TextureFormat::Rg16Float);
+    }
+
+    #[test]
+    fn should_save_texture_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let brdflut = BRDFLUTBuilder::build(&device, queue);
+
+        save_texture(&device, &queue, "testimage.png", &brdflut).unwrap();
     }
 
     #[test]
