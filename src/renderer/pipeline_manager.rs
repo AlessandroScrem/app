@@ -133,7 +133,6 @@ fn create_pipeline(
             let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
             
             let pipeline_desc = PipelineDesc::default();
-            // let format =  wgpu::TextureFormat::Rgba8Unorm;
             
             pipeline_desc.build_pipeline(
                 device,
@@ -161,7 +160,6 @@ fn create_pipeline(
 
             let buffer_desc = &[];
             let pipeline_desc = PipelineDesc::default();
-            // let format =  wgpu::TextureFormat::Rgba8Unorm;
 
 
             pipeline_desc.build_pipeline(
@@ -199,8 +197,6 @@ fn create_pipeline(
                 }),
                 ..Default::default()
             };
-            // let format =  wgpu::TextureFormat::Rgba8Unorm;
-
 
             pipeline_desc.build_pipeline(
                 device,

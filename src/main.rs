@@ -8,4 +8,5 @@ fn main() {
 
     let mut app = App::default();
     let _ = event_loop.run_app(&mut app);
+
 }
