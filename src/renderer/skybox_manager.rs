@@ -16,9 +16,8 @@ use wgpu::{TextureViewDescriptor, util::DeviceExt};
 use crate::assets::texture;
 
 mod utils {
-    use wgpu::util::DeviceExt;
     use crate::renderer::uniform;
-
+    use wgpu::util::DeviceExt;
 
     /// Calculate the size of a mip level based on the original size and the mip level index.
     /// # Arguments
@@ -240,7 +239,15 @@ impl BRDFLUTBuilder {
         let mip_level_count = 1;
         let depth_or_array_layers = 1;
 
-        let dest_texture = utils::create_texture(device, "BRDF_LUT",size, size, depth_or_array_layers, mip_level_count, format);
+        let dest_texture = utils::create_texture(
+            device,
+            "BRDF_LUT",
+            size,
+            size,
+            depth_or_array_layers,
+            mip_level_count,
+            format,
+        );
         let dest_view = dest_texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = device.create_command_encoder(&Default::default());
@@ -276,7 +283,6 @@ impl BRDFLUTBuilder {
         renderpass.set_pipeline(pipeline);
         renderpass.draw(0..6, 0..1);
     }
-
 
     fn create_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
         let render_pipeline_layout =
@@ -347,7 +353,7 @@ impl PrefilerMapResources {
                 push_constant_ranges: &[],
             });
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefiler_map.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefilter_map.wgsl"));
         let buffer_desc = &[];
 
         let pipeline_desc = pipeline_manager::PipelineDesc {
@@ -744,6 +750,208 @@ impl EquirectangularToCubemap {
     }
 }
 
+struct IrradianceResources {
+    pipeline: wgpu::RenderPipeline,
+    bind_group: wgpu::BindGroup,
+    camera_buffer: wgpu::Buffer,
+}
+
+impl IrradianceResources {
+    fn new(
+        device: &wgpu::Device,
+        hdr_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        let layout = Self::create_bind_group_layout(device);
+        let camera_buffer = utils::create_camera_buffer(device);
+        let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
+        let pipeline = Self::create_pipeline(device, &layout, format);
+
+        Self {
+            pipeline,
+            bind_group,
+            camera_buffer,
+        }
+    }
+
+    fn create_pipeline(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::RenderPipeline {
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[layout],
+                push_constant_ranges: &[],
+            });
+
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("shaders/irradiance_convolution.wgsl"));
+        let buffer_desc = &[];
+
+        let pipeline_desc = pipeline_manager::PipelineDesc {
+            depth_stencil: None,
+            ..Default::default()
+        };
+
+        let pipeline = pipeline_desc.build_pipeline(
+            &device,
+            render_pipeline_layout,
+            format,
+            shader,
+            buffer_desc,
+        );
+
+        pipeline
+    }
+
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Irradiance_bind_group_layout"),
+            entries: &[
+                // sampler
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // cube view
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::Cube,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                // camera uniform
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        })
+    }
+
+    fn create_bind_group(
+        device: &wgpu::Device,
+        view: &wgpu::TextureView,
+        unifomrm_buffer: &wgpu::Buffer,
+        bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::BindGroup {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: unifomrm_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("Irradiance_bind_group"),
+        })
+    }
+}
+
+pub struct IrrarianceMap {
+    hdr_texture: texture::Texture,
+}
+
+impl IrrarianceMap {
+    pub fn build(
+        cube_texture: &wgpu::Texture,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> wgpu::Texture {
+        // 0 create from source texture a cube view
+        // 1 create target texture cube 1 mip level
+        // 2 create bindgroup layout ,create pipeline, create camera buffer
+        // 3 create camera matrix views
+        // 4 create capture texture view
+        // 5 render cubemap faces to cube texture with mip
+
+        let cube_size: u32 = 32;
+        let dest_format = wgpu::TextureFormat::Rgba16Float;
+        let mip_level_count = 1;
+
+        // 0 create from source texture a cube view
+        let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
+            label: Some("Cube texture view"),
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        // 1 create target texture cube 1 mip level
+        let target_texture = utils::create_cube_texture(
+            &device,
+            "Irradiance_Cube",
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
+
+        // 2
+        // create camera buffer
+        // create bindgrouplayout for hdr attachement
+        // create pipeline
+        let resources = IrradianceResources::new(device, &cube_texture_view, dest_format);
+
+        // 3 create camera matrix/views
+        let camera_views = utils::create_camera_views();
+
+        // render to cube with mips
+        for mip_level in 0..mip_level_count {
+            let capture_size = utils::mip_size(cube_size, mip_level);
+            // render faces
+            camera_views.iter().enumerate().for_each(|(i, view)| {
+                let mut encoder = device.create_command_encoder(&Default::default());
+                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
+
+                // 4 create capture texture view
+                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
+
+                utils::render_to_cubemap(
+                    &mut encoder,
+                    &resources.pipeline,
+                    &resources.bind_group,
+                    &dest_view,
+                    capture_size,
+                );
+                queue.submit([encoder.finish()]);
+            });
+        }
+
+        target_texture
+    }
+}
+
 pub struct Hdr {
     hdr_texture: texture::Texture,
 }
@@ -800,7 +1008,7 @@ impl SkyboxManager {
         gpu_resource_manager: &GPUResourceManager,
     ) -> Self {
         let skyboxes: Vec<Skybox> = SkyboxKind::iter()
-            .map(|kind| create_skybox(device, queue, gpu_resource_manager, kind))
+            .map(|kind| Self::create_skybox(device, queue, gpu_resource_manager, kind))
             .collect();
 
         Self { skyboxes }
@@ -809,58 +1017,60 @@ impl SkyboxManager {
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
         &self.skyboxes[kind as usize].bind_group
     }
-}
-
-fn create_skybox(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    gpu_resource_manager: &GPUResourceManager,
-    kind: SkyboxKind,
-) -> Skybox {
-    match kind {
-        SkyboxKind::Default => {
-            #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-            let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-            let _texture = hdr.to_cubemap(device, queue, 1024);
-            let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
-                dimension: Some(wgpu::TextureViewDimension::Cube),
-                ..Default::default()
-            });
-
-            let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Linear,
-                ..Default::default()
-            });
-
-            let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
-
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Sampler(&sampler),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&_view),
-                    },
-                ],
-                label: Some("skybox_bind_group"),
-            });
-            Skybox {
-                _texture,
-                _view,
-                bind_group,
+    
+    fn create_skybox(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        gpu_resource_manager: &GPUResourceManager,
+        kind: SkyboxKind,
+    ) -> Skybox {
+        match kind {
+            SkyboxKind::Default => {
+                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+                let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
+                let cube_texture = hdr.to_cubemap(device, queue, 512);
+                let _texture = IrrarianceMap::build(&cube_texture, device, queue);
+                let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::Cube),
+                    ..Default::default()
+                });
+    
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+    
+                let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
+    
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&_view),
+                        },
+                    ],
+                    label: Some("skybox_bind_group"),
+                });
+                Skybox {
+                    _texture,
+                    _view,
+                    bind_group,
+                }
             }
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -907,7 +1117,7 @@ mod tests {
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
-        let cubemap = hdr.to_cubemap(&device, &queue, 1024);
+        let cubemap = hdr.to_cubemap(&device, &queue, 512);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
 
@@ -927,14 +1137,33 @@ mod tests {
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
-        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 1024);
+        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(cubemap.mip_level_count(), 11); // <- log2(1024) + 1
-        assert_eq!(cubemap.height(), 1024);
-        assert_eq!(cubemap.width(), 1024);
+        assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
+        assert_eq!(cubemap.height(), 512);
+        assert_eq!(cubemap.width(), 512);
 
         test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
+    }
+
+    /// IrradianceCubemap
+    #[test]
+    fn should_crate_irradiance_cubetexture_rgba16f() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
+        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
+
+        let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
+
+        assert_eq!(irradiance.format(), wgpu::TextureFormat::Rgba16Float);
+        assert_eq!(irradiance.mip_level_count(), 1);
+        assert_eq!(irradiance.height(), 32);
+        assert_eq!(irradiance.width(), 32);
+
+        test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
     }
 
     /// Skybox
