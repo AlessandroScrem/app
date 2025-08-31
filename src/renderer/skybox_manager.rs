@@ -16,144 +16,6 @@ use wgpu::{Extent3d, util::DeviceExt, wgt::TextureViewDescriptor};
 
 use crate::assets::texture;
 
-struct EquirectResources {
-    pipeline: wgpu::RenderPipeline,
-    bind_group: wgpu::BindGroup,
-    camera_buffer: wgpu::Buffer,
-}
-
-impl EquirectResources {
-    fn new(
-        device: &wgpu::Device,
-        hdr_view: &wgpu::TextureView,
-        format: wgpu::TextureFormat,
-    ) -> Self {
-        let layout = Self::create_bind_group_layout(device);
-        let camera_buffer = Self::create_camera_buffer(device);
-        let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
-        let pipeline = Self::create_pipeline(device, &layout, format);
-
-        Self {
-            pipeline,
-            bind_group,
-            camera_buffer,
-        }
-    }
-
-    fn create_pipeline(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::RenderPipeline {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[layout],
-                push_constant_ranges: &[],
-            });
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!(
-            "shaders/equirectangular_to_cubemap.wgsl"
-        ));
-        let buffer_desc = &[];
-
-        let pipeline_desc = pipeline_manager::PipelineDesc {
-            depth_stencil: None,
-            ..Default::default()
-        };
-
-        let pipeline = pipeline_desc.build_pipeline(
-            &device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffer_desc,
-        );
-
-        pipeline
-    }
-
-    fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-
-    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Equirectangular_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // main
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn create_bind_group(
-        device: &wgpu::Device,
-        view: &wgpu::TextureView,
-        unifomrm_buffer: &wgpu::Buffer,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> wgpu::BindGroup {
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: unifomrm_buffer.as_entire_binding(),
-                },
-            ],
-            label: Some("equirect_bind_group"),
-        })
-    }
-}
-
 pub struct BRDFLUTBuilder {}
 
 impl BRDFLUTBuilder {
@@ -650,6 +512,144 @@ impl PrefilterMap {
         roughness: f32,
     ) {
         queue.write_buffer(roughness_uniform_buffer, 0, bytemuck::bytes_of(&roughness));
+    }
+}
+
+struct EquirectResources {
+    pipeline: wgpu::RenderPipeline,
+    bind_group: wgpu::BindGroup,
+    camera_buffer: wgpu::Buffer,
+}
+
+impl EquirectResources {
+    fn new(
+        device: &wgpu::Device,
+        hdr_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        let layout = Self::create_bind_group_layout(device);
+        let camera_buffer = Self::create_camera_buffer(device);
+        let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
+        let pipeline = Self::create_pipeline(device, &layout, format);
+
+        Self {
+            pipeline,
+            bind_group,
+            camera_buffer,
+        }
+    }
+
+    fn create_pipeline(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::RenderPipeline {
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[layout],
+                push_constant_ranges: &[],
+            });
+
+        let shader = device.create_shader_module(wgpu::include_wgsl!(
+            "shaders/equirectangular_to_cubemap.wgsl"
+        ));
+        let buffer_desc = &[];
+
+        let pipeline_desc = pipeline_manager::PipelineDesc {
+            depth_stencil: None,
+            ..Default::default()
+        };
+
+        let pipeline = pipeline_desc.build_pipeline(
+            &device,
+            render_pipeline_layout,
+            format,
+            shader,
+            buffer_desc,
+        );
+
+        pipeline
+    }
+
+    fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
+    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Equirectangular_bind_group_layout"),
+            entries: &[
+                // sampler
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                // main
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        })
+    }
+
+    fn create_bind_group(
+        device: &wgpu::Device,
+        view: &wgpu::TextureView,
+        unifomrm_buffer: &wgpu::Buffer,
+        bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> wgpu::BindGroup {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: unifomrm_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("equirect_bind_group"),
+        })
     }
 }
 
@@ -1305,6 +1305,139 @@ mod tests {
     use crate::assets::texture_manager::TextureManager;
     use std::path::Path;
 
+    use half::f16;
+    /// Supportati: Rgba8Unorm, Rg16Float, Rgba16Float, Rgba32Float
+    pub fn create_test_cube_texture_generic(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        format: wgpu::TextureFormat,
+        base_size: u32,
+    ) -> wgpu::Texture {
+        let bytes_per_texel = match format {
+            wgpu::TextureFormat::Rgba8Unorm
+            | wgpu::TextureFormat::Rgba8UnormSrgb
+            | wgpu::TextureFormat::Rg16Float => 4,
+            wgpu::TextureFormat::Rgba16Float => 8,
+            wgpu::TextureFormat::Rgba32Float => 16,
+            _ => panic!("Formato non supportato"),
+        };
+
+        let mip_levels = (base_size as f32).log2().floor() as u32 + 1;
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Generic Test Cube Texture"),
+            size: wgpu::Extent3d {
+                width: base_size,
+                height: base_size,
+                depth_or_array_layers: 6,
+            },
+            mip_level_count: mip_levels,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+
+        // Colori base in 0..1 per tutti i formati
+        let colors: [[f32; 4]; 6] = [
+            [1.0, 0.0, 0.0, 1.0], // +X
+            [0.0, 1.0, 0.0, 1.0], // -X
+            [0.0, 0.0, 1.0, 1.0], // +Y
+            [1.0, 1.0, 0.0, 1.0], // -Y
+            [1.0, 0.0, 1.0, 1.0], // +Z
+            [0.0, 1.0, 1.0, 1.0], // -Z
+        ];
+
+        for face in 0..6 {
+            let mut mip_size = base_size;
+            let mut mip_level = 0;
+
+            while mip_size > 0 {
+                let unaligned_bytes_per_row = mip_size * bytes_per_texel;
+                let bytes_per_row = ((unaligned_bytes_per_row + 255) / 256) * 256;
+                let rows_per_image = mip_size;
+                let mut data = vec![0u8; (bytes_per_row * rows_per_image) as usize];
+
+                for y in 0..mip_size {
+                    for x in 0..mip_size {
+                        let offset = (y * bytes_per_row + x * bytes_per_texel) as usize;
+
+                        match format {
+                            wgpu::TextureFormat::Rgba8Unorm
+                            | wgpu::TextureFormat::Rgba8UnormSrgb => {
+                                let c = colors[face];
+                                data[offset + 0] = (c[0] * 255.0) as u8;
+                                data[offset + 1] = (c[1] * 255.0) as u8;
+                                data[offset + 2] = (c[2] * 255.0) as u8;
+                                data[offset + 3] = (c[3] * 255.0) as u8;
+                            }
+                            wgpu::TextureFormat::Rgba16Float => {
+                                let c = colors[face];
+                                for i in 0..4 {
+                                    let half = f16::from_f32(c[i] * (1.0 - mip_level as f32 * 0.2));
+                                    let bytes = half.to_le_bytes();
+                                    data[offset + i * 2] = bytes[0];
+                                    data[offset + i * 2 + 1] = bytes[1];
+                                }
+                            }
+                            wgpu::TextureFormat::Rg16Float => {
+                                let c = colors[face];
+                                for i in 0..2 {
+                                    let half = f16::from_f32(c[i] * (1.0 - mip_level as f32 * 0.2));
+                                    let bytes = half.to_le_bytes();
+                                    data[offset + i * 2] = bytes[0];
+                                    data[offset + i * 2 + 1] = bytes[1];
+                                }
+                            }
+                            wgpu::TextureFormat::Rgba32Float => {
+                                let c = colors[face];
+                                for i in 0..4 {
+                                    let bytes =
+                                        (c[i] * (1.0 - mip_level as f32 * 0.2)).to_le_bytes();
+                                    data[offset + i * 4..offset + i * 4 + 4]
+                                        .copy_from_slice(&bytes);
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+
+                queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &texture,
+                        mip_level,
+                        origin: wgpu::Origin3d {
+                            x: 0,
+                            y: 0,
+                            z: face as u32,
+                        },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    &data,
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(bytes_per_row),
+                        rows_per_image: Some(rows_per_image),
+                    },
+                    wgpu::Extent3d {
+                        width: mip_size,
+                        height: mip_size,
+                        depth_or_array_layers: 1,
+                    },
+                );
+
+                mip_size /= 2;
+                mip_level += 1;
+            }
+        }
+
+        texture
+    }
+
     #[test]
     fn should_create_cubemap_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
@@ -1327,7 +1460,7 @@ mod tests {
     }
 
     #[test]
-    fn should_create_prefiler_cubemap() {
+    fn should_create_prefilter_cubemap() {
         let (device, queue) = crate::get_device_and_queue();
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
@@ -1370,6 +1503,36 @@ mod tests {
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
         let rgba16f = hdr.to_cubemap(&device, &queue, 1024);
+
+        save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
+    }
+
+    #[test]
+    fn should_save_texture_dummy_rg16f_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rg16f =
+            create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rg16Float, 64);
+
+        save_texture(&device, &queue, "testimage.png", &rg16f).unwrap();
+    }
+
+    #[test]
+    fn should_save_texture_dummy_rgba16f_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rgba16f =
+            create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
+
+        save_texture(&device, &queue, "testimage.png", &rgba16f).unwrap();
+    }
+
+    #[test]
+    fn should_save_cubetexture_dummy_rgba16f_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rgba16f =
+            create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
 
         save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
     }
