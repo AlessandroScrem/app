@@ -8,12 +8,227 @@
 
 use crate::renderer::{
     gpu_manager::{GPUResourceManager, LayoutKind},
-    pipeline_manager, uniform,
+    pipeline_manager,
 };
 
-use wgpu::{util::DeviceExt, TextureViewDescriptor};
+use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
 use crate::assets::texture;
+
+mod utils {
+    use wgpu::util::DeviceExt;
+    use crate::renderer::uniform;
+
+
+    /// Calculate the size of a mip level based on the original size and the mip level index.
+    /// # Arguments
+    /// * `source` - The original size of the texture (width or height).
+    /// * `mip_level` - The mip level index (0 for the original size, 1 for the first mip level, etc.).
+    /// # Returns
+    /// * The size of the texture at the specified mip level.
+    pub fn mip_size(source: u32, mip_level: u32) -> u32 {
+        (((source as f32) * 0.5f32.powf(mip_level as f32)).floor() as u32).max(1)
+    }
+
+    /// Calculate the number of mip levels for a texture of a given size.
+    /// # Arguments
+    /// * `texture_size` - The size of the texture (width or height).
+    /// # Returns
+    /// * The number of mip levels.
+    pub fn mip_levels(texture_size: u32) -> u32 {
+        (1.0 + (texture_size as f32).log2().floor()) as u32
+    }
+
+    /// Create a texture view for a specific face and mip level of a cubemap texture.
+    /// # Arguments
+    /// * `texture` - The cubemap texture.
+    /// * `face_index` - The index of the face (0-5 for a cubemap).
+    /// * `mip_level` - The mip level to create the view for.
+    /// # Returns
+    /// * A `wgpu::TextureView` for the specified face and mip level.
+    pub fn create_dest_view(
+        texture: &wgpu::Texture,
+        face_index: u32,
+        mip_level: u32,
+    ) -> wgpu::TextureView {
+        texture.create_view(&wgpu::TextureViewDescriptor {
+            format: Some(wgpu::TextureFormat::Rgba16Float), // stesso formato della texture
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: mip_level, // mip level da usare
+            mip_level_count: Some(1),  // solo 1 livello
+            base_array_layer: face_index,
+            array_layer_count: Some(1), // solo il primo layer
+            ..Default::default()
+        })
+    }
+
+    pub fn render_to_cubemap(
+        encoder: &mut wgpu::CommandEncoder,
+        pipeline: &wgpu::RenderPipeline,
+        prefilter_bind_group: &wgpu::BindGroup,
+        frame_view: &wgpu::TextureView,
+        capture_size: u32,
+    ) {
+        let clear_color = wgpu::Color::BLACK;
+
+        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: frame_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        renderpass.set_viewport(0.0, 0.0, capture_size as f32, capture_size as f32, 0.0, 1.0);
+
+        renderpass.set_pipeline(pipeline);
+        renderpass.set_bind_group(0, prefilter_bind_group, &[]);
+        renderpass.draw(0..36, 0..1);
+    }
+
+    /// Create camera views for each face of a cubemap.
+    /// # Returns
+    /// * A vector of 6 `cgmath::Matrix4<f32>` representing the view matrices for each cubemap face.
+    pub fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
+        use cgmath::{Matrix4, Point3, Vector3};
+
+        let eye = Point3::new(0.0, 0.0, 0.0);
+
+        vec![
+            // +X
+            Matrix4::look_at_lh(
+                eye,
+                Point3::new(1.0, 0.0, 0.0),
+                Vector3::new(0.0, -1.0, 0.0),
+            ),
+            // -X
+            Matrix4::look_at_lh(
+                eye,
+                Point3::new(-1.0, 0.0, 0.0),
+                Vector3::new(0.0, -1.0, 0.0),
+            ),
+            // +Y
+            Matrix4::look_at_lh(eye, Point3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+            // -Y
+            Matrix4::look_at_lh(
+                eye,
+                Point3::new(0.0, -1.0, 0.0),
+                Vector3::new(0.0, 0.0, -1.0),
+            ),
+            // +Z
+            Matrix4::look_at_lh(
+                eye,
+                Point3::new(0.0, 0.0, 1.0),
+                Vector3::new(0.0, -1.0, 0.0),
+            ),
+            // -Z
+            Matrix4::look_at_lh(
+                eye,
+                Point3::new(0.0, 0.0, -1.0),
+                Vector3::new(0.0, -1.0, 0.0),
+            ),
+        ]
+    }
+
+    /// Create a camera uniform buffer.
+    /// # Arguments
+    /// * `device` - The wgpu device to create the buffer.
+    /// # Returns
+    /// * A `wgpu::Buffer` representing the camera uniform buffer.
+    pub fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
+    /// Update the camera uniform buffer with the provided view matrix.
+    /// # Arguments
+    /// * `queue` - The wgpu queue to write the buffer.
+    /// * `camera_uniform_buffer` - The camera uniform buffer to update.
+    /// * `cam_view` - The view matrix to set in the camera uniform.
+    /// # Returns
+    /// * None.
+    pub fn update_camera_buffer(
+        queue: &wgpu::Queue,
+        camera_uniform_buffer: &wgpu::Buffer,
+        cam_view: cgmath::Matrix4<f32>,
+    ) {
+        let cam_proj = cgmath::perspective(cgmath::Deg::<f32>(90.0), 1.0, 0.1, 10.0);
+
+        let updated_uniforms = uniform::CameraUniform {
+            view: cam_view.into(),
+            proj: cam_proj.into(),
+            ..Default::default()
+        };
+
+        queue.write_buffer(
+            camera_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&updated_uniforms),
+        );
+    }
+
+    pub fn create_cube_texture(
+        device: &wgpu::Device,
+        label: &str,
+        size: u32,
+        mip_level_count: u32,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::Texture {
+        let width = size;
+        let height = size;
+        let depth_or_array_layers = 6; // 6 faces
+        create_texture(
+            device,
+            label,
+            width,
+            height,
+            depth_or_array_layers,
+            mip_level_count,
+            format,
+        )
+    }
+
+    pub fn create_texture(
+        device: &wgpu::Device,
+        label: &str,
+        width: u32,
+        height: u32,
+        depth_or_array_layers: u32,
+        mip_level_count: u32,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::Texture {
+        let extent = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers,
+        };
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: extent,
+            mip_level_count,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        texture
+    }
+}
 
 pub struct BRDFLUTBuilder {}
 
@@ -22,8 +237,10 @@ impl BRDFLUTBuilder {
         let format = wgpu::TextureFormat::Rg16Float;
         let pipeline = Self::create_pipeline(device, format);
         let size = 512;
+        let mip_level_count = 1;
+        let depth_or_array_layers = 1;
 
-        let dest_texture = Self::create_dest_brdflut_texture(device, size, size, format);
+        let dest_texture = utils::create_texture(device, "BRDF_LUT",size, size, depth_or_array_layers, mip_level_count, format);
         let dest_view = dest_texture.create_view(&TextureViewDescriptor::default());
 
         let mut encoder = device.create_command_encoder(&Default::default());
@@ -60,32 +277,6 @@ impl BRDFLUTBuilder {
         renderpass.draw(0..6, 0..1);
     }
 
-    fn create_dest_brdflut_texture(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::Texture {
-        let extent = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("BRDF_LUT"),
-            size: extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        texture
-    }
 
     fn create_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
         let render_pipeline_layout =
@@ -130,7 +321,7 @@ impl PrefilerMapResources {
         format: wgpu::TextureFormat,
     ) -> Self {
         let layout = Self::create_bind_group_layout(device);
-        let camera_buffer = Self::create_camera_buffer(device);
+        let camera_buffer = utils::create_camera_buffer(device);
         let roughness_buffer = Self::create_roughness_buffer(device);
         let bind_group =
             Self::create_bind_group(device, hdr_view, &camera_buffer, &roughness_buffer, &layout);
@@ -173,14 +364,6 @@ impl PrefilerMapResources {
         );
 
         pipeline
-    }
-
-    fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
     }
 
     fn create_roughness_buffer(device: &wgpu::Device) -> wgpu::Buffer {
@@ -300,7 +483,7 @@ impl PrefilterMap {
         // 8 render cubemap faces to cube texture with mip
 
         const TARGET_SIZE: u32 = 128;
-        const MIP_LEVEL_COUNT: u32 = 5;
+        let mip_level_count = utils::mip_levels(TARGET_SIZE);
         let format = wgpu::TextureFormat::Rgba16Float;
 
         // 0 create from source texture a cube view
@@ -311,11 +494,11 @@ impl PrefilterMap {
         });
 
         // 1 crate target texture cube with mips levels
-        let target_texture = Self::create_dest_prefiler_texture(
+        let target_texture = utils::create_cube_texture(
             device,
+            "Prefilter_map",
             TARGET_SIZE,
-            TARGET_SIZE,
-            MIP_LEVEL_COUNT,
+            mip_level_count,
             format,
         );
 
@@ -325,15 +508,14 @@ impl PrefilterMap {
         let resources = PrefilerMapResources::new(device, &cube_texture_view, format);
 
         //5 create camera matrix views
-        let camera_views = Self::create_camera_views();
+        let camera_views = utils::create_camera_views();
 
         // render to cube with mips
-
-        for mip_level in 0..MIP_LEVEL_COUNT {
-            let capture_size = Self::mip_size(TARGET_SIZE, mip_level);
+        for mip_level in 0..mip_level_count {
+            let capture_size = utils::mip_size(TARGET_SIZE, mip_level);
 
             // update buffer with roughness
-            let roughness = mip_level as f32 / (MIP_LEVEL_COUNT - 1) as f32;
+            let roughness = mip_level as f32 / (mip_level_count - 1) as f32;
             Self::update_roughness(queue, &resources.roughness_buffer, roughness);
 
             // Resize framebuffer according to mip-level size.
@@ -341,16 +523,11 @@ impl PrefilterMap {
             // render faces
             camera_views.iter().enumerate().for_each(|(i, view)| {
                 let mut encoder = device.create_command_encoder(&Default::default());
-                Self::update_camera(&queue, &resources.camera_buffer, *view);
+                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
 
-                let dest_view = Self::create_dest_view(&target_texture, i as u32, mip_level);
+                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
 
-                println!(
-                    "Capture size {}, face_index {}  mip {}",
-                    capture_size, i, mip_level
-                );
-
-                Self::render_to_cubemap(
+                utils::render_to_cubemap(
                     &mut encoder,
                     &resources.pipeline,
                     &resources.bind_group,
@@ -362,147 +539,6 @@ impl PrefilterMap {
         }
 
         target_texture
-    }
-
-    fn create_dest_view(
-        texture: &wgpu::Texture,
-        face_index: u32,
-        mip_level: u32,
-    ) -> wgpu::TextureView {
-        texture.create_view(&wgpu::TextureViewDescriptor {
-            format: Some(wgpu::TextureFormat::Rgba16Float), // stesso formato della texture
-            dimension: Some(wgpu::TextureViewDimension::D2),
-            aspect: wgpu::TextureAspect::All,
-            base_mip_level: mip_level, // mip level da usare
-            mip_level_count: Some(1),  // solo 1 livello
-            base_array_layer: face_index,
-            array_layer_count: Some(1), // solo il primo layer
-            ..Default::default()
-        })
-    }
-
-    fn render_to_cubemap(
-        encoder: &mut wgpu::CommandEncoder,
-        pipeline: &wgpu::RenderPipeline,
-        prefilter_bind_group: &wgpu::BindGroup,
-        frame_view: &wgpu::TextureView,
-        capture_size: u32,
-    ) {
-        let clear_color = wgpu::Color::BLACK;
-
-        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: frame_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        renderpass.set_viewport(0.0, 0.0, capture_size as f32, capture_size as f32, 0.0, 1.0);
-
-        renderpass.set_pipeline(pipeline);
-        renderpass.set_bind_group(0, prefilter_bind_group, &[]);
-        renderpass.draw(0..36, 0..1);
-    }
-
-    fn mip_size(source: u32, mip_level: u32) -> u32 {
-        (((source as f32) * 0.5f32.powf(mip_level as f32)).floor() as u32).max(1)
-    }
-
-    fn create_dest_prefiler_texture(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        mip_level_count: u32,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::Texture {
-        let extent = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 6,
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Prefiler_map"),
-            size: extent,
-            mip_level_count,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        texture
-    }
-
-    fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
-        use cgmath::{Matrix4, Point3, Vector3};
-
-        let eye = Point3::new(0.0, 0.0, 0.0);
-
-        vec![
-            // +X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(-1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // +Y
-            Matrix4::look_at_lh(eye, Point3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-            // -Y
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, -1.0, 0.0),
-                Vector3::new(0.0, 0.0, -1.0),
-            ),
-            // +Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, 1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, -1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-        ]
-    }
-
-    fn update_camera(
-        queue: &wgpu::Queue,
-        camera_uniform_buffer: &wgpu::Buffer,
-        cam_view: cgmath::Matrix4<f32>,
-    ) {
-        let cam_proj = cgmath::perspective(cgmath::Deg::<f32>(90.0), 1.0, 0.1, 10.0);
-
-        let updated_uniforms = uniform::CameraUniform {
-            view: cam_view.into(),
-            proj: cam_proj.into(),
-            ..Default::default()
-        };
-
-        queue.write_buffer(
-            camera_uniform_buffer,
-            0,
-            bytemuck::bytes_of(&updated_uniforms),
-        );
     }
 
     fn update_roughness(
@@ -527,7 +563,7 @@ impl EquirectResources {
         format: wgpu::TextureFormat,
     ) -> Self {
         let layout = Self::create_bind_group_layout(device);
-        let camera_buffer = Self::create_camera_buffer(device);
+        let camera_buffer = utils::create_camera_buffer(device);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
         let pipeline = Self::create_pipeline(device, &layout, format);
 
@@ -569,14 +605,6 @@ impl EquirectResources {
         );
 
         pipeline
-    }
-
-    fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
     }
 
     fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
@@ -652,12 +680,74 @@ impl EquirectResources {
     }
 }
 
+pub struct EquirectangularToCubemap {
+    hdr_texture: texture::Texture,
+}
+
+impl EquirectangularToCubemap {
+    pub fn build(
+        hdr_texture: &texture::Texture,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        cube_size: u32,
+    ) -> wgpu::Texture {
+        // CubemapFromHDR(skybox);
+        // -- create equirect texture
+        // -- create equirect pipeline
+        // -- create dest cube texture
+        // -- create dest cube 6 textureview
+        // -- set 6 camera view matrix each for cube side
+        // -- render equirect to cubemap 6faces
+
+        let dest_format = wgpu::TextureFormat::Rgba16Float;
+        let mip_level_count = utils::mip_levels(cube_size);
+
+        // create dest: HDR cubemap texture
+        let target_texture = utils::create_cube_texture(
+            &device,
+            "Hdr_Cube",
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
+
+        // create camera buffer
+        // create bindgrouplayout for hdr attachement
+        // create equirect pipeline
+        let resources = EquirectResources::new(device, &hdr_texture.view, dest_format);
+
+        // create camera matrix/views
+        let camera_views = utils::create_camera_views();
+
+        // render to cube with mips
+        for mip_level in 0..mip_level_count {
+            let capture_size = utils::mip_size(cube_size, mip_level);
+            // render faces
+            camera_views.iter().enumerate().for_each(|(i, view)| {
+                let mut encoder = device.create_command_encoder(&Default::default());
+                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
+
+                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
+
+                utils::render_to_cubemap(
+                    &mut encoder,
+                    &resources.pipeline,
+                    &resources.bind_group,
+                    &dest_view,
+                    capture_size,
+                );
+                queue.submit([encoder.finish()]);
+            });
+        }
+
+        target_texture
+    }
+}
+
 pub struct Hdr {
     hdr_texture: texture::Texture,
 }
 impl Hdr {
-    const CUBE_FACES: usize = 6;
-
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -682,179 +772,7 @@ impl Hdr {
         queue: &wgpu::Queue,
         size: u32,
     ) -> wgpu::Texture {
-        // CubemapFromHDR(skybox);
-        // -- create equirect texture
-        // -- create equirect pipeline
-        // -- create dest cube texture
-        // -- create dest cube 6 textureview
-        // -- set 6 camera view matrix each for cube side
-        // -- render equirect to cubemap 6faces
-
-        let dest_format = wgpu::TextureFormat::Rgba16Float;
-        let width = size;
-        let height = size;
-
-        // create dest: cubemap texture LDR (TODO: add tonemap)
-        let dest_texture = Self::create_dest_cube_texture(&device, width, height, dest_format);
-        let cube_dest_views = Self::create_cube_texture_views(&dest_texture);
-
-        // create camera buffer
-        // create bindgrouplayout for hdr attachement
-        // create equirect pipeline
-        let resources = EquirectResources::new(device, &self.hdr_texture.view, dest_format);
-
-        // create camera matrix/views
-        let camera_views = Self::create_camera_views();
-
-        // render faces
-        camera_views.iter().enumerate().for_each(|(i, view)| {
-            let mut encoder = device.create_command_encoder(&Default::default());
-            Self::update_camera(&queue, &resources.camera_buffer, *view);
-
-            Self::render_to_cubemap(
-                &mut encoder,
-                &resources.pipeline,
-                &resources.bind_group,
-                &cube_dest_views[i],
-            );
-            queue.submit([encoder.finish()]);
-        });
-
-        dest_texture
-    }
-
-    fn create_dest_cube_texture(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::Texture {
-        let extent = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 6, // <- 6 faces,
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Cubemap"),
-            size: extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        texture
-    }
-
-    fn create_cube_texture_views(
-        cube_texture: &wgpu::Texture,
-    ) -> [wgpu::TextureView; Self::CUBE_FACES] {
-        std::array::from_fn(|i| {
-            cube_texture.create_view(&wgpu::TextureViewDescriptor {
-                label: Some(&format!("Cubemap Face {}", i)),
-                dimension: Some(wgpu::TextureViewDimension::D2),
-                base_array_layer: i as u32,
-                base_mip_level: 0,
-                mip_level_count: Some(1),
-                array_layer_count: Some(1),
-                aspect: wgpu::TextureAspect::All,
-                format: None,
-                ..Default::default()
-            })
-        })
-    }
-
-    fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
-        use cgmath::{Matrix4, Point3, Vector3};
-
-        let eye = Point3::new(0.0, 0.0, 0.0);
-
-        vec![
-            // +X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(-1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // +Y
-            Matrix4::look_at_lh(eye, Point3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-            // -Y
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, -1.0, 0.0),
-                Vector3::new(0.0, 0.0, -1.0),
-            ),
-            // +Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, 1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, -1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-        ]
-    }
-
-    fn update_camera(
-        queue: &wgpu::Queue,
-        camera_uniform_buffer: &wgpu::Buffer,
-        cam_view: cgmath::Matrix4<f32>,
-    ) {
-        let cam_proj = cgmath::perspective(cgmath::Deg::<f32>(90.0), 1.0, 0.1, 10.0);
-
-        let updated_uniforms = uniform::CameraUniform {
-            view: cam_view.into(),
-            proj: cam_proj.into(),
-            ..Default::default()
-        };
-
-        queue.write_buffer(
-            camera_uniform_buffer,
-            0,
-            bytemuck::bytes_of(&updated_uniforms),
-        );
-    }
-
-    fn render_to_cubemap(
-        encoder: &mut wgpu::CommandEncoder,
-        pipeline: &wgpu::RenderPipeline,
-        equirect_bind_group: &wgpu::BindGroup,
-        frame_view: &wgpu::TextureView,
-    ) {
-        let clear_color = wgpu::Color::BLACK;
-
-        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: frame_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        renderpass.set_pipeline(pipeline);
-        renderpass.set_bind_group(0, equirect_bind_group, &[]);
-        renderpass.draw(0..36, 0..1);
+        EquirectangularToCubemap::build(&self.hdr_texture, device, queue, size)
     }
 }
 
@@ -949,32 +867,41 @@ mod tests {
 
     use super::*;
     use crate::assets::texture_manager::TextureManager;
-    use std::path::Path;
     use crate::test_utils;
- 
+    use std::path::Path;
+
+    /// Hdr
     #[test]
-    fn should_create_cubemap_from_hdr() {
+    fn should_create_texture_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
-        let cubemap = hdr.to_cubemap(&device, &queue, 1024);
-
-        assert_eq!(cubemap.size().depth_or_array_layers, 6);
+        assert_eq!(
+            hdr.hdr_texture.inner.format(),
+            wgpu::TextureFormat::Rgba16Float
+        );
+        assert!(hdr.hdr_texture.inner.width() > 0);
     }
 
+    /// BRDFLut
     #[test]
-    fn should_create_brdflut_texture() {
+    fn should_create_brdflut_rg16f_texture() {
         let (device, queue) = crate::get_device_and_queue();
 
         let brdflut = BRDFLUTBuilder::build(device, queue);
 
         assert_eq!(brdflut.format(), wgpu::TextureFormat::Rg16Float);
+        assert_eq!(brdflut.mip_level_count(), 1);
+        assert_eq!(brdflut.height(), 512);
+
+        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut).unwrap();
     }
 
+    /// PrefilterMap
     #[test]
-    fn should_create_prefilter_cubemap() {
+    fn should_create_prefilter_rgba16f_cubemap() {
         let (device, queue) = crate::get_device_and_queue();
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
@@ -984,56 +911,33 @@ mod tests {
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
 
-        assert_eq!(prefilter.mip_level_count(), 5);
+        assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(prefilter.height(), 128);
+        assert_eq!(prefilter.width(), 128);
+        assert_eq!(prefilter.mip_level_count(), 8); // <- log2(128) + 1
+
+        test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
     }
 
+    /// EquirectangularToCubemap
     #[test]
-    fn should_save_texture_rg16f_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
-
-        let rg16f = BRDFLUTBuilder::build(&device, queue);
-
-        test_utils::save_texture(&device, &queue, "testimage.png", &rg16f).unwrap();
-    }
-
-    #[test]
-    fn should_save_texture_rgba16f_to_file() {
+    fn should_crate_cubetexture_rgba16f() {
         let (device, queue) = crate::get_device_and_queue();
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
-        let rgba16f = hdr.to_cubemap(&device, &queue, 1023);
+        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 1024);
 
-        test_utils::save_texture(&device, &queue, "testimage.png", &rgba16f).unwrap();
+        assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
+        assert_eq!(cubemap.mip_level_count(), 11); // <- log2(1024) + 1
+        assert_eq!(cubemap.height(), 1024);
+        assert_eq!(cubemap.width(), 1024);
+
+        test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
     }
 
-    #[test]
-    fn should_save_cubetexture_rgba16f_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
-
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-
-        let rgba16f = hdr.to_cubemap(&device, &queue, 1024);
-
-        test_utils::save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
-    }
-
-    #[test]
-    fn should_save_cubetexture_rgba16f_with_mips_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
-
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-        let cube_texture = hdr.to_cubemap(&device, &queue, 1024);
-
-        let rgba16f = PrefilterMap::build(device, queue, &cube_texture);
-
-        test_utils::save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
-    }
-
+    /// Skybox
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = crate::get_device_and_queue();
@@ -1095,15 +999,38 @@ mod tests {
         });
     }
 
+    /// Utils
     #[test]
-    fn shuld_mipsize_result_correct() {
-        let mut result: Vec<u32> = Vec::new();
+    fn should_calculate_mip_size() {
+        assert_eq!(utils::mip_size(300, 0), 300);
+        assert_eq!(utils::mip_size(300, 1), 150);
+        assert_eq!(utils::mip_size(300, 2), 75);
+        assert_eq!(utils::mip_size(300, 3), 37);
+        assert_eq!(utils::mip_size(300, 4), 18);
+        assert_eq!(utils::mip_size(300, 5), 9);
+        assert_eq!(utils::mip_size(300, 6), 4);
+        assert_eq!(utils::mip_size(300, 7), 2);
+        assert_eq!(utils::mip_size(300, 8), 1);
+        assert_eq!(utils::mip_size(300, 9), 1);
+    }
 
-        let mip_level = 10;
-        for mip in 0..mip_level {
-            result.push(PrefilterMap::mip_size(300, mip));
-        }
+    #[test]
+    fn should_calculate_mip_levels() {
+        assert_eq!(utils::mip_levels(300), 9);
+        assert_eq!(utils::mip_levels(256), 9);
+        assert_eq!(utils::mip_levels(128), 8);
+        assert_eq!(utils::mip_levels(64), 7);
+        assert_eq!(utils::mip_levels(32), 6);
+        assert_eq!(utils::mip_levels(16), 5);
+        assert_eq!(utils::mip_levels(8), 4);
+        assert_eq!(utils::mip_levels(4), 3);
+        assert_eq!(utils::mip_levels(2), 2);
+        assert_eq!(utils::mip_levels(1), 1);
+    }
 
-        assert_eq!(result.as_slice(), [300, 150, 75, 37, 18, 9, 4, 2, 1, 1]);
+    #[test]
+    fn should_create_camera_views() {
+        let views = utils::create_camera_views();
+        assert_eq!(views.len(), 6);
     }
 }
