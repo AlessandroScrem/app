@@ -8,7 +8,8 @@ pub fn save_texture(
     filename: &str,
     texture: &wgpu::Texture,
 ) -> anyhow::Result<()> {
-    let texture_size = texture.width();
+    let width = texture.width();
+    let height = texture.height();
     let format = texture.format();
 
     // let u32_size = std::mem::size_of::<u32>() as u32;
@@ -22,12 +23,12 @@ pub fn save_texture(
     };
 
     // Bytes per row per WGPU (padded a 256)
-    let bytes_per_row_unpadded = texture_size * pixel_size;
+    let bytes_per_row_unpadded = width * pixel_size;
     let bytes_per_row_padded = align_to(
         bytes_per_row_unpadded,
         wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u32,
     );
-    let output_buffer_size = (bytes_per_row_padded * texture_size) as wgpu::BufferAddress;
+    let output_buffer_size = (bytes_per_row_padded * width) as wgpu::BufferAddress;
 
     let output_buffer_desc = wgpu::BufferDescriptor {
         size: output_buffer_size,
@@ -56,13 +57,13 @@ pub fn save_texture(
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(bytes_per_row_padded),
-                    rows_per_image: Some(texture_size),
+                    rows_per_image: Some(height),
                 },
             },
             Extent3d {
                 depth_or_array_layers: 1,
-                width: texture_size,
-                height: texture_size,
+                width,
+                height,
             },
         );
 
@@ -95,16 +96,16 @@ pub fn save_texture(
                 let padded_data = buffer_slice.get_mapped_range();
                 let unpadded_data = unpad_image(
                     &padded_data,
-                    texture_size,
-                    texture_size,
+                    width,
+                    height,
                     pixel_size,
                     bytes_per_row_padded,
                 );
-                let data_rgba8 = rg16float_to_rgba8(&unpadded_data, texture_size, texture_size);
+                let data_rgba8 = rg16float_to_rgba8(&unpadded_data, width, height);
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
-                    ImageBuffer::<Rgba<u8>, _>::from_raw(texture_size, texture_size, data_rgba8)
+                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8)
                         .unwrap();
                 buffer.save(filename).unwrap();
             }
@@ -113,16 +114,16 @@ pub fn save_texture(
 
                 let unpadded_data = unpad_image(
                     &padded_data,
-                    texture_size,
-                    texture_size,
+                    width,
+                    height,
                     pixel_size,
                     bytes_per_row_padded,
                 );
-                let data_rgba8 = rgba16float_to_rgba8(&unpadded_data, texture_size, texture_size);
+                let data_rgba8 = rgba16float_to_rgba8(&unpadded_data, width, height);
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
-                    ImageBuffer::<Rgba<u8>, _>::from_raw(texture_size, texture_size, data_rgba8)
+                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8)
                         .unwrap();
                 buffer.save(filename).unwrap();
             }

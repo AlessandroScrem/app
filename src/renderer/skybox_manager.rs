@@ -1017,7 +1017,7 @@ impl SkyboxManager {
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
         &self.skyboxes[kind as usize].bind_group
     }
-    
+
     fn create_skybox(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -1034,7 +1034,7 @@ impl SkyboxManager {
                     dimension: Some(wgpu::TextureViewDimension::Cube),
                     ..Default::default()
                 });
-    
+
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::ClampToEdge,
                     address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -1044,9 +1044,9 @@ impl SkyboxManager {
                     mipmap_filter: wgpu::FilterMode::Linear,
                     ..Default::default()
                 });
-    
+
                 let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
-    
+
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: &bind_group_layout,
                     entries: &[
@@ -1071,7 +1071,6 @@ impl SkyboxManager {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
@@ -1093,6 +1092,12 @@ mod tests {
             wgpu::TextureFormat::Rgba16Float
         );
         assert!(hdr.hdr_texture.inner.width() > 0);
+        assert!(hdr.hdr_texture.inner.height() > 0);
+        assert_eq!(hdr.hdr_texture.inner.mip_level_count(), 1); // <- no mipmaps
+        assert_eq!(hdr.hdr_texture.inner.depth_or_array_layers(), 1);  // <- 2D texture
+        assert_eq!(hdr.hdr_texture.inner.dimension(), wgpu::TextureDimension::D2);
+
+        test_utils::save_texture(&device, &queue, "hdr.png", &hdr.hdr_texture.inner).unwrap();
     }
 
     /// BRDFLut
@@ -1103,8 +1108,11 @@ mod tests {
         let brdflut = BRDFLUTBuilder::build(device, queue);
 
         assert_eq!(brdflut.format(), wgpu::TextureFormat::Rg16Float);
-        assert_eq!(brdflut.mip_level_count(), 1);
+        assert_eq!(brdflut.width(), 512);
         assert_eq!(brdflut.height(), 512);
+        assert_eq!(brdflut.mip_level_count(), 1); // <- only 1 mip level
+        assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
+        assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
         test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut).unwrap();
     }
@@ -1125,6 +1133,8 @@ mod tests {
         assert_eq!(prefilter.height(), 128);
         assert_eq!(prefilter.width(), 128);
         assert_eq!(prefilter.mip_level_count(), 8); // <- log2(128) + 1
+        assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
+        assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
         test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
     }
@@ -1140,9 +1150,11 @@ mod tests {
         let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
         assert_eq!(cubemap.height(), 512);
         assert_eq!(cubemap.width(), 512);
+        assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
+        assert_eq!(cubemap.depth_or_array_layers(), 6); // <- cubemap
+        assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
         test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
     }
@@ -1159,9 +1171,11 @@ mod tests {
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
 
         assert_eq!(irradiance.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(irradiance.mip_level_count(), 1);
-        assert_eq!(irradiance.height(), 32);
         assert_eq!(irradiance.width(), 32);
+        assert_eq!(irradiance.height(), 32);
+        assert_eq!(irradiance.mip_level_count(), 1); // <- only 1 mip level
+        assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
+        assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
 
         test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
     }
