@@ -9,6 +9,8 @@ mod scene;
 pub mod systems;
 pub mod transform;
 
+pub mod test_utils;
+
 pub mod prelude {
     pub use super::app::App;
     pub use crate::camera::Camera;
