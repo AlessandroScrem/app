@@ -878,7 +878,14 @@ fn save_texture(
         }
     };
 
-    let output_buffer_size = (pixel_size * texture_size * texture_size) as wgpu::BufferAddress;
+    // Bytes per row per WGPU (padded a 256)
+    let bytes_per_row_unpadded = texture_size * pixel_size;
+    let bytes_per_row_padded = align_to(
+        bytes_per_row_unpadded,
+        wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u32,
+    );
+    let output_buffer_size = (bytes_per_row_padded * texture_size) as wgpu::BufferAddress;
+
     let output_buffer_desc = wgpu::BufferDescriptor {
         size: output_buffer_size,
         usage: wgpu::BufferUsages::COPY_DST
@@ -887,18 +894,6 @@ fn save_texture(
         label: None,
         mapped_at_creation: false,
     };
-    /*
-        println!(
-            "Texture extend: width {}, height {} depth_layer {}",
-            texture.size().width,
-            texture.size().height,
-            texture.size().depth_or_array_layers
-        );
-        println!(
-            "Texture size: {}, buffer size: {} format: {:?}",
-            texture_size, output_buffer_size, format
-        );
-    */
 
     let output_buffer = device.create_buffer(&output_buffer_desc);
 
@@ -917,7 +912,7 @@ fn save_texture(
                 buffer: &output_buffer,
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(pixel_size * texture_size),
+                    bytes_per_row: Some(bytes_per_row_padded),
                     rows_per_image: Some(texture_size),
                 },
             },
@@ -954,9 +949,15 @@ fn save_texture(
 
         match format {
             wgpu::TextureFormat::Rg16Float => {
-                let data_rg16f = buffer_slice.get_mapped_range();
-
-                let data_rgba8 = rg16float_to_rgba8(&data_rg16f, texture_size, texture_size);
+                let padded_data = buffer_slice.get_mapped_range();
+                let unpadded_data = unpad_image(
+                    &padded_data,
+                    texture_size,
+                    texture_size,
+                    pixel_size,
+                    bytes_per_row_padded,
+                );
+                let data_rgba8 = rg16float_to_rgba8(&unpadded_data, texture_size, texture_size);
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
@@ -965,9 +966,16 @@ fn save_texture(
                 buffer.save(filename).unwrap();
             }
             wgpu::TextureFormat::Rgba16Float => {
-                let data_rgba16f = buffer_slice.get_mapped_range();
+                let padded_data = buffer_slice.get_mapped_range();
 
-                let data_rgba8 = rgba16float_to_rgba8(&data_rgba16f, texture_size, texture_size);
+                let unpadded_data = unpad_image(
+                    &padded_data,
+                    texture_size,
+                    texture_size,
+                    pixel_size,
+                    bytes_per_row_padded,
+                );
+                let data_rgba8 = rgba16float_to_rgba8(&unpadded_data, texture_size, texture_size);
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
@@ -983,112 +991,32 @@ fn save_texture(
     Ok(())
 }
 
-fn save_cubemap_cross(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    filename: &str,
-    texture: &wgpu::Texture,
-) -> anyhow::Result<()> {
-    use image::{ImageBuffer, Rgba};
+/// Remove padding from data read from texture  eg: copy_texture_to_buffer().
+/// `data` slice mapped from GPU buffer.
+/// `width` = in pixel
+/// `height` = in pixel
+/// `bytes_per_pixel` = how many byte per pixel (es. RGBA8 = 4, RGBA16F = 8, ecc.)
+/// `bytes_per_row_padded` = row pitch returned from wgpu
+fn unpad_image(
+    data: &[u8],
+    width: u32,
+    height: u32,
+    bytes_per_pixel: u32,
+    bytes_per_row_padded: u32,
+) -> Vec<u8> {
+    let bytes_per_row_unpadded = width * bytes_per_pixel;
+    let mut unpadded = vec![0u8; (bytes_per_row_unpadded * height) as usize];
 
-    let texture_size = texture.width();
-    let pixel_size = 8; // Rgba16Float
-    let bytes_per_row = pixel_size * texture_size;
-    let face_count = 6;
+    for y in 0..height as usize {
+        let src_start = y * bytes_per_row_padded as usize;
+        let dst_start = y * bytes_per_row_unpadded as usize;
 
-    // 1. Output cross bitmap: larghezza 4*size, altezza 3*size (T-layout)
-    let cross_width = texture_size * 4;
-    let cross_height = texture_size * 3;
-    let mut cross_image = vec![0u8; (cross_width * cross_height * 4) as usize]; // 4 byte per pixel finale
-
-    for face in 0..face_count {
-        // 2. Crea buffer temporaneo per ogni faccia
-        let output_buffer_size = (bytes_per_row * texture_size) as wgpu::BufferAddress;
-        let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: output_buffer_size,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            label: None,
-            mapped_at_creation: false,
-        });
-
-        // 3. Copia la faccia dal cubemap nel buffer
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d {
-                    x: 0,
-                    y: 0,
-                    z: face,
-                },
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &output_buffer,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(bytes_per_row),
-                    rows_per_image: Some(texture_size),
-                },
-            },
-            Extent3d {
-                width: texture_size,
-                height: texture_size,
-                depth_or_array_layers: 1,
-            },
-        );
-        queue.submit(Some(encoder.finish()));
-
-        // 4. Mappa e leggi i dati
-        let face_rgba8 = {
-
-            let buffer_slice = output_buffer.slice(..);
-            let (tx, rx) = std::sync::mpsc::channel();
-            buffer_slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
-            device.poll(wgpu::PollType::Wait)?;
-            rx.recv()??;
-            
-            let data = buffer_slice.get_mapped_range();
-            let result = rgba16float_to_rgba8(&data, texture_size, texture_size); // funzione di conversione tua
-            result
-        };
-
-        output_buffer.unmap();
-
-        // 5. Copia i pixel nel cross_image
-        let (offset_x, offset_y) = match face {
-            0 => (texture_size, 0),                // +Y
-            1 => (0, texture_size),                // -X
-            2 => (texture_size, texture_size),     // +Z
-            3 => (2 * texture_size, texture_size), // +X
-            4 => (3 * texture_size, texture_size), // -Z (opzionale)
-            5 => (texture_size, 2 * texture_size), // -Y
-            _ => (0, 0),
-        };
-
-        for y in 0..texture_size as usize {
-            for x in 0..texture_size as usize {
-                let src_idx = (y * texture_size as usize + x) * 4;
-                let dst_x = offset_x as usize + x;
-                let dst_y = offset_y as usize + y;
-                let dst_idx = (dst_y * cross_width as usize + dst_x) * 4;
-                cross_image[dst_idx..dst_idx + 4]
-                    .copy_from_slice(&face_rgba8[src_idx..src_idx + 4]);
-            }
-        }
+        unpadded[dst_start..dst_start + bytes_per_row_unpadded as usize]
+            .copy_from_slice(&data[src_start..src_start + bytes_per_row_unpadded as usize]);
     }
 
-    // 6. Salva
-    let buffer =
-        ImageBuffer::<Rgba<u8>, _>::from_raw(cross_width, cross_height, cross_image).unwrap();
-    buffer.save(filename)?;
-
-    Ok(())
+    unpadded
 }
-
-
 
 /// Allinea un valore al multiplo più vicino >= alignment
 fn align_to(value: u32, alignment: u32) -> u32 {
@@ -1096,15 +1024,19 @@ fn align_to(value: u32, alignment: u32) -> u32 {
 }
 
 /// Salva tutte le mipmap di una cubemap in PNG, ogni mip in una bitmap a croce
-pub fn save_cubemap_mips(
+pub fn save_cubemap_cross(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     filename_base: &str,
     texture: &wgpu::Texture,
-    mip_level_count: u32,
 ) -> anyhow::Result<()> {
     use image::{ImageBuffer, Rgba};
+    if texture.format() != wgpu::TextureFormat::Rgba16Float {
+        anyhow::bail!("Texture format: {:?} not supported ", texture.format());
+    }
+
     let base_size = texture.width();
+    let mip_level_count = texture.mip_level_count();
     let pixel_size = 8; // Rgba16Float
     let face_count = 6;
 
@@ -1113,7 +1045,10 @@ pub fn save_cubemap_mips(
 
         // Bytes per row per WGPU (padded a 256)
         let bytes_per_row_unpadded = mip_size * pixel_size;
-        let bytes_per_row_padded = align_to(bytes_per_row_unpadded, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u32);
+        let bytes_per_row_padded = align_to(
+            bytes_per_row_unpadded,
+            wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as u32,
+        );
         let output_buffer_size = (bytes_per_row_padded * mip_size) as wgpu::BufferAddress;
 
         // Bitmap croce
@@ -1130,12 +1065,17 @@ pub fn save_cubemap_mips(
             });
 
             // Copia la faccia del mipmap
-            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let mut encoder =
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
             encoder.copy_texture_to_buffer(
                 wgpu::TexelCopyTextureInfo {
                     texture,
                     mip_level,
-                    origin: wgpu::Origin3d { x: 0, y: 0, z: face },
+                    origin: wgpu::Origin3d {
+                        x: 0,
+                        y: 0,
+                        z: face,
+                    },
                     aspect: wgpu::TextureAspect::All,
                 },
                 wgpu::TexelCopyBufferInfo {
@@ -1154,7 +1094,7 @@ pub fn save_cubemap_mips(
             );
             queue.submit(Some(encoder.finish()));
 
-           // Mappa e leggi dati
+            // Mappa e leggi dati
             let face_rgba8 = {
                 let slice = output_buffer.slice(..);
                 let (tx, rx) = std::sync::mpsc::channel();
@@ -1163,27 +1103,28 @@ pub fn save_cubemap_mips(
                 rx.recv()??;
 
                 let data = slice.get_mapped_range();
-                // Copia solo i byte utili ignorando padding
-                let mut unpadded_data = vec![0u8; (bytes_per_row_unpadded * mip_size) as usize];
-                for y in 0..mip_size as usize {
-                    let src_start = y * bytes_per_row_padded as usize;
-                    let dst_start = y * bytes_per_row_unpadded as usize;
-                    unpadded_data[dst_start..dst_start + bytes_per_row_unpadded as usize]
-                        .copy_from_slice(&data[src_start..src_start + bytes_per_row_unpadded as usize]);
-                }
+
+                let unpadded_data = unpad_image(
+                    &data,
+                    mip_size,             // width
+                    mip_size,             // height
+                    pixel_size,           // RGBA16F → 8 byte per pixel
+                    bytes_per_row_padded, // pitch da wgpu
+                );
 
                 rgba16float_to_rgba8(&unpadded_data, mip_size, mip_size)
             };
+
             output_buffer.unmap();
 
             // Offset croce
             let (offset_x, offset_y) = match face {
-                0 => (mip_size, 0),              // +Y
-                1 => (0, mip_size),              // -X
-                2 => (mip_size, mip_size),       // +Z
-                3 => (2 * mip_size, mip_size),   // +X
-                4 => (3 * mip_size, mip_size),   // -Z
-                5 => (mip_size, 2 * mip_size),   // -Y
+                0 => (mip_size, 0),            // +Y
+                1 => (0, mip_size),            // -X
+                2 => (mip_size, mip_size),     // +Z
+                3 => (2 * mip_size, mip_size), // +X
+                4 => (3 * mip_size, mip_size), // -Z
+                5 => (mip_size, 2 * mip_size), // -Y
                 _ => (0, 0),
             };
 
@@ -1194,14 +1135,16 @@ pub fn save_cubemap_mips(
                     let dst_x = offset_x as usize + x;
                     let dst_y = offset_y as usize + y;
                     let dst_idx = (dst_y * cross_width as usize + dst_x) * 4;
-                    cross_image[dst_idx..dst_idx + 4].copy_from_slice(&face_rgba8[src_idx..src_idx + 4]);
+                    cross_image[dst_idx..dst_idx + 4]
+                        .copy_from_slice(&face_rgba8[src_idx..src_idx + 4]);
                 }
             }
         }
 
         // Salva il mipmap
         let filename = format!("{}_mip{}.png", filename_base, mip_level);
-        let buffer = ImageBuffer::<Rgba<u8>, _>::from_raw(cross_width, cross_height, cross_image).unwrap();
+        let buffer =
+            ImageBuffer::<Rgba<u8>, _>::from_raw(cross_width, cross_height, cross_image).unwrap();
         buffer.save(filename)?;
     }
 
@@ -1414,7 +1357,7 @@ mod tests {
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
-        let rgba16f = hdr.to_cubemap(&device, &queue, 1024);
+        let rgba16f = hdr.to_cubemap(&device, &queue, 1023);
 
         save_texture(&device, &queue, "testimage.png", &rgba16f).unwrap();
     }
@@ -1430,7 +1373,7 @@ mod tests {
 
         save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
     }
- 
+
     #[test]
     fn should_save_cubetexture_rgba16f_with_mips_to_file() {
         let (device, queue) = crate::get_device_and_queue();
@@ -1441,7 +1384,7 @@ mod tests {
 
         let rgba16f = PrefilterMap::build(device, queue, &cube_texture);
 
-        save_cubemap_mips(&device, &queue, "testimage.png", &rgba16f, 5).unwrap();
+        save_cubemap_cross(&device, &queue, "testimage.png", &rgba16f).unwrap();
     }
 
     #[test]
