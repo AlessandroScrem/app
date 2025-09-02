@@ -472,34 +472,23 @@ impl PrefilerMapResources {
 
 pub struct PrefilterMap {}
 
+// refactor to use generic function with resources trait
 impl PrefilterMap {
     fn build(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cube_texture: &wgpu::Texture,
     ) -> wgpu::Texture {
-        // 0 create from source texture a cube view
-        // 1 create target texture cube with mips levels
-        // 2 create roughness buffer
-        // 3 create bindgroup layout
-        // 4 create pipeline
-        // 5 create camera matrix views
-        // 6 create camerabuffer views
-        // 7 create capture texture views
-        // 8 render cubemap faces to cube texture with mip
-
         const TARGET_SIZE: u32 = 128;
         let mip_level_count = utils::mip_levels(TARGET_SIZE);
         let format = wgpu::TextureFormat::Rgba16Float;
 
-        // 0 create from source texture a cube view
         let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
             label: Some("Cube texture view"),
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
 
-        // 1 crate target texture cube with mips levels
         let target_texture = utils::create_cube_texture(
             device,
             "Prefilter_map",
@@ -508,51 +497,17 @@ impl PrefilterMap {
             format,
         );
 
-        //2 crate roughness buffer
-        //3 create bindgroup layout
-        //4 create pipeline
-        let resources = PrefilerMapResources::new(device, &cube_texture_view, format);
-
-        //5 create camera matrix views
-        let camera_views = utils::create_camera_views();
-
-        // render to cube with mips
-        for mip_level in 0..mip_level_count {
-            let capture_size = utils::mip_size(TARGET_SIZE, mip_level);
-
-            // update buffer with roughness
-            let roughness = mip_level as f32 / (mip_level_count - 1) as f32;
-            Self::update_roughness(queue, &resources.roughness_buffer, roughness);
-
-            // Resize framebuffer according to mip-level size.
-
-            // render faces
-            camera_views.iter().enumerate().for_each(|(i, view)| {
-                let mut encoder = device.create_command_encoder(&Default::default());
-                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
-
-                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
-
-                utils::render_to_cubemap(
-                    &mut encoder,
-                    &resources.pipeline,
-                    &resources.bind_group,
-                    &dest_view,
-                    capture_size,
-                );
-                queue.submit([encoder.finish()]);
-            });
-        }
+        render_cubemap_with_resources::<PrefilerMapResources>(
+            device,
+            queue,
+            &cube_texture_view,
+            &target_texture,
+            TARGET_SIZE,
+            mip_level_count,
+            format,
+        );
 
         target_texture
-    }
-
-    fn update_roughness(
-        queue: &wgpu::Queue,
-        roughness_uniform_buffer: &wgpu::Buffer,
-        roughness: f32,
-    ) {
-        queue.write_buffer(roughness_uniform_buffer, 0, bytemuck::bytes_of(&roughness));
     }
 }
 
@@ -690,6 +645,7 @@ pub struct EquirectangularToCubemap {
     hdr_texture: texture::Texture,
 }
 
+// refactor to use generic function with resources trait
 impl EquirectangularToCubemap {
     pub fn build(
         hdr_texture: &texture::Texture,
@@ -697,14 +653,6 @@ impl EquirectangularToCubemap {
         queue: &wgpu::Queue,
         cube_size: u32,
     ) -> wgpu::Texture {
-        // CubemapFromHDR(skybox);
-        // -- create equirect texture
-        // -- create equirect pipeline
-        // -- create dest cube texture
-        // -- create dest cube 6 textureview
-        // -- set 6 camera view matrix each for cube side
-        // -- render equirect to cubemap 6faces
-
         let dest_format = wgpu::TextureFormat::Rgba16Float;
         let mip_level_count = utils::mip_levels(cube_size);
 
@@ -717,34 +665,15 @@ impl EquirectangularToCubemap {
             dest_format,
         );
 
-        // create camera buffer
-        // create bindgrouplayout for hdr attachement
-        // create equirect pipeline
-        let resources = EquirectResources::new(device, &hdr_texture.view, dest_format);
-
-        // create camera matrix/views
-        let camera_views = utils::create_camera_views();
-
-        // render to cube with mips
-        for mip_level in 0..mip_level_count {
-            let capture_size = utils::mip_size(cube_size, mip_level);
-            // render faces
-            camera_views.iter().enumerate().for_each(|(i, view)| {
-                let mut encoder = device.create_command_encoder(&Default::default());
-                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
-
-                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
-
-                utils::render_to_cubemap(
-                    &mut encoder,
-                    &resources.pipeline,
-                    &resources.bind_group,
-                    &dest_view,
-                    capture_size,
-                );
-                queue.submit([encoder.finish()]);
-            });
-        }
+        render_cubemap_with_resources::<EquirectResources>(
+            device,
+            queue,
+            &hdr_texture.view,
+            &target_texture,
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
 
         target_texture
     }
@@ -884,31 +813,149 @@ pub struct IrrarianceMap {
     hdr_texture: texture::Texture,
 }
 
+trait CubemapBuilderResources {
+    fn new(
+        device: &wgpu::Device,
+        src_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self;
+    fn pipeline(&self) -> &wgpu::RenderPipeline;
+    fn bind_group(&self) -> &wgpu::BindGroup;
+    fn camera_buffer(&self) -> &wgpu::Buffer;
+    // Optional: for resources that need per-mip updates (like roughness)
+    fn update_per_mip(
+        &self,
+        _queue: &wgpu::Queue,
+        _mip_level: u32,
+        _mip_level_count: u32,
+    ) {
+        // Default: do nothing
+    }
+}
+
+impl CubemapBuilderResources for IrradianceResources {
+    fn new(
+        device: &wgpu::Device,
+        src_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        IrradianceResources::new(device, src_view, format)
+    }
+    fn pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.pipeline
+    }
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+    fn camera_buffer(&self) -> &wgpu::Buffer {
+        &self.camera_buffer
+    }
+}
+
+impl CubemapBuilderResources for EquirectResources {
+    fn new(
+        device: &wgpu::Device,
+        src_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        EquirectResources::new(device, src_view, format)
+    }
+    fn pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.pipeline
+    }
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+    fn camera_buffer(&self) -> &wgpu::Buffer {
+        &self.camera_buffer
+    }
+}
+
+impl CubemapBuilderResources for PrefilerMapResources {
+    fn new(
+        device: &wgpu::Device,
+        src_view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        PrefilerMapResources::new(device, src_view, format)
+    }
+    fn pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.pipeline
+    }
+    fn bind_group(&self) -> &wgpu::BindGroup {
+        &self.bind_group
+    }
+    fn camera_buffer(&self) -> &wgpu::Buffer {
+        &self.camera_buffer
+    }
+    fn update_per_mip(
+        &self,
+        queue: &wgpu::Queue,
+        mip_level: u32,
+        mip_level_count: u32,
+    ) {
+        // Update roughness buffer for each mip level
+        let roughness = if mip_level_count > 1 {
+            mip_level as f32 / (mip_level_count - 1) as f32
+        } else {
+            0.0
+        };
+        queue.write_buffer(&self.roughness_buffer, 0, bytemuck::bytes_of(&roughness));
+    }
+}
+
+// Generic function to render a cubemap using a resource type
+fn render_cubemap_with_resources<R: CubemapBuilderResources>(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    src_view: &wgpu::TextureView,
+    target_texture: &wgpu::Texture,
+    cube_size: u32,
+    mip_level_count: u32,
+    format: wgpu::TextureFormat,
+) {
+    let resources = R::new(device, src_view, format);
+    let camera_views = utils::create_camera_views();
+
+    for mip_level in 0..mip_level_count {
+        let capture_size = utils::mip_size(cube_size, mip_level);
+
+        resources.update_per_mip(queue, mip_level, mip_level_count);
+
+        camera_views.iter().enumerate().for_each(|(i, view)| {
+            let mut encoder = device.create_command_encoder(&Default::default());
+            utils::update_camera_buffer(queue, resources.camera_buffer(), *view);
+
+            let dest_view = utils::create_dest_view(target_texture, i as u32, mip_level);
+
+            utils::render_to_cubemap(
+                &mut encoder,
+                resources.pipeline(),
+                resources.bind_group(),
+                &dest_view,
+                capture_size,
+            );
+            queue.submit([encoder.finish()]);
+        });
+    }
+}
+
 impl IrrarianceMap {
     pub fn build(
         cube_texture: &wgpu::Texture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> wgpu::Texture {
-        // 0 create from source texture a cube view
-        // 1 create target texture cube 1 mip level
-        // 2 create bindgroup layout ,create pipeline, create camera buffer
-        // 3 create camera matrix views
-        // 4 create capture texture view
-        // 5 render cubemap faces to cube texture with mip
-
         let cube_size: u32 = 32;
         let dest_format = wgpu::TextureFormat::Rgba16Float;
         let mip_level_count = 1;
 
-        // 0 create from source texture a cube view
         let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
             label: Some("Cube texture view"),
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
 
-        // 1 create target texture cube 1 mip level
         let target_texture = utils::create_cube_texture(
             &device,
             "Irradiance_Cube",
@@ -917,36 +964,15 @@ impl IrrarianceMap {
             dest_format,
         );
 
-        // 2
-        // create camera buffer
-        // create bindgrouplayout for hdr attachement
-        // create pipeline
-        let resources = IrradianceResources::new(device, &cube_texture_view, dest_format);
-
-        // 3 create camera matrix/views
-        let camera_views = utils::create_camera_views();
-
-        // render to cube with mips
-        for mip_level in 0..mip_level_count {
-            let capture_size = utils::mip_size(cube_size, mip_level);
-            // render faces
-            camera_views.iter().enumerate().for_each(|(i, view)| {
-                let mut encoder = device.create_command_encoder(&Default::default());
-                utils::update_camera_buffer(&queue, &resources.camera_buffer, *view);
-
-                // 4 create capture texture view
-                let dest_view = utils::create_dest_view(&target_texture, i as u32, mip_level);
-
-                utils::render_to_cubemap(
-                    &mut encoder,
-                    &resources.pipeline,
-                    &resources.bind_group,
-                    &dest_view,
-                    capture_size,
-                );
-                queue.submit([encoder.finish()]);
-            });
-        }
+        render_cubemap_with_resources::<IrradianceResources>(
+            device,
+            queue,
+            &cube_texture_view,
+            &target_texture,
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
 
         target_texture
     }
@@ -1029,7 +1055,9 @@ impl SkyboxManager {
                 #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
                 let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
                 let cube_texture = hdr.to_cubemap(device, queue, 512);
-                let _texture = IrrarianceMap::build(&cube_texture, device, queue);
+                // let _texture = IrrarianceMap::build(&cube_texture, device, queue);
+                let _texture = PrefilterMap::build(device, queue, &cube_texture);
+                // let _texture = cube_texture;
                 let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
                     dimension: Some(wgpu::TextureViewDimension::Cube),
                     ..Default::default()
