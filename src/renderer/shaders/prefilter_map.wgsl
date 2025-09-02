@@ -180,12 +180,11 @@ const SAMPLECOUNT = 1024u;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let N = normalize(input.frag_pos);
-    let R = N;
-    let V = R;
+    // flip asse Y
+    let N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+    let V = N;
 
     let color = prefilterEnvironment(N, V, roughness, SATEXEL);
-
     return vec4<f32>(color, 1.0);
 
 }
