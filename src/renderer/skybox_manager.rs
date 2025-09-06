@@ -97,43 +97,29 @@ mod utils {
     /// # Returns
     /// * A vector of 6 `cgmath::Matrix4<f32>` representing the view matrices for each cubemap face.
     pub fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
-        use cgmath::{Matrix4, Point3, Vector3};
+        use cgmath::{Matrix4, Point3};
 
-        let eye = Point3::new(0.0, 0.0, 0.0);
+        const ZERO: Point3<f32> = Point3::new(0.0, 0.0, 0.0);
+        const PX: [f32; 3] = [1.0, 0.0, 0.0];
+        const NX: [f32; 3] = [-1.0, 0.0, 0.0];
+        const PY: [f32; 3] = [0.0, 1.0, 0.0];
+        const NY: [f32; 3] = [0.0, -1.0, 0.0];
+        const PZ: [f32; 3] = [0.0, 0.0, 1.0];
+        const NZ: [f32; 3] = [0.0, 0.0, -1.0];
 
         vec![
-            // +X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -X
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(-1.0, 0.0, 0.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // +Y
-            Matrix4::look_at_lh(eye, Point3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-            // -Y
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, -1.0, 0.0),
-                Vector3::new(0.0, 0.0, -1.0),
-            ),
-            // +Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, 1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
-            // -Z
-            Matrix4::look_at_lh(
-                eye,
-                Point3::new(0.0, 0.0, -1.0),
-                Vector3::new(0.0, -1.0, 0.0),
-            ),
+            // +X (right)
+            Matrix4::look_at_lh(ZERO, PX.into(), NY.into()),
+            // -X (left)
+            Matrix4::look_at_lh(ZERO, NX.into(), NY.into()),
+            // +Y (top)
+            Matrix4::look_at_lh(ZERO, PY.into(), PZ.into()),
+            // -Y (bottom)
+            Matrix4::look_at_lh(ZERO, NY.into(), NZ.into()), 
+            // +Z (front)
+            Matrix4::look_at_lh(ZERO, PZ.into(), NY.into()),
+            // -Z (back)
+            Matrix4::look_at_lh(ZERO, NZ.into(), NY.into()),
         ]
     }
 
@@ -823,12 +809,7 @@ trait CubemapBuilderResources {
     fn bind_group(&self) -> &wgpu::BindGroup;
     fn camera_buffer(&self) -> &wgpu::Buffer;
     // Optional: for resources that need per-mip updates (like roughness)
-    fn update_per_mip(
-        &self,
-        _queue: &wgpu::Queue,
-        _mip_level: u32,
-        _mip_level_count: u32,
-    ) {
+    fn update_per_mip(&self, _queue: &wgpu::Queue, _mip_level: u32, _mip_level_count: u32) {
         // Default: do nothing
     }
 }
@@ -888,12 +869,7 @@ impl CubemapBuilderResources for PrefilerMapResources {
     fn camera_buffer(&self) -> &wgpu::Buffer {
         &self.camera_buffer
     }
-    fn update_per_mip(
-        &self,
-        queue: &wgpu::Queue,
-        mip_level: u32,
-        mip_level_count: u32,
-    ) {
+    fn update_per_mip(&self, queue: &wgpu::Queue, mip_level: u32, mip_level_count: u32) {
         // Update roughness buffer for each mip level
         let roughness = if mip_level_count > 1 {
             mip_level as f32 / (mip_level_count - 1) as f32
@@ -1056,8 +1032,8 @@ impl SkyboxManager {
                 let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
                 let cube_texture = hdr.to_cubemap(device, queue, 512);
                 // let _texture = IrrarianceMap::build(&cube_texture, device, queue);
-                let _texture = PrefilterMap::build(device, queue, &cube_texture);
-                // let _texture = cube_texture;
+                // let _texture = PrefilterMap::build(device, queue, &cube_texture);
+                let _texture = cube_texture;
                 let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
                     dimension: Some(wgpu::TextureViewDimension::Cube),
                     ..Default::default()
@@ -1122,10 +1098,13 @@ mod tests {
         assert!(hdr.hdr_texture.inner.width() > 0);
         assert!(hdr.hdr_texture.inner.height() > 0);
         assert_eq!(hdr.hdr_texture.inner.mip_level_count(), 1); // <- no mipmaps
-        assert_eq!(hdr.hdr_texture.inner.depth_or_array_layers(), 1);  // <- 2D texture
-        assert_eq!(hdr.hdr_texture.inner.dimension(), wgpu::TextureDimension::D2);
+        assert_eq!(hdr.hdr_texture.inner.depth_or_array_layers(), 1); // <- 2D texture
+        assert_eq!(
+            hdr.hdr_texture.inner.dimension(),
+            wgpu::TextureDimension::D2
+        );
 
-        test_utils::save_texture(&device, &queue, "hdr.png", &hdr.hdr_texture.inner).unwrap();
+        test_utils::save_texture(&device, &queue, "hdr.png", &hdr.hdr_texture.inner, 0).unwrap();
     }
 
     /// BRDFLut
@@ -1142,7 +1121,7 @@ mod tests {
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut).unwrap();
+        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 1).unwrap();
     }
 
     /// PrefilterMap
@@ -1184,6 +1163,7 @@ mod tests {
         assert_eq!(cubemap.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
+        // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
         test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
     }
 
@@ -1217,6 +1197,33 @@ mod tests {
         let manager = SkyboxManager::new(&device, &queue, &gpu_resource_manager);
         assert_eq!(manager.skyboxes.len(), SkyboxKind::iter().count());
     }
+
+    /*     #[test]
+    fn skybox_image_following_correct_order() {
+        // right, left, top, bottom, front, back
+        // +X right, -X left, +Z top, -Z bottom, +Y front, -Y back
+        let (device, queue) = crate::get_device_and_queue();
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/right.png"));
+        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/left.png"));
+        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/top.png"));
+        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/bottom.png"));
+        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/front.png"));
+        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/back.png"));
+
+        let cube = texture_manager.create_cubemap(
+            f0,
+            f1,
+            f2,
+            f3,
+            f4,
+            f5,
+            wgpu::TextureFormat::Rgba16Float,
+        );
+
+        test_utils::save_cubemap_cross(&device, &queue, "Debug_result.png", &cube.inner).unwrap();
+    } */
 
     #[test]
     fn should_create_skybox_from_6_images() {

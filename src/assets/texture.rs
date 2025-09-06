@@ -113,7 +113,7 @@ impl CubeTexture {
                 }
                 (images, 4)
             }
-            TextureFormat::Rgba16Float => unimplemented!(),
+            TextureFormat::Rgba16Float => unimplemented!("Rgba16Float not yet implemented for CubeTexture"),
             _ => panic!("Unsopported TextureFormat"),
         };
 

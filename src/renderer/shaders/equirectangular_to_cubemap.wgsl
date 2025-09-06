@@ -22,47 +22,27 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
     //local cube [-1 1]
     var box: array<vec3<f32>, 36> = array<vec3<f32>, 36>(
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
+        // +X
+        vec3( 1, -1, -1), vec3( 1, -1,  1), vec3( 1,  1,  1),
+        vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        // -X
+        vec3(-1, -1,  1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+        vec3(-1, -1,  1), vec3(-1,  1, -1), vec3(-1,  1,  1),
 
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
+        // +Y (top)
+        vec3(-1,  1,  1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        vec3(-1,  1,  1), vec3( 1,  1, -1), vec3(-1,  1, -1),
 
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
+        // -Y (bottom)
+        vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1, -1,  1),
+        vec3(-1, -1, -1), vec3( 1, -1,  1), vec3(-1, -1,  1),
 
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0, -1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0,  1.0),
-        
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
+        // +Z
+        vec3(-1, -1,  1), vec3(-1,  1,  1), vec3( 1,  1,  1),
+        vec3(-1, -1,  1), vec3( 1,  1,  1), vec3( 1, -1,  1),
+        // -Z
+        vec3( 1, -1, -1), vec3( 1,  1, -1), vec3(-1,  1, -1),
+        vec3( 1, -1, -1), vec3(-1,  1, -1), vec3(-1, -1, -1)
 
     );
 
@@ -78,7 +58,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
     let clip_position = camera.proj * rot_view * vec4<f32>(pos, 1.0);	
 
-    out.clip_position = clip_position.xyww;
+    out.clip_position = clip_position;
     out.frag_pos = pos;
 
     return out;
@@ -90,7 +70,9 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 const INV_ATAN = vec2<f32>(0.1591, 0.3183);
 fn sample_spherical_map(v: vec3<f32>) -> vec2<f32> 
 {
-    var uv: vec2<f32> = vec2<f32>(atan2(v.z, v.x), asin(v.y));
+    // var uv: vec2<f32> = vec2<f32>(atan2(v.z, v.x), asin(v.y));
+    // swap y and z to match the correct orientation
+    var uv: vec2<f32> = vec2<f32>(atan2(v.x, v.z), asin(v.y));
     uv = uv * INV_ATAN;
     uv = uv + vec2<f32>(0.5, 0.5);
     return uv;
@@ -98,7 +80,8 @@ fn sample_spherical_map(v: vec3<f32>) -> vec2<f32>
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let uv: vec2<f32> = sample_spherical_map(normalize(input.frag_pos));
+    var uv: vec2<f32> = sample_spherical_map(normalize(input.frag_pos));
+
     let color: vec3<f32> = textureSample(equirectangular_map, tex_sampler, uv).rgb;
 
     return vec4<f32>(color, 1.0); 

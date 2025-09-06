@@ -21,51 +21,34 @@ struct VertexOutput {
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
 
+
     //local cube [-1 1]
     var box: array<vec3<f32>, 36> = array<vec3<f32>, 36>(
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
+        // +X
+        vec3( 1, -1, -1), vec3( 1, -1,  1), vec3( 1,  1,  1),
+        vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        // -X
+        vec3(-1, -1,  1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+        vec3(-1, -1,  1), vec3(-1,  1, -1), vec3(-1,  1,  1),
 
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
+        // +Y (top)
+        vec3(-1,  1,  1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        vec3(-1,  1,  1), vec3( 1,  1, -1), vec3(-1,  1, -1),
 
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
+        // -Y (bottom)
+        vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1, -1,  1),
+        vec3(-1, -1, -1), vec3( 1, -1,  1), vec3(-1, -1,  1),
 
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0, -1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0,  1.0),
-        
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
-
+        // +Z
+        vec3(-1, -1,  1), vec3(-1,  1,  1), vec3( 1,  1,  1),
+        vec3(-1, -1,  1), vec3( 1,  1,  1), vec3( 1, -1,  1),
+        // -Z
+        vec3( 1, -1, -1), vec3( 1,  1, -1), vec3(-1,  1, -1),
+        vec3( 1, -1, -1), vec3(-1,  1, -1), vec3(-1, -1, -1)
     );
+
+    let pos = box[vertex_index];
+
 
     // remove translation from camera view matrix
     let rot_view = mat4x4<f32>(
@@ -75,11 +58,9 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
         vec4<f32>(0.0, 0.0, 0.0, 1.0)       // ultima colonna (nessuna traslazione)
     );
 
-    let pos = box[vertex_index];
+    let clip = camera.proj * rot_view * vec4<f32>(pos, 1.0);
 
-    let clip_position = camera.proj * rot_view * vec4<f32>(pos, 1.0);	
-
-    out.clip_position = clip_position.xyww;
+    out.clip_position = clip;
     out.frag_pos = pos;
 
     return out;
@@ -181,10 +162,14 @@ const SAMPLECOUNT = 1024u;
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // flip asse Y
-    let N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+    var N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+
     let V = N;
 
     let color = prefilterEnvironment(N, V, roughness, SATEXEL);
+
+    // debug: visualize normal
+    // return vec4<f32>(normalize(input.frag_pos) * 0.5 + 0.5, 1.0);
     return vec4<f32>(color, 1.0);
 
 }
