@@ -162,8 +162,10 @@ const SAMPLECOUNT = 1024u;
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // flip asse Y
-    var N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+    // var N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
 
+    // twick rotazione 180° sull'asse Y e flip Y
+    var N = normalize(vec3<f32>(-input.frag_pos.x, -input.frag_pos.y, -input.frag_pos.z));
     let V = N;
 
     let color = prefilterEnvironment(N, V, roughness, SATEXEL);
