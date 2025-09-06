@@ -1,12 +1,12 @@
 use wgpu::Extent3d;
 
-
 /// Se è una cubemap salva solo la texture z = 0
 pub fn save_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     filename: &str,
     texture: &wgpu::Texture,
+    z: u32,
 ) -> anyhow::Result<()> {
     let width = texture.width();
     let height = texture.height();
@@ -50,7 +50,7 @@ pub fn save_texture(
                 aspect: wgpu::TextureAspect::All,
                 texture: &texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                origin: wgpu::Origin3d { x: 0, y: 0, z },
             },
             wgpu::TexelCopyBufferInfo {
                 buffer: &output_buffer,
@@ -105,8 +105,7 @@ pub fn save_texture(
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
-                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8)
-                        .unwrap();
+                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8).unwrap();
                 buffer.save(filename).unwrap();
             }
             wgpu::TextureFormat::Rgba16Float => {
@@ -123,8 +122,7 @@ pub fn save_texture(
 
                 use image::{ImageBuffer, Rgba};
                 let buffer =
-                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8)
-                        .unwrap();
+                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8).unwrap();
                 buffer.save(filename).unwrap();
             }
             _ => panic!("'save_texture': unsupported texture format"),
@@ -229,14 +227,14 @@ pub fn save_cubemap_cross(
 
             output_buffer.unmap();
 
-            // Offset croce
+            // // Offset croce
             let (offset_x, offset_y) = match face {
-                0 => (mip_size, 0),            // +Y
+                0 => (2 * mip_size, mip_size), // +X
                 1 => (0, mip_size),            // -X
-                2 => (mip_size, mip_size),     // +Z
-                3 => (2 * mip_size, mip_size), // +X
-                4 => (3 * mip_size, mip_size), // -Z
-                5 => (mip_size, 2 * mip_size), // -Y
+                3 => (mip_size, 2 * mip_size), // -Y
+                2 => (mip_size, 0),            // +Y
+                4 => (mip_size, mip_size),     // +Z
+                5 => (3 * mip_size, mip_size), // -Z
                 _ => (0, 0),
             };
 
@@ -355,8 +353,6 @@ fn rgba16float_to_rgba8(raw: &[u8], width: u32, height: u32) -> Vec<u8> {
 
     out
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -502,7 +498,7 @@ mod tests {
         let rg16f =
             create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rg16Float, 64);
 
-        save_texture(&device, &queue, "testimage.png", &rg16f).unwrap();
+        save_texture(&device, &queue, "testimage.png", &rg16f, 0).unwrap();
     }
 
     #[test]
@@ -512,7 +508,7 @@ mod tests {
         let rgba16f =
             create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
 
-        save_texture(&device, &queue, "testimage.png", &rgba16f).unwrap();
+        save_texture(&device, &queue, "testimage.png", &rgba16f, 0).unwrap();
     }
 
     #[test]
