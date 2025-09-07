@@ -83,7 +83,7 @@ impl TextureManager {
     fn read_bytes(filepath: &Path) -> Option<Vec<u8>> {
         match std::fs::read(filepath) {
             Ok(buffer) => {
-                println!("read filepath {} ", filepath.display());
+                // println!("read filepath {} ", filepath.display());
                 Some(buffer)
             }
             Err(err) => {
@@ -118,12 +118,12 @@ mod tests {
     fn should_load_cube_texture() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/right.png"));
-        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/left.png"));
-        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/top.png"));
-        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/bottom.png"));
-        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/front.png"));
-        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/back.png"));
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/right.png"));
+        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/left.png"));
+        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/top.png"));
+        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/bottom.png"));
+        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/front.png"));
+        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/back.png"));
 
         let cube = manager.create_cubemap(f0, f1, f2, f3, f4, f5, TextureFormat::Rgba8UnormSrgb);
 
@@ -134,7 +134,7 @@ mod tests {
     fn should_load_hdr_texture_rgba32float() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
 
         let hdr = manager.get_or_create(f0, TextureFormat::Rgba32Float);
 
@@ -145,7 +145,7 @@ mod tests {
     fn should_load_hdr_texture_rgba16float() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
 
         let hdr = manager.get_or_create(f0, TextureFormat::Rgba16Float);
 

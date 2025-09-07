@@ -466,7 +466,7 @@ impl PrefilterMap {
         cube_texture: &wgpu::Texture,
     ) -> wgpu::Texture {
         const TARGET_SIZE: u32 = 128;
-        let mip_level_count = utils::mip_levels(TARGET_SIZE);
+        let mip_level_count = 5; // cap to 5 mip levels
         let format = wgpu::TextureFormat::Rgba16Float;
 
         let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
@@ -1088,7 +1088,7 @@ mod tests {
     fn should_create_texture_from_hdr() {
         let (device, queue) = crate::get_device_and_queue();
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
         assert_eq!(
@@ -1121,7 +1121,7 @@ mod tests {
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 1).unwrap();
+        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
     }
 
     /// PrefilterMap
@@ -1129,7 +1129,7 @@ mod tests {
     fn should_create_prefilter_rgba16f_cubemap() {
         let (device, queue) = crate::get_device_and_queue();
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
         let cubemap = hdr.to_cubemap(&device, &queue, 512);
@@ -1139,7 +1139,7 @@ mod tests {
         assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(prefilter.height(), 128);
         assert_eq!(prefilter.width(), 128);
-        assert_eq!(prefilter.mip_level_count(), 8); // <- log2(128) + 1
+        assert_eq!(prefilter.mip_level_count(), 5); // cup to 5 mip levels 
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
@@ -1148,10 +1148,10 @@ mod tests {
 
     /// EquirectangularToCubemap
     #[test]
-    fn should_crate_cubetexture_rgba16f() {
+    fn should_crate_cubetexture_rgba16f_from_equirectangular() {
         let (device, queue) = crate::get_device_and_queue();
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
 
         let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
@@ -1172,7 +1172,7 @@ mod tests {
     fn should_crate_irradiance_cubetexture_rgba16f() {
         let (device, queue) = crate::get_device_and_queue();
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
 
@@ -1198,10 +1198,8 @@ mod tests {
         assert_eq!(manager.skyboxes.len(), SkyboxKind::iter().count());
     }
 
-    /*     #[test]
-    fn skybox_image_following_correct_order() {
-        // right, left, top, bottom, front, back
-        // +X right, -X left, +Z top, -Z bottom, +Y front, -Y back
+    #[test]
+    fn should_create_skybox_from_6_images() {
         let (device, queue) = crate::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
@@ -1219,62 +1217,10 @@ mod tests {
             f3,
             f4,
             f5,
-            wgpu::TextureFormat::Rgba16Float,
-        );
-
-        test_utils::save_cubemap_cross(&device, &queue, "Debug_result.png", &cube.inner).unwrap();
-    } */
-
-    #[test]
-    fn should_create_skybox_from_6_images() {
-        let (device, queue) = crate::get_device_and_queue();
-        let gpu_resource_manager = GPUResourceManager::new(&device);
-
-        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/right.png"));
-        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/left.png"));
-        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/top.png"));
-        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/bottom.png"));
-        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/front.png"));
-        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/skybox/back.png"));
-
-        let cube = texture_manager.create_cubemap(
-            f0,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        let skybox_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
-
-        let _ = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &skybox_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&cube.view),
-                },
-            ],
-            label: Some("skybox_bind_group"),
-        });
+        test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &cube.inner).unwrap();
     }
 
     /// Utils
