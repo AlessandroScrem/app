@@ -2,17 +2,14 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::DeltaTime;
-use crate::assets::texture_manager;
 use crate::input::Input;
 
 use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
-use crate::renderer;
 use crate::scene::Scene;
 
 use legion::Resources;
 use legion::Schedule;
-use wgpu::wgt::TextureViewDescriptor;
 
 pub struct App {
     pub(super) window: Option<Arc<winit::window::Window>>,
@@ -61,7 +58,6 @@ impl App {
         
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
-        create_lut(&self.resources);
 
         self.current_scene.schedule = Schedule::builder()
             .add_system(crate::systems::camera_orbit::camera_orbit_system())
@@ -80,7 +76,10 @@ impl App {
     }
 }
 
-
+/* /// Create a BRDF LUT and store it in the texture manager
+use crate::renderer;
+use crate::assets::texture_manager;
+use wgpu::wgt::TextureViewDescriptor;
 fn create_lut(resources: &Resources) {
     let mut texture_manager = resources.get_mut::<texture_manager::TextureManager>().unwrap();
     let texture =  {
@@ -95,4 +94,4 @@ fn create_lut(resources: &Resources) {
     };
 
     texture_manager.textures.insert("lut".into(), texture);
-}
+} */
