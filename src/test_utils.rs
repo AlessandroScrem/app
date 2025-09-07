@@ -12,9 +12,10 @@ pub fn save_texture(
     let height = texture.height();
     let format = texture.format();
 
-    // let u32_size = std::mem::size_of::<u32>() as u32;
     let pixel_size: u32 = match format {
-        wgpu::TextureFormat::Rg16Float => 4,
+        wgpu::TextureFormat::Rgba8Unorm
+        | wgpu::TextureFormat::Rgba8UnormSrgb
+        | wgpu::TextureFormat::Rg16Float => 4,
         wgpu::TextureFormat::Rgba16Float => 8,
         _ => {
             println!("'save_texture': unsupported texture format {:?}", format);
@@ -92,6 +93,22 @@ pub fn save_texture(
         rx.recv()??;
 
         match format {
+            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => {
+                let padded_data = buffer_slice.get_mapped_range();
+                let unpadded_data = unpad_image(
+                    &padded_data,
+                    width,
+                    height,
+                    pixel_size,
+                    bytes_per_row_padded,
+                );
+                let data_rgba8 = unpadded_data;
+
+                use image::{ImageBuffer, Rgba};
+                let buffer =
+                    ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, data_rgba8).unwrap();
+                buffer.save(filename).unwrap();
+            }
             wgpu::TextureFormat::Rg16Float => {
                 let padded_data = buffer_slice.get_mapped_range();
                 let unpadded_data = unpad_image(
@@ -141,14 +158,22 @@ pub fn save_cubemap_cross(
     texture: &wgpu::Texture,
 ) -> anyhow::Result<()> {
     use image::{ImageBuffer, Rgba};
-    if texture.format() != wgpu::TextureFormat::Rgba16Float {
-        anyhow::bail!("Texture format: {:?} not supported ", texture.format());
-    }
 
+    let format = texture.format();
     let base_size = texture.width();
     let mip_level_count = texture.mip_level_count();
-    let pixel_size = 8; // Rgba16Float
     let face_count = 6;
+
+    let pixel_size: u32 = match format {
+        wgpu::TextureFormat::Rgba8Unorm
+        | wgpu::TextureFormat::Rgba8UnormSrgb
+        | wgpu::TextureFormat::Rg16Float => 4,
+        wgpu::TextureFormat::Rgba16Float => 8,
+        _ => {
+            println!("'save_texture': unsupported texture format {:?}", format);
+            panic!()
+        }
+    };
 
     for mip_level in 0..mip_level_count {
         let mip_size = (base_size >> mip_level).max(1);
@@ -218,11 +243,25 @@ pub fn save_cubemap_cross(
                     &data,
                     mip_size,             // width
                     mip_size,             // height
-                    pixel_size,           // RGBA16F → 8 byte per pixel
+                    pixel_size,           // ex, RGBA16F → 8 byte per pixel
                     bytes_per_row_padded, // pitch da wgpu
                 );
 
-                rgba16float_to_rgba8(&unpadded_data, mip_size, mip_size)
+                match format {
+                    wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => {
+                        unpadded_data
+                    }
+                    wgpu::TextureFormat::Rg16Float => {
+                        rg16float_to_rgba8(&unpadded_data, mip_size, mip_size)
+                    }
+                    wgpu::TextureFormat::Rgba16Float => {
+                        rgba16float_to_rgba8(&unpadded_data, mip_size, mip_size)
+                    }
+                    _ => {
+                        println!("'save_texture': unsupported texture format {:?}", format);
+                        panic!()
+                    }
+                }
             };
 
             output_buffer.unmap();
@@ -396,12 +435,12 @@ mod tests {
 
         // Colori base in 0..1 per tutti i formati
         let colors: [[f32; 4]; 6] = [
-            [1.0, 0.0, 0.0, 1.0], // +X
-            [0.0, 1.0, 0.0, 1.0], // -X
-            [0.0, 0.0, 1.0, 1.0], // +Y
-            [1.0, 1.0, 0.0, 1.0], // -Y
-            [1.0, 0.0, 1.0, 1.0], // +Z
-            [0.0, 1.0, 1.0, 1.0], // -Z
+            [1.0, 0.0, 0.0, 1.0], // +X red
+            [0.0, 1.0, 0.0, 1.0], // -X green
+            [0.0, 0.0, 1.0, 1.0], // +Y blue
+            [1.0, 1.0, 0.0, 1.0], // -Y yellow
+            [1.0, 0.0, 1.0, 1.0], // +Z magenta
+            [0.0, 1.0, 1.0, 1.0], // -Z cyan
         ];
 
         for face in 0..6 {
@@ -492,6 +531,30 @@ mod tests {
     }
 
     #[test]
+    fn should_save_texture_dummy_rgba8unorm_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rgba =
+            create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba8Unorm, 64);
+
+        save_texture(&device, &queue, "testimage.png", &rgba, 0).unwrap();
+    }
+
+    #[test]
+    fn should_save_texture_dummy_rgba8unormsrgb_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rgba = create_test_cube_texture_generic(
+            device,
+            &queue,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            64,
+        );
+
+        save_texture(&device, &queue, "testimage.png", &rgba, 0).unwrap();
+    }
+
+    #[test]
     fn should_save_texture_dummy_rg16f_to_file() {
         let (device, queue) = crate::get_device_and_queue();
 
@@ -509,6 +572,16 @@ mod tests {
             create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
 
         save_texture(&device, &queue, "testimage.png", &rgba16f, 0).unwrap();
+    }
+
+    #[test]
+    fn should_save_cubetexture_dummy_rgba8unorm_to_file() {
+        let (device, queue) = crate::get_device_and_queue();
+
+        let rgba8 =
+            create_test_cube_texture_generic(device, &queue, wgpu::TextureFormat::Rgba8Unorm, 64);
+
+        save_cubemap_cross(&device, &queue, "testimage.png", &rgba8).unwrap();
     }
 
     #[test]
