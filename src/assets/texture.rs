@@ -15,8 +15,6 @@ impl Texture {
         buffer: &[u8],
         format: TextureFormat,
     ) -> Self {
-        // assert!(width != 0 && height != 0, "image: dimension must > 0");
-
         let (raw_data, width, height, pixel_size) = match format {
             TextureFormat::Rgba8UnormSrgb | TextureFormat::Rgba8Unorm => {
                 let image = image::load_from_memory(buffer).unwrap().to_rgba8();

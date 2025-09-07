@@ -12,6 +12,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] SkyBox
 - [ ] IBL
 - [ ] PBR
+- [ ] Docking Gui
 - [ ] Hierarchy entity
 - [ ] Mesh Bounding box
 - [ ] Entity selection

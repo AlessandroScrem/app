@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    LightComponent,
     renderer::{
         skybox_manager::{SkyboxKind, SkyboxManager},
         gpu_renderer::DepthTexture,
-        light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
         gpu_manager::GPUResourceManager,
     },
@@ -54,15 +52,3 @@ pub fn skybox(
     renderpass.draw(0..36, 0..1);
 }
 
-#[system(for_each)]
-pub fn update_trnsform(
-    light: &LightComponent,
-    #[resource] queue: &wgpu::Queue,
-    #[resource] light_manager: &LightManager,
-) {
-    queue.write_buffer(
-        &light_manager.light_uniform_buffer,
-        0,
-        bytemuck::bytes_of(&light.data),
-    );
-}
