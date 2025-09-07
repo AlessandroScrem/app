@@ -124,7 +124,7 @@ impl ImguiState {
 
         let last_frame = Instant::now();
         let last_cursor = None;
-        let demo_open = true;
+        let demo_open = false;
 
         let renderer = {
             let device = resources.get::<wgpu::Device>().unwrap();
@@ -165,9 +165,6 @@ impl ImguiState {
         let delta_s = self.last_frame.elapsed();
         self.last_frame = Instant::now();
 
-        let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
-        #[rustfmt::skip] let debug_tex_path = std::path::Path::new("lut");
-
         self.context.io_mut().update_delta_time(delta_s);
 
         self.platform
@@ -176,24 +173,14 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
-            draw_window_general_info(ui, delta_s);
+            draw_window_general_info(ui, delta_s, &mut self.demo_open);
             draw_window_camera(ui, &resources);
             draw_window_entities(ui, world, &mut self.entity_selected);
             draw_window_properties(ui, world, &resources, self.entity_selected);
 
-            if let Some(id) = registry.ids.get(debug_tex_path) {
-                let name = debug_tex_path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("no name");
-                ui.image_button(name, *id, [500.0, 500.0]);
-                ui.same_line();
-                ui.text(name);
-                ui.separator();
-            }
+            draw_debug_window(ui, self.demo_open);
+            draw_debug_texture(ui, &resources);
         }
-
-        drop(registry);
 
         if self.last_cursor != ui.mouse_cursor() {
             self.last_cursor = ui.mouse_cursor();
@@ -206,7 +193,7 @@ impl ImguiState {
     }
 }
 
-fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration) {
+fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration, demo_open: &mut bool) {
     let window = ui.window("General info");
     window
         .size([300.0, 100.0], Condition::FirstUseEver)
@@ -219,6 +206,7 @@ fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration) {
                 "Mouse position: ({:.1},{:.1})",
                 mouse_pos[0], mouse_pos[1]
             ));
+            ui.checkbox("Show demo window", demo_open)
         });
 }
 
@@ -420,5 +408,33 @@ fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformCompon
             .speed(0.1)
             .build_array(ui, &mut transform.scale);
         id.pop();
+    }
+}
+
+fn draw_debug_window(ui: &imgui::Ui, demo_open: bool) {
+    if demo_open {
+        ui.show_demo_window(&mut true);
+    }
+}
+
+fn draw_debug_texture(ui: &imgui::Ui, resources: &legion::Resources) {
+    let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
+    let debug_tex_path = std::path::Path::new("debug_texture");
+    let name = debug_tex_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("no name");
+
+    if let Some(id) = registry.ids.get(debug_tex_path) {
+        let window = ui.window("Debug Texture");
+        window
+            .size([256.0, 256.0], Condition::FirstUseEver)
+            .position([400.0, 0.0], Condition::FirstUseEver)
+            .build(|| {
+                ui.image_button(name, *id, [200.0, 200.0]);
+                ui.same_line();
+                ui.text(name);
+                ui.separator();
+            });
     }
 }
