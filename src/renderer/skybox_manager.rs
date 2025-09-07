@@ -115,7 +115,7 @@ mod utils {
             // +Y (top)
             Matrix4::look_at_lh(ZERO, PY.into(), PZ.into()),
             // -Y (bottom)
-            Matrix4::look_at_lh(ZERO, NY.into(), NZ.into()), 
+            Matrix4::look_at_lh(ZERO, NY.into(), NZ.into()),
             // +Z (front)
             Matrix4::look_at_lh(ZERO, PZ.into(), NY.into()),
             // -Z (back)
@@ -458,7 +458,6 @@ impl PrefilerMapResources {
 
 pub struct PrefilterMap {}
 
-// refactor to use generic function with resources trait
 impl PrefilterMap {
     fn build(
         device: &wgpu::Device,
@@ -627,11 +626,8 @@ impl EquirectResources {
     }
 }
 
-pub struct EquirectangularToCubemap {
-    hdr_texture: texture::Texture,
-}
+pub struct EquirectangularToCubemap {}
 
-// refactor to use generic function with resources trait
 impl EquirectangularToCubemap {
     pub fn build(
         hdr_texture: &texture::Texture,
@@ -795,8 +791,44 @@ impl IrradianceResources {
     }
 }
 
-pub struct IrrarianceMap {
-    hdr_texture: texture::Texture,
+pub struct IrrarianceMap {}
+
+impl IrrarianceMap {
+    pub fn build(
+        cube_texture: &wgpu::Texture,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> wgpu::Texture {
+        let cube_size: u32 = 32;
+        let dest_format = wgpu::TextureFormat::Rgba16Float;
+        let mip_level_count = 1;
+
+        let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
+            label: Some("Cube texture view"),
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        let target_texture = utils::create_cube_texture(
+            &device,
+            "Irradiance_Cube",
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
+
+        render_cubemap_with_resources::<IrradianceResources>(
+            device,
+            queue,
+            &cube_texture_view,
+            &target_texture,
+            cube_size,
+            mip_level_count,
+            dest_format,
+        );
+
+        target_texture
+    }
 }
 
 trait CubemapBuilderResources {
@@ -913,44 +945,6 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
             );
             queue.submit([encoder.finish()]);
         });
-    }
-}
-
-impl IrrarianceMap {
-    pub fn build(
-        cube_texture: &wgpu::Texture,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> wgpu::Texture {
-        let cube_size: u32 = 32;
-        let dest_format = wgpu::TextureFormat::Rgba16Float;
-        let mip_level_count = 1;
-
-        let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
-            label: Some("Cube texture view"),
-            dimension: Some(wgpu::TextureViewDimension::Cube),
-            ..Default::default()
-        });
-
-        let target_texture = utils::create_cube_texture(
-            &device,
-            "Irradiance_Cube",
-            cube_size,
-            mip_level_count,
-            dest_format,
-        );
-
-        render_cubemap_with_resources::<IrradianceResources>(
-            device,
-            queue,
-            &cube_texture_view,
-            &target_texture,
-            cube_size,
-            mip_level_count,
-            dest_format,
-        );
-
-        target_texture
     }
 }
 
