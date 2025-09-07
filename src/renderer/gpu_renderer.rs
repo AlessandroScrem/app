@@ -9,6 +9,8 @@ pub struct DepthTexture(pub wgpu::TextureView);
 
 impl Renderer {
     pub async fn new(window: Arc<Window>, resources: &mut legion::Resources) {
+        let timer = std::time::Instant::now();
+        println!("Initializing renderer...");
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -51,28 +53,35 @@ impl Renderer {
         });
         let depth_view = depth_texture.create_view(&Default::default());
 
+        println!("Device initialized in {} ms", timer.elapsed().as_millis());
+
         let gpu_resource_manager = Arc::new(
             crate::renderer::gpu_manager::GPUResourceManager::new(&device),
         );
         let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(&device, &gpu_resource_manager, surface_config.format);
+        println!("Pipeline manager initialized in {} ms", timer.elapsed().as_millis());
 
         let material_manager = crate::assets::material_manager::MaterialManager::new(
             Arc::new(device.clone()),
             gpu_resource_manager.clone(),
         );
+        println!("Material manager initialized in {} ms", timer.elapsed().as_millis());
 
         let texture_manager = crate::assets::texture_manager::TextureManager::new(
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
+        println!("Texture manager initialized in {} ms", timer.elapsed().as_millis());
 
         let light_manager = light_manager::LightManager::new(
             &gpu_resource_manager,
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
+        println!("Light manager initialized in {} ms", timer.elapsed().as_millis());
 
         let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
+        println!("Skybox manager initialized in {} ms", timer.elapsed().as_millis());
 
         println!("Surface config format is {:?}", surface_config.format);
 

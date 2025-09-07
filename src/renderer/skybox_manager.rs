@@ -986,12 +986,15 @@ pub enum SkyboxKind {
 }
 
 struct Skybox {
-    _texture: wgpu::Texture,
-    _view: wgpu::TextureView,
+    _cube_map: wgpu::Texture,
+    _cube_map_view: wgpu::TextureView,
+    _irradiance_map: wgpu::Texture,
+    _prefilter_map: wgpu::Texture,
     bind_group: wgpu::BindGroup,
 }
 
 pub struct SkyboxManager {
+    brdf_lut: wgpu::Texture,
     skyboxes: Vec<Skybox>,
 }
 use strum::IntoEnumIterator;
@@ -1003,11 +1006,15 @@ impl SkyboxManager {
         queue: &wgpu::Queue,
         gpu_resource_manager: &GPUResourceManager,
     ) -> Self {
+        // Create BRDF LUT texture for PBR
+        let brdf_lut = BRDFLUTBuilder::build(device, queue);
+
+        // Create skyboxes
         let skyboxes: Vec<Skybox> = SkyboxKind::iter()
             .map(|kind| Self::create_skybox(device, queue, gpu_resource_manager, kind))
             .collect();
 
-        Self { skyboxes }
+        Self { brdf_lut, skyboxes }
     }
 
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
@@ -1024,11 +1031,10 @@ impl SkyboxManager {
             SkyboxKind::Default => {
                 #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
                 let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-                let cube_texture = hdr.to_cubemap(device, queue, 512);
-                // let _texture = IrrarianceMap::build(&cube_texture, device, queue);
-                // let _texture = PrefilterMap::build(device, queue, &cube_texture);
-                let _texture = cube_texture;
-                let _view = _texture.create_view(&wgpu::TextureViewDescriptor {
+                let cube_map = hdr.to_cubemap(device, queue, 512);
+                let irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
+                let prefilter_map = PrefilterMap::build(device, queue, &cube_map);
+                let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
                     dimension: Some(wgpu::TextureViewDimension::Cube),
                     ..Default::default()
                 });
@@ -1054,14 +1060,17 @@ impl SkyboxManager {
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&_view),
+                            resource: wgpu::BindingResource::TextureView(&cube_map_view),
                         },
                     ],
                     label: Some("skybox_bind_group"),
                 });
+
                 Skybox {
-                    _texture,
-                    _view,
+                    _cube_map: cube_map,
+                    _cube_map_view: cube_map_view,
+                    _irradiance_map: irradiance_map,
+                    _prefilter_map: prefilter_map,
                     bind_group,
                 }
             }

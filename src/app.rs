@@ -56,7 +56,7 @@ impl App {
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
         
-        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources); 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = Schedule::builder()
@@ -65,12 +65,14 @@ impl App {
 
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
+        self.create_gui();
+
     }
 
-    pub fn create_gui(&mut self) {
+    fn create_gui(&mut self) {
         if let Some(window) = &self.window {
             let imgui = imgui_tools::ImguiState::create_imgui(window, &mut self.resources);
-
+            
             self.imgui = Some(imgui);
         }
     }

@@ -9,6 +9,8 @@ use winit::window::{Window, WindowId};
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let timer = std::time::Instant::now();
+        println!("App resumed after being paused for {} ms", timer.elapsed().as_millis());
         let size = winit::dpi::LogicalSize::new(1280.0, 720.0);
         let attributes = Window::default_attributes()
             .with_inner_size(size)
@@ -16,10 +18,12 @@ impl ApplicationHandler for App {
         let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
 
         self.window = Some(window.clone());
-
+        
         pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
-        self.create_gui();
+        println!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+        
         self.load();
+        println!("App initialized in {} ms", timer.elapsed().as_millis());
 
         window.request_redraw();
     }
