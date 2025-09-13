@@ -1,30 +1,29 @@
 use std::sync::Arc;
 
-use crate::{
-    renderer::{
-        skybox_manager::{SkyboxKind, SkyboxManager},
-        gpu_renderer::DepthTexture,
-        pipeline_manager::{PipelineKind, PipelineManager},
-        gpu_manager::GPUResourceManager,
-    },
+use crate::renderer::{
+    gpu_manager::GPUResourceManager,
+    gpu_renderer::DepthTexture,
+    hdr_frame::HdrFrame,
+    pipeline_manager::{PipelineKind, PipelineManager},
+    skybox_manager::{SkyboxKind, SkyboxManager},
 };
 
 use legion::*;
 
 #[system]
 pub fn skybox(
-    #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
     #[resource] skybox_manager: &SkyboxManager,
+    #[resource] hdr_texture: &HdrFrame,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Light Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: frame_view,
+            view: &hdr_texture.view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Load,
@@ -51,4 +50,3 @@ pub fn skybox(
     renderpass.set_bind_group(1, skybox_bind_group, &[]);
     renderpass.draw(0..36, 0..1);
 }
-

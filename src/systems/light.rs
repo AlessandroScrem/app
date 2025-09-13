@@ -5,6 +5,7 @@ use crate::{
     renderer::{
         gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
+        hdr_frame::HdrFrame,
         light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
@@ -16,18 +17,18 @@ use legion::{world::SubWorld, *};
 #[read_component(LightComponent)]
 pub fn light(
     world: &mut SubWorld,
-    #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
     #[resource] light_manager: &LightManager,
+    #[resource] hdr_texture: &HdrFrame,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Light Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: frame_view,
+            view: &hdr_texture.view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Load,

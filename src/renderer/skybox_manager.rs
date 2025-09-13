@@ -288,6 +288,7 @@ impl BRDFLUTBuilder {
         };
 
         let pipeline = pipeline_desc.build_pipeline(
+            "BRDFLUT Pipeline",
             &device,
             render_pipeline_layout,
             format,
@@ -348,6 +349,7 @@ impl PrefilerMapResources {
         };
 
         let pipeline = pipeline_desc.build_pipeline(
+            "Prefilter Pipeline",
             &device,
             render_pipeline_layout,
             format,
@@ -543,6 +545,7 @@ impl EquirectResources {
         };
 
         let pipeline = pipeline_desc.build_pipeline(
+            "Equirect Pipeline",
             &device,
             render_pipeline_layout,
             format,
@@ -707,6 +710,7 @@ impl IrradianceResources {
         };
 
         let pipeline = pipeline_desc.build_pipeline(
+            "Irradiance Pipeline",
             &device,
             render_pipeline_layout,
             format,

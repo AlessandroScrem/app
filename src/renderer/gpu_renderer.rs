@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use winit::window::Window;
 
+use crate::renderer::hdr_frame::HdrFrame;
 use crate::renderer::light_manager;
 use crate::renderer::skybox_manager;
 
@@ -55,35 +56,57 @@ impl Renderer {
 
         println!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let gpu_resource_manager = Arc::new(
-            crate::renderer::gpu_manager::GPUResourceManager::new(&device),
+        let gpu_resource_manager = Arc::new(crate::renderer::gpu_manager::GPUResourceManager::new(
+            &device,
+        ));
+        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(
+            &device,
+            &gpu_resource_manager,
+            surface_config.format,
         );
-        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(&device, &gpu_resource_manager, surface_config.format);
-        println!("Pipeline manager initialized in {} ms", timer.elapsed().as_millis());
+        println!(
+            "Pipeline manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
 
         let material_manager = crate::assets::material_manager::MaterialManager::new(
             Arc::new(device.clone()),
             gpu_resource_manager.clone(),
         );
-        println!("Material manager initialized in {} ms", timer.elapsed().as_millis());
+        println!(
+            "Material manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
 
         let texture_manager = crate::assets::texture_manager::TextureManager::new(
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        println!("Texture manager initialized in {} ms", timer.elapsed().as_millis());
+        println!(
+            "Texture manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
 
         let light_manager = light_manager::LightManager::new(
             &gpu_resource_manager,
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        println!("Light manager initialized in {} ms", timer.elapsed().as_millis());
+        println!(
+            "Light manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
 
-        let skybox_manager = skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
-        println!("Skybox manager initialized in {} ms", timer.elapsed().as_millis());
+        let skybox_manager =
+            skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
+        println!(
+            "Skybox manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
 
         println!("Surface config format is {:?}", surface_config.format);
+
+        let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
 
         resources.insert(device);
         resources.insert(queue);
@@ -96,5 +119,6 @@ impl Renderer {
         resources.insert(light_manager);
         resources.insert(skybox_manager);
         resources.insert(DepthTexture(depth_view));
+        resources.insert(hdr_frame);
     }
 }

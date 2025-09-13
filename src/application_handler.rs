@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
 use crate::prelude::*;
-use crate::renderer::gpu_renderer::DepthTexture;
+use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -10,7 +13,10 @@ use winit::window::{Window, WindowId};
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let timer = std::time::Instant::now();
-        println!("App resumed after being paused for {} ms", timer.elapsed().as_millis());
+        println!(
+            "App resumed after being paused for {} ms",
+            timer.elapsed().as_millis()
+        );
         let size = winit::dpi::LogicalSize::new(1280.0, 720.0);
         let attributes = Window::default_attributes()
             .with_inner_size(size)
@@ -18,10 +24,10 @@ impl ApplicationHandler for App {
         let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
 
         self.window = Some(window.clone());
-        
+
         pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
         println!("Renderer initialized in {} ms", timer.elapsed().as_millis());
-        
+
         self.load();
         println!("App initialized in {} ms", timer.elapsed().as_millis());
 
@@ -105,7 +111,10 @@ impl ApplicationHandler for App {
                 &winit::event::Event::AboutToWait,
             );
 
-            let mut registry = self.resources.get_mut::<imgui_tools::ImGuiTextureRegistry>().unwrap();
+            let mut registry = self
+                .resources
+                .get_mut::<imgui_tools::ImGuiTextureRegistry>()
+                .unwrap();
             let mut renderer = self.resources.get_mut::<imgui_wgpu::Renderer>().unwrap();
 
             let device = self.resources.get::<wgpu::Device>().unwrap();
@@ -169,7 +178,9 @@ impl ApplicationHandler for App {
                 }
 
                 // scheduler di update ecs (camera, mesh, etc)
-                self.current_scene.schedule.execute(&mut self.current_scene.world, &mut self.resources);
+                self.current_scene
+                    .schedule
+                    .execute(&mut self.current_scene.world, &mut self.resources);
 
                 if let Some(imgui) = &mut self.imgui {
                     let mut scene_world = &mut self.current_scene.world;
@@ -217,6 +228,15 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
 
         surface.configure(&device, &surface_config);
     }
+    // resize hdr texture
+    {
+        resources.insert({
+            let device = resources.get::<wgpu::Device>().unwrap();
+            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
+            HdrFrame::new(&device, &gpu_resource_manager, winit::dpi::PhysicalSize::new(width, height))
+        });
+    }
+
     // resize depth texture
     {
         let depth_texture = {

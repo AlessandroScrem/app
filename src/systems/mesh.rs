@@ -3,10 +3,11 @@ use wgpu::IndexFormat;
 use crate::{
     MeshComponent, TransformComponent,
     renderer::{
+        gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
+        hdr_frame::HdrFrame,
         light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
-        gpu_manager::GPUResourceManager,
     },
 };
 
@@ -18,12 +19,12 @@ use std::sync::Arc;
 #[read_component(TransformComponent)]
 pub fn mesh(
     world: &mut SubWorld,
-    #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
     #[resource] light_manager: &LightManager,
+    #[resource] hdr_texture: &HdrFrame,
 ) {
     let clear_color = wgpu::Color {
         r: 0.1,
@@ -35,7 +36,7 @@ pub fn mesh(
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: frame_view,
+            view: &hdr_texture.view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(clear_color),

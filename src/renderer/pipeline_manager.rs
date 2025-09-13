@@ -41,6 +41,7 @@ impl Default for PipelineDesc {
 impl PipelineDesc {
     pub fn build_pipeline(
         self,
+        label: &str,
         device: &wgpu::Device,
         layout: wgpu::PipelineLayout,
         format: wgpu::TextureFormat,
@@ -48,7 +49,7 @@ impl PipelineDesc {
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some(&format!("Render Pipeline")),
+            label: Some(&label),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -80,27 +81,36 @@ impl PipelineDesc {
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, EnumIter )]
+#[derive(Debug, Clone, Copy, EnumIter)]
 pub enum PipelineKind {
     Default,
+    Hdr,
     Light,
     Skybox,
 }
 
 pub struct PipelineManager {
     pipelines: Vec<wgpu::RenderPipeline>,
+    #[allow(dead_code)]
+    hdr_format: wgpu::TextureFormat,
 }
 
 impl PipelineManager {
-    pub fn new(device: &wgpu::Device, gpu_resource_manager: &GPUResourceManager, format: wgpu::TextureFormat) -> Self {
-
-        let pipelines:Vec<wgpu::RenderPipeline> = PipelineKind::iter()
-            .map(|kind| create_pipeline(device, gpu_resource_manager, kind, format))
+    pub fn new(
+        device: &wgpu::Device,
+        gpu_resource_manager: &GPUResourceManager,
+        final_format: wgpu::TextureFormat,
+    ) -> Self {
+        let hdr_format = wgpu::TextureFormat::Rgba16Float;
+        let pipelines: Vec<wgpu::RenderPipeline> = PipelineKind::iter()
+            .map(|kind| {
+                create_pipeline(device, gpu_resource_manager, kind, hdr_format, final_format)
+            })
             .collect();
-
 
         Self {
             pipelines,
+            hdr_format,
         }
     }
 
@@ -113,7 +123,8 @@ fn create_pipeline(
     device: &wgpu::Device,
     gpu_resource_manager: &GPUResourceManager,
     kind: PipelineKind,
-    format: wgpu::TextureFormat
+    hdr_format: wgpu::TextureFormat,
+    final_format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     match kind {
         PipelineKind::Default => {
@@ -124,20 +135,48 @@ fn create_pipeline(
                 gpu_resource_manager.get_layout(LayoutKind::Light),  //3
             ];
             let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &layouts,
-                push_constant_ranges: &[],
-            });
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Default Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
             let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
-            
+
             let pipeline_desc = PipelineDesc::default();
-            
+
             pipeline_desc.build_pipeline(
+                "Default Pipeline",
                 device,
                 render_pipeline_layout,
-                format,
+                hdr_format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Hdr => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Hdr), //0
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Hdr Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/hdr.wgsl"));
+            let buffer_desc = &[];
+
+            let pipeline_desc = PipelineDesc {
+                depth_stencil: None,
+                ..Default::default()
+            };
+
+            pipeline_desc.build_pipeline(
+                "Hdr Pipeline",
+                device,
+                render_pipeline_layout,
+                final_format,
                 shader,
                 buffer_desc,
             )
@@ -151,7 +190,7 @@ fn create_pipeline(
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
+                    label: Some("Light Pipeline Layout"),
                     bind_group_layouts: &layouts,
                     push_constant_ranges: &[],
                 });
@@ -161,11 +200,11 @@ fn create_pipeline(
             let buffer_desc = &[];
             let pipeline_desc = PipelineDesc::default();
 
-
             pipeline_desc.build_pipeline(
+                "Light Pipeline",
                 device,
                 render_pipeline_layout,
-                format,
+                hdr_format,
                 shader,
                 buffer_desc,
             )
@@ -178,7 +217,7 @@ fn create_pipeline(
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
+                    label: Some("Skybox Pipeline Layout"),
                     bind_group_layouts: &layouts,
                     push_constant_ranges: &[],
                 });
@@ -199,12 +238,13 @@ fn create_pipeline(
             };
 
             pipeline_desc.build_pipeline(
+                "Skybox Pipeline",
                 device,
                 render_pipeline_layout,
-                format,
+                hdr_format,
                 shader,
                 buffer_desc,
             )
         }
-   }
+    }
 }
