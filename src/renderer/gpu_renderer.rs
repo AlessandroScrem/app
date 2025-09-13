@@ -8,6 +8,63 @@ use crate::renderer::skybox_manager;
 pub struct Renderer {}
 pub struct DepthTexture(pub wgpu::TextureView);
 
+pub struct Ibl {
+    pub ibl_bind_group: wgpu::BindGroup,
+}
+
+impl Ibl {
+    pub fn new(
+        device: &wgpu::Device,
+        gpu_resource_manager: &crate::renderer::gpu_manager::GPUResourceManager,
+        skybox_manager: &skybox_manager::SkyboxManager,
+        light_manager: &light_manager::LightManager,
+    ) -> Self {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        let ibl_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Ibl Bind Group"),
+            layout: &gpu_resource_manager
+                .get_layout(crate::renderer::gpu_manager::LayoutKind::LightIbl),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &light_manager.light_uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_irradiance(skybox_manager::SkyboxKind::Default)),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_prefilter(skybox_manager::SkyboxKind::Default)),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_brdf_lut()),
+                },
+            ],
+        });
+
+        Self { ibl_bind_group }
+    }
+}
+
 impl Renderer {
     pub async fn new(window: Arc<Window>, resources: &mut legion::Resources) {
         let timer = std::time::Instant::now();
@@ -107,6 +164,12 @@ impl Renderer {
         println!("Surface config format is {:?}", surface_config.format);
 
         let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
+        let ibl_bind_group = Ibl::new(
+            &device,
+            &gpu_resource_manager,
+            &skybox_manager,
+            &light_manager,
+        );
 
         resources.insert(device);
         resources.insert(queue);
@@ -120,5 +183,6 @@ impl Renderer {
         resources.insert(skybox_manager);
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
+        resources.insert(ibl_bind_group);
     }
 }

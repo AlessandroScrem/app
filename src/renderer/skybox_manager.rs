@@ -989,16 +989,19 @@ pub enum SkyboxKind {
     Default,
 }
 
-struct Skybox {
+pub struct Skybox {
     _cube_map: wgpu::Texture,
     _cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
     _prefilter_map: wgpu::Texture,
-    bind_group: wgpu::BindGroup,
+    irradiance_view: wgpu::TextureView,
+    prefilter_view: wgpu::TextureView,
+    pub bind_group: wgpu::BindGroup,
 }
 
 pub struct SkyboxManager {
     brdf_lut: wgpu::Texture,
+    brdf_lut_view: wgpu::TextureView,
     skyboxes: Vec<Skybox>,
 }
 use strum::IntoEnumIterator;
@@ -1012,17 +1015,28 @@ impl SkyboxManager {
     ) -> Self {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
+        let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
 
         // Create skyboxes
         let skyboxes: Vec<Skybox> = SkyboxKind::iter()
             .map(|kind| Self::create_skybox(device, queue, gpu_resource_manager, kind))
             .collect();
 
-        Self { brdf_lut, skyboxes }
+        Self { brdf_lut, brdf_lut_view, skyboxes }
     }
 
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
         &self.skyboxes[kind as usize].bind_group
+    }
+    
+    pub fn get_irradiance(&self, kind: SkyboxKind) -> &wgpu::TextureView {
+        &self.skyboxes[kind as usize].irradiance_view
+    }
+    pub fn get_prefilter(&self, kind: SkyboxKind) -> &wgpu::TextureView {
+        &self.skyboxes[kind as usize].prefilter_view
+    }
+    pub fn get_brdf_lut(&self) -> &wgpu::TextureView {
+        &self.brdf_lut_view
     }
 
     fn create_skybox(
@@ -1033,11 +1047,12 @@ impl SkyboxManager {
     ) -> Skybox {
         match kind {
             SkyboxKind::Default => {
-                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+                // #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
+                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
                 let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
                 let cube_map = hdr.to_cubemap(device, queue, 512);
-                let irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
-                let prefilter_map = PrefilterMap::build(device, queue, &cube_map);
+                let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
+                let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
                 let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
                     dimension: Some(wgpu::TextureViewDimension::Cube),
                     ..Default::default()
@@ -1070,11 +1085,22 @@ impl SkyboxManager {
                     label: Some("skybox_bind_group"),
                 });
 
+                let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::Cube),
+                    ..Default::default()
+                });
+                let prefilter_view = _prefilter_map.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::Cube),
+                    ..Default::default()
+                });
+
                 Skybox {
                     _cube_map: cube_map,
                     _cube_map_view: cube_map_view,
-                    _irradiance_map: irradiance_map,
-                    _prefilter_map: prefilter_map,
+                    _irradiance_map,
+                    irradiance_view,
+                    _prefilter_map,
+                    prefilter_view,
                     bind_group,
                 }
             }

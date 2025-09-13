@@ -316,13 +316,45 @@ fn draw_ui_mesh(
     entity: Entity,
 ) {
     use legion::query::IntoQuery;
-    let mut query = <(&MeshComponent, &mut TransformComponent)>::query();
+    let mut query = <(&mut MeshComponent, &mut TransformComponent)>::query();
 
-    if let Ok((_mesh, transform)) = query.get_mut(world, entity) {
-        for submesh in _mesh.data.submeshes.iter() {
-            let main = &submesh.material.main_texture;
-            let normal = &submesh.material.normal_texture;
-            let roughness = &submesh.material.roughness_texture;
+    if let Ok((mesh, transform)) = query.get_mut(world, entity) {
+        for submesh in mesh.data.submeshes.iter_mut() {
+            let material = &mut submesh.material;
+            let main = &material.main_texture;
+            let normal = &material.normal_texture;
+            let roughness = &material.metallic_roughness_texture;
+            let mut color_use_texture = material.color_use_texture == 1;
+            let mut metallic_use_texture = material.metallic_use_texture == 1;
+            let mut roughness_use_texture = material.roughness_use_texture == 1;
+            ui.checkbox("color override", &mut color_use_texture);
+            ui.checkbox("metallic override", &mut metallic_use_texture);
+            ui.checkbox("roughness override", &mut roughness_use_texture);
+            material.color_use_texture = color_use_texture as u32;
+            material.metallic_use_texture = metallic_use_texture as u32;
+            material.roughness_use_texture = roughness_use_texture as u32;
+
+            if !color_use_texture {
+                let mut color: [f32; 4] = material.color.into();
+                if ui.color_edit4("Color", &mut color) {
+                    material.color = color.into();
+                }
+            };
+
+            if !metallic_use_texture {
+                Drag::new("Metallic")
+                    .speed(0.01)
+                    .range(0.01, 1.0)
+                    .build(ui, &mut material.metallic);
+            }
+            if !roughness_use_texture {
+                Drag::new("Roughness")
+                    .speed(0.01)
+                    .range(0.01, 1.0)
+                    .build(ui, &mut material.roughness);
+            }
+            ui.separator();
+
             if let Some(id) = registry.ids.get(main) {
                 let name = main
                     .file_stem()

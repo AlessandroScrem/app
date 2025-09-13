@@ -57,6 +57,31 @@ impl Default for Light {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct MaterialUniform {
+    pub color: [f32; 4],
+    pub roughness: f32,
+    pub metallic: f32,
+    pub roughness_use_texture: u32,
+    pub metallic_use_texture: u32,
+    pub color_use_texture: u32,
+    pub padding: [u32; 3],
+}
+impl Default for MaterialUniform {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0, 1.0],
+            roughness: 1.0,
+            metallic: 0.0,
+            roughness_use_texture: 0,
+            metallic_use_texture: 0,
+            color_use_texture: 0,
+            padding: [0; 3],
+        }
+    }
+}
+
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {

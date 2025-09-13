@@ -19,6 +19,15 @@ struct Model {
     normal_matrix: mat4x4<f32>,
 }
 
+struct Material {
+    color: vec4<f32>,
+    roughness: f32,
+    metallic: f32,
+    roughness_use_texture: u32,
+    metallic_use_texture: u32,
+    color_use_texture: u32,
+}
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -97,6 +106,7 @@ fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
 @group(1) @binding(1) var main_map: texture_2d<f32>;
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
 @group(1) @binding(3) var roughness_map: texture_2d<f32>;
+@group(1) @binding(4) var <uniform> material: Material;
 
 @group(3) @binding(0) var<uniform> light: Light;
 

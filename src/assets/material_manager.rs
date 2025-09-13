@@ -3,21 +3,27 @@ use std::{
     sync::Arc,
 };
 
-use wgpu::TextureFormat;
+use wgpu::{TextureFormat, util::DeviceExt};
 
-use crate::{assets::texture_manager::TextureManager, renderer::gpu_manager::{GPUResourceManager, LayoutKind}};
+use crate::{
+    MaterialUniform,
+    assets::texture_manager::TextureManager,
+    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+};
 
 pub struct Material {
     pub main_texture: PathBuf,
     pub normal_texture: PathBuf,
-    pub roughness_texture: PathBuf,
+    pub metallic_roughness_texture: PathBuf,
 
     pub roughness: f32,
     pub metallic: f32,
-    pub roughness_override: f32,
-    pub metallic_override: f32,
+    pub roughness_use_texture: u32,
+    pub metallic_use_texture: u32,
+    pub color_use_texture: u32,
     pub color: cgmath::Vector4<f32>,
     pub bind_group: Option<wgpu::BindGroup>,
+    pub material_uniform_buffer: Option<wgpu::Buffer>,
 }
 
 pub struct MaterialManager {
@@ -78,8 +84,11 @@ impl MaterialManager {
         let roughness = pbr.roughness_factor();
         let metallic = pbr.metallic_factor();
 
-        let roughness_texture = get_texture_url(&roughness_info, &images);
-        let has_pbr_texture = roughness_texture.is_some();
+        let metallic_roughness_texture = get_texture_url(&roughness_info, &images);
+
+        let roughness_use_texture:u32 =  metallic_roughness_texture.is_some() as u32;
+        let metallic_use_texture: u32 = metallic_roughness_texture.is_some() as u32;
+        let color_use_texture = pbr.base_color_texture().is_some() as u32;
 
         let main_texture = get_texture_url(&main_info, &images)
             .map(|s| parent_path.join(s))
@@ -87,14 +96,14 @@ impl MaterialManager {
         let normal_texture = normal_texture
             .map(|s| parent_path.join(s))
             .unwrap_or("no-name".into());
-        let roughness_texture = roughness_texture
+        let metallic_roughness_texture = metallic_roughness_texture
             .map(|s| parent_path.join(s))
             .unwrap_or("no-name".into());
 
         let bind0 = texture_manager.get_or_create(&main_texture, TextureFormat::Rgba8UnormSrgb);
         let bind1 = texture_manager.get_or_create(&normal_texture, TextureFormat::Rgba8Unorm);
         let bind2 =
-            texture_manager.get_or_create(&roughness_texture, TextureFormat::Rgba8UnormSrgb);
+            texture_manager.get_or_create(&metallic_roughness_texture, TextureFormat::Rgba8Unorm);
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -106,7 +115,24 @@ impl MaterialManager {
             ..Default::default()
         });
 
-        let texture_bind_group_layout = self.gpu_manager.get_layout(LayoutKind::Texture);
+
+        let material_uniform_buffer =
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Material Uniform Buffer"),
+                    contents: bytemuck::cast_slice(&[MaterialUniform {
+                        color: [color.x, color.y, color.z, color.w],
+                        metallic,
+                        roughness,
+                        roughness_use_texture,
+                        metallic_use_texture,
+                        color_use_texture,
+                        ..Default::default()
+                    }]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+        let texture_bind_group_layout = self.gpu_manager.get_layout(LayoutKind::Material);
 
         let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
@@ -115,17 +141,25 @@ impl MaterialManager {
                     binding: 0,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
+                // main texture
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&bind0.view),
                 },
+                // normal texture
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::TextureView(&bind1.view),
                 },
+                // metallic_roughness texture
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&bind2.view),
+                },
+                // material uniform
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: material_uniform_buffer.as_entire_binding(),
                 },
             ],
             label: Some("texture_bind_group"),
@@ -134,13 +168,15 @@ impl MaterialManager {
         Material {
             main_texture,
             normal_texture,
-            roughness_texture,
+            metallic_roughness_texture,
             roughness,
             metallic,
-            roughness_override: if has_pbr_texture { 0.0 } else { 1.0 },
-            metallic_override: if has_pbr_texture { 0.0 } else { 1.0 },
+            roughness_use_texture,
+            metallic_use_texture,
+            color_use_texture,
             color,
             bind_group: Some(diffuse_bind_group),
+            material_uniform_buffer: Some(material_uniform_buffer),
         }
     }
 }

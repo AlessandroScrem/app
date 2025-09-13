@@ -83,7 +83,8 @@ use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum PipelineKind {
-    Default,
+    BlinnPhong,
+    Pbr,
     Hdr,
     Light,
     Skybox,
@@ -127,10 +128,10 @@ fn create_pipeline(
     final_format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     match kind {
-        PipelineKind::Default => {
+        PipelineKind::BlinnPhong => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
                 gpu_resource_manager.get_layout(LayoutKind::Camera), //0
-                gpu_resource_manager.get_layout(LayoutKind::Texture), //1
+                gpu_resource_manager.get_layout(LayoutKind::Material), //1
                 gpu_resource_manager.get_layout(LayoutKind::Model),  //2
                 gpu_resource_manager.get_layout(LayoutKind::Light),  //3
             ];
@@ -140,7 +141,35 @@ fn create_pipeline(
                     bind_group_layouts: &layouts,
                     push_constant_ranges: &[],
                 });
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/shader.wgsl"));
+            let shader =
+                device.create_shader_module(wgpu::include_wgsl!("shaders/blinn_phong.wgsl"));
+            let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
+
+            let pipeline_desc = PipelineDesc::default();
+
+            pipeline_desc.build_pipeline(
+                "Default Pipeline",
+                device,
+                render_pipeline_layout,
+                hdr_format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Pbr => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Material), //1
+                gpu_resource_manager.get_layout(LayoutKind::Model),  //2
+                gpu_resource_manager.get_layout(LayoutKind::LightIbl),  //3
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Default Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
             let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
 
             let pipeline_desc = PipelineDesc::default();

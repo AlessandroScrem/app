@@ -5,18 +5,18 @@ use wgpu::util::DeviceExt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, EnumIter )]
+#[derive(Debug, Clone, Copy, EnumIter)]
 pub enum LayoutKind {
     Camera,
     Light,
-    Texture,
-    Model,
     LightTexture,
+    LightIbl,
+    Material,
+    Model,
     Skybox,
     Hdr,
     Equirect,
 }
-
 
 pub struct GPUResourceManager {
     pub camera_uniform_buffer: wgpu::Buffer,
@@ -26,8 +26,7 @@ pub struct GPUResourceManager {
 
 impl GPUResourceManager {
     pub fn new(device: &wgpu::Device) -> Self {
-
-        let layouts:Vec<BindGroupLayout> = LayoutKind::iter()
+        let layouts: Vec<BindGroupLayout> = LayoutKind::iter()
             .map(|kind| create_layout(device, kind))
             .collect();
 
@@ -58,7 +57,6 @@ impl GPUResourceManager {
     }
 }
 
-
 fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
     match kind {
         LayoutKind::Camera => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -76,19 +74,105 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
         }),
         LayoutKind::Light => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Light Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+            entries: &[
+                // light uniform buffer
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+            ],
         }),
-        LayoutKind::Texture => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Texture_bind_group_layout"),
+        LayoutKind::LightTexture => {
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Light Texture_bind_group_layout"),
+                entries: &[
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // main
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                ],
+            })
+        }
+        LayoutKind::LightIbl => {
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Light Ibl_bind_group_layout"),
+                entries: &[
+                    // light uniform buffer
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // irradiance texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::Cube,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    // prefiltered texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::Cube,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    // brdf_lut texture
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                ],
+            })
+        }
+        LayoutKind::Material => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Material_bind_group_layout"),
             entries: &[
                 // sampler
                 wgpu::BindGroupLayoutEntry {
@@ -119,7 +203,7 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                     },
                     count: None,
                 },
-                // roughness map
+                // metallic roughness map
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -127,6 +211,17 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                         multisampled: false,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+                // material Uniform buffer
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -145,31 +240,6 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                 count: None,
             }],
         }),
-        LayoutKind::LightTexture => {
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Light Texture_bind_group_layout"),
-                entries: &[
-                    // sampler
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // main
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                ],
-            })
-        }
         LayoutKind::Skybox => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Skybox bind_group_layout"),
             entries: &[

@@ -44,6 +44,10 @@ fn aces_tone_map(hdr: vec3<f32>) -> vec3<f32> {
     return clamp(m2 * (a / b), vec3(0.0), vec3(1.0));
 }
 
+fn reinhard(x: vec3<f32>) -> vec3<f32> {
+  return x / (1.0 + x);
+}
+
 
 @group(0) @binding(0) var hdr_sampler: sampler;
 @group(0) @binding(1) var hdr_image: texture_2d<f32>;
@@ -51,6 +55,7 @@ fn aces_tone_map(hdr: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs_main(vs: VertexOutput) -> @location(0) vec4<f32> {
     let hdr = textureSample(hdr_image, hdr_sampler, vs.uv);
-    let sdr = aces_tone_map(hdr.rgb);
+    // let sdr = aces_tone_map(hdr.rgb);
+    let sdr = reinhard(hdr.rgb);
     return vec4(sdr, hdr.a);
 }
