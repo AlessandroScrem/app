@@ -12,10 +12,14 @@ A modern 3D/2D render engine that uses wgpu
 - [x] SkyBox
 - [x] IBL
 - [x] PBR
+- [ ] Exposure
+- [ ] Tonemapping
+- [ ] Skybox selctor
+- [ ] xyz Axis
 - [ ] Docking Gui
+- [ ] Entity selection
+- [ ] Outline selection
 - [ ] Hierarchy entity
 - [ ] Mesh Bounding box
-- [ ] Entity selection
-- [ ] Outline on selection
 - [ ] Direct Light shadow
 - [ ] SSAO   
