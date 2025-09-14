@@ -7,6 +7,7 @@ use crate::input::Input;
 use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
+use crate::Globals;
 
 use legion::Resources;
 use legion::Schedule;
@@ -55,6 +56,7 @@ impl App {
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
+        self.resources.insert(Globals::default());
         
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources); 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);

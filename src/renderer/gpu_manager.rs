@@ -1,4 +1,5 @@
 use crate::renderer::uniform::CameraUniform;
+use crate::GlobalUniform;
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
 
@@ -8,6 +9,7 @@ use strum_macros::EnumIter;
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum LayoutKind {
     Camera,
+    Globals,
     Light,
     LightTexture,
     LightIbl,
@@ -19,8 +21,10 @@ pub enum LayoutKind {
 }
 
 pub struct GPUResourceManager {
+    pub globals_uniform_buffer: wgpu::Buffer,
     pub camera_uniform_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
+    pub globals_bind_group: wgpu::BindGroup,
     layouts: Vec<BindGroupLayout>,
 }
 
@@ -36,6 +40,12 @@ impl GPUResourceManager {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let globals_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Globals Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[GlobalUniform::default()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &layouts[LayoutKind::Camera as usize],
             entries: &[wgpu::BindGroupEntry {
@@ -45,9 +55,27 @@ impl GPUResourceManager {
             label: Some("Camera Bind Group"),
         });
 
+        let globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &layouts[LayoutKind::Globals as usize],
+            entries: &[
+            // Camera
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_uniform_buffer.as_entire_binding(),
+            },
+            // GLobals
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: globals_uniform_buffer.as_entire_binding(),
+            }],
+            label: Some("Globals Bind Group"),
+        });
+
         Self {
             camera_uniform_buffer,
+            globals_uniform_buffer,
             camera_bind_group,
+            globals_bind_group,
             layouts,
         }
     }
@@ -63,6 +91,31 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
             label: Some("Camera Bind Group Layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        }),
+        LayoutKind::Globals => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Globals Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                // Camera
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                // Globls
+                binding: 1,
                 visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,

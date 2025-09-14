@@ -173,10 +173,11 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
-            draw_window_general_info(ui, delta_s, &mut self.demo_open);
-            draw_window_camera(ui, &resources);
-            draw_window_entities(ui, world, &mut self.entity_selected);
-            draw_window_properties(ui, world, &resources, self.entity_selected);
+            let mut win_pos = [0.0, 0.0];
+            draw_window_general_info(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
+            draw_window_camera(ui, &mut win_pos, &resources);
+            draw_window_entities(ui, &mut win_pos, world, &mut self.entity_selected);
+            draw_window_properties(ui, &mut win_pos, world, &resources, self.entity_selected);
 
             draw_debug_window(ui, self.demo_open);
             draw_debug_texture(ui, &resources);
@@ -193,11 +194,19 @@ impl ImguiState {
     }
 }
 
-fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration, demo_open: &mut bool) {
+fn draw_window_general_info(
+    ui: &imgui::Ui,
+    win_pos: &mut [f32; 2],
+    delta_s: Duration,
+    demo_open: &mut bool,
+    resources: &mut legion::Resources,
+) {
+    let mut globals = resources.get_mut::<crate::Globals>().unwrap();
     let window = ui.window("General info");
+    let win_size = [300.0, 200.0];
     window
-        .size([300.0, 100.0], Condition::FirstUseEver)
-        .position([0.0, 0.0], Condition::FirstUseEver)
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.separator();
             ui.text(format!("Frametime: {delta_s:?}"));
@@ -206,20 +215,26 @@ fn draw_window_general_info(ui: &imgui::Ui, delta_s: Duration, demo_open: &mut b
                 "Mouse position: ({:.1},{:.1})",
                 mouse_pos[0], mouse_pos[1]
             ));
+            ui.separator();
+            ui.checkbox("Ibl enable", &mut globals.ibl_enable);
+            ui.checkbox("Skybox enable", &mut globals.skybox_enable);
+            ui.separator();
             ui.checkbox("Show demo window", demo_open)
         });
+    win_pos[1] = win_pos[1] + win_size[1];
 }
 
-fn draw_window_camera(ui: &imgui::Ui, resources: &Resources) {
+fn draw_window_camera(ui: &imgui::Ui, win_pos: &mut [f32; 2], resources: &Resources) {
     let mut camera = match resources.get_mut::<Camera>() {
         Some(camera) => camera,
         None => return,
     };
 
+    let win_size = [300.0, 200.0];
     let window = ui.window("Camera");
     window
-        .size([300.0, 200.0], Condition::FirstUseEver)
-        .position([0.0, 100.0], Condition::FirstUseEver)
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.text(format!("Position: {:?}", camera.get_position()));
             ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
@@ -261,16 +276,23 @@ fn draw_window_camera(ui: &imgui::Ui, resources: &Resources) {
                 camera.far = far;
             }
         });
+    win_pos[1] = win_pos[1] + win_size[1];
 }
 
-fn draw_window_entities(ui: &imgui::Ui, world: &World, selected: &mut Option<Entity>) {
+fn draw_window_entities(
+    ui: &imgui::Ui,
+    win_pos: &mut [f32; 2],
+    world: &World,
+    selected: &mut Option<Entity>,
+) {
     use legion::query::IntoQuery;
     let mut query = <(Entity, &TagComponent)>::query();
 
+    let win_size = [300.0, 100.0];
     let window = ui.window("Entities");
     window
-        .size([300.0, 100.0], Condition::FirstUseEver)
-        .position([0.0, 300.0], Condition::FirstUseEver)
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             for (entity, tag) in query.iter(world) {
                 if ui
@@ -282,10 +304,12 @@ fn draw_window_entities(ui: &imgui::Ui, world: &World, selected: &mut Option<Ent
                 }
             }
         });
+    win_pos[1] = win_pos[1] + win_size[1];
 }
 
 fn draw_window_properties(
     ui: &imgui::Ui,
+    win_pos: &mut [f32; 2],
     world: &mut World,
     resources: &Resources,
     selected: Option<Entity>,
@@ -297,16 +321,18 @@ fn draw_window_properties(
 
     let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
 
+    let win_size = [300.0, 300.0];
     let window = ui.window(format!("Properties for {:?}", entity));
     window
-        .size([300.0, 300.0], Condition::FirstUseEver)
-        .position([0.0, 400.0], Condition::FirstUseEver)
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.separator();
             draw_ui_mesh(ui, world, &registry, entity.clone());
             ui.separator();
             draw_ui_light(ui, world, entity.clone());
         });
+    win_pos[1] = win_pos[1] + win_size[1];
 }
 
 fn draw_ui_mesh(

@@ -57,7 +57,7 @@ pub fn mesh(
     let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);
 
     renderpass.set_pipeline(render_pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_resource_manager.globals_bind_group, &[]);
     renderpass.set_bind_group(3, &ibl.ibl_bind_group, &[]);
 
     let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();

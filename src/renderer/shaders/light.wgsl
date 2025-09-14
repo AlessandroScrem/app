@@ -81,6 +81,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         discard; // se il colore è trasparente, non disegnare
     }
 
-    return object_color * vec4<f32>(1.0, 1.0, 0.0, 1.0); // giallo; // giallo
+    return object_color * vec4<f32>(1.0, 1.0, 1.0, 1.0); 
 
 }

@@ -7,6 +7,11 @@ struct Camera {
     screen_size: vec2<f32>,
 };
 
+struct Globals {
+    ibl_enable: u32,
+    skybox_enable: u32,
+};
+
 struct Light {
     color: vec3<f32>,
     directional: u32,
@@ -36,6 +41,7 @@ struct VertexInput {
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
+@group(0) @binding(1) var<uniform> globals: Globals;
 @group(2) @binding(0) var<uniform> model: Model;
 
 struct VertexOutput {
@@ -204,6 +210,7 @@ fn CalculateAmbient(
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    var use_ibl: bool = globals.ibl_enable == 1u;
     var albedo_color = material.color.rgb;
     var metallic = material.metallic;
     var roughness = material.roughness;
@@ -228,7 +235,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     var color = vec3<f32>(0.0, 0.0, 0.0);
     color += CalculateLight(N, V, F0, albedo_color, metallic, roughness, input.world_pos, NUM_LIGHTS);
-    color += CalculateAmbient(N, V, R, F0, albedo_color, metallic, roughness);
+    if use_ibl == true {
+        color += CalculateAmbient(N, V, R, F0, albedo_color, metallic, roughness);
+    }
 
     // debug normal
     // color = -N * 0.5 + 0.5;

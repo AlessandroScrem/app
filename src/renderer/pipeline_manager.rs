@@ -137,7 +137,7 @@ fn create_pipeline(
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Default Pipeline Layout"),
+                    label: Some("BlinnPhong Pipeline Layout"),
                     bind_group_layouts: &layouts,
                     push_constant_ranges: &[],
                 });
@@ -148,7 +148,7 @@ fn create_pipeline(
             let pipeline_desc = PipelineDesc::default();
 
             pipeline_desc.build_pipeline(
-                "Default Pipeline",
+                "BlinnPhong Pipeline",
                 device,
                 render_pipeline_layout,
                 hdr_format,
@@ -158,14 +158,14 @@ fn create_pipeline(
         }
         PipelineKind::Pbr => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::Globals), //0
                 gpu_resource_manager.get_layout(LayoutKind::Material), //1
                 gpu_resource_manager.get_layout(LayoutKind::Model),  //2
                 gpu_resource_manager.get_layout(LayoutKind::LightIbl),  //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Default Pipeline Layout"),
+                    label: Some("Pbr Pipeline Layout"),
                     bind_group_layouts: &layouts,
                     push_constant_ranges: &[],
                 });
@@ -175,7 +175,7 @@ fn create_pipeline(
             let pipeline_desc = PipelineDesc::default();
 
             pipeline_desc.build_pipeline(
-                "Default Pipeline",
+                "Pbr Pipeline",
                 device,
                 render_pipeline_layout,
                 hdr_format,

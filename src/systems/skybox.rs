@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::renderer::{
+use crate::{renderer::{
     gpu_manager::GPUResourceManager,
     gpu_renderer::DepthTexture,
     hdr_frame::HdrFrame,
     pipeline_manager::{PipelineKind, PipelineManager},
     skybox_manager::{SkyboxKind, SkyboxManager},
-};
+}, Globals};
 
 use legion::*;
 
@@ -18,7 +18,12 @@ pub fn skybox(
     #[resource] depth_texture: &DepthTexture,
     #[resource] skybox_manager: &SkyboxManager,
     #[resource] hdr_texture: &HdrFrame,
+    #[resource] globals: &Globals
 ) {
+    if !globals.skybox_enable {
+        return;
+    }
+
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Skybox Render Pass"),

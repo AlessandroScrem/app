@@ -38,6 +38,27 @@ pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) 
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub f32);
 
+#[derive(Clone, Copy, Debug)]
+pub struct Globals {
+    pub ibl_enable: bool,
+    pub skybox_enable: bool,
+}
+impl Default for Globals {
+    fn default() -> Self {
+        Self {
+            ibl_enable: true,
+            skybox_enable: true,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GlobalUniform {
+    ibl_enable: u32,
+    skybox_enable: u32,
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
