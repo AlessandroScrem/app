@@ -55,7 +55,7 @@ fn reinhard(x: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs_main(vs: VertexOutput) -> @location(0) vec4<f32> {
     let hdr = textureSample(hdr_image, hdr_sampler, vs.uv);
-    // let sdr = aces_tone_map(hdr.rgb);
-    let sdr = reinhard(hdr.rgb);
+    let sdr = aces_tone_map(hdr.rgb);
+    // let sdr = reinhard(hdr.rgb);
     return vec4(sdr, hdr.a);
 }

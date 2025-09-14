@@ -21,7 +21,7 @@ pub fn skybox(
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Light Render Pass"),
+        label: Some("Skybox Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
             view: &hdr_texture.view,
             resolve_target: None,

@@ -84,6 +84,47 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(3) @binding(3) var prefilter_map: texture_cube<f32>;
 @group(3) @binding(4) var brdf_lut_map: texture_2d<f32>;
 
+
+fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) ->f32 {
+  var PI = 3.14159265359;
+  var a = roughness * roughness;
+  var a2 = a * a;
+  let NdotH = max(dot(N, H), 0.0);
+  let NdotH2 = NdotH * NdotH;
+
+  let nom = a2;
+  var denom = (NdotH2 * (a2 - 1.0) + 1.0);
+  denom = PI * denom * denom;
+
+  return nom / denom;
+}
+
+fn GeometrySchlickGGX(NdotV: f32, roughness: f32, k: f32) ->f32 {
+  let nom = NdotV;
+  let denom = NdotV * (1.0 - k) + k;
+  return nom / denom;
+}
+
+fn GeometrySmith_kdirect(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) ->f32{
+  let a = (roughness + 1.0);
+  let k = (a * a) / 8.0;
+
+  let NdotV = max(dot(N, V), 0.0);
+  let NdotL = max(dot(N, L), 0.0);
+  let ggx2 = GeometrySchlickGGX(NdotV, roughness, k);
+  let ggx1 = GeometrySchlickGGX(NdotL, roughness, k);
+
+  return ggx1 * ggx2;
+}
+
+fn fresnelSchlick(cosTheta: f32, F0: vec3<f32>) ->vec3<f32> {
+  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+fn fresnelSchlickRoughness(cosTheta: f32, F0: vec3<f32>, roughness: f32) ->vec3<f32> {
+  return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 fn CalculateLight(
     N: vec3<f32>,
     V: vec3<f32>,
@@ -91,65 +132,46 @@ fn CalculateLight(
     albedo: vec3<f32>,
     metallic: f32,
     roughness: f32,
+    frag_pos: vec3<f32>,
     num_lights: u32,
 ) -> vec3<f32> {
+    var PI = 3.14159265359;
     var color = vec3<f32>(0.0, 0.0, 0.0);
 
     for (var i: u32 = 0u; i < num_lights; i = i + 1u) {
-        var L: vec3<f32>;
-        if (light.directional == 1u) {
-            L = normalize(-light.position);
-        } else {
-            L = normalize(light.position - camera.view_pos);
-        }
+        let L =  normalize(light.position - frag_pos);
         let H = normalize(V + L);
-        let distance = length(light.position - camera.view_pos);
-        let attenuation = 1.0 / (distance * distance);
+        
+        var attenuation = 1.0;
+        if (light.directional == 0u) {
+            let distance = length(light.position - frag_pos);
+            attenuation = 1.0 / (distance * distance);
+        };
+
         let radiance = light.color * attenuation;
 
-        // Cook-Torrance BRDF
-        let NDF = pow(max(dot(N, H), 0.0), (roughness * roughness) * MATERIAL_SHININESS);
-        let G = min(1.0, min((2.0 * dot(N, H) * dot(N, V)) / dot(V, H), (2.0 * dot(N, H) * dot(N, L)) / dot(V, H)));
-        let F = F0 + (1.0 - F0) * pow(1.0 - max(dot(H, V), 0.0), 5.0);
+        let NDF = DistributionGGX(N, H, roughness);
+        let G   = GeometrySmith_kdirect(N, V, L, roughness);
+        let F   = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
+         // --------- Cook-Torrance specular BRDF ----------
         let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
         let specular = numerator / denominator;
 
+        // kS represents the energy of light that gets reflected, is equal to Fresnel
         let kS = F;
         var kD = vec3<f32>(1.0, 1.0, 1.0) - kS;
         kD = kD * (1.0 - metallic);
 
+        let diffuse:vec3<f32> = kD * albedo / PI;
+
         let NdotL = max(dot(N, L), 0.0);
-        color += (kD * albedo / vec3<f32>(3.14159265359, 3.14159265359, 3.14159265359) + specular) * radiance * NdotL;
+
+        color += (diffuse + specular) * radiance * NdotL;
     }
 
     return color;
-}
-
-fn _CalculateAmbient(
-    N: vec3<f32>,
-    V: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
-    albedo: vec3<f32>,
-    metallic: f32,
-    roughness: f32,
-) -> vec3<f32> {
-    let kS = F0 + (1.0 - F0) * pow(1.0 - max(dot(N, V), 0.0), 5.0);
-    var kD = vec3<f32>(1.0, 1.0, 1.0) - kS;
-    kD = kD * (1.0 - metallic);
-
-    let irradiance = AMBIENT_COLOR;
-    let diffuse = irradiance * albedo;
-
-    // Approximate specular IBL
-    let MAX_REFLECTION_LOD: f32 = 4.0;
-    let prefiltered_color = AMBIENT_COLOR; // textureSampleLod(prefilter_map, tex_sampler, R.xy, roughness * MAX_REFLECTION_LOD).rgb;
-    let env_brdf = vec2<f32>(0.04, 0.5); // textureSample(brdf_lut, tex_sampler, vec2<f32>(max(dot(N, V), 0.0), roughness)).rg;
-    let specular = prefiltered_color * (kS * env_brdf.x + env_brdf.y);
-
-    return (kD * diffuse + specular);
 }
 
 fn CalculateAmbient(
@@ -161,7 +183,8 @@ fn CalculateAmbient(
     metallic: f32,
     roughness: f32,
 ) -> vec3<f32> {
-    let kS = F0 + (1.0 - F0) * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+    let F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    let kS = F;
     var kD = vec3<f32>(1.0, 1.0, 1.0) - kS;
     kD = kD * (1.0 - metallic);
 
@@ -172,9 +195,11 @@ fn CalculateAmbient(
 
     let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
     let diffuse = irradiance * albedo;
-    let specular = prefiltered_color * (kS * env_brdf.x + env_brdf.y);
+    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y);
 
     return (kD * diffuse + specular);
+    // debug
+    // return vec3<f32>(env_brdf.y);
 }
 
 @fragment
@@ -202,8 +227,15 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo_color, metallic);
 
     var color = vec3<f32>(0.0, 0.0, 0.0);
-    color += CalculateLight(N, V, F0, albedo_color, metallic, roughness, NUM_LIGHTS);
+    color += CalculateLight(N, V, F0, albedo_color, metallic, roughness, input.world_pos, NUM_LIGHTS);
     color += CalculateAmbient(N, V, R, F0, albedo_color, metallic, roughness);
+
+    // debug normal
+    // color = -N * 0.5 + 0.5;
+    // return vec4<f32>(normalize(input.normal) * 0.5 + 0.5, 1.0);
+
+    // debug vettore vista
+    // return vec4<f32>((V*0.5+0.5),1.0);
 
     return vec4<f32>(color, 1.0);
 }

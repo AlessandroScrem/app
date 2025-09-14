@@ -35,9 +35,13 @@ impl Texture {
                 let (width, height) = image.dimensions();
                 let raw_f32: Vec<f32> = image.into_raw();
                 // conversione diretta in Vec<u8> per Rgba16Float
+                // fit 32bit value to range [0.0 65504.0]
                 let raw_u8: Vec<u8> = raw_f32
                     .iter()
-                    .flat_map(|f| half::f16::from_f32(*f).to_le_bytes())
+                    .flat_map(|f| {
+                        let clamped = f.clamp(0.0, half::f16::MAX.to_f32());
+                        half::f16::from_f32(clamped).to_le_bytes()
+                    })
                     .collect();
                 (raw_u8, width, height, 8)
             }
@@ -111,7 +115,9 @@ impl CubeTexture {
                 }
                 (images, 4)
             }
-            TextureFormat::Rgba16Float => unimplemented!("Rgba16Float not yet implemented for CubeTexture"),
+            TextureFormat::Rgba16Float => {
+                unimplemented!("Rgba16Float not yet implemented for CubeTexture")
+            }
             _ => panic!("Unsopported TextureFormat"),
         };
 
@@ -138,7 +144,9 @@ impl CubeTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
 

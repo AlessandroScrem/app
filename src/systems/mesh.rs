@@ -6,7 +6,6 @@ use crate::{
         gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
         hdr_frame::HdrFrame,
-        light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
 };
@@ -23,7 +22,6 @@ pub fn mesh(
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] depth_texture: &DepthTexture,
-    // #[resource] light_manager: &LightManager,
     #[resource] hdr_texture: &HdrFrame,
     #[resource] ibl: &crate::renderer::gpu_renderer::Ibl,
 ) {
@@ -60,7 +58,6 @@ pub fn mesh(
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
-    // renderpass.set_bind_group(3, &light_manager.light_uniform_bind_group, &[]);
     renderpass.set_bind_group(3, &ibl.ibl_bind_group, &[]);
 
     let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
@@ -100,10 +97,7 @@ pub fn update_model_matrix(
 }
 
 #[system(for_each)]
-pub fn update_material(
-    mesh: &MeshComponent,
-    #[resource] queue: &wgpu::Queue,
-) {
+pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
     for submesh in mesh.data.submeshes.iter() {
         let material = &submesh.material;
         if let Some(buffer) = &material.material_uniform_buffer {
@@ -116,11 +110,7 @@ pub fn update_material(
                 color_use_texture: material.color_use_texture as u32,
                 ..Default::default()
             };
-            queue.write_buffer(
-                buffer,
-                0,
-                bytemuck::bytes_of(&updated_uniforms),
-            );
+            queue.write_buffer(buffer, 0, bytemuck::bytes_of(&updated_uniforms));
         }
     }
 }

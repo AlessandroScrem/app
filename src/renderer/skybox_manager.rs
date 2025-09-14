@@ -1047,8 +1047,9 @@ impl SkyboxManager {
     ) -> Skybox {
         match kind {
             SkyboxKind::Default => {
+                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
                 // #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
+                // #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
                 let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
                 let cube_map = hdr.to_cubemap(device, queue, 512);
                 let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
