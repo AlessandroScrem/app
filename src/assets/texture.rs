@@ -1,5 +1,84 @@
+use rayon::iter::IntoParallelRefIterator;
+use stb_image::image::load_from_memory_with_depth;
 use std::sync::Arc;
 use wgpu::TextureFormat;
+
+fn _decode_image_rs_serial(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
+    let image = image::load_from_memory(buffer).unwrap().to_rgba32f();
+    let (width, height) = image.dimensions();
+    let raw_f32: Vec<f32> = image.into_raw();
+    // conversione diretta in Vec<u8> per Rgba16Float
+    // fit 32bit value to range [0.0 65504.0]
+    let timer = std::time::Instant::now();
+    let raw_u8: Vec<u8> = raw_f32
+        .iter()
+        .flat_map(|f| {
+            let clamped = f.clamp(0.0, half::f16::MAX.to_f32());
+            half::f16::from_f32(clamped).to_le_bytes()
+        })
+        .collect();
+    println!("Time for decoding HDR: {:?}", timer.elapsed().as_millis());
+    (raw_u8, width, height)
+}
+
+fn _decode_image_rs_parallel(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
+    use rayon::iter::ParallelIterator;
+    let image = image::load_from_memory(buffer).unwrap().to_rgba32f();
+    let (width, height) = image.dimensions();
+    let raw_f32: Vec<f32> = image.into_raw();
+
+    // conversione parallela in Vec<u8> per Rgba16Float
+    // fit 32bit value to range [0.0 65504.0]
+    let timer = std::time::Instant::now();
+
+    let raw_u8: Vec<u8> = raw_f32
+        .par_iter() // Rayon parallel iterator
+        .flat_map_iter(|f| {
+            let clamped = f.clamp(0.0, half::f16::MAX.to_f32());
+            half::f16::from_f32(clamped).to_le_bytes()
+        })
+        .collect();
+
+    println!(
+        "Time for decoding HDR (parallel): {:?}",
+        timer.elapsed().as_millis()
+    );
+    (raw_u8, width, height)
+}
+
+fn decode_stb_image_parallel(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
+    use rayon::prelude::*;
+    use half::f16;
+    use stb_image::image::LoadResult;
+    // Caricamento HDR con stb_image
+    // use stb_image::image::load_from_memory;
+
+    let img = match load_from_memory_with_depth(buffer, 4, false) {
+        LoadResult::ImageF32(img) => img,
+        LoadResult::Error(e) => panic!("Failed: {}", e),
+        _ => panic!("Unexpected format"),
+    };
+
+    let width = img.width as u32;
+    let height = img.height as u32;
+    let raw_f32 = img.data; // già in f32, RGB/RGBA
+
+    // Conversione parallela in Vec<u8> per Rgba16Float
+    let timer = std::time::Instant::now();
+    let raw_u8: Vec<u8> = raw_f32
+        .par_iter()
+        .flat_map_iter(|f| {
+            let clamped = f.clamp(0.0, f16::MAX.to_f32());
+            f16::from_f32(clamped).to_le_bytes()
+        })
+        .collect();
+
+    println!(
+        "Time for decoding HDR (stb_image, parallel): {:?}",
+        timer.elapsed().as_millis()
+    );
+    (raw_u8, width, height)
+}
 
 pub struct Texture {
     pub inner: Arc<wgpu::Texture>,
@@ -31,18 +110,8 @@ impl Texture {
                 (raw_u8, width, height, 16)
             }
             TextureFormat::Rgba16Float => {
-                let image = image::load_from_memory(buffer).unwrap().to_rgba32f();
-                let (width, height) = image.dimensions();
-                let raw_f32: Vec<f32> = image.into_raw();
-                // conversione diretta in Vec<u8> per Rgba16Float
-                // fit 32bit value to range [0.0 65504.0]
-                let raw_u8: Vec<u8> = raw_f32
-                    .iter()
-                    .flat_map(|f| {
-                        let clamped = f.clamp(0.0, half::f16::MAX.to_f32());
-                        half::f16::from_f32(clamped).to_le_bytes()
-                    })
-                    .collect();
+                // let (raw_u8, width, height) = _decode_image_rs_parallel(buffer);
+                let (raw_u8, width, height) = decode_stb_image_parallel(buffer);
                 (raw_u8, width, height, 8)
             }
             _ => panic!("Unsopported TextureFormat"),
