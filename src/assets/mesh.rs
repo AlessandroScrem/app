@@ -58,12 +58,16 @@ pub fn load_gltf(
     device: &wgpu::Device,
     path: &Path,
 ) -> Result<Mesh, Box<dyn std::error::Error>> {
+    let timer = std::time::Instant::now();
+
     if path.extension().unwrap_or_default() != "gltf" {
         return Err("File is not a glTF file".into());
     }
 
     let (document, buffers, _) = gltf::import(path)?;
     let images: Vec<gltf::Image<'_>> = document.images().collect();
+
+    println!("--\t gltf import is {} ms", timer.elapsed().as_millis());
 
     let gltf_mesh = document.meshes().next().expect("mesh [0] not present");
     let name = gltf_mesh.name().unwrap_or("mesh").to_string();
@@ -125,6 +129,12 @@ pub fn load_gltf(
             path.to_path_buf(),
         );
 
+        println!(
+            "--\t create material: {} is {} ms",
+            primitive.material().name().unwrap_or("no_name"),
+            timer.elapsed().as_millis()
+        );
+
         let primitive_topology = get_primitive_mode(primitive.mode());
 
         let submesh = SubMesh {
@@ -155,6 +165,12 @@ pub fn load_gltf(
         }],
         label: Some("Model Bind Group"),
     });
+
+    println!(
+        "Loading mesh {} took {} ms",
+        path.display(),
+        timer.elapsed().as_millis()
+    );
 
     Ok(Mesh {
         name,
@@ -214,9 +230,9 @@ fn print_meshes(gltf: &gltf::Document, buffers: Vec<buffer::Data>) {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::renderer::gpu_manager::GPUResourceManager;
     use std::sync::Arc;
-    use super::*;
 
     #[test]
     fn should_load_mesh() {

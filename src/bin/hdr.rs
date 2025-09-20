@@ -1,38 +1,8 @@
-/* fn main() {
-    println!("Hello hdr loader");
-
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/core/clarens_night_02_2k.hdr"
-    );
-
-    // reading from buffer
-    let buffer = std::fs::read(path).expect("unable to read file");
-    let image = image::load_from_memory(&buffer).unwrap();
-
-    // readimg from path
-    // use image::{GenericImageView, ImageFormat, ImageReader};
-    // let image = ImageReader::open(path).unwrap().decode().unwrap();
-    // println!("Read image : {:?}", image.color());
-    // println!("Size : [{} x {}]", image.width(), image.height());
-    // let format = ImageFormat::from_path(path);
-    // println!("ImageFormat : {:?}", format.unwrap());
-
-    println!("DynamicImage variant: {:?}", image.color());
-
-    let pixel = image.as_rgb32f().unwrap().get_pixel(1228, 385);
-    println!("Pixel rgb 32f: {:?}", pixel.0);
-
-    let image_rgba32f = image.to_rgba32f();
-    let pixel = image_rgba32f.get_pixel(1228, 385);
-    println!("Pixel rgba 32f: {:?}", pixel.0);
-}
- */
-use std::time::Instant;
-use rayon::prelude::*;
 use image::ImageReader;
 use image::{GenericImageView, Pixel};
-use stb_image::image::{load, LoadResult};
+use rayon::prelude::*;
+use stb_image::image::{LoadResult, load};
+use std::time::Instant;
 
 fn main() {
     // let path = "test.hdr";
@@ -40,7 +10,7 @@ fn main() {
         env!("CARGO_MANIFEST_DIR"),
         "/assets/core/clarens_night_02_2k.hdr"
     );
-    
+
     // --- image-rs ---
     let dyn_img = ImageReader::open(path)
         .expect("Failed to open HDR file")
@@ -58,9 +28,11 @@ fn main() {
     for y in 0..height {
         for x in 0..width {
             let p = dyn_img.get_pixel(x, y).to_rgb();
-            hdr_buffer_serial.push([p[0] as f32 / 255.0,
-                                    p[1] as f32 / 255.0,
-                                    p[2] as f32 / 255.0]);
+            hdr_buffer_serial.push([
+                p[0] as f32 / 255.0,
+                p[1] as f32 / 255.0,
+                p[2] as f32 / 255.0,
+            ]);
         }
     }
     let duration = start.elapsed();
@@ -75,7 +47,11 @@ fn main() {
             let dyn_img_ref = &dyn_img; // riferimento immutabile
             (0..width as usize).map(move |x| {
                 let p = dyn_img_ref.get_pixel(x as u32, y as u32).to_rgb();
-                [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]
+                [
+                    p[0] as f32 / 255.0,
+                    p[1] as f32 / 255.0,
+                    p[2] as f32 / 255.0,
+                ]
             })
         })
         .collect();
@@ -106,10 +82,14 @@ fn main() {
             println!("Total pixels: {}", processed.len());
         }
         LoadResult::ImageU8(img) => {
-            println!("LDR image loaded: {}x{}x{}", img.width, img.height, img.depth);
+            println!(
+                "LDR image loaded: {}x{}x{}",
+                img.width, img.height, img.depth
+            );
         }
         LoadResult::Error(e) => {
             eprintln!("stb_image error: {}", e);
         }
     }
 }
+

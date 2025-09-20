@@ -122,3 +122,8 @@ pub struct TransformComponent {
 pub struct TagComponent {
     pub name: String,
 }
+
+// una funzione "pesante" da misurare
+pub fn heavy_computation(n: usize) -> usize {
+    (0..n).map(|x| x * 2).sum()
+}

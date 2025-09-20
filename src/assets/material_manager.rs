@@ -86,7 +86,7 @@ impl MaterialManager {
 
         let metallic_roughness_texture = get_texture_url(&roughness_info, &images);
 
-        let roughness_use_texture:u32 =  metallic_roughness_texture.is_some() as u32;
+        let roughness_use_texture: u32 = metallic_roughness_texture.is_some() as u32;
         let metallic_use_texture: u32 = metallic_roughness_texture.is_some() as u32;
         let color_use_texture = pbr.base_color_texture().is_some() as u32;
 
@@ -100,10 +100,16 @@ impl MaterialManager {
             .map(|s| parent_path.join(s))
             .unwrap_or("no-name".into());
 
+        let timer = std::time::Instant::now();
         let bind0 = texture_manager.get_or_create(&main_texture, TextureFormat::Rgba8UnormSrgb);
         let bind1 = texture_manager.get_or_create(&normal_texture, TextureFormat::Rgba8Unorm);
         let bind2 =
             texture_manager.get_or_create(&metallic_roughness_texture, TextureFormat::Rgba8Unorm);
+
+        println!(
+            "--\t Load matererial textures took {} ms",
+            timer.elapsed().as_millis()
+        );
 
         let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -114,7 +120,6 @@ impl MaterialManager {
             mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
-
 
         let material_uniform_buffer =
             self.device

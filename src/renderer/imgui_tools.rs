@@ -60,7 +60,7 @@ pub fn sync_with_registry(
                     tex.extent,
                 ));
             registry.ids.insert(path.clone(), id);
-            println!("add to registry {} with id {}", path.display(), id.id());
+            // println!("add to registry {} with id {}", path.display(), id.id());
         }
     }
 
