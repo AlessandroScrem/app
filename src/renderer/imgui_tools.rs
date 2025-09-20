@@ -13,7 +13,7 @@ use winit::window::Window;
 
 use crate::{
     LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager, camera::Camera,
+    assets::texture_manager::TextureManager, camera::Camera, renderer::skybox_manager,
 };
 
 // registro imgui separato
@@ -201,12 +201,16 @@ fn draw_window_general_info(
     demo_open: &mut bool,
     resources: &mut legion::Resources,
 ) {
+    let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
+    let skybox_manager = resources
+        .get::<super::skybox_manager::SkyboxManager>()
+        .unwrap();
     let mut globals = resources.get_mut::<crate::Globals>().unwrap();
     let window = ui.window("General info");
-    let win_size = [300.0, 200.0];
+    let win_size = [300.0, 300.0];
     window
-    .size(win_size, Condition::FirstUseEver)
-    .position(*win_pos, Condition::FirstUseEver)
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.separator();
             ui.text(format!("Frametime: {delta_s:?}"));
@@ -217,12 +221,20 @@ fn draw_window_general_info(
             ));
             ui.separator();
             ui.checkbox("Ibl enable", &mut globals.ibl_enable);
-            ui.checkbox("Skybox enable", &mut globals.skybox_enable);
             if globals.ibl_enable {
                 ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
                 let mut current_item = globals.tonemap_filter as usize;
-                let tonemap_filters = ["ACES", "Filmic", "Lottes", "Reinhard", "Reinhard2", "Uchimura", "Uncharted2", "Exponential"];
-                if ui.combo("Tonemap", &mut current_item , &tonemap_filters, |item| { 
+                let tonemap_filters = [
+                    "ACES",
+                    "Filmic",
+                    "Lottes",
+                    "Reinhard",
+                    "Reinhard2",
+                    "Uchimura",
+                    "Uncharted2",
+                    "Exponential",
+                ];
+                if ui.combo("Tonemap", &mut current_item, &tonemap_filters, |item| {
                     std::borrow::Cow::Borrowed(*item)
                 }) {
                     globals.tonemap_filter = current_item as u32;
@@ -230,6 +242,20 @@ fn draw_window_general_info(
             } else {
                 globals.tonemap_filter = 0;
                 globals.exposure = 1.0;
+            }
+            ui.checkbox("Skybox enable", &mut globals.skybox_enable);
+            if globals.skybox_enable {
+                let hdr_path = skybox_manager.get_hdr_path(skybox_manager::SkyboxKind::Default);
+                if let Some(id) = registry.ids.get(hdr_path) {
+                    let name = hdr_path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("no name");
+                    ui.image_button(name, *id, [60.0, 60.0]);
+                    ui.same_line();
+                    ui.text(name);
+                    ui.separator();
+                }
             }
             ui.separator();
             ui.checkbox("Show demo window", demo_open)

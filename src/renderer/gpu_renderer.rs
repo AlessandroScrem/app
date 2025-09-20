@@ -135,7 +135,7 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let texture_manager = crate::assets::texture_manager::TextureManager::new(
+        let mut texture_manager = crate::assets::texture_manager::TextureManager::new(
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
@@ -155,7 +155,7 @@ impl Renderer {
         );
 
         let skybox_manager =
-            skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager);
+            skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager, &mut texture_manager);
         println!(
             "Skybox manager initialized in {} ms",
             timer.elapsed().as_millis()

@@ -6,14 +6,17 @@
 
 #![allow(dead_code)]
 
-use std::time::Instant;
+use std::path::PathBuf;
 
-use crate::renderer::{
-    gpu_manager::{GPUResourceManager, LayoutKind},
-    pipeline_manager,
+use crate::{
+    assets::texture_manager::TextureManager,
+    renderer::{
+        gpu_manager::{GPUResourceManager, LayoutKind},
+        pipeline_manager,
+    },
 };
 
-use wgpu::{TextureViewDescriptor, util::DeviceExt};
+use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
 
 use crate::assets::texture;
 
@@ -954,37 +957,6 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
     }
 }
 
-pub struct Hdr {
-    hdr_texture: texture::Texture,
-}
-impl Hdr {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        filepath: &std::path::Path,
-        format: wgpu::TextureFormat,
-    ) -> Self {
-        assert_eq!(
-            format,
-            wgpu::TextureFormat::Rgba16Float,
-            "Hdr support only Rgba16Float"
-        );
-
-        let buffer = std::fs::read(filepath).unwrap();
-        let hdr_texture = crate::assets::texture::Texture::new(device, queue, &buffer, format);
-
-        Self { hdr_texture }
-    }
-
-    pub fn to_cubemap(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        size: u32,
-    ) -> wgpu::Texture {
-        EquirectangularToCubemap::build(&self.hdr_texture, device, queue, size)
-    }
-}
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum SkyboxKind {
@@ -992,6 +964,7 @@ pub enum SkyboxKind {
 }
 
 pub struct Skybox {
+    hdr_path: std::path::PathBuf,
     _cube_map: wgpu::Texture,
     _cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
@@ -1014,6 +987,7 @@ impl SkyboxManager {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         gpu_resource_manager: &GPUResourceManager,
+        texture_manager: &mut TextureManager,
     ) -> Self {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
@@ -1021,16 +995,25 @@ impl SkyboxManager {
 
         // Create skyboxes
         let skyboxes: Vec<Skybox> = SkyboxKind::iter()
-            .map(|kind| Self::create_skybox(device, queue, gpu_resource_manager, kind))
+            .map(|kind| {
+                Self::create_skybox(device, queue, gpu_resource_manager, texture_manager, kind)
+            })
             .collect();
 
-        Self { brdf_lut, brdf_lut_view, skyboxes }
+        Self {
+            brdf_lut,
+            brdf_lut_view,
+            skyboxes,
+        }
     }
 
     pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
         &self.skyboxes[kind as usize].bind_group
     }
-    
+    pub fn get_hdr_path(&self, kind: SkyboxKind) -> &PathBuf {
+        &self.skyboxes[kind as usize].hdr_path
+    }
+
     pub fn get_irradiance(&self, kind: SkyboxKind) -> &wgpu::TextureView {
         &self.skyboxes[kind as usize].irradiance_view
     }
@@ -1045,17 +1028,14 @@ impl SkyboxManager {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         gpu_resource_manager: &GPUResourceManager,
+        texture_manager: &mut TextureManager,
         kind: SkyboxKind,
     ) -> Skybox {
         match kind {
             SkyboxKind::Default => {
-                #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
-                // #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k.hdr"));
-                // #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
-                let timer = Instant::now();
-                let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-                println!("Time for loading HDR: {:?} ms", timer.elapsed().as_millis());
-                let cube_map = hdr.to_cubemap(device, queue, 512);
+                #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+                let hdr = texture_manager.get_or_create(hdr_path, TextureFormat::Rgba16Float);
+                let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
                 let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
                 let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
                 let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
@@ -1100,6 +1080,7 @@ impl SkyboxManager {
                 });
 
                 Skybox {
+                    hdr_path: hdr_path.into(),
                     _cube_map: cube_map,
                     _cube_map_view: cube_map_view,
                     _irradiance_map,
@@ -1120,30 +1101,6 @@ mod tests {
     use crate::assets::texture_manager::TextureManager;
     use crate::test_utils;
     use std::path::Path;
-
-    /// Hdr
-    #[test]
-    fn should_create_texture_from_hdr() {
-        let (device, queue) = crate::get_device_and_queue();
-
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-
-        assert_eq!(
-            hdr.hdr_texture.inner.format(),
-            wgpu::TextureFormat::Rgba16Float
-        );
-        assert!(hdr.hdr_texture.inner.width() > 0);
-        assert!(hdr.hdr_texture.inner.height() > 0);
-        assert_eq!(hdr.hdr_texture.inner.mip_level_count(), 1); // <- no mipmaps
-        assert_eq!(hdr.hdr_texture.inner.depth_or_array_layers(), 1); // <- 2D texture
-        assert_eq!(
-            hdr.hdr_texture.inner.dimension(),
-            wgpu::TextureDimension::D2
-        );
-
-        test_utils::save_texture(&device, &queue, "hdr.png", &hdr.hdr_texture.inner, 0).unwrap();
-    }
 
     /// BRDFLut
     #[test]
@@ -1166,11 +1123,11 @@ mod tests {
     #[test]
     fn should_create_prefilter_rgba16f_cubemap() {
         let (device, queue) = crate::get_device_and_queue();
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-
-        let cubemap = hdr.to_cubemap(&device, &queue, 512);
+        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
 
@@ -1188,11 +1145,12 @@ mod tests {
     #[test]
     fn should_crate_cubetexture_rgba16f_from_equirectangular() {
         let (device, queue) = crate::get_device_and_queue();
-
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+        
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-
-        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
+        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
+        
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(cubemap.height(), 512);
@@ -1200,19 +1158,20 @@ mod tests {
         assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
         assert_eq!(cubemap.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
-
+        
         // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
         test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
     }
-
+    
     /// IrradianceCubemap
     #[test]
     fn should_crate_irradiance_cubetexture_rgba16f() {
         let (device, queue) = crate::get_device_and_queue();
-
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+        
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr = Hdr::new(device, queue, filepath, wgpu::TextureFormat::Rgba16Float);
-        let cubemap = EquirectangularToCubemap::build(&hdr.hdr_texture, &device, &queue, 512);
+        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
 
@@ -1231,8 +1190,10 @@ mod tests {
     fn skybox_manager_is_initialized() {
         let (device, queue) = crate::get_device_and_queue();
         let gpu_resource_manager = GPUResourceManager::new(&device);
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let manager = SkyboxManager::new(&device, &queue, &gpu_resource_manager);
+        let manager =
+            SkyboxManager::new(&device, &queue, &gpu_resource_manager, &mut texture_manager);
         assert_eq!(manager.skyboxes.len(), SkyboxKind::iter().count());
     }
 
