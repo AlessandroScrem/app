@@ -14,7 +14,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] PBR
 - [x] Exposure
 - [x] Tonemapping
-- [ ] Skybox selctor
+- [x] Skybox selctor
 - [ ] xyz Axis
 - [ ] Docking Gui
 - [ ] Entity selection

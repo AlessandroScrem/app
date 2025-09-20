@@ -957,7 +957,6 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
     }
 }
 
-
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum SkyboxKind {
     Default,
@@ -1022,6 +1021,76 @@ impl SkyboxManager {
     }
     pub fn get_brdf_lut(&self) -> &wgpu::TextureView {
         &self.brdf_lut_view
+    }
+
+    pub fn change_skybox(
+        &mut self,
+        hdr_path: &std::path::Path,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        gpu_resource_manager: &GPUResourceManager,
+        texture_manager: &mut TextureManager,
+    ) {
+        if !hdr_path.exists() {
+            return;
+        }
+
+        let hdr = texture_manager.get_or_create(hdr_path, TextureFormat::Rgba16Float);
+        let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
+        let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
+        let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
+        let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&cube_map_view),
+                },
+            ],
+            label: Some("skybox_bind_group"),
+        });
+
+        let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+        let prefilter_view = _prefilter_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+        let sb = Skybox {
+            hdr_path: hdr_path.into(),
+            _cube_map: cube_map,
+            _cube_map_view: cube_map_view,
+            _irradiance_map,
+            irradiance_view,
+            _prefilter_map,
+            prefilter_view,
+            bind_group,
+        };
+
+        self.skyboxes[SkyboxKind::Default as usize] = sb; 
     }
 
     fn create_skybox(
@@ -1146,10 +1215,10 @@ mod tests {
     fn should_crate_cubetexture_rgba16f_from_equirectangular() {
         let (device, queue) = crate::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-        
+
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
-        
+
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
@@ -1158,17 +1227,17 @@ mod tests {
         assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
         assert_eq!(cubemap.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
-        
+
         // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
         test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
     }
-    
+
     /// IrradianceCubemap
     #[test]
     fn should_crate_irradiance_cubetexture_rgba16f() {
         let (device, queue) = crate::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-        
+
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
         let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);

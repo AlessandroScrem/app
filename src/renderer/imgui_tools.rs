@@ -13,7 +13,9 @@ use winit::window::Window;
 
 use crate::{
     LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager, camera::Camera, renderer::skybox_manager,
+    assets::texture_manager::TextureManager,
+    camera::Camera,
+    renderer::{gpu_manager::GPUResourceManager, skybox_manager},
 };
 
 // registro imgui separato
@@ -202,10 +204,17 @@ fn draw_window_general_info(
     resources: &mut legion::Resources,
 ) {
     let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
-    let skybox_manager = resources
-        .get::<super::skybox_manager::SkyboxManager>()
+    let mut skybox_manager = resources
+        .get_mut::<super::skybox_manager::SkyboxManager>()
         .unwrap();
     let mut globals = resources.get_mut::<crate::Globals>().unwrap();
+    let device = resources.get::<wgpu::Device>().unwrap();
+    let queue = resources.get::<wgpu::Queue>().unwrap();
+    let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
+    let gpu_resource_manager = resources
+        .get::<std::sync::Arc<GPUResourceManager>>()
+        .unwrap();
+
     let window = ui.window("General info");
     let win_size = [300.0, 300.0];
     window
@@ -244,6 +253,7 @@ fn draw_window_general_info(
                 globals.exposure = 1.0;
             }
             ui.checkbox("Skybox enable", &mut globals.skybox_enable);
+            let mut change_skybox = false;
             if globals.skybox_enable {
                 let hdr_path = skybox_manager.get_hdr_path(skybox_manager::SkyboxKind::Default);
                 if let Some(id) = registry.ids.get(hdr_path) {
@@ -251,12 +261,26 @@ fn draw_window_general_info(
                         .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or("no name");
-                    ui.image_button(name, *id, [60.0, 60.0]);
+                    change_skybox = ui.image_button(name, *id, [60.0, 60.0]);
                     ui.same_line();
                     ui.text(name);
                     ui.separator();
                 }
+                if change_skybox {
+                    use rfd::FileDialog;
+                    let filepath = FileDialog::new().add_filter("hdr", &["hdr"]).pick_file();
+                    if let Some(filepath) = filepath {
+                        skybox_manager.change_skybox(
+                            &filepath,
+                            &device,
+                            &queue,
+                            &gpu_resource_manager,
+                            &mut texture_manager,
+                        );
+                    }
+                }
             }
+
             ui.separator();
             ui.checkbox("Show demo window", demo_open)
         });
