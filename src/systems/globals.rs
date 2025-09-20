@@ -37,7 +37,9 @@ pub fn update_globals(
 
     let updated_globals_uniform = GlobalUniform {
         ibl_enable: globals.ibl_enable as u32,
-        skybox_enable: globals.skybox_enable as u32, 
+        skybox_enable: globals.skybox_enable as u32,
+        exposure: globals.exposure,
+        tonemap_filter: globals.tonemap_filter,
     };
 
     queue.write_buffer(

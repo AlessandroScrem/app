@@ -205,8 +205,8 @@ fn draw_window_general_info(
     let window = ui.window("General info");
     let win_size = [300.0, 200.0];
     window
-        .size(win_size, Condition::FirstUseEver)
-        .position(*win_pos, Condition::FirstUseEver)
+    .size(win_size, Condition::FirstUseEver)
+    .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.separator();
             ui.text(format!("Frametime: {delta_s:?}"));
@@ -218,6 +218,19 @@ fn draw_window_general_info(
             ui.separator();
             ui.checkbox("Ibl enable", &mut globals.ibl_enable);
             ui.checkbox("Skybox enable", &mut globals.skybox_enable);
+            if globals.ibl_enable {
+                ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
+                let mut current_item = globals.tonemap_filter as usize;
+                let tonemap_filters = ["ACES", "Filmic", "Lottes", "Reinhard", "Reinhard2", "Uchimura", "Uncharted2", "Exponential"];
+                if ui.combo("Tonemap", &mut current_item , &tonemap_filters, |item| { 
+                    std::borrow::Cow::Borrowed(*item)
+                }) {
+                    globals.tonemap_filter = current_item as u32;
+                }
+            } else {
+                globals.tonemap_filter = 0;
+                globals.exposure = 1.0;
+            }
             ui.separator();
             ui.checkbox("Show demo window", demo_open)
         });

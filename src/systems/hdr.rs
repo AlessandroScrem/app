@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use crate::renderer::{
+    gpu_manager::GPUResourceManager,
     hdr_frame::HdrFrame,
     pipeline_manager::{PipelineKind, PipelineManager},
 };
@@ -11,6 +14,7 @@ pub fn hdr(
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] hdr_frame: &HdrFrame,
+    #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -32,5 +36,6 @@ pub fn hdr(
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &hdr_frame.hdr_bind_group, &[]);
+    renderpass.set_bind_group(1, &gpu_resource_manager.globals_bind_group, &[]);
     renderpass.draw(0..36, 0..1);
 }

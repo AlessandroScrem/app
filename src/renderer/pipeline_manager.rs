@@ -186,6 +186,7 @@ fn create_pipeline(
         PipelineKind::Hdr => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
                 gpu_resource_manager.get_layout(LayoutKind::Hdr), //0
+                gpu_resource_manager.get_layout(LayoutKind::Globals), //1
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

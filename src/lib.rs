@@ -42,12 +42,16 @@ pub struct DeltaTime(pub f32);
 pub struct Globals {
     pub ibl_enable: bool,
     pub skybox_enable: bool,
+    pub exposure: f32,
+    pub tonemap_filter: u32,
 }
 impl Default for Globals {
     fn default() -> Self {
         Self {
             ibl_enable: true,
             skybox_enable: true,
+            exposure: 1.0,
+            tonemap_filter: 0,
         }
     }
 }
@@ -57,6 +61,8 @@ impl Default for Globals {
 pub struct GlobalUniform {
     ibl_enable: u32,
     skybox_enable: u32,
+    exposure: f32,
+    tonemap_filter: u32,
 }
 
 #[repr(C)]

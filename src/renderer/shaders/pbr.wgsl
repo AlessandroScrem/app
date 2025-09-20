@@ -10,6 +10,8 @@ struct Camera {
 struct Globals {
     ibl_enable: u32,
     skybox_enable: u32,
+    exposure: f32,
+    tonemap_filter: u32,
 };
 
 struct Light {
