@@ -16,7 +16,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Tonemapping
 - [x] Skybox selctor
 - [x] xyz Axis
-- [ ] Docking Gui
+- [x] Docking Gui
 - [ ] Mesh Bounding box
 - [ ] Entity selection
 - [ ] Outline selection

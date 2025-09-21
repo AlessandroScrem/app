@@ -13,9 +13,8 @@ use winit::window::Window;
 
 use crate::{
     LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager,
-    camera::Camera,
-    renderer::{gpu_manager::GPUResourceManager},
+    assets::texture_manager::TextureManager, camera::Camera,
+    renderer::gpu_manager::GPUResourceManager,
 };
 
 // registro imgui separato
@@ -90,11 +89,17 @@ pub struct ImguiState {
     pub last_frame: Instant,
     pub last_cursor: Option<MouseCursor>,
     pub entity_selected: Option<Entity>,
+    ini_loaded: bool,
 }
 
 impl ImguiState {
     pub fn create_imgui(window: &Window, resources: &mut legion::Resources) -> Self {
         let mut context = imgui::Context::create();
+
+        let io = context.io_mut();
+        io.config_flags.insert(ConfigFlags::DOCKING_ENABLE);
+        io.config_flags.insert(ConfigFlags::VIEWPORTS_ENABLE);
+
         let mut platform = WinitPlatform::new(&mut context);
         let hidpi_factor = window.scale_factor();
 
@@ -155,7 +160,24 @@ impl ImguiState {
             last_frame,
             last_cursor,
             entity_selected: None,
+            ini_loaded: false,
         }
+    }
+
+    // wokaround to avoid crash: 
+    // load ini after creating 1st frame.
+    fn load_ini_if_needed(&mut self) {
+        if self.ini_loaded {
+            return;
+        }
+
+        self.context.set_ini_filename(Some("imgui.ini".into()));
+
+        if let Ok(ini_content) = std::fs::read_to_string("imgui.ini") {
+            self.context.load_ini_settings(&ini_content);
+        }
+
+        self.ini_loaded = true;
     }
 
     pub fn update_ui(
@@ -175,6 +197,8 @@ impl ImguiState {
 
         let ui = self.context.frame();
         {
+            ui.dockspace_over_main_viewport();
+
             let mut win_pos = [0.0, 0.0];
             draw_window_general_info(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
             draw_window_camera(ui, &mut win_pos, &resources);
@@ -189,6 +213,8 @@ impl ImguiState {
             self.last_cursor = ui.mouse_cursor();
             self.platform.prepare_render(ui, window);
         };
+
+        self.load_ini_if_needed(); 
 
         let draw_data: &DrawData = self.context.render();
         let owned = OwnedDrawData::from(draw_data);
@@ -558,5 +584,31 @@ fn draw_debug_texture(ui: &imgui::Ui, resources: &legion::Resources) {
                 ui.text(name);
                 ui.separator();
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use imgui::{ConfigFlags, Context};
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn should_imgui_load_ini() {
+        let mut imgui = Context::create();
+        imgui
+            .io_mut()
+            .config_flags
+            .insert(ConfigFlags::DOCKING_ENABLE);
+
+        // --- caricamento manuale ---
+        let path = PathBuf::from("imgui.ini");
+        if let Ok(s) = fs::read_to_string(&path) {
+            imgui.load_ini_settings(&s);
+        }
+
+        let mut ini_data = String::new();
+        imgui.save_ini_settings(&mut ini_data);
+        fs::write(path, ini_data).unwrap();
     }
 }
