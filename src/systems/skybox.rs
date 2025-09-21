@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use crate::{renderer::{
-    gpu_manager::GPUResourceManager,
-    gpu_renderer::DepthTexture,
-    hdr_frame::HdrFrame,
-    pipeline_manager::{PipelineKind, PipelineManager},
-    skybox_manager::{SkyboxKind, SkyboxManager},
-}, Globals};
+use crate::{
+    Globals,
+    renderer::{
+        gpu_manager::GPUResourceManager,
+        gpu_renderer::DepthTexture,
+        hdr_frame::HdrFrame,
+        pipeline_manager::{PipelineKind, PipelineManager},
+        skybox_manager::SkyboxManager,
+    },
+};
 
 use legion::*;
 
@@ -18,7 +21,7 @@ pub fn skybox(
     #[resource] depth_texture: &DepthTexture,
     #[resource] skybox_manager: &SkyboxManager,
     #[resource] hdr_texture: &HdrFrame,
-    #[resource] globals: &Globals
+    #[resource] globals: &Globals,
 ) {
     if !globals.skybox_enable {
         return;
@@ -48,7 +51,7 @@ pub fn skybox(
     });
 
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
-    let skybox_bind_group = skybox_manager.get_skybox(SkyboxKind::Default);
+    let skybox_bind_group = skybox_manager.get_skybox();
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);

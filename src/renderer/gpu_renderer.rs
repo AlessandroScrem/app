@@ -48,11 +48,11 @@ impl Ibl {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_irradiance(skybox_manager::SkyboxKind::Default)),
+                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_irradiance()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_prefilter(skybox_manager::SkyboxKind::Default)),
+                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_prefilter()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 4,

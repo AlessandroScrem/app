@@ -15,7 +15,6 @@ use crate::{
         pipeline_manager,
     },
 };
-
 use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
 
 use crate::assets::texture;
@@ -957,11 +956,6 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
     }
 }
 
-#[derive(Debug, Clone, Copy, EnumIter)]
-pub enum SkyboxKind {
-    Default,
-}
-
 pub struct Skybox {
     hdr_path: std::path::PathBuf,
     _cube_map: wgpu::Texture,
@@ -976,10 +970,8 @@ pub struct Skybox {
 pub struct SkyboxManager {
     brdf_lut: wgpu::Texture,
     brdf_lut_view: wgpu::TextureView,
-    skyboxes: Vec<Skybox>,
+    skybox: Skybox,
 }
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 impl SkyboxManager {
     pub fn new(
@@ -992,32 +984,35 @@ impl SkyboxManager {
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Create skyboxes
-        let skyboxes: Vec<Skybox> = SkyboxKind::iter()
-            .map(|kind| {
-                Self::create_skybox(device, queue, gpu_resource_manager, texture_manager, kind)
-            })
-            .collect();
+        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+        // Create skybox
+        let skybox = Self::create_skybox(
+            device,
+            queue,
+            gpu_resource_manager,
+            texture_manager,
+            hdr_path,
+        );
 
         Self {
             brdf_lut,
             brdf_lut_view,
-            skyboxes,
+            skybox,
         }
     }
 
-    pub fn get_skybox(&self, kind: SkyboxKind) -> &wgpu::BindGroup {
-        &self.skyboxes[kind as usize].bind_group
+    pub fn get_skybox(&self) -> &wgpu::BindGroup {
+        &self.skybox.bind_group
     }
-    pub fn get_hdr_path(&self, kind: SkyboxKind) -> &PathBuf {
-        &self.skyboxes[kind as usize].hdr_path
+    pub fn get_hdr_path(&self) -> &PathBuf {
+        &self.skybox.hdr_path
     }
 
-    pub fn get_irradiance(&self, kind: SkyboxKind) -> &wgpu::TextureView {
-        &self.skyboxes[kind as usize].irradiance_view
+    pub fn get_irradiance(&self) -> &wgpu::TextureView {
+        &self.skybox.irradiance_view
     }
-    pub fn get_prefilter(&self, kind: SkyboxKind) -> &wgpu::TextureView {
-        &self.skyboxes[kind as usize].prefilter_view
+    pub fn get_prefilter(&self) -> &wgpu::TextureView {
+        &self.skybox.prefilter_view
     }
     pub fn get_brdf_lut(&self) -> &wgpu::TextureView {
         &self.brdf_lut_view
@@ -1035,6 +1030,22 @@ impl SkyboxManager {
             return;
         }
 
+        self.skybox = Self::create_skybox(
+            device,
+            queue,
+            gpu_resource_manager,
+            texture_manager,
+            hdr_path,
+        );
+    }
+
+    fn create_skybox(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        gpu_resource_manager: &GPUResourceManager,
+        texture_manager: &mut TextureManager,
+        hdr_path: &std::path::Path,
+    ) -> Skybox {
         let hdr = texture_manager.get_or_create(hdr_path, TextureFormat::Rgba16Float);
         let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
@@ -1079,7 +1090,8 @@ impl SkyboxManager {
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
-        let sb = Skybox {
+
+        Skybox {
             hdr_path: hdr_path.into(),
             _cube_map: cube_map,
             _cube_map_view: cube_map_view,
@@ -1088,77 +1100,6 @@ impl SkyboxManager {
             _prefilter_map,
             prefilter_view,
             bind_group,
-        };
-
-        self.skyboxes[SkyboxKind::Default as usize] = sb; 
-    }
-
-    fn create_skybox(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        gpu_resource_manager: &GPUResourceManager,
-        texture_manager: &mut TextureManager,
-        kind: SkyboxKind,
-    ) -> Skybox {
-        match kind {
-            SkyboxKind::Default => {
-                #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
-                let hdr = texture_manager.get_or_create(hdr_path, TextureFormat::Rgba16Float);
-                let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
-                let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
-                let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
-                let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
-                    dimension: Some(wgpu::TextureViewDimension::Cube),
-                    ..Default::default()
-                });
-
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Linear,
-                    ..Default::default()
-                });
-
-                let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
-
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: &bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&cube_map_view),
-                        },
-                    ],
-                    label: Some("skybox_bind_group"),
-                });
-
-                let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor {
-                    dimension: Some(wgpu::TextureViewDimension::Cube),
-                    ..Default::default()
-                });
-                let prefilter_view = _prefilter_map.create_view(&wgpu::TextureViewDescriptor {
-                    dimension: Some(wgpu::TextureViewDimension::Cube),
-                    ..Default::default()
-                });
-
-                Skybox {
-                    hdr_path: hdr_path.into(),
-                    _cube_map: cube_map,
-                    _cube_map_view: cube_map_view,
-                    _irradiance_map,
-                    irradiance_view,
-                    _prefilter_map,
-                    prefilter_view,
-                    bind_group,
-                }
-            }
         }
     }
 }
@@ -1261,9 +1202,8 @@ mod tests {
         let gpu_resource_manager = GPUResourceManager::new(&device);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let manager =
+        let _manager =
             SkyboxManager::new(&device, &queue, &gpu_resource_manager, &mut texture_manager);
-        assert_eq!(manager.skyboxes.len(), SkyboxKind::iter().count());
     }
 
     #[test]

@@ -15,7 +15,7 @@ use crate::{
     LightComponent, MeshComponent, TagComponent, TransformComponent,
     assets::texture_manager::TextureManager,
     camera::Camera,
-    renderer::{gpu_manager::GPUResourceManager, skybox_manager},
+    renderer::{gpu_manager::GPUResourceManager},
 };
 
 // registro imgui separato
@@ -255,7 +255,7 @@ fn draw_window_general_info(
             ui.checkbox("Skybox enable", &mut globals.skybox_enable);
             let mut change_skybox = false;
             if globals.skybox_enable {
-                let hdr_path = skybox_manager.get_hdr_path(skybox_manager::SkyboxKind::Default);
+                let hdr_path = skybox_manager.get_hdr_path();
                 if let Some(id) = registry.ids.get(hdr_path) {
                     let name = hdr_path
                         .file_stem()
