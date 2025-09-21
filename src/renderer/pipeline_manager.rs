@@ -1,4 +1,4 @@
-use crate::renderer::gpu_manager::{GPUResourceManager, LayoutKind};
+use crate::renderer::gpu_manager::{GPUResourceManager, LayoutKind, LinesVertexData};
 use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
@@ -84,6 +84,7 @@ use strum_macros::EnumIter;
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum PipelineKind {
     BlinnPhong,
+    Lines,
     Pbr,
     Hdr,
     Light,
@@ -156,12 +157,43 @@ fn create_pipeline(
                 buffer_desc,
             )
         }
+        PipelineKind::Lines => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Lines Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/lines.wgsl"));
+            let buffer_desc = &[LinesVertexData::get_layout()];
+
+            let pipeline_desc = PipelineDesc {
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::LineList,
+                    ..Default::default()
+                },
+                depth_stencil: None, 
+                ..Default::default()
+            };
+
+            pipeline_desc.build_pipeline(
+                "Lines Pipeline",
+                device,
+                render_pipeline_layout,
+                hdr_format,
+                shader,
+                buffer_desc,
+            )
+        }
         PipelineKind::Pbr => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
                 gpu_resource_manager.get_layout(LayoutKind::Globals), //0
                 gpu_resource_manager.get_layout(LayoutKind::Material), //1
-                gpu_resource_manager.get_layout(LayoutKind::Model),  //2
-                gpu_resource_manager.get_layout(LayoutKind::LightIbl),  //3
+                gpu_resource_manager.get_layout(LayoutKind::Model),   //2
+                gpu_resource_manager.get_layout(LayoutKind::LightIbl), //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

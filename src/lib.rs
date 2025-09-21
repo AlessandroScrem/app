@@ -44,6 +44,7 @@ pub struct Globals {
     pub skybox_enable: bool,
     pub exposure: f32,
     pub tonemap_filter: u32,
+    pub axis_enable: bool,
 }
 impl Default for Globals {
     fn default() -> Self {
@@ -52,6 +53,7 @@ impl Default for Globals {
             skybox_enable: true,
             exposure: 1.0,
             tonemap_filter: 0,
+            axis_enable: true,
         }
     }
 }
