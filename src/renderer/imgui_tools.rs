@@ -243,12 +243,14 @@ fn draw_window_general_info(
 
     let window = ui.window("General info");
     let win_size = [300.0, 300.0];
+    let adapter_name = resources.get::<wgpu::Adapter>().unwrap().get_info().name;
     window
         .size(win_size, Condition::FirstUseEver)
         .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             ui.separator();
             ui.text(format!("Frametime: {delta_s:?}"));
+            ui.text(format!("Adapter: {}", adapter_name));
             let mouse_pos = ui.io().mouse_pos;
             ui.text(format!(
                 "Mouse position: ({:.1},{:.1})",

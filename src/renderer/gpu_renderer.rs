@@ -184,5 +184,6 @@ impl Renderer {
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
         resources.insert(ibl_bind_group);
+        resources.insert(adapter);
     }
 }
