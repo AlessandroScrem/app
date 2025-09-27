@@ -50,10 +50,3 @@ cargo run
 
 ## Known issues
 - 
-
-
-## Screenshots
-![Hello PBR Cube](/assets/screenshots/Screenshot_2025-09-27.jpg?raw=true "Hello PBR cube!")
-
-## Known issues
-- 
