@@ -1,5 +1,6 @@
 use wgpu::Extent3d;
 use std::sync::{Arc, OnceLock};
+use wgpu::RequestAdapterOptions;
 
 static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
 pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
