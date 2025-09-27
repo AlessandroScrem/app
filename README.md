@@ -1,3 +1,4 @@
+# App
 [![Rust](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml)
 
 # Simple Renderer Wgpu 
