@@ -29,6 +29,16 @@ impl BoundingBox {
     }
 }
 
+// Implementazione di From per tuple di array ([f32;3], [f32;3])
+impl From<([f32; 3], [f32; 3])> for BoundingBox {
+    fn from(value: ([f32; 3], [f32; 3])) -> Self {
+        BoundingBox {
+            min: value.0,
+            max: value.1,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

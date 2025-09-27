@@ -17,7 +17,7 @@ pub fn create(world: &mut World, resources: &Resources) {
     let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
 
     {
-        let avocado = load_gltf(
+        let mesh = load_gltf(
             &mut material_manager,
             &mut texture_manager,
             &gpu_resource_manager,
@@ -26,22 +26,20 @@ pub fn create(world: &mut World, resources: &Resources) {
         )
         .expect("unable_load mesh");
 
-        let bounding_box = BoundingBox {
-            min: avocado.vmin,
-            max: avocado.vmax,
+        let transform = TransformComponent {
+            position: [2.0, 0.0, 0.0],
+            scale: [10.0f32, 10.0, 10.0],
+            ..Default::default()
         };
-        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box);
+        let bounding_box = (mesh.vmin, mesh.vmax).into();
+        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
 
         world.push((
             TagComponent {
-                name: avocado.name.clone(),
+                name: mesh.name.clone(),
             },
-            MeshComponent { data: avocado },
-            TransformComponent {
-                position: [2.0, 0.0, 0.0],
-                scale: [10.0f32, 10.0, 10.0],
-                ..Default::default()
-            },
+            transform,
+            MeshComponent { data: mesh },
             BoundingBoxComponent {
                 bounding_box,
                 vertex_buffer,
@@ -50,7 +48,7 @@ pub fn create(world: &mut World, resources: &Resources) {
     }
 
     {
-        let cube = load_gltf(
+        let mesh = load_gltf(
             &mut material_manager,
             &mut texture_manager,
             &gpu_resource_manager,
@@ -59,18 +57,16 @@ pub fn create(world: &mut World, resources: &Resources) {
         )
         .expect("unable_load mesh");
 
-        let bounding_box = BoundingBox {
-            min: cube.vmin,
-            max: cube.vmax,
-        };
-        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box);
-        
+        let bounding_box = (mesh.vmin, mesh.vmax).into();
+        let transform = TransformComponent::default();
+        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
+
         world.push((
             TagComponent {
-                name: cube.name.clone(),
+                name: mesh.name.clone(),
             },
-            MeshComponent { data: cube },
-            TransformComponent::default(),
+            MeshComponent { data: mesh },
+            transform,
             BoundingBoxComponent {
                 bounding_box,
                 vertex_buffer,

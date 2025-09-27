@@ -164,7 +164,7 @@ impl ImguiState {
         }
     }
 
-    // wokaround to avoid crash: 
+    // wokaround to avoid crash:
     // load ini after creating 1st frame.
     fn load_ini_if_needed(&mut self) {
         if self.ini_loaded {
@@ -203,7 +203,13 @@ impl ImguiState {
             draw_window_general_info(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
             draw_window_camera(ui, &mut win_pos, &resources);
             draw_window_entities(ui, &mut win_pos, world, &mut self.entity_selected);
-            draw_window_properties(ui, &mut win_pos, world, &resources, self.entity_selected);
+            draw_window_properties(
+                ui,
+                &mut win_pos,
+                world,
+                &resources,
+                self.entity_selected,
+            );
 
             draw_debug_window(ui, self.demo_open);
             draw_debug_texture(ui, &resources);
@@ -214,7 +220,7 @@ impl ImguiState {
             self.platform.prepare_render(ui, window);
         };
 
-        self.load_ini_if_needed(); 
+        self.load_ini_if_needed();
 
         let draw_data: &DrawData = self.context.render();
         let owned = OwnedDrawData::from(draw_data);
@@ -426,6 +432,7 @@ fn draw_window_properties(
             draw_ui_light(ui, world, entity.clone());
         });
     win_pos[1] = win_pos[1] + win_size[1];
+
 }
 
 fn draw_ui_mesh(
@@ -435,8 +442,8 @@ fn draw_ui_mesh(
     entity: Entity,
 ) {
     use legion::query::IntoQuery;
-    let mut query = <(&mut MeshComponent, &mut TransformComponent)>::query();
 
+    let mut query = <(&mut MeshComponent, &mut TransformComponent)>::query();
     if let Ok((mesh, transform)) = query.get_mut(world, entity) {
         for submesh in mesh.data.submeshes.iter_mut() {
             let material = &mut submesh.material;
@@ -505,9 +512,11 @@ fn draw_ui_mesh(
                 ui.separator();
             }
         }
+
         draw_ui_transform(ui, "Mesh Transform", transform);
         ui.separator();
     }
+
 }
 
 fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
@@ -539,6 +548,7 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
 }
 
 fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformComponent) {
+
     if ui.collapsing_header(
         name,
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -549,17 +559,21 @@ fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformCompon
         ui.separator();
 
         let id = ui.push_id(name);
-        Drag::new("Move")
-            .speed(0.1)
-            .build_array(ui, &mut transform.position);
-        Drag::new("Rot[rad]")
-            .speed(0.01)
-            .build_array(ui, &mut transform.rotation);
-        Drag::new("Scale")
-            .speed(0.1)
-            .build_array(ui, &mut transform.scale);
+        let mut pos = transform.position;
+        let mut rot = transform.rotation;
+        let mut scale = transform.scale;
+        if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
+            transform.position = pos;
+        };
+        if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
+            transform.rotation = rot;
+        };
+        if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
+            transform.scale = scale;
+        };
         id.pop();
     }
+
 }
 
 fn draw_debug_window(ui: &imgui::Ui, demo_open: bool) {

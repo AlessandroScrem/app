@@ -14,6 +14,7 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::globals::global_system())
         .add_system(crate::systems::light::update_trnsform_system())
         .add_system(crate::systems::mesh::update_model_matrix_system())
+        .add_system(crate::systems::bounding_box::update_bounding_box_system())
         .add_system(crate::systems::mesh::update_material_system())
         .add_system(crate::systems::mesh::mesh_system())
         .add_system(crate::systems::light::light_system())

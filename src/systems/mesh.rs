@@ -81,6 +81,7 @@ pub fn mesh(
 
 use crate::renderer::uniform::ModelUniform;
 #[system(for_each)]
+#[filter(maybe_changed::<TransformComponent>())]
 pub fn update_model_matrix(
     transform: &TransformComponent,
     mesh: &MeshComponent,

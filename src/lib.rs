@@ -119,6 +119,7 @@ pub struct MeshComponent {
     data: assets::mesh::Mesh,
 }
 
+
 pub struct TransformComponent {
     pub position: [f32; 3],
     pub rotation: [f32; 3],
