@@ -19,8 +19,12 @@ jobs:
     # Step per installare dipendenze Vulkan/mesa per wgpu headless
     - name: Install wgpu dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libvulkan1 vulkan-utils mesa-utils mesa-vulkan-drivers
+       sudo apt-get update
+       sudo apt-get install -y \
+       libvulkan1 \
+       mesa-utils \
+       mesa-vulkan-drivers \
+       vulkan-tools
     - name: Build
       run: cargo build --verbose
     - name: Run tests
