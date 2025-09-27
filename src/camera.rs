@@ -11,7 +11,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-
 /* //glam implementation
     pub fn perspective_lh(fov_y_radians: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Self {
         glam_assert!(z_near > 0.0 && z_far > 0.0);
@@ -25,12 +24,12 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
             DVec4::new(0.0, 0.0, r, 1.0),
             DVec4::new(0.0, 0.0, -r * z_near, 0.0),
         )
-    } 
+    }
 */
-/*     
+/*
     use cgmath::{Matrix4, Rad};
     /// Perspective LH (left-handed) come in DirectX (da testare)
-    #[rustfmt::skip] 
+    #[rustfmt::skip]
     pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
         let fovy = fovy.into();
         let f = 1.0 / (fovy.0 / 2.0).tan();
@@ -39,9 +38,8 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
         0.0, f, 0.0, 0.0,
         0.0, 0.0, far / (far - near), 1.0,
         0.0, 0.0, -(near * far) / (far - near), 0.0,)
-    } 
+    }
 */
-
 
 #[derive(Clone, Debug)]
 pub struct Camera {
@@ -221,7 +219,7 @@ mod tests {
     #[test]
     fn test_camera_update_view() {
         use super::Camera;
-        
+
         let mut cam = Camera::default();
 
         // Aggiorna la view matrix

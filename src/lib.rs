@@ -18,21 +18,17 @@ pub mod prelude {
     pub use crate::renderer::imgui_tools;
     pub use crate::renderer::uniform::CameraUniform;
 }
+use crate::entities::bounding_box::BoundingBox;
 
-use std::sync::{Arc, OnceLock};
-static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
-pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
-    DEVICE_AND_QUEUE.get_or_init(|| {
-        let instance = wgpu::Instance::default();
-        let adapter =
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
-                .unwrap();
-
-        let (device, queue) =
-            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
-
-        (Arc::new(device), Arc::new(queue))
-    })
+pub mod colors {
+    pub const SILVER:[f32;3] = [0.7, 0.7, 0.7];
+    pub const CYAN_COLOR:[f32;3] = [0.0, 1.0, 1.0];
+    pub const YELLOW_COLOR:[f32;3] = [1.0, 0.5, 1.0];
+    pub const LIGHT_YELLOW_COLOR:[f32; 3] = [1.0, 0.9, 0.5];
+    pub const RED_COLOR:[f32; 3] = [0.8, 0.3, 0.2]; 
+    pub const GREEN_COLOR:[f32; 3] = [0.2, 0.8, 0.3]; 
+    pub const BLUE_COLOR:[f32; 3] = [0.2, 0.3, 0.8]; 
+    pub const CLEAR_COLOR:[f32; 3] = [0.1, 0.1, 0.1]; 
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -45,6 +41,7 @@ pub struct Globals {
     pub exposure: f32,
     pub tonemap_filter: u32,
     pub axis_enable: bool,
+    pub bbox_enable: bool,
 }
 impl Default for Globals {
     fn default() -> Self {
@@ -54,6 +51,7 @@ impl Default for Globals {
             exposure: 1.0,
             tonemap_filter: 0,
             axis_enable: true,
+            bbox_enable: true,
         }
     }
 }
@@ -131,7 +129,7 @@ pub struct TagComponent {
     pub name: String,
 }
 
-// una funzione "pesante" da misurare
-pub fn heavy_computation(n: usize) -> usize {
-    (0..n).map(|x| x * 2).sum()
+pub struct BoundingBoxComponent {
+    pub bounding_box: BoundingBox,
+    pub vertex_buffer: wgpu::Buffer,
 }

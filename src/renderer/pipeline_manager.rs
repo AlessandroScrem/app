@@ -1,4 +1,7 @@
-use crate::renderer::gpu_manager::{GPUResourceManager, LayoutKind, LinesVertexData};
+use crate::{
+    assets::vertexdata::LinesVertexData,
+    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+};
 use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
@@ -144,7 +147,7 @@ fn create_pipeline(
                 });
             let shader =
                 device.create_shader_module(wgpu::include_wgsl!("shaders/blinn_phong.wgsl"));
-            let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
+            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
 
             let pipeline_desc = PipelineDesc::default();
 
@@ -175,7 +178,7 @@ fn create_pipeline(
                     topology: wgpu::PrimitiveTopology::LineList,
                     ..Default::default()
                 },
-                depth_stencil: None, 
+                depth_stencil: None,
                 ..Default::default()
             };
 
@@ -202,7 +205,7 @@ fn create_pipeline(
                     push_constant_ranges: &[],
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
-            let buffer_desc = &[crate::assets::mesh::MeshVertexData::get_layout()];
+            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
 
             let pipeline_desc = PipelineDesc::default();
 

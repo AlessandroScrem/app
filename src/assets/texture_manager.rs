@@ -102,9 +102,10 @@ impl TextureManager {
 mod tests {
 
     use super::*;
+    use crate::test_utils;
 
     fn create_manager() -> TextureManager {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         TextureManager::new(device.clone(), queue.clone())
     }
 
@@ -160,8 +161,7 @@ mod tests {
 
         #[cfg(feature = "save_tests")]
         {
-            use crate::test_utils;
-            let (device, queue) = crate::get_device_and_queue();
+            let (device, queue) = test_utils::get_device_and_queue();
             test_utils::save_texture(&device, &queue, "hdr.png", &hdr.inner, 0).unwrap();
         }
     }

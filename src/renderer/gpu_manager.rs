@@ -1,4 +1,5 @@
 use crate::GlobalUniform;
+use crate::assets::vertexdata::LinesVertexData;
 use crate::renderer::uniform::CameraUniform;
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
@@ -387,26 +388,6 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                 },
             ],
         }),
-    }
-}
-
-#[repr(C)]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct LinesVertexData {
-    position: [f32; 3],
-    color: [f32; 3],
-}
-
-impl LinesVertexData {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3];
-
-    pub fn get_layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
     }
 }
 

@@ -1,4 +1,20 @@
 use wgpu::Extent3d;
+use std::sync::{Arc, OnceLock};
+
+static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
+pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
+    DEVICE_AND_QUEUE.get_or_init(|| {
+        let instance = wgpu::Instance::default();
+        let adapter =
+            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+                .unwrap();
+
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
+
+        (Arc::new(device), Arc::new(queue))
+    })
+}
 
 /// Save a 2D texture to a file (png).
 /// Supported formats: Rgba8Unorm, Rg16Float, Rgba16Float
@@ -441,7 +457,6 @@ fn rgba16float_to_rgba8(raw: &[u8], width: u32, height: u32) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "save_tests")]
     use super::*;
 
     use half::f16;
@@ -579,7 +594,7 @@ mod tests {
 
     #[test]
     fn should_save_texture_dummy_rgba8unorm_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rgba = create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba8Unorm, 64);
 
@@ -589,7 +604,7 @@ mod tests {
 
     #[test]
     fn should_save_texture_dummy_rgba8unormsrgb_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rgba =
             create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba8UnormSrgb, 64);
@@ -600,7 +615,7 @@ mod tests {
 
     #[test]
     fn should_save_texture_dummy_rg16f_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rg16f = create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rg16Float, 64);
 
@@ -610,7 +625,7 @@ mod tests {
 
     #[test]
     fn should_save_texture_dummy_rgba16f_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rgba16f =
             create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
@@ -621,7 +636,7 @@ mod tests {
 
     #[test]
     fn should_save_cubetexture_dummy_rgba8unorm_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rgba8 = create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba8Unorm, 64);
 
@@ -631,7 +646,7 @@ mod tests {
 
     #[test]
     fn should_save_cubetexture_dummy_rgba16f_to_file() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = get_device_and_queue();
 
         let _rgba16f =
             create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);

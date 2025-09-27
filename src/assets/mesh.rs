@@ -5,64 +5,15 @@ use wgpu::util::DeviceExt;
 
 use crate::{
     assets::{
+        vertexdata::MeshVertexData,
         material_manager::{Material, MaterialManager},
         texture_manager::TextureManager,
     },
+    entities::bounding_box::BoundingBox,
     renderer::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
-#[derive(Debug, Clone, Copy)]
-struct BoundingBox {
-    min: [f32; 3],
-    max: [f32; 3],
-}
 
-impl BoundingBox {
-    pub fn new_empty() -> Self {
-        Self {
-            min: [f32::INFINITY; 3],
-            max: [f32::NEG_INFINITY; 3],
-        }
-    }
-
-    pub fn extend(&mut self, point: &[f32; 3]) {
-        for ((mi, ma), &val) in self.min.iter_mut().zip(self.max.iter_mut()).zip(point) {
-            *mi = mi.min(val);
-            *ma = ma.max(val);
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn from_points<'a, I: IntoIterator<Item = &'a [f32; 3]>>(points: I) -> Self {
-        let mut bbox = BoundingBox::new_empty();
-        for p in points {
-            bbox.extend(p);
-        }
-        bbox
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct MeshVertexData {
-    position: [f32; 3],
-    normal: [f32; 3],
-    color: [f32; 3],
-    uv: [f32; 2],
-}
-
-impl MeshVertexData {
-    const ATTRIBS: [wgpu::VertexAttribute; 4] =
-        wgpu::vertex_attr_array![0 =>Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x2];
-
-    pub fn get_layout() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
 
 pub struct SubMesh {
     pub vertices: Vec<MeshVertexData>,
@@ -81,6 +32,8 @@ pub struct Mesh {
     pub submeshes: Vec<SubMesh>,
     pub model_uniform_buffer: wgpu::Buffer,
     pub model_bind_group: wgpu::BindGroup,
+    pub vmin: [f32; 3],
+    pub vmax: [f32; 3],
 }
 
 #[allow(dead_code)]
@@ -105,7 +58,8 @@ pub fn load_gltf(
     let gltf_mesh = document.meshes().next().expect("mesh [0] not present");
     let name = gltf_mesh.name().unwrap_or("mesh").to_string();
 
-    let mut submeshes: Vec<SubMesh> = Vec::new();
+    let mut mesh_bbox = BoundingBox::new_empty();
+    let mut submeshes: Vec<SubMesh> = Vec::new(); 
 
     for primitive in gltf_mesh.primitives() {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -178,6 +132,7 @@ pub fn load_gltf(
 
         let primitive_topology = get_primitive_mode(primitive.mode());
 
+        
         let submesh = SubMesh {
             vertices,
             indices,
@@ -190,6 +145,9 @@ pub fn load_gltf(
             vmax: bbox.max,
         };
         submeshes.push(submesh);
+
+        mesh_bbox.extend(&bbox.min);
+        mesh_bbox.extend(&bbox.max);
     }
 
     let model_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -220,6 +178,8 @@ pub fn load_gltf(
         submeshes,
         model_uniform_buffer,
         model_bind_group,
+        vmin: mesh_bbox.min,
+        vmax: mesh_bbox.max,
     })
 }
 
@@ -279,7 +239,7 @@ mod tests {
 
     #[test]
     fn should_load_mesh() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = crate::test_utils::get_device_and_queue();
 
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
@@ -300,58 +260,5 @@ mod tests {
 
         assert_eq!(mesh.submeshes.len(), 1);
         assert_eq!(mesh.submeshes[0].indices.len(), 36);
-    }
-
-    #[test]
-    fn should_bounding_box_from_points() {
-        let points: Vec<[f32; 3]> = vec![
-            [1.0, 5.0, 3.0],  //
-            [2.0, -1.0, 7.0], //
-            [0.5, 4.0, 6.0],
-        ];
-
-        let aabb = BoundingBox::from_points(points.iter());
-
-        assert_eq!(aabb.min, [0.5, -1.0, 3.0]);
-        assert_eq!(aabb.max, [2.0, 5.0, 7.0]);
-    }
-
-    #[test]
-    fn should_bounding_box_from_single_point() {
-        let points = vec![[1.0, 2.0, 3.0]];
-
-        let aabb = BoundingBox::from_points(points.iter());
-
-        assert_eq!(aabb.min, [1.0, 2.0, 3.0]);
-        assert_eq!(aabb.max, [1.0, 2.0, 3.0]);
-    }
-
-    #[test]
-    fn test_aabb_empty() {
-        let bbox = BoundingBox::new_empty();
-
-        // min rimane INFINITY, max rimane NEG_INFINITY
-        assert_eq!(bbox.min, [f32::INFINITY; 3]);
-        assert_eq!(bbox.max, [f32::NEG_INFINITY; 3]);
-    }
-
-    #[test]
-    fn test_extend_step_by_step() {
-        let mut bbox = BoundingBox::new_empty();
-
-        // dopo il primo punto
-        bbox.extend(&[1.0, 2.0, 3.0]);
-        assert_eq!(bbox.min, [1.0, 2.0, 3.0]);
-        assert_eq!(bbox.max, [1.0, 2.0, 3.0]);
-
-        // aggiungo un punto "più piccolo"
-        bbox.extend(&[0.0, -1.0, 2.5]);
-        assert_eq!(bbox.min, [0.0, -1.0, 2.5]);
-        assert_eq!(bbox.max, [1.0, 2.0, 3.0]);
-
-        // aggiungo un punto "più grande"
-        bbox.extend(&[5.0, 3.0, 10.0]);
-        assert_eq!(bbox.min, [0.0, -1.0, 2.5]);
-        assert_eq!(bbox.max, [5.0, 3.0, 10.0]);
     }
 }

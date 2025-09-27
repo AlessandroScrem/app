@@ -42,4 +42,5 @@ anyhow = "1.0.99"
 rayon = "1.11.0"
 stb_image = "0.3.0"
 rfd = "0.15.4"
+# nofmt = "1.0.0"
 

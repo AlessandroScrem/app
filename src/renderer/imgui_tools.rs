@@ -309,6 +309,7 @@ fn draw_window_general_info(
                 }
             }
             ui.checkbox("Axis enable", &mut globals.axis_enable);
+            ui.checkbox("BoundingBox", &mut globals.bbox_enable);
 
             ui.separator();
             ui.checkbox("Show demo window", demo_open)

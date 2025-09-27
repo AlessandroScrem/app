@@ -1109,12 +1109,13 @@ mod tests {
 
     use super::*;
     use crate::assets::texture_manager::TextureManager;
+    use crate::test_utils;
     use std::path::Path;
 
     /// BRDFLut
     #[test]
     fn should_create_brdflut_rg16f_texture() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
 
         let brdflut = BRDFLUTBuilder::build(device, queue);
 
@@ -1127,7 +1128,6 @@ mod tests {
 
         #[cfg(feature = "save_tests")]
         {
-            use crate::test_utils;
             test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
         }
     }
@@ -1135,7 +1135,7 @@ mod tests {
     /// PrefilterMap
     #[test]
     fn should_create_prefilter_rgba16f_cubemap() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
@@ -1151,8 +1151,8 @@ mod tests {
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
-        #[cfg(feature = "save_tests")]{
-            use crate::test_utils;
+        #[cfg(feature = "save_tests")]
+        {
             test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
         }
     }
@@ -1160,7 +1160,7 @@ mod tests {
     /// EquirectangularToCubemap
     #[test]
     fn should_crate_cubetexture_rgba16f_from_equirectangular() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
@@ -1176,8 +1176,8 @@ mod tests {
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
         // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
-        #[cfg(feature = "save_tests")] {
-            use crate::test_utils;
+        #[cfg(feature = "save_tests")]
+        {
             test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
         }
     }
@@ -1185,7 +1185,7 @@ mod tests {
     /// IrradianceCubemap
     #[test]
     fn should_crate_irradiance_cubetexture_rgba16f() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
@@ -1201,8 +1201,8 @@ mod tests {
         assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
 
-        #[cfg(feature = "save_tests")]{
-            use crate::test_utils;
+        #[cfg(feature = "save_tests")]
+        {
             test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
         }
     }
@@ -1210,7 +1210,7 @@ mod tests {
     /// Skybox
     #[test]
     fn skybox_manager_is_initialized() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         let gpu_resource_manager = GPUResourceManager::new(&device);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
@@ -1220,7 +1220,7 @@ mod tests {
 
     #[test]
     fn should_create_skybox_from_6_images() {
-        let (device, queue) = crate::get_device_and_queue();
+        let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/right.png"));
@@ -1240,9 +1240,10 @@ mod tests {
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
 
-        #[cfg(feature = "save_tests")]{
-            use crate::test_utils;
-            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &_cube.inner).unwrap();
+        #[cfg(feature = "save_tests")]
+        {
+            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &_cube.inner)
+                .unwrap();
         }
     }
 

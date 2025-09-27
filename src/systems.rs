@@ -1,5 +1,6 @@
 pub mod globals;
 pub mod mesh;
+pub mod bounding_box;
 pub mod axis;
 pub mod camera_orbit;
 pub mod imgui;
@@ -18,6 +19,7 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::light::light_system())
         .add_system(crate::systems::skybox::skybox_system())
         .add_system(crate::systems::axis::axis_system())
+        .add_system(crate::systems::bounding_box::bounding_box_system())
         .add_system(crate::systems::hdr::hdr_system())
         .add_thread_local(crate::systems::imgui::imgui_system())
         .build()
