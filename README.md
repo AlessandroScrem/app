@@ -1,3 +1,5 @@
+[![Rust](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml)
+
 # Simple Renderer Wgpu 
 
 A modern 3D/2D render engine that uses wgpu
