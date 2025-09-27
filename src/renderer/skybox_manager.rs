@@ -1109,7 +1109,6 @@ mod tests {
 
     use super::*;
     use crate::assets::texture_manager::TextureManager;
-    use crate::test_utils;
     use std::path::Path;
 
     /// BRDFLut
@@ -1126,7 +1125,11 @@ mod tests {
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
+        #[cfg(feature = "save_tests")]
+        {
+            use crate::test_utils;
+            test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
+        }
     }
 
     /// PrefilterMap
@@ -1148,7 +1151,10 @@ mod tests {
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
+        #[cfg(feature = "save_tests")]{
+            use crate::test_utils;
+            test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
+        }
     }
 
     /// EquirectangularToCubemap
@@ -1170,7 +1176,10 @@ mod tests {
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
         // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
-        test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
+        #[cfg(feature = "save_tests")] {
+            use crate::test_utils;
+            test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
+        }
     }
 
     /// IrradianceCubemap
@@ -1192,7 +1201,10 @@ mod tests {
         assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
+        #[cfg(feature = "save_tests")]{
+            use crate::test_utils;
+            test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
+        }
     }
 
     /// Skybox
@@ -1218,7 +1230,7 @@ mod tests {
         #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/front.png"));
         #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/back.png"));
 
-        let cube = texture_manager.create_cubemap(
+        let _cube = texture_manager.create_cubemap(
             f0,
             f1,
             f2,
@@ -1228,7 +1240,10 @@ mod tests {
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
 
-        test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &cube.inner).unwrap();
+        #[cfg(feature = "save_tests")]{
+            use crate::test_utils;
+            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &_cube.inner).unwrap();
+        }
     }
 
     /// Utils

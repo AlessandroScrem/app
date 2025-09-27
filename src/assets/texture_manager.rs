@@ -100,7 +100,6 @@ impl TextureManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils;
 
     use super::*;
 
@@ -147,19 +146,23 @@ mod tests {
     #[test]
     fn should_load_hdr_texture_rgba16float() {
         let mut manager = create_manager();
-        
+
         #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        
+
         let hdr = manager.get_or_create(f0, TextureFormat::Rgba16Float);
-        
+
         assert_eq!(hdr.inner.format(), TextureFormat::Rgba16Float);
         assert!(hdr.inner.width() > 0);
         assert!(hdr.inner.height() > 0);
         assert_eq!(hdr.inner.mip_level_count(), 1); // <- no mipmaps
         assert_eq!(hdr.inner.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(hdr.inner.dimension(), wgpu::TextureDimension::D2);
-        
-        let (device, queue) = crate::get_device_and_queue();
-        test_utils::save_texture(&device, &queue, "hdr.png", &hdr.inner, 0).unwrap();
+
+        #[cfg(feature = "save_tests")]
+        {
+            use crate::test_utils;
+            let (device, queue) = crate::get_device_and_queue();
+            test_utils::save_texture(&device, &queue, "hdr.png", &hdr.inner, 0).unwrap();
+        }
     }
 }

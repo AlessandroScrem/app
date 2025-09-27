@@ -17,6 +17,10 @@ name = "hdr_bench"
 path = "benches/load_hdr.rs"
 harness = false
 
+[features]
+default = []
+save_tests = []
+
 [dependencies]
 winit = "0.30.9"
 wgpu = "25.0"
