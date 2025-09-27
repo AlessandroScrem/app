@@ -6,7 +6,11 @@ pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) 
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
         let adapter =
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
+            pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::LowPower,
+        compatible_surface: None, // niente finestra
+        force_fallback_adapter: true, // <- importantissimo
+    }))
                 .unwrap();
 
         let (device, queue) =
