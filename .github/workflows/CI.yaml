@@ -2,8 +2,7 @@ name: Rust CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -18,12 +17,12 @@ jobs:
         with:
           toolchain: stable
           override: true
-          
+
       - name: Install wgpu dependencies
         run: |
-         sudo apt-get update
-         sudo apt-get install -y libvulkan1  mesa-vulkan-drivers
-         
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
+
       - name: Cache Cargo registry
         uses: actions/cache@v3
         with:
@@ -41,6 +40,12 @@ jobs:
       - name: Cargo Build
         run: cargo build --release
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-release
+          path: target/release
+
   test:
     name: Test
     needs: build
@@ -53,8 +58,16 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Cargo Test
-        run: cargo test --release
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: target-release
+          path: target/release
+
+      - name: Run tests (force software backend)
+        run: |
+          export WGPU_BACKEND=gl
+          cargo test --release
 
   run:
     name: Run Application (short)
@@ -68,7 +81,15 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: target-release
+          path: target/release
+
       - name: Run App (30s)
-        run: cargo run --release
-        timeout-minutes: 1   # timeout massimo di 1 minuto, termina il job
-        continue-on-error: true  # non fa fallire l'intero workflow
+        run: |
+          export WGPU_BACKEND=gl
+          cargo run --release
+        timeout-minutes: 1
+        continue-on-error: true
