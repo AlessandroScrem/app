@@ -6,7 +6,7 @@ fn main() {
 
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::default();
+    let mut app = App::new_with_size(2400, 1200);
     let _ = event_loop.run_app(&mut app);
 
 }

@@ -17,11 +17,20 @@ impl ApplicationHandler for App {
             "App resumed after being paused for {} ms",
             timer.elapsed().as_millis()
         );
-        let size = winit::dpi::LogicalSize::new(1280.0, 720.0);
+
+        let size = self.size;
         let attributes = Window::default_attributes()
             .with_inner_size(size)
             .with_title(format!("App"));
         let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
+
+        // Dopo aver creato la finestra, la possiamo centrare
+        if let Some(monitor) = window.current_monitor() {
+            let screen_size = monitor.size(); // dimensione dello schermo in px
+            let x = (screen_size.width as u32 - size.width) as f32 / 2.0;
+            let y = (screen_size.height as u32 - size.height)as f32  / 2.0;
+            window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+        }
 
         self.window = Some(window.clone());
 
@@ -233,7 +242,11 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
         resources.insert({
             let device = resources.get::<wgpu::Device>().unwrap();
             let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-            HdrFrame::new(&device, &gpu_resource_manager, winit::dpi::PhysicalSize::new(width, height))
+            HdrFrame::new(
+                &device,
+                &gpu_resource_manager,
+                winit::dpi::PhysicalSize::new(width, height),
+            )
         });
     }
 

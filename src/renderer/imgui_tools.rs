@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
@@ -14,7 +10,7 @@ use winit::window::Window;
 use crate::{
     LightComponent, MeshComponent, TagComponent, TransformComponent,
     assets::texture_manager::TextureManager, camera::Camera,
-    renderer::gpu_manager::GPUResourceManager,
+    prelude::imgui_tools::ui_tools::Timestep, renderer::gpu_manager::GPUResourceManager,
 };
 
 // registro imgui separato
@@ -29,7 +25,82 @@ impl ImGuiTextureRegistry {
         }
     }
 }
+
+macro_rules! text_fmt {
+($ui:expr, $($arg:tt)*) => {
+    $ui.text(format!($($arg)*));
+};
+}
 mod ui_tools {
+
+    use std::time::{Duration, Instant};
+
+    pub struct Timestep {
+        time: Duration, // durata del frame corrente (smoothed)
+        last: Instant,  // istante dell'ultimo frame
+        fps: f32,
+        count: f32,
+        timer: f32,
+        avg_time: Duration, // media mobile del timestep
+        samples: u32,       // numero di campioni accumulati
+    }
+
+    impl Timestep {
+        pub fn new() -> Self {
+            Self {
+                time: Duration::from_secs_f32(0.0),
+                last: Instant::now(),
+                fps: 0.0,
+                count: 0.0,
+                timer: 0.0,
+                avg_time: Duration::from_secs_f32(0.0),
+                samples: 0,
+            }
+        }
+
+        /// Aggiorna il timestep in base al tempo trascorso dall'ultimo frame
+        pub fn update(&mut self) {
+            let now = Instant::now();
+            let dt = now - self.last;
+            self.last = now;
+
+            // smoothing per rendere il valore più stabile
+            const MEDIAN: f32 = 0.9;
+            const VARIANT: f32 = 0.1;
+            let blended = self.time.as_secs_f32() * MEDIAN + dt.as_secs_f32() * VARIANT;
+            self.time = Duration::from_secs_f32(blended);
+
+            // aggiorna media mobile del timestep (average in Duration)
+            self.samples += 1;
+            let avg_secs = (self.avg_time.as_secs_f32() * ((self.samples - 1) as f32)
+                + dt.as_secs_f32())
+                / (self.samples as f32);
+            self.avg_time = Duration::from_secs_f32(avg_secs);
+
+            // aggiorna FPS calcolato
+            self.count += 1.0;
+            self.timer += self.time.as_secs_f32();
+            if self.timer >= 1.0 {
+                self.fps = self.count;
+                self.count = 0.0;
+                self.timer = 0.0;
+            }
+        }
+
+        pub fn delta(&self) -> Duration {
+            self.time
+        }
+
+        pub fn fps(&self) -> u32 {
+            self.fps as u32
+        }
+
+        /// Media del timestep dall'avvio (in Duration)
+        pub fn average(&self) -> Duration {
+            self.avg_time
+        }
+    }
+
     pub fn disabled<F>(ui: &imgui::Ui, func: F)
     where
         F: FnOnce(),
@@ -137,20 +208,20 @@ pub struct ImguiState {
     pub platform: WinitPlatform,
     pub clear_color: wgpu::Color,
     pub demo_open: bool,
-    pub last_frame: Instant,
     pub last_cursor: Option<MouseCursor>,
     pub entity_selected: Option<Entity>,
     ini_loaded: bool,
+    timestep: Timestep,
 }
 
 impl ImguiState {
     pub fn create_imgui(window: &Window, resources: &mut legion::Resources) -> Self {
         let mut context = imgui::Context::create();
-        
+
         let io = context.io_mut();
         io.config_flags.insert(ConfigFlags::DOCKING_ENABLE);
         io.config_flags.insert(ConfigFlags::VIEWPORTS_ENABLE);
-        
+
         ui_tools::set_dark_theme_colors(context.style_mut());
 
         let mut platform = WinitPlatform::new(&mut context);
@@ -182,7 +253,6 @@ impl ImguiState {
             a: 1.0,
         };
 
-        let last_frame = Instant::now();
         let last_cursor = None;
         let demo_open = false;
 
@@ -201,6 +271,7 @@ impl ImguiState {
         };
 
         let registry = ImGuiTextureRegistry::new();
+        let timestep = Timestep::new();
 
         resources.insert(renderer);
         resources.insert(registry);
@@ -210,10 +281,10 @@ impl ImguiState {
             platform,
             clear_color,
             demo_open,
-            last_frame,
             last_cursor,
             entity_selected: None,
             ini_loaded: false,
+            timestep,
         }
     }
 
@@ -239,8 +310,8 @@ impl ImguiState {
         world: &mut legion::World,
         resources: &mut legion::Resources,
     ) {
-        let delta_s = self.last_frame.elapsed();
-        self.last_frame = Instant::now();
+        self.timestep.update();
+        let delta_s = self.timestep.delta();
 
         self.context.io_mut().update_delta_time(delta_s);
 
@@ -253,7 +324,13 @@ impl ImguiState {
             ui.dockspace_over_main_viewport();
 
             let mut win_pos = [0.0, 0.0];
-            draw_window_settings(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
+            draw_window_settings(
+                ui,
+                &mut win_pos,
+                &self.timestep,
+                &mut self.demo_open,
+                resources,
+            );
             draw_window_entities(ui, &mut win_pos, world, &mut self.entity_selected);
             draw_window_properties(ui, &mut win_pos, world, &resources, self.entity_selected);
 
@@ -277,7 +354,7 @@ impl ImguiState {
 fn draw_window_settings(
     ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
-    delta_s: Duration,
+    timestep: &Timestep,
     demo_open: &mut bool,
     resources: &mut legion::Resources,
 ) {
@@ -307,14 +384,38 @@ fn draw_window_settings(
                     "Mouse position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
+                text_fmt!(ui, "ResultGetPixel  : {} ", 0);
+                let hovered_entity_name = "Noname";
+                let selected_entity_name = "Noname";
+                let hovered_entity_id = 0;
+                let selected_entity_id = 0;
+                text_fmt!(
+                    ui,
+                    "Hovered Entity  : {} ID: {}",
+                    hovered_entity_name,
+                    hovered_entity_id,
+                );
+                text_fmt!(
+                    ui,
+                    "Selected Entity : {} ID: {}",
+                    selected_entity_name,
+                    selected_entity_id,
+                );
+                ui.separator();
+                ui_tools::disabled(ui, || {
+                    text_fmt!(ui, "NumShaders         : {}", 0);
+                    text_fmt!(ui, "NumTextures        : {}", 0);
+                    text_fmt!(ui, "NumUniqueTextures  : {}", 0);
+                    text_fmt!(ui, "Texture Memory Size: {}", 0);
+                    text_fmt!(ui, "Memory Allocations : {}", 0);
+                    text_fmt!(ui, "Memory Size        : {}", 0);
+                });
             };
             if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
-                ui.text(format!("Frametime     : {delta_s:?}"));
+                text_fmt!(ui, "FPS           : {:?}", timestep.fps());
+                text_fmt!(ui, "Frametime     : {:?}", timestep.average());
                 ui.separator();
-                ui.text(format!(
-                    "Gpu info\n  Adapter:  {}\n  Version:  ",
-                    adapter_name
-                ));
+                text_fmt!(ui, "Gpu info\n  Adapter:  {}\n  Version:  ", adapter_name);
             };
 
             if ui.collapsing_header("Toggles", TreeNodeFlags::empty()) {

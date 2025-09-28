@@ -17,6 +17,7 @@ pub struct App {
     pub current_scene: Scene,
     pub resources: Resources,
 
+    pub size: winit::dpi::PhysicalSize<u32>,
     pub clock: Instant,
     pub fixed_timestep: f32,
     pub elapsed_time: f32,
@@ -38,7 +39,8 @@ impl Default for App {
             current_scene: Scene::default(),
             resources: Resources::default(),
             render_schedule,
-
+            
+            size:  winit::dpi::PhysicalSize::new(1280, 1024),
             clock: Instant::now(),
             fixed_timestep: 1.0 / 60.0,
             elapsed_time: 0.0,
@@ -52,27 +54,33 @@ impl Default for App {
 }
 
 impl App {
+    pub fn new_with_size(width: u32, height: u32) -> Self {
+        Self {
+            size: winit::dpi::PhysicalSize::new(width, height),
+            ..Default::default()
+        }
+    }
+
     pub fn load(&mut self) {
         let timer = std::time::Instant::now();
-        
+
         self.resources.insert(Input::new());
         self.resources.insert(DeltaTime(10.0));
         self.resources.insert(Camera::default());
         self.resources.insert(Globals::default());
 
-
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
-        
-        self.current_scene.schedule = Schedule::builder()
-        .add_system(crate::systems::camera_orbit::camera_orbit_system())
-        .build();
-    
-    self.render_schedule = crate::systems::create_render_schedule_builder();
-    
-    self.create_gui();
 
-    println!("App loader took {} ms", timer.elapsed().as_millis());
+        self.current_scene.schedule = Schedule::builder()
+            .add_system(crate::systems::camera_orbit::camera_orbit_system())
+            .build();
+
+        self.render_schedule = crate::systems::create_render_schedule_builder();
+
+        self.create_gui();
+
+        println!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
     fn create_gui(&mut self) {
