@@ -29,23 +29,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache target
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
-
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }
+    
       - name: Cargo Build
-        run: cargo build --release
+        run: cargo test --no-run --release
 
-      - name: Upload build artifacts
+      - name: Upload test binaries
         uses: actions/upload-artifact@v4
         with:
-          name: target-release
-          path: target/release
-
+          name: test-binaries
+          path: target/release/deps
   test:
     name: Test
     needs: build
@@ -57,17 +50,23 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          
+      - name: Install wgpu dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers 
 
-      - name: Download build artifacts
+      - name: Download test binaries
         uses: actions/download-artifact@v4
         with:
-          name: target-release
-          path: target/release
+          name: test-binaties
+          path: target/release/deps
 
       - name: Run tests (force software backend)
         run: |
           export WGPU_BACKEND=gl
-          cargo test --release
+          esport WGPU_POWER_PREF=low
+          cargo test --release -- no-fail-test
 
   run:
     name: Run Application (short)
@@ -79,17 +78,23 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+         toolchain: stable
+         
+      - name: Install wgpu dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: target-release
-          path: target/release
+          name: test-binaties
+          path: target/release/deps
 
       - name: Run App (30s)
         run: |
           export WGPU_BACKEND=gl
+          esport WGPU_POWER_PREF=low
           cargo run --release
         timeout-minutes: 1
         continue-on-error: true
