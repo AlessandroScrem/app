@@ -65,7 +65,7 @@ jobs:
       - name: Run tests (force software backend)
         run: |
           export WGPU_BACKEND=gl
-          esport WGPU_POWER_PREF=low
+          export WGPU_POWER_PREF=low
           cargo test --release -- no-fail-test
 
   run:
@@ -94,7 +94,7 @@ jobs:
       - name: Run App (30s)
         run: |
           export WGPU_BACKEND=gl
-          esport WGPU_POWER_PREF=low
+          export WGPU_POWER_PREF=low
           cargo run --release
         timeout-minutes: 1
         continue-on-error: true
