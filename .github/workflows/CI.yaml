@@ -2,84 +2,59 @@ name: Rust CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "master" ]
   pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
-    name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v4
         with:
-          toolchain: stable
-          override: true
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install wgpu dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v3
+      - name: Build
+        run: cargo build --release --verbose
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: target/release
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-      - name: Cargo Build
-        run: cargo test --no-run --release
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      - name: Upload test binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-binaries
-          path: target/release/deps
-  test:
-    name: Test
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          
-      - name: Install wgpu dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers 
-
-      - name: Download test binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: test-binaries
-          path: target/release/deps
-
-      - name: Run tests (force software backend)
-        run: |
-          export WGPU_BACKEND=gl
-          export WGPU_POWER_PREF=low
-          cargo test --release -- no-fail-test
-
-  run:
-    name: Run Application (short)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-         toolchain: stable
-         
       - name: Install wgpu dependencies
         run: |
           sudo apt-get update
@@ -88,10 +63,43 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: test-binaries
-          path: target/release/deps
+          name: build-artifacts
+          path: target/release
 
-      - name: Run App (30s)
+      - name: Run tests (software backend)
+        run: |
+          export WGPU_BACKEND=gl
+          export WGPU_POWER_PREF=low
+          cargo test --release --verbose
+
+  run:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install wgpu dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: target/release
+
+      - name: Run app (30s max)
         run: |
           export WGPU_BACKEND=gl
           export WGPU_POWER_PREF=low
