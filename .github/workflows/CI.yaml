@@ -103,6 +103,7 @@ jobs:
         run: |
           export WGPU_BACKEND=gl
           export WGPU_POWER_PREF=low
-          cargo run --release
+          - name: Run App (30s)
+          ./target/release/app_wgpu
         timeout-minutes: 1
         continue-on-error: true
