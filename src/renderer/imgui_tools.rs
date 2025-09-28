@@ -29,6 +29,57 @@ impl ImGuiTextureRegistry {
         }
     }
 }
+mod ui_tools {
+    pub fn disabled<F>(ui: &imgui::Ui, func: F)
+    where
+        F: FnOnce(),
+    {
+        let _d = ui.begin_disabled(true);
+        func();
+    }
+
+    pub fn set_dark_theme_colors(style: &mut imgui::Style) {
+        const DARK_GREY: [f32; 4] = [0.1, 0.105, 0.11, 1.0];
+        const COLD_GREY: [f32; 4] = [0.2, 0.205, 0.21, 1.0];
+        const DARK_COLD_GREY: [f32; 4] = [0.15, 0.1505, 0.151, 1.0];
+        const GREY: [f32; 4] = [0.28, 0.2805, 0.281, 1.0];
+        const MEDIUM_GREY: [f32; 4] = [0.3, 0.305, 0.31, 1.0];
+        const LIGHT_GREY: [f32; 4] = [0.38, 0.3805, 0.381, 1.0];
+
+        // let DarkGrey: imgui::ImColor32 = imgui::ImColor32::from_rgb_f32s(0.1, 0.105, 0.11);
+
+        let colors = &mut style.colors;
+
+        colors[imgui::StyleColor::WindowBg as usize] = DARK_GREY;
+
+        // Headers
+        colors[imgui::StyleColor::Header as usize] = COLD_GREY;
+        colors[imgui::StyleColor::HeaderHovered as usize] = MEDIUM_GREY;
+        colors[imgui::StyleColor::HeaderActive as usize] = DARK_COLD_GREY;
+
+        // Buttons
+        colors[imgui::StyleColor::Button as usize] = COLD_GREY;
+        colors[imgui::StyleColor::ButtonHovered as usize] = MEDIUM_GREY;
+        colors[imgui::StyleColor::ButtonActive as usize] = DARK_COLD_GREY;
+
+        // Frame BG
+        colors[imgui::StyleColor::FrameBg as usize] = COLD_GREY;
+        colors[imgui::StyleColor::FrameBgHovered as usize] = MEDIUM_GREY;
+        colors[imgui::StyleColor::FrameBgActive as usize] = DARK_COLD_GREY;
+
+        // Tabs
+        colors[imgui::StyleColor::Tab as usize] = DARK_COLD_GREY;
+        colors[imgui::StyleColor::TabHovered as usize] = LIGHT_GREY;
+        colors[imgui::StyleColor::TabActive as usize] = GREY;
+        colors[imgui::StyleColor::TabUnfocused as usize] = DARK_COLD_GREY;
+        colors[imgui::StyleColor::TabUnfocusedActive as usize] = COLD_GREY;
+
+        // Title
+        colors[imgui::StyleColor::TitleBg as usize] = DARK_COLD_GREY;
+        colors[imgui::StyleColor::TitleBgActive as usize] = DARK_COLD_GREY;
+        colors[imgui::StyleColor::TitleBgCollapsed as usize] = DARK_COLD_GREY;
+    }
+}
 
 // Sync texture with TextureManager textures
 pub fn sync_with_registry(
@@ -95,10 +146,12 @@ pub struct ImguiState {
 impl ImguiState {
     pub fn create_imgui(window: &Window, resources: &mut legion::Resources) -> Self {
         let mut context = imgui::Context::create();
-
+        
         let io = context.io_mut();
         io.config_flags.insert(ConfigFlags::DOCKING_ENABLE);
         io.config_flags.insert(ConfigFlags::VIEWPORTS_ENABLE);
+        
+        ui_tools::set_dark_theme_colors(context.style_mut());
 
         let mut platform = WinitPlatform::new(&mut context);
         let hidpi_factor = window.scale_factor();
@@ -200,16 +253,9 @@ impl ImguiState {
             ui.dockspace_over_main_viewport();
 
             let mut win_pos = [0.0, 0.0];
-            draw_window_general_info(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
-            draw_window_camera(ui, &mut win_pos, &resources);
+            draw_window_settings(ui, &mut win_pos, delta_s, &mut self.demo_open, resources);
             draw_window_entities(ui, &mut win_pos, world, &mut self.entity_selected);
-            draw_window_properties(
-                ui,
-                &mut win_pos,
-                world,
-                &resources,
-                self.entity_selected,
-            );
+            draw_window_properties(ui, &mut win_pos, world, &resources, self.entity_selected);
 
             draw_debug_window(ui, self.demo_open);
             draw_debug_texture(ui, &resources);
@@ -228,18 +274,141 @@ impl ImguiState {
     }
 }
 
-fn draw_window_general_info(
+fn draw_window_settings(
     ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
     delta_s: Duration,
     demo_open: &mut bool,
     resources: &mut legion::Resources,
 ) {
+    let mut globals = resources.get_mut::<crate::Globals>().unwrap();
+
+    let tonemap_filters = [
+        "ACES",
+        "Filmic",
+        "Lottes",
+        "Reinhard",
+        "Reinhard2",
+        "Uchimura",
+        "Uncharted2",
+        "Exponential",
+    ];
+
+    let window = ui.window("Settings");
+    let win_size = [300.0, 300.0];
+    let adapter_name = resources.get::<wgpu::Adapter>().unwrap().get_info().name;
+    window
+        .size(win_size, Condition::FirstUseEver)
+        .position(*win_pos, Condition::FirstUseEver)
+        .build(|| {
+            if ui.collapsing_header("Parameters", TreeNodeFlags::empty()) {
+                let mouse_pos = ui.io().mouse_pos;
+                ui.text(format!(
+                    "Mouse position: ({:.1},{:.1})",
+                    mouse_pos[0], mouse_pos[1]
+                ));
+            };
+            if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
+                ui.text(format!("Frametime     : {delta_s:?}"));
+                ui.separator();
+                ui.text(format!(
+                    "Gpu info\n  Adapter:  {}\n  Version:  ",
+                    adapter_name
+                ));
+            };
+
+            if ui.collapsing_header("Toggles", TreeNodeFlags::empty()) {
+                ui_tools::disabled(ui, || {
+                    let mut mode = false;
+                    ui.checkbox("Vsync", &mut mode);
+                });
+
+                ui.checkbox("Ibl enable", &mut globals.ibl_enable);
+                ui.checkbox("Skybox enable", &mut globals.skybox_enable);
+                ui.checkbox("Axis enable", &mut globals.axis_enable);
+                ui.checkbox("BoundingBox", &mut globals.bbox_enable);
+                ui.checkbox("Show demo window", demo_open);
+
+                if globals.ibl_enable {
+                    ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
+
+                    let mut current_item = globals.tonemap_filter as usize;
+                    if ui.combo("Tonemap", &mut current_item, &tonemap_filters, |item| {
+                        std::borrow::Cow::Borrowed(*item)
+                    }) {
+                        globals.tonemap_filter = current_item as u32;
+                    }
+                } else {
+                    globals.tonemap_filter = 0;
+                    globals.exposure = 1.0;
+                }
+                if globals.skybox_enable {
+                    ui.separator();
+                    draw_ui_skybox_selector(ui, &resources);
+                }
+            }
+            ui_tools::disabled(ui, || {
+                if ui.collapsing_header("SSAO", TreeNodeFlags::empty()) {}
+            });
+            if ui.collapsing_header("Camera", TreeNodeFlags::empty()) {
+                draw_ui_camera(ui, resources);
+            }
+        });
+    win_pos[1] = win_pos[1] + win_size[1];
+}
+
+fn draw_ui_camera(ui: &imgui::Ui, resources: &Resources) {
+    let mut camera = match resources.get_mut::<Camera>() {
+        Some(camera) => camera,
+        None => return,
+    };
+
+    ui.text(format!("Position: {:?}", camera.get_position()));
+    ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
+    ui.text(format!(
+        "Yaw/Pitch: {:.1} {:.1}",
+        camera.get_yaw_pitch().0,
+        camera.get_yaw_pitch().1
+    ));
+    ui.separator();
+
+    let mut fov = Deg::from(camera.fov).0;
+    if Drag::new("Fov")
+        .range(1.0f32, 179.0f32)
+        .speed(1.0)
+        .build(ui, &mut fov)
+    {
+        camera.fov = Rad(fov.to_radians());
+    }
+
+    let mut distance = camera.get_distance();
+    if Drag::new("Distance")
+        .range(0f32, 10f32)
+        .speed(0.01)
+        .build(ui, &mut distance)
+    {
+        camera.set_distance(distance);
+    }
+
+    let mut near = camera.near;
+    let mut far = camera.far;
+    if DragRange::new("Near/Far")
+        .range(0.1, 100.0)
+        .speed(0.01)
+        .build(ui, &mut near, &mut far)
+    {
+        let near = near.max(0.1);
+        let far = far.max(near + 0.1);
+        camera.near = near;
+        camera.far = far;
+    }
+}
+
+fn draw_ui_skybox_selector(ui: &imgui::Ui, resources: &Resources) {
     let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
     let mut skybox_manager = resources
         .get_mut::<super::skybox_manager::SkyboxManager>()
         .unwrap();
-    let mut globals = resources.get_mut::<crate::Globals>().unwrap();
     let device = resources.get::<wgpu::Device>().unwrap();
     let queue = resources.get::<wgpu::Queue>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
@@ -247,137 +416,32 @@ fn draw_window_general_info(
         .get::<std::sync::Arc<GPUResourceManager>>()
         .unwrap();
 
-    let window = ui.window("General info");
-    let win_size = [300.0, 300.0];
-    let adapter_name = resources.get::<wgpu::Adapter>().unwrap().get_info().name;
-    window
-        .size(win_size, Condition::FirstUseEver)
-        .position(*win_pos, Condition::FirstUseEver)
-        .build(|| {
-            ui.separator();
-            ui.text(format!("Frametime: {delta_s:?}"));
-            ui.text(format!("Adapter: {}", adapter_name));
-            let mouse_pos = ui.io().mouse_pos;
-            ui.text(format!(
-                "Mouse position: ({:.1},{:.1})",
-                mouse_pos[0], mouse_pos[1]
-            ));
-            ui.separator();
-            ui.checkbox("Ibl enable", &mut globals.ibl_enable);
-            if globals.ibl_enable {
-                ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
-                let mut current_item = globals.tonemap_filter as usize;
-                let tonemap_filters = [
-                    "ACES",
-                    "Filmic",
-                    "Lottes",
-                    "Reinhard",
-                    "Reinhard2",
-                    "Uchimura",
-                    "Uncharted2",
-                    "Exponential",
-                ];
-                if ui.combo("Tonemap", &mut current_item, &tonemap_filters, |item| {
-                    std::borrow::Cow::Borrowed(*item)
-                }) {
-                    globals.tonemap_filter = current_item as u32;
-                }
-            } else {
-                globals.tonemap_filter = 0;
-                globals.exposure = 1.0;
-            }
-            ui.checkbox("Skybox enable", &mut globals.skybox_enable);
-            let mut change_skybox = false;
-            if globals.skybox_enable {
-                let hdr_path = skybox_manager.get_hdr_path();
-                if let Some(id) = registry.ids.get(hdr_path) {
-                    let name = hdr_path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("no name");
-                    change_skybox = ui.image_button(name, *id, [60.0, 60.0]);
-                    ui.same_line();
-                    ui.text(name);
-                    ui.separator();
-                }
-                if change_skybox {
-                    use rfd::FileDialog;
-                    let filepath = FileDialog::new().add_filter("hdr", &["hdr"]).pick_file();
-                    if let Some(filepath) = filepath {
-                        skybox_manager.change_skybox(
-                            &filepath,
-                            &device,
-                            &queue,
-                            &gpu_resource_manager,
-                            &mut texture_manager,
-                        );
-                    }
-                }
-            }
-            ui.checkbox("Axis enable", &mut globals.axis_enable);
-            ui.checkbox("BoundingBox", &mut globals.bbox_enable);
-
-            ui.separator();
-            ui.checkbox("Show demo window", demo_open)
-        });
-    win_pos[1] = win_pos[1] + win_size[1];
+    let mut change_skybox = false;
+    let hdr_path = skybox_manager.get_hdr_path();
+    if let Some(id) = registry.ids.get(hdr_path) {
+        let name = hdr_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("no name");
+        change_skybox = ui.image_button(name, *id, [60.0, 60.0]);
+        ui.same_line();
+        ui.text(name);
+        ui.separator();
+    }
+    if change_skybox {
+        use rfd::FileDialog;
+        let filepath = FileDialog::new().add_filter("hdr", &["hdr"]).pick_file();
+        if let Some(filepath) = filepath {
+            skybox_manager.change_skybox(
+                &filepath,
+                &device,
+                &queue,
+                &gpu_resource_manager,
+                &mut texture_manager,
+            );
+        }
+    }
 }
-
-fn draw_window_camera(ui: &imgui::Ui, win_pos: &mut [f32; 2], resources: &Resources) {
-    let mut camera = match resources.get_mut::<Camera>() {
-        Some(camera) => camera,
-        None => return,
-    };
-
-    let win_size = [300.0, 200.0];
-    let window = ui.window("Camera");
-    window
-        .size(win_size, Condition::FirstUseEver)
-        .position(*win_pos, Condition::FirstUseEver)
-        .build(|| {
-            ui.text(format!("Position: {:?}", camera.get_position()));
-            ui.text(format!("FocalPoint: {:?}", camera.get_focal_point()));
-            ui.text(format!(
-                "Yaw/Pitch: {:.1} {:.1}",
-                camera.get_yaw_pitch().0,
-                camera.get_yaw_pitch().1
-            ));
-            ui.separator();
-
-            let mut fov = Deg::from(camera.fov).0;
-            if Drag::new("Fov")
-                .range(1.0f32, 179.0f32)
-                .speed(1.0)
-                .build(ui, &mut fov)
-            {
-                camera.fov = Rad(fov.to_radians());
-            }
-
-            let mut distance = camera.get_distance();
-            if Drag::new("Distance")
-                .range(0f32, 10f32)
-                .speed(0.01)
-                .build(ui, &mut distance)
-            {
-                camera.set_distance(distance);
-            }
-
-            let mut near = camera.near;
-            let mut far = camera.far;
-            if DragRange::new("Near/Far")
-                .range(0.1, 100.0)
-                .speed(0.01)
-                .build(ui, &mut near, &mut far)
-            {
-                let near = near.max(0.1);
-                let far = far.max(near + 0.1);
-                camera.near = near;
-                camera.far = far;
-            }
-        });
-    win_pos[1] = win_pos[1] + win_size[1];
-}
-
 fn draw_window_entities(
     ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
@@ -394,6 +458,10 @@ fn draw_window_entities(
         .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
             for (entity, tag) in query.iter(world) {
+                // deselect when click on this window
+                if ui.is_window_hovered() && ui.is_mouse_down(MouseButton::Left) {
+                    *selected = None;
+                }
                 if ui
                     .selectable_config(format!("{} {:?}", tag.name, entity))
                     .selected(selected.map(|e| e == *entity).unwrap_or(false))
@@ -432,7 +500,6 @@ fn draw_window_properties(
             draw_ui_light(ui, world, entity.clone());
         });
     win_pos[1] = win_pos[1] + win_size[1];
-
 }
 
 fn draw_ui_mesh(
@@ -516,7 +583,6 @@ fn draw_ui_mesh(
         draw_ui_transform(ui, "Mesh Transform", transform);
         ui.separator();
     }
-
 }
 
 fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
@@ -524,31 +590,30 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
     let mut query = <&mut LightComponent>::query();
 
     if let Ok(light) = query.get_mut(world, entity) {
-        ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN);
-
-        let data = &mut light.data;
-        Drag::new("Position")
-            .speed(0.1)
-            .build_array(ui, &mut data.position);
-        ui.color_edit3("Color", &mut data.color);
-        {
-            let mut directional = data.directional != 0;
-            if ui.checkbox("Directional", &mut directional) {
-                data.directional = directional as u32;
+        if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
+            let data = &mut light.data;
+            Drag::new("Position")
+                .speed(0.1)
+                .build_array(ui, &mut data.position);
+            ui.color_edit3("Color", &mut data.color);
+            {
+                let mut directional = data.directional != 0;
+                if ui.checkbox("Directional", &mut directional) {
+                    data.directional = directional as u32;
+                }
             }
-        }
 
-        {
-            let mut cast_shadow = data.cast_shadow != 0;
-            if ui.checkbox("Cast Shadow", &mut cast_shadow) {
-                data.cast_shadow = cast_shadow as u32;
+            {
+                let mut cast_shadow = data.cast_shadow != 0;
+                if ui.checkbox("Cast Shadow", &mut cast_shadow) {
+                    data.cast_shadow = cast_shadow as u32;
+                }
             }
         }
     }
 }
 
 fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformComponent) {
-
     if ui.collapsing_header(
         name,
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -573,7 +638,6 @@ fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformCompon
         };
         id.pop();
     }
-
 }
 
 fn draw_debug_window(ui: &imgui::Ui, demo_open: bool) {

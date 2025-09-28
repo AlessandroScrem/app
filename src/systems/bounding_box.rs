@@ -67,6 +67,8 @@ pub fn update_bounding_box(
         return;
     }
 
+    println!("BoundingBox maybe_changed");
+
     let bounding_box = BoundingBox {
         min: mesh.data.vmin,
         max: mesh.data.vmax,

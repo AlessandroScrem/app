@@ -1,10 +1,10 @@
 use crate::camera::Camera;
-use crate::renderer::uniform::CameraUniform;
 use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::uniform::CameraUniform;
 use crate::{GlobalUniform, Globals};
 
-use std::sync::Arc;
 use legion::*;
+use std::sync::Arc;
 
 #[system]
 pub fn global(
@@ -12,21 +12,27 @@ pub fn global(
     #[resource] queue: &wgpu::Queue,
     #[resource] camera: &Camera,
     #[resource] globals: &Globals,
-    #[resource] surface_config:  &wgpu::SurfaceConfiguration,
+    #[resource] surface_config: &wgpu::SurfaceConfiguration,
 ) {
     let screen_size = [surface_config.width as f32, surface_config.height as f32];
-    update_globals(camera, globals, queue, &resource_manager.camera_uniform_buffer, &resource_manager.globals_uniform_buffer, screen_size);
+    update_globals(
+        camera,
+        globals,
+        queue,
+        &resource_manager.camera_uniform_buffer,
+        &resource_manager.globals_uniform_buffer,
+        screen_size,
+    );
 }
 
 pub fn update_globals(
-    camera: &crate::camera::Camera,
+    camera: &Camera,
     globals: &Globals,
     queue: &wgpu::Queue,
     camera_uniform_buffer: &wgpu::Buffer,
     globals_uniform_buffer: &wgpu::Buffer,
     screen_size: [f32; 2],
 ) {
-
     let updated_camera_uniform = CameraUniform {
         view_position: camera.get_position().to_homogeneous().into(),
         view: camera.get_view_mat().into(),

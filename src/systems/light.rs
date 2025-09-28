@@ -61,11 +61,13 @@ pub fn light(
 }
 
 #[system(for_each)]
+#[filter(maybe_changed::<LightComponent>())]
 pub fn update_trnsform(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
     #[resource] light_manager: &LightManager,
 ) {
+    println!("Light maybe_changed");
     queue.write_buffer(
         &light_manager.light_uniform_buffer,
         0,

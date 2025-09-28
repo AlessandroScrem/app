@@ -87,6 +87,7 @@ pub fn update_model_matrix(
     mesh: &MeshComponent,
     #[resource] queue: &wgpu::Queue,
 ) {
+    println!("Model Matrix maybe_changed");
     let model_matrix = transform.compute_model_matrix();
     let updated_uniforms = ModelUniform::new(model_matrix);
 
@@ -98,7 +99,9 @@ pub fn update_model_matrix(
 }
 
 #[system(for_each)]
+#[filter(maybe_changed::<MeshComponent>())]
 pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
+    println!("Material maybe_changed");
     for submesh in mesh.data.submeshes.iter() {
         let material = &submesh.material;
         if let Some(buffer) = &material.material_uniform_buffer {
