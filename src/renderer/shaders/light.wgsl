@@ -12,6 +12,8 @@ struct Light {
     directional: u32,
     position: vec3<f32>,
     cast_shadow: u32,
+    entity_id: i32,
+    pad: vec3<i32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;

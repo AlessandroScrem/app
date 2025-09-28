@@ -62,7 +62,7 @@ pub fn light(
 
 #[system(for_each)]
 #[filter(maybe_changed::<LightComponent>())]
-pub fn update_trnsform(
+pub fn update_transform(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
     #[resource] light_manager: &LightManager,

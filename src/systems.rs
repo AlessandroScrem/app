@@ -12,7 +12,7 @@ use legion::Schedule;
 pub fn create_render_schedule_builder() -> Schedule {
     Schedule::builder()
         .add_system(crate::systems::globals::global_system())
-        .add_system(crate::systems::light::update_trnsform_system())
+        .add_system(crate::systems::light::update_transform_system())
         .add_system(crate::systems::mesh::update_model_matrix_system())
         .add_system(crate::systems::bounding_box::update_bounding_box_system())
         .add_system(crate::systems::mesh::update_material_system())

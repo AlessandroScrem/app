@@ -39,12 +39,9 @@ A modern 3D/2D render engine that uses wgpu
 git clone https://github.com/AlessandroScrem/app.git
 cd app
 
-# At the reposity root
 cargo build
-
 cargo test
-
-cargo run 
+cargo run --release
 ```
 
 
@@ -52,4 +49,8 @@ cargo run
 ![Hello PBR Cube](/assets/screenshots/Screenshot_2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
-- 
+| Fixed    | Prioriry |              Description                                                        |
+| :---:    | :---:    | :---                                                                            |
+| -        | Low      | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes     |
+|  &check; |          |    |
+

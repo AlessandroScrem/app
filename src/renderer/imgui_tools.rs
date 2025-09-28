@@ -8,9 +8,7 @@ use legion::{Entity, Resources, World};
 use winit::window::Window;
 
 use crate::{
-    LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager, camera::Camera,
-    prelude::imgui_tools::ui_tools::Timestep, renderer::gpu_manager::GPUResourceManager,
+    assets::texture_manager::TextureManager, camera::Camera, entities::light::entity_to_u32, prelude::imgui_tools::ui_tools::Timestep, renderer::gpu_manager::GPUResourceManager, LightComponent, MeshComponent, TagComponent, TransformComponent
 };
 
 // registro imgui separato
@@ -692,6 +690,8 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
 
     if let Ok(light) = query.get_mut(world, entity) {
         if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
+            text_fmt!(ui, "Entity Hash : {}", light.data.entity_id);
+            text_fmt!(ui, "Rehash is : {}", entity_to_u32(entity));
             let data = &mut light.data;
             Drag::new("Position")
                 .speed(0.1)
