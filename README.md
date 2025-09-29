@@ -49,8 +49,7 @@ cargo run --release
 ![Hello PBR Cube](/assets/screenshots/Screenshot_2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
-| Fixed    | Prioriry |              Description                                                        |
-| :---:    | :---:    | :---                                                                            |
-| -        | Low      | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes     |
-|  &check; |          |    |
+| Fixed    | Prioriry |              Description                                                   |
+| :---:    | :---:    | :---                                                                       |
+|`fix`     |   Low    | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes|    
 

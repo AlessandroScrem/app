@@ -56,7 +56,7 @@ impl Default for Globals {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalUniform {
     ibl_enable: u32,
@@ -65,7 +65,7 @@ pub struct GlobalUniform {
     tonemap_filter: u32,
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
     color: [f32; 3],
@@ -73,7 +73,7 @@ pub struct Light {
     position: [f32; 3],
     cast_shadow: u32,
     entity_id: i32,
-    pad: [u32; 7], 
+    pad2: [i32; 3],  
 }
 impl Default for Light {
     fn default() -> Self {
@@ -83,12 +83,12 @@ impl Default for Light {
             directional: 1,
             position: [0.0, 0.0, -1.0],
             entity_id: -1,
-            pad: [0, 0, 0, 0, 0, 0, 0],
+            pad2: [0, 0, 0],
         }
     }
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct MaterialUniform {
     pub color: [f32; 4],
