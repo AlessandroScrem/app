@@ -30,7 +30,7 @@ impl ApplicationHandler for App {
             let safe_height = min(screen_size.height, self.size.height);
             let x = (screen_size.width as u32 - safe_width) as f32 / 2.0;
             let y = (screen_size.height as u32 - safe_height)as f32  / 2.0;
-            if let Some(size) = window.request_inner_size(winit::dpi::PhisicalPosition::new(safe_width, safe_height)){
+            if let Some(size) = window.request_inner_size(winit::dpi::PhisicalSize::new(safe_width, safe_height)){
                 self.size = size;
             }
             window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
