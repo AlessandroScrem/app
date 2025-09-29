@@ -17,15 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
 
       - name: Install wgpu dependencies
         run: |
@@ -33,15 +34,7 @@ jobs:
           sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
 
       - name: Build release + test runner
-        run: cargo test --no-run --release --verbose
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            target/release
-            target/release/deps
+        run: cargo build
 
   # -----------------------------
   # Job: Test
@@ -52,27 +45,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install wgpu dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: target/release
-
-      - name: Run tests directly from binaries
-        run: |
-          export WGPU_BACKEND=gl
-          export WGPU_POWER_PREF=low
-          for test_bin in target/release/deps/*; do
-            if [[ -x "$test_bin" && "$test_bin" == *"-"* ]]; then
-              echo "Running $test_bin"
-              "$test_bin" --nocapture || exit 1
-            fi
-          done
+      - name: Run tests 
+        run: cargo test
 
   # -----------------------------
   # Job: Run application
@@ -83,21 +72,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install wgpu dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: target/release
-
       - name: Run App (30s max)
-        run: |
-          export WGPU_BACKEND=gl
-          export WGPU_POWER_PREF=low
-          ./target/release/app_wgpu
-        timeout-minutes: 1
+        run: cargo run
+        timeout-minutes: 5
         continue-on-error: true
