@@ -103,4 +103,5 @@ jobs:
         run: |
           export WGPU_BACKEND=gl
           export WGPU_POWER_PREF=low
+          cd $GITHUB_WORKSPACE
           xvfb-run -s "-screen 0 1024x768x24" cargo run --release --bin ci_runner
