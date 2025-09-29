@@ -26,8 +26,8 @@ impl ApplicationHandler for App {
         // Dopo aver creato la finestra, la possiamo centrare
         if let Some(monitor) = window.current_monitor() {
             let screen_size = monitor.size(); // dimensione dello schermo in px
-            let safe_width = min(screen_size.width, self.size.width);
-            let safe_height = min(screen_size.height, self.size.height);
+            let safe_width = std::cmp::min(screen_size.width, self.size.width);
+            let safe_height = std::cmp::min(screen_size.height, self.size.height);
             let x = (screen_size.width as u32 - safe_width) as f32 / 2.0;
             let y = (screen_size.height as u32 - safe_height)as f32  / 2.0;
             if let Some(size) = window.request_inner_size(winit::dpi::PhisicalSize::new(safe_width, safe_height)){
