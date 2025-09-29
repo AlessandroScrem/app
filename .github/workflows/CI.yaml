@@ -85,9 +85,12 @@ jobs:
       - name: Install wgpu dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers  xvfb
 
       - name: Run App (30s max)
-        run: cargo run
+        run: |
+          export WGPU_BACKEND=gl
+          export WGPU_POWER_PREF=low
+          xvfb-run -s "-screen 0 1024x768x24" cargo run --release --bin ci_runner
         timeout-minutes: 5
         continue-on-error: true
