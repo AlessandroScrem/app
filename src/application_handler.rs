@@ -17,6 +17,15 @@ impl ApplicationHandler for App {
             "App resumed after being paused for {} ms",
             timer.elapsed().as_millis()
         );
+        
+        // Resize to monitor max size
+        if let Some(monitor) = window.current_monitor() {
+            let screen_size = monitor.size(); // dimensione dello schermo in px
+            let safe_x = min(screen_size.width, self.size.width);
+            let safe_y = min(screen_size.height, self.size.height);
+            self.width = safe_x;
+            self.height = safe_y;
+        }
 
         let size = self.size;
         let attributes = Window::default_attributes()
