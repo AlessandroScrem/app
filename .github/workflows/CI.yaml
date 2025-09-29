@@ -98,10 +98,12 @@ jobs:
             libx11-xcb1 \
             libgl1 \
             mesa-utils
+            
+      - name: Copy assets to target/release
+        run: cp -r assets target/debug/
 
       - name: Run App (30s max)
         run: |
           export WGPU_BACKEND=gl
           export WGPU_POWER_PREF=low
-          cd $GITHUB_WORKSPACE
-          xvfb-run -s "-screen 0 1024x768x24" cargo run --release --bin ci_runner
+          xvfb-run -s "-screen 0 1024x768x24" cargo run --bin ci_runner
