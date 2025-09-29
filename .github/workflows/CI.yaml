@@ -98,19 +98,6 @@ jobs:
             libx11-xcb1 \
             libgl1 \
             mesa-utils
-
-      - name: Normalize asset filenames (lowercase)
-        run: |
-         find assets -depth -exec sh -c '
-           for f; do
-             d=$(dirname "$f")
-             b=$(basename "$f")
-             lower=$(echo "$b" | tr "[:upper:]" "[:lower:]")
-             if [ "$b" != "$lower" ]; then
-               mv -v "$f" "$d/$lower"
-             fi
-            done
-         ' sh {} +
             
       - name: Copy assets to target/release
         run: cp -r assets target/debug/
