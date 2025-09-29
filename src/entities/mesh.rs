@@ -22,7 +22,7 @@ pub fn create(world: &mut World, resources: &Resources) {
             &mut texture_manager,
             &gpu_resource_manager,
             &device,
-            Path::new("./assets/avocado/avocado.gltf"),
+            Path::new("./assets/avocado/Avocado.gltf"),
         )
         .expect("unable_load mesh");
 
