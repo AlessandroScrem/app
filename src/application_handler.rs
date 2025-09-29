@@ -1,4 +1,4 @@
-òuse std::sync::Arc;
+use std::sync::Arc;
 
 use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
