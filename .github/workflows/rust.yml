@@ -5,9 +5,6 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-    
-env:
-  CARGO_TERM_COLOR: always
 
 jobs:
   build-linux:
@@ -26,8 +23,10 @@ jobs:
       - name: Build (Debug)
         run: cargo build
 
-      - name: Test
+      - name: Test (headless)
         run: cargo test
+        env:
+          WGPU_BACKEND: noop
 
   build-macos:
     runs-on: macos-latest
@@ -39,8 +38,10 @@ jobs:
       - name: Build (Debug)
         run: cargo build
 
-      - name: Test
+      - name: Test (headless)
         run: cargo test
+        env:
+          WGPU_BACKEND: noop
 
   build-windows:
     runs-on: windows-latest
@@ -52,5 +53,5 @@ jobs:
       - name: Build (Debug)
         run: cargo build
 
-      - name: Test
+      - name: Test (real DX12)
         run: cargo test
