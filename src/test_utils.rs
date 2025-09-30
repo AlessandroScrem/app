@@ -7,7 +7,7 @@ pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) 
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance_desc = wgpu::InstanceDescriptor {
             backends: if std::env::var("CI").is_ok() {
-                wgpu::Backends::NOOOP
+                wgpu::Backends::NOOP
             } else {
                 wgpu::Backends::PRIMARY
             },
