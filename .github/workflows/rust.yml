@@ -6,52 +6,80 @@ on:
   pull_request:
     branches: [ "master" ]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+         path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+         restore-keys: |
+          ${{ runner.os }}-cargo-
 
-      - name: Install dependencies
+      - name: Install wgpu dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libx11-dev libxcursor-dev libxrandr-dev \
-              libxi-dev libgl1-mesa-dev libudev-dev pkg-config
+         sudo apt-get update
+         sudo apt-get install -y libvulkan1  mesa-vulkan-drivers 
 
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build (Debug)
-        run: cargo build
+        run: cargo build --verbose
 
-      - name: Test (headless)
-        run: cargo test
-        env:
-          WGPU_BACKEND: noop
+      - name: Test 
+        run: cargo test --verbose
 
   build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+         path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+         restore-keys: |
+          ${{ runner.os }}-cargo-
 
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build (Debug)
-        run: cargo build
+        run: cargo build --verbose
 
-      - name: Test (headless)
-        run: cargo test
-        env:
-          WGPU_BACKEND: noop
+# todo: macos not find wgpu adapter
+#      - name: Test (headless)
+#        env:
+#          WGPU_BACKEND: noop
+#        run: cargo test --verbose
 
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+         path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+         restore-keys: |
+          ${{ runner.os }}-cargo-
 
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build (Debug)
-        run: cargo build
+        run: cargo build --verbose
 
-      - name: Test (real DX12)
-        run: cargo test
+      - name: Test 
+        run: cargo test --verbose
