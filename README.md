@@ -1,5 +1,7 @@
 # App
-[![Rust](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml)
+![Linux](https://github.com/<utente>/<repo>/actions/workflows/rust-linux.yml/badge.svg)
+![macOS](https://github.com/<utente>/<repo>/actions/workflows/rust-macos.yml/badge.svg)
+![Windows](https://github.com/<utente>/<repo>/actions/workflows/rust-windows.yml/badge.svg)
 
 # Simple Renderer Wgpu 
 
