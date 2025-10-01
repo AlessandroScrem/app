@@ -1,6 +1,13 @@
 name: Hello
 on:
   workflow_dispatch:
+  push:
+    branches: 
+      - master
+      - "**"   # qualunque branch
+  pull_request:
+    branches: 
+      - master
 jobs:
   test:
     runs-on: ubuntu-latest
