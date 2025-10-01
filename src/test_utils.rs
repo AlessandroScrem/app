@@ -5,28 +5,17 @@ use wgpu::RequestAdapterOptions;
 static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
 pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
     DEVICE_AND_QUEUE.get_or_init(|| {
-        let instance_desc = wgpu::InstanceDescriptor {
-            backends: if std::env::var("CI").is_ok() {
-                wgpu::Backends::NOOP
-            } else {
-                wgpu::Backends::PRIMARY
-            },
-            flags: wgpu::InstanceFlags::empty(),
-            backend_options: Default::default(),
-        };
+        let instance = wgpu::Instance::default();
+        let adapter =
+            pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::LowPower,
+        compatible_surface: None, // niente finestra
+        force_fallback_adapter: true, // <- importantissimo
+    }))
+                .unwrap();
 
-        let instance = wgpu::Instance::new(&instance_desc);
-
-        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,
-            force_fallback_adapter: true,
-        }))
-        .expect("Failed to find an adapter (even NOOP)");
-
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor::default()
-        )).unwrap();
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
 
         (Arc::new(device), Arc::new(queue))
     })
