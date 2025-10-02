@@ -48,7 +48,7 @@ cargo run --release
 
 
 ## Screenshots
-![Hello PBR Cube](/assets/screenshots/Screenshot_2025-09-27.jpg?raw=true "Hello PBR cube!")
+![Hello PBR Cube](/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |
