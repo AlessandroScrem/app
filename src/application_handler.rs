@@ -18,17 +18,21 @@ impl ApplicationHandler for App {
             timer.elapsed().as_millis()
         );
 
-        let size = self.size;
         let attributes = Window::default_attributes()
-            .with_inner_size(size)
+            .with_inner_size(self.size)
             .with_title(format!("App"));
         let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
 
-        // Dopo aver creato la finestra, la possiamo centrare
+        // After creation let's center window to monitor size (clamping to max size)
         if let Some(monitor) = window.current_monitor() {
-            let screen_size = monitor.size(); // dimensione dello schermo in px
-            let x = (screen_size.width as u32 - size.width) as f32 / 2.0;
-            let y = (screen_size.height as u32 - size.height)as f32  / 2.0;
+            let screen_size = monitor.size(); // monotor size in px
+            let safe_width = std::cmp::min(screen_size.width, self.size.width);
+            let safe_height = std::cmp::min(screen_size.height, self.size.height);
+            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
+            let y = (screen_size.height.saturating_sub(safe_height))as f32  / 2.0;
+            if let Some(size) = window.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height)){
+                self.size = size;
+            }
             window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
         }
 

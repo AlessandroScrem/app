@@ -53,5 +53,6 @@ cargo run --release
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |
 | :---:    | :---:    | :---                                                                       |
-|`fix`     |   Low    | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes|    
+| `fixed`  |   Low    | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes|    
+| `todo`   |   --     | |    
 
