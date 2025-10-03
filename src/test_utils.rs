@@ -20,7 +20,6 @@ pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) 
         (Arc::new(device), Arc::new(queue))
     })
 }
-
 /// Save a 2D texture to a file (png).
 /// Supported formats: Rgba8Unorm, Rg16Float, Rgba16Float
 /// The output image will be in RGBA8 format.

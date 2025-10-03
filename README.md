@@ -1,5 +1,7 @@
 # App
-[![Rust](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust.yml)
+[![Rust Linux](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml)
+[![Rust Windows](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml)
+[![Rust macOS](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml)
 
 # Simple Renderer Wgpu 
 
@@ -46,7 +48,7 @@ cargo run --release
 
 
 ## Screenshots
-![Hello PBR Cube](/assets/screenshots/Screenshot_2025-09-27.jpg?raw=true "Hello PBR cube!")
+![Hello PBR Cube](/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |
