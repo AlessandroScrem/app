@@ -2,7 +2,7 @@ mod app;
 mod application_handler;
 pub mod assets;
 mod camera;
-mod entities;
+pub mod entities;
 pub mod input;
 mod renderer;
 mod scene;
@@ -72,8 +72,8 @@ pub struct Light {
     directional: u32,
     position: [f32; 3],
     cast_shadow: u32,
-    entity_id: i32,
-    pad2: [i32; 3],  
+    entity_id: u64,
+    pad2: [i32; 2],  
 }
 impl Default for Light {
     fn default() -> Self {
@@ -82,8 +82,8 @@ impl Default for Light {
             cast_shadow: 0,
             directional: 1,
             position: [0.0, 0.0, -1.0],
-            entity_id: -1,
-            pad2: [0, 0, 0],
+            entity_id: 0,
+            pad2: [0, 0],
         }
     }
 }

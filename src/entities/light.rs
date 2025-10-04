@@ -1,17 +1,9 @@
 use legion::*;
 
+use crate::entities::EntityRawU64;
 use crate::{LightComponent, TagComponent};
 use legion::Entity;
 use legion::world::World;
-use std::hash::{Hash, Hasher};
-
-use std::collections::hash_map::DefaultHasher;
-
-pub fn entity_to_u32(entity: Entity) -> u32 {
-    let mut hasher = DefaultHasher::new();
-    entity.hash(&mut hasher);
-    (hasher.finish() & 0xFFFF_FFFF) as u32 // prendo solo 32 bit
-}
 
 /// A function to help create a light entity.
 pub fn create(world: &mut World, _resources: &Resources) {
@@ -27,6 +19,8 @@ pub fn create(world: &mut World, _resources: &Resources) {
 
     if let Some(mut entry) = world.entry(entity) {
         let comp = entry.get_component_mut::<LightComponent>().unwrap();
-        comp.data.entity_id =  entity_to_u32(entity) as i32;
+        comp.data.entity_id = entity.as_raw_u64();
     }
 }
+
+

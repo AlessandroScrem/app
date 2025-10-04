@@ -17,6 +17,11 @@ name = "hdr_bench"
 path = "benches/load_hdr.rs"
 harness = false
 
+[[bench]]
+name = "entity_hash_bench"
+path = "benches/entity_hash.rs"
+harness = false
+
 [features]
 default = []
 save_tests = []
