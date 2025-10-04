@@ -4,6 +4,8 @@ use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
 use crate::prelude::*;
 use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::gpu_renderer::{Hovered, PickBuffer, PickPoint};
+use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
@@ -172,6 +174,11 @@ impl ApplicationHandler for App {
         }
 
         match event {
+            WindowEvent::CursorMoved { position, .. }=> {
+                let mut point = self.resources.get_mut::<PickPoint>().unwrap();
+                point.x = position.x as u32;
+                point.y = position.y as u32;
+            },
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
@@ -223,6 +230,13 @@ impl ApplicationHandler for App {
 
                 queue.submit([encoder.finish()]);
 
+                // TODO: move from here -> picking strategy
+                let device = self.resources.get_mut::<wgpu::Device>().unwrap();
+                let pick_buffer = self.resources.get_mut::<PickBuffer>().unwrap();
+                let mut hovered = self.resources.get_mut::<Hovered>().unwrap();
+                hovered.0 = pick_buffer.read_id(&device).unwrap_or(0);
+                //
+
                 frame.present();
             }
             _ => (),
@@ -247,6 +261,18 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
             let device = resources.get::<wgpu::Device>().unwrap();
             let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
             HdrFrame::new(
+                &device,
+                &gpu_resource_manager,
+                winit::dpi::PhysicalSize::new(width, height),
+            )
+        });
+    }
+    // resize entity_id_texture
+    {
+        resources.insert({
+            let device = resources.get::<wgpu::Device>().unwrap();
+            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
+            IDTexture::new(
                 &device,
                 &gpu_resource_manager,
                 winit::dpi::PhysicalSize::new(width, height),

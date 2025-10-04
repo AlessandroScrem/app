@@ -3,8 +3,8 @@ use std::{path::Path, sync::Arc};
 use crate::{
     BoundingBoxComponent, MeshComponent, TagComponent, TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
-    entities::bounding_box::BoundingBox,
-    renderer::gpu_manager::GPUResourceManager,
+    entities::{EntityRawU64, bounding_box::BoundingBox},
+    renderer::{gpu_manager::GPUResourceManager, uniform::ModelUniform},
 };
 
 use legion::*;
@@ -34,17 +34,24 @@ pub fn create(world: &mut World, resources: &Resources) {
         let bounding_box = (mesh.vmin, mesh.vmax).into();
         let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
 
-        world.push((
+        let entity = world.push((
             TagComponent {
                 name: mesh.name.clone(),
             },
-            transform,
+            transform.clone(),
             MeshComponent { data: mesh },
             BoundingBoxComponent {
                 bounding_box,
                 vertex_buffer,
             },
         ));
+
+        let mut model_uniform = ModelUniform::new(transform.compute_model_matrix());
+        model_uniform.entity_id = entity.as_raw_u64();
+
+        if let Some(mut entry) = world.entry(entity) {
+            entry.add_component(model_uniform);
+        }
     }
 
     {
@@ -61,16 +68,23 @@ pub fn create(world: &mut World, resources: &Resources) {
         let transform = TransformComponent::default();
         let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
 
-        world.push((
+        let entity = world.push((
             TagComponent {
                 name: mesh.name.clone(),
             },
             MeshComponent { data: mesh },
-            transform,
+            transform.clone(),
             BoundingBoxComponent {
                 bounding_box,
                 vertex_buffer,
             },
         ));
+
+        let mut model_uniform = ModelUniform::new(transform.compute_model_matrix());
+        model_uniform.entity_id = entity.as_raw_u64();
+
+        if let Some(mut entry) = world.entry(entity) {
+            entry.add_component(model_uniform);
+        }
     }
 }

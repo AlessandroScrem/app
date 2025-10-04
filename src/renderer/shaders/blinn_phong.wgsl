@@ -17,6 +17,9 @@ struct Light {
 struct Model {
     model: mat4x4<f32>,
     normal_matrix: mat4x4<f32>,
+    entity_id_low: u32,
+    entity_id_high: u32,
+    pad2: vec2<u32>,
 }
 
 struct Material {

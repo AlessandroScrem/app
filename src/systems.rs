@@ -22,6 +22,7 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::axis::axis_system())
         .add_system(crate::systems::bounding_box::bounding_box_system())
         .add_system(crate::systems::hdr::hdr_system())
+        .add_system(crate::systems::mesh::read_entity_id_system())
         .add_thread_local(crate::systems::imgui::imgui_system())
         .build()
 }

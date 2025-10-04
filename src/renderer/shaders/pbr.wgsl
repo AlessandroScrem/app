@@ -21,11 +21,14 @@ struct Light {
     cast_shadow: u32,
     entity_id_low: u32,
     entity_id_high: u32,
+    pad2: vec2<u32>,
 }
 
 struct Model {
     model: mat4x4<f32>,
     normal_matrix: mat4x4<f32>,
+    entity_id_low: u32,
+    entity_id_high: u32,
 }
 
 struct Material {
@@ -212,8 +215,15 @@ fn CalculateAmbient(
     // return vec3<f32>(env_brdf.y);
 }
 
+
+struct FSOutput {
+    @location(0) color : vec4<f32>,
+    @location(1) entity_id : vec2<u32>,
+}
+
 @fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(input: VertexOutput) -> FSOutput {
+    var out: FSOutput;
     var use_ibl: bool = globals.ibl_enable == 1u;
     var albedo_color = material.color.rgb;
     var metallic = material.metallic;
@@ -249,6 +259,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // debug vettore vista
     // return vec4<f32>((V*0.5+0.5),1.0);
+    
+    out.color = vec4<f32>(color, 1.0);
+    out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
 
-    return vec4<f32>(color, 1.0);
+    return out;
 }
+
+

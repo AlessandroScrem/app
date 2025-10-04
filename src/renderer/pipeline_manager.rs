@@ -81,6 +81,76 @@ impl PipelineDesc {
     }
 }
 
+#[derive(Debug, Hash, Clone)]
+pub struct PipelineExt {
+    pub primitive: wgpu::PrimitiveState,
+    pub multisample: wgpu::MultisampleState,
+    pub depth_stencil: Option<DepthStencilState>,
+}
+impl Default for PipelineExt {
+    fn default() -> Self {
+        Self {
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+        }
+    }
+}
+
+impl PipelineExt {
+    pub fn build_pipeline(
+        self,
+        label: &str,
+        device: &wgpu::Device,
+        layout: wgpu::PipelineLayout,
+        targets: &[Option<wgpu::ColorTargetState>],
+        shader: wgpu::ShaderModule,
+        buffers: &[wgpu::VertexBufferLayout<'static>],
+    ) -> wgpu::RenderPipeline {
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(&label),
+            layout: Some(&layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers,
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets,
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: self.primitive,
+            multisample: self.multisample,
+            depth_stencil: self.depth_stencil,
+            multiview: None,
+            cache: None,
+        });
+
+        render_pipeline
+    }
+}
+
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -207,13 +277,26 @@ fn create_pipeline(
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
             let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
 
-            let pipeline_desc = PipelineDesc::default();
+            let targets = &[
+                Some(wgpu::ColorTargetState {
+                    format: hdr_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+                Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rg32Uint,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+            ];
+
+            let pipeline_desc = PipelineExt::default();
 
             pipeline_desc.build_pipeline(
                 "Pbr Pipeline",
                 device,
                 render_pipeline_layout,
-                hdr_format,
+                targets,
                 shader,
                 buffer_desc,
             )

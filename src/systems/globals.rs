@@ -1,7 +1,7 @@
 use crate::camera::Camera;
 use crate::renderer::gpu_manager::GPUResourceManager;
-use crate::renderer::uniform::CameraUniform;
-use crate::{GlobalUniform, Globals};
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
+use crate::Globals;
 
 use legion::*;
 use std::sync::Arc;

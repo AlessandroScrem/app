@@ -1,11 +1,51 @@
 use std::sync::Arc;
+use std::time::Instant;
 use winit::window::Window;
 
 use crate::renderer::hdr_frame::HdrFrame;
+use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::light_manager;
 use crate::renderer::skybox_manager;
 
 pub struct Renderer {}
+pub struct PickBuffer {
+    pub current: wgpu::Buffer,
+}
+
+impl PickBuffer {
+    pub fn read_id(&self, device: &wgpu::Device) -> anyhow::Result<u64> {
+        let slice = self.current.slice(..);
+        let timer = Instant::now();
+
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
+        device.poll(wgpu::PollType::Wait)?;
+        rx.recv()??;
+
+        let (r, g) = {
+            let data = slice.get_mapped_range();
+            let r = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+            let g = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+            (r, g)
+        };
+
+        self.current.unmap();
+        println!("time for map un map {:?} ", timer.elapsed());
+
+        let entity_id: u64 = ((g as u64) << 32) | (r as u64);
+        Ok(entity_id)
+    }
+}
+
+pub struct Hovered(pub u64);
+
+#[derive(Default, Clone, Copy)]
+pub struct PickPoint {
+    pub x: u32,
+    pub y: u32,
+}
+
 pub struct DepthTexture(pub wgpu::TextureView);
 
 pub struct Ibl {
@@ -154,8 +194,12 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let skybox_manager =
-            skybox_manager::SkyboxManager::new(&device, &queue, &gpu_resource_manager, &mut texture_manager);
+        let skybox_manager = skybox_manager::SkyboxManager::new(
+            &device,
+            &queue,
+            &gpu_resource_manager,
+            &mut texture_manager,
+        );
         println!(
             "Skybox manager initialized in {} ms",
             timer.elapsed().as_millis()
@@ -164,12 +208,23 @@ impl Renderer {
         println!("Surface config format is {:?}", surface_config.format);
 
         let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
+        let entity_id_texture = IDTexture::new(&device, &gpu_resource_manager, size);
         let ibl_bind_group = Ibl::new(
             &device,
             &gpu_resource_manager,
             &skybox_manager,
             &light_manager,
         );
+
+        let pickbuffer = {
+            let current = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Readback Pixel(current)"),
+                size: 256,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            PickBuffer {current}
+        };
 
         resources.insert(device);
         resources.insert(queue);
@@ -183,7 +238,11 @@ impl Renderer {
         resources.insert(skybox_manager);
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
+        resources.insert(entity_id_texture);
         resources.insert(ibl_bind_group);
         resources.insert(adapter);
+        resources.insert(pickbuffer);
+        resources.insert(PickPoint::default());
+        resources.insert(Hovered(0));
     }
 }

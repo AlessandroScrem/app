@@ -6,9 +6,11 @@ use std::{
 use wgpu::{TextureFormat, util::DeviceExt};
 
 use crate::{
-    MaterialUniform,
     assets::texture_manager::TextureManager,
-    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::{
+        gpu_manager::{GPUResourceManager, LayoutKind},
+        uniform::MaterialUniform,
+    },
 };
 
 pub struct Material {

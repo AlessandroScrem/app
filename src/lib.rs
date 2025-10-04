@@ -1,14 +1,13 @@
 mod app;
 mod application_handler;
-pub mod assets;
 mod camera;
-pub mod entities;
-pub mod input;
 mod renderer;
 mod scene;
+pub mod assets;
+pub mod entities;
+pub mod input;
 pub mod systems;
 pub mod transform;
-
 pub mod test_utils;
 
 pub mod prelude {
@@ -34,6 +33,7 @@ pub mod colors {
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub f32);
 
+
 #[derive(Clone, Copy, Debug)]
 pub struct Globals {
     pub ibl_enable: bool,
@@ -56,15 +56,8 @@ impl Default for Globals {
     }
 }
 
-#[repr(C, align(16))]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct GlobalUniform {
-    ibl_enable: u32,
-    skybox_enable: u32,
-    exposure: f32,
-    tonemap_filter: u32,
-}
 
+///shader: [pbr, blinnphong, light] 
 #[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
@@ -88,31 +81,6 @@ impl Default for Light {
     }
 }
 
-#[repr(C, align(16))]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct MaterialUniform {
-    pub color: [f32; 4],
-    pub roughness: f32,
-    pub metallic: f32,
-    pub roughness_use_texture: u32,
-    pub metallic_use_texture: u32,
-    pub color_use_texture: u32,
-    pub padding: [u32; 3],
-}
-impl Default for MaterialUniform {
-    fn default() -> Self {
-        Self {
-            color: [1.0, 1.0, 1.0, 1.0],
-            roughness: 1.0,
-            metallic: 0.0,
-            roughness_use_texture: 0,
-            metallic_use_texture: 0,
-            color_use_texture: 0,
-            padding: [0; 3],
-        }
-    }
-}
-
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {
@@ -123,7 +91,7 @@ pub struct MeshComponent {
     data: assets::mesh::Mesh,
 }
 
-
+#[derive(Clone)]
 pub struct TransformComponent {
     pub position: [f32; 3],
     pub rotation: [f32; 3],

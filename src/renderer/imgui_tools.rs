@@ -8,9 +8,7 @@ use legion::{Entity, Resources, World};
 use winit::window::Window;
 
 use crate::{
-    LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager, camera::Camera,
-    prelude::imgui_tools::ui_tools::Timestep, renderer::gpu_manager::GPUResourceManager,
+    assets::texture_manager::TextureManager, camera::Camera, prelude::imgui_tools::ui_tools::Timestep, renderer::{gpu_manager::GPUResourceManager, gpu_renderer::{Hovered, PickPoint}, uniform::ModelUniform}, LightComponent, MeshComponent, TagComponent, TransformComponent
 };
 
 // registro imgui separato
@@ -359,6 +357,7 @@ fn draw_window_settings(
     resources: &mut legion::Resources,
 ) {
     let mut globals = resources.get_mut::<crate::Globals>().unwrap();
+    let hovered = resources.get::<Hovered>().unwrap();
 
     let tonemap_filters = [
         "ACES",
@@ -384,10 +383,12 @@ fn draw_window_settings(
                     "Mouse position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
+                let point = resources.get::<PickPoint>().unwrap();
                 text_fmt!(ui, "ResultGetPixel  : {} ", 0);
+                text_fmt!(ui, "Mouse point  : {} {}  ", point.x, point.y);
                 let hovered_entity_name = "Noname";
                 let selected_entity_name = "Noname";
-                let hovered_entity_id = 0;
+                let hovered_entity_id = hovered.0;
                 let selected_entity_id = 0;
                 text_fmt!(
                     ui,
@@ -611,8 +612,9 @@ fn draw_ui_mesh(
 ) {
     use legion::query::IntoQuery;
 
-    let mut query = <(&mut MeshComponent, &mut TransformComponent)>::query();
-    if let Ok((mesh, transform)) = query.get_mut(world, entity) {
+    let mut query = <(&mut MeshComponent, &mut TransformComponent, &ModelUniform)>::query();
+    if let Ok((mesh, transform, mu)) = query.get_mut(world, entity) {
+        text_fmt!(ui, "Entity ID: {}", mu.entity_id);
         for submesh in mesh.data.submeshes.iter_mut() {
             let material = &mut submesh.material;
             let main = &material.main_texture;

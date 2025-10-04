@@ -1,6 +1,5 @@
-use crate::GlobalUniform;
 use crate::assets::vertexdata::LinesVertexData;
-use crate::renderer::uniform::CameraUniform;
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
 
@@ -19,6 +18,7 @@ pub enum LayoutKind {
     Model,
     Skybox,
     Hdr,
+    EntityId,
     Equirect,
 }
 
@@ -309,7 +309,7 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                 //model
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -360,6 +360,29 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                         multisampled: false,
                         view_dimension: wgpu::TextureViewDimension::D2,
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+            ],
+        }),
+        LayoutKind::EntityId => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("ID_Texture_bind_group_layout"),
+            entries: &[
+                // entity_id sampler
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+                // entity_id texture
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Uint,
                     },
                     count: None,
                 },
