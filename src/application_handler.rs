@@ -4,7 +4,7 @@ use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
 use crate::prelude::*;
 use crate::renderer::gpu_manager::GPUResourceManager;
-use crate::renderer::gpu_renderer::{Hovered, PickBuffer, PickPoint};
+use crate::renderer::gpu_renderer::PickPoint;
 use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
@@ -31,8 +31,10 @@ impl ApplicationHandler for App {
             let safe_width = std::cmp::min(screen_size.width, self.size.width);
             let safe_height = std::cmp::min(screen_size.height, self.size.height);
             let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
-            let y = (screen_size.height.saturating_sub(safe_height))as f32  / 2.0;
-            if let Some(size) = window.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height)){
+            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
+            if let Some(size) =
+                window.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
+            {
                 self.size = size;
             }
             window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
@@ -110,6 +112,7 @@ impl ApplicationHandler for App {
 
             self.current_scene
                 .update(self.delta_time, &mut self.resources);
+            self.current_scene.picking_update(&mut self.resources);
 
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.clear();
@@ -174,11 +177,11 @@ impl ApplicationHandler for App {
         }
 
         match event {
-            WindowEvent::CursorMoved { position, .. }=> {
+            WindowEvent::CursorMoved { position, .. } => {
                 let mut point = self.resources.get_mut::<PickPoint>().unwrap();
                 point.x = position.x as u32;
                 point.y = position.y as u32;
-            },
+            }
             WindowEvent::CloseRequested => {
                 println!("The close button was pressed; stopping");
                 event_loop.exit();
@@ -229,13 +232,6 @@ impl ApplicationHandler for App {
                 let queue = self.resources.get::<wgpu::Queue>().unwrap();
 
                 queue.submit([encoder.finish()]);
-
-                // TODO: move from here -> picking strategy
-                let device = self.resources.get_mut::<wgpu::Device>().unwrap();
-                let pick_buffer = self.resources.get_mut::<PickBuffer>().unwrap();
-                let mut hovered = self.resources.get_mut::<Hovered>().unwrap();
-                hovered.0 = pick_buffer.read_id(&device).unwrap_or(0);
-                //
 
                 frame.present();
             }

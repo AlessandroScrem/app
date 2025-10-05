@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU64;
 use winit::window::Window;
 
 use crate::renderer::hdr_frame::HdrFrame;
@@ -8,33 +9,103 @@ use crate::renderer::light_manager;
 use crate::renderer::skybox_manager;
 
 pub struct Renderer {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickState {
+    Idle,    // pronto per una nuova copia
+    Copying, // in corso: la GPU sta scrivendo nel buffer
+    Mapped,  // mappato e pronto da leggere
+}
+
 pub struct PickBuffer {
-    pub current: wgpu::Buffer,
+    pub staging: Arc<wgpu::Buffer>,
+    pub last_id: Arc<AtomicU64>,
+    pub ready: Arc<AtomicBool>,
+    pub state: Arc<std::sync::Mutex<PickState>>,
 }
 
 impl PickBuffer {
-    pub fn read_id(&self, device: &wgpu::Device) -> anyhow::Result<u64> {
-        let slice = self.current.slice(..);
-        let timer = Instant::now();
+    pub fn new(device: &wgpu::Device) -> Self {
+        let staging = Arc::new(device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("staging Readback Pixel"),
+            size: 256,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        }));
+        let last_id = Arc::new(AtomicU64::new(0));
+        let ready = Arc::new(AtomicBool::new(true));
+        Self {
+            staging,
+            last_id,
+            ready,
+            state: Arc::new(std::sync::Mutex::new(PickState::Idle)),
+        }
+    }
 
+    pub fn read_id(&self) {
+        use std::sync::atomic::Ordering;
 
-        let (tx, rx) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
-        device.poll(wgpu::PollType::Wait)?;
-        rx.recv()??;
+        let mut state = self.state.lock().unwrap();
+        if *state != PickState::Idle {
+            // Evita doppio map se non ancora completato
+            return;
+        }
 
-        let (r, g) = {
-            let data = slice.get_mapped_range();
-            let r = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-            let g = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
-            (r, g)
-        };
+        *state = PickState::Copying;
+        self.ready.store(false, Ordering::Relaxed);
 
-        self.current.unmap();
-        println!("time for map un map {:?} ", timer.elapsed());
+        let staging = Arc::clone(&self.staging);
+        let last_id = Arc::clone(&self.last_id);
+        let staging_clone = Arc::clone(&staging);
+        let ready = Arc::clone(&self.ready);
+        let state_arc = Arc::clone(&self.state);
+        // let timer = std::time::Instant::now();
 
-        let entity_id: u64 = ((g as u64) << 32) | (r as u64);
-        Ok(entity_id)
+        // println!("Mapping buffer flag is: {}", ready.load(Ordering::Relaxed));
+        // Map_async direttamente sul buffer
+        staging_clone
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |res| {
+                let mut state = state_arc.lock().unwrap();
+                if let Ok(()) = res {
+                    // Prendi la slice solo qui dentro, non prima
+                    let data = staging.slice(..).get_mapped_range();
+
+                    if data.len() >= 8 {
+                        let r = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                        let g = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+                        let id = ((g as u64) << 32) | (r as u64);
+                        last_id.store(id, Ordering::Relaxed);
+                        // println!("✅ ID {} letto in {:?}", id, timer.elapsed());
+                    } else {
+                        eprintln!("❌ buffer troppo piccolo per leggere ID");
+                    }
+
+                    drop(data);
+                    staging.unmap();
+                    ready.store(true, Ordering::Relaxed);
+                    *state = PickState::Mapped;
+                } else {
+                    eprintln!("❌ map_async fallita");
+                    *state = PickState::Idle;
+                    ready.store(true, Ordering::Relaxed);
+                }
+            });
+    }
+
+    /// Ritorna l'ultimo ID valido (se pronto)
+    pub fn get_id_if_ready(&self) -> Option<u64> {
+        use std::sync::atomic::Ordering;
+
+        if self.ready.load(Ordering::Relaxed) {
+            let mut state = self.state.lock().unwrap();
+            if *state == PickState::Mapped {
+                *state = PickState::Idle; // pronto per un nuovo ciclo
+            }
+            Some(self.last_id.load(Ordering::Relaxed))
+        } else {
+            None
+        }
     }
 }
 
@@ -216,16 +287,8 @@ impl Renderer {
             &light_manager,
         );
 
-        let pickbuffer = {
-            let current = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Readback Pixel(current)"),
-                size: 256,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            });
-            PickBuffer {current}
-        };
-
+        let pickbuffer = PickBuffer::new(&device);
+        
         resources.insert(device);
         resources.insert(queue);
         resources.insert(surface);
