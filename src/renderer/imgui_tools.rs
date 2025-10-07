@@ -8,7 +8,15 @@ use legion::{Entity, Resources, World};
 use winit::window::Window;
 
 use crate::{
-    assets::texture_manager::TextureManager, camera::Camera, prelude::imgui_tools::ui_tools::Timestep, renderer::{gpu_manager::GPUResourceManager, gpu_renderer::{Hovered, PickPoint}, uniform::ModelUniform}, LightComponent, MeshComponent, TagComponent, TransformComponent
+    LightComponent, MeshComponent, TagComponent, TransformComponent,
+    assets::texture_manager::TextureManager,
+    camera::Camera,
+    prelude::imgui_tools::ui_tools::Timestep,
+    renderer::{
+        gpu_manager::GPUResourceManager,
+        gpu_renderer::{Hovered, PickPoint},
+        uniform::ModelUniform,
+    },
 };
 
 // registro imgui separato
@@ -34,12 +42,13 @@ mod ui_tools {
     use std::time::{Duration, Instant};
 
     pub struct Timestep {
-        time: Duration, // durata del frame corrente (smoothed)
-        last: Instant,  // istante dell'ultimo frame
-        fps: f32,
-        count: f32,
-        timer: f32,
+        time: Duration,     // durata del frame corrente (smoothed)
+        last: Instant,      // istante dell'ultimo frame
+        fps: f32,           // fps corrente (aggiornato ogni secondo)
+        count: f32,         // conteggio frame nel secondo corrente
+        timer: f32,         // timer accumulato per aggiornare fps
         avg_time: Duration, // media mobile del timestep
+        avg_fps: f32,       // media mobile degli fps (stabile)
         samples: u32,       // numero di campioni accumulati
     }
 
@@ -52,6 +61,7 @@ mod ui_tools {
                 count: 0.0,
                 timer: 0.0,
                 avg_time: Duration::from_secs_f32(0.0),
+                avg_fps: 0.0,
                 samples: 0,
             }
         }
@@ -82,13 +92,18 @@ mod ui_tools {
                 self.fps = self.count;
                 self.count = 0.0;
                 self.timer = 0.0;
+
+                // media mobile esponenziale per FPS (stabile e fluida)
+                const FPS_SMOOTH: f32 = 0.9;
+                self.avg_fps = self.avg_fps * FPS_SMOOTH + self.fps * (1.0 - FPS_SMOOTH);
             }
         }
 
         pub fn delta(&self) -> Duration {
             self.time
         }
-
+        
+        #[allow(dead_code)]
         pub fn fps(&self) -> u32 {
             self.fps as u32
         }
@@ -96,6 +111,11 @@ mod ui_tools {
         /// Media del timestep dall'avvio (in Duration)
         pub fn average(&self) -> Duration {
             self.avg_time
+        }
+
+        /// Media mobile stabile degli FPS
+        pub fn average_fps(&self) -> u32 {
+            self.avg_fps as u32
         }
     }
 
@@ -413,7 +433,7 @@ fn draw_window_settings(
                 });
             };
             if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
-                text_fmt!(ui, "FPS           : {:?}", timestep.fps());
+                text_fmt!(ui, "FPS           : {:?}", timestep.average_fps());
                 text_fmt!(ui, "Frametime     : {:?}", timestep.average());
                 ui.separator();
                 text_fmt!(ui, "Gpu info\n  Adapter:  {}\n  Version:  ", adapter_name);
