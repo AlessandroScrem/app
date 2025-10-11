@@ -9,8 +9,13 @@ pub mod input;
 pub mod systems;
 pub mod transform;
 pub mod test_utils;
+pub mod picking;
+pub mod timestep;
+
 
 pub mod prelude {
+    pub use log::{info, debug, warn, error};
+    pub use crate::timestep;
     pub use super::app::App;
     pub use crate::camera::Camera;
     pub use crate::renderer::Renderer;
@@ -33,7 +38,6 @@ pub mod colors {
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub f32);
 
-
 #[derive(Clone, Copy, Debug)]
 pub struct Globals {
     pub ibl_enable: bool,
@@ -55,7 +59,6 @@ impl Default for Globals {
         }
     }
 }
-
 
 ///shader: [pbr, blinnphong, light] 
 #[repr(C, align(16))]

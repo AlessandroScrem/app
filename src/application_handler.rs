@@ -4,7 +4,6 @@ use crate::assets::texture_manager::TextureManager;
 use crate::input::Input;
 use crate::prelude::*;
 use crate::renderer::gpu_manager::GPUResourceManager;
-use crate::renderer::gpu_renderer::PickPoint;
 use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
@@ -15,7 +14,7 @@ use winit::window::{Window, WindowId};
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let timer = std::time::Instant::now();
-        println!(
+        info!(
             "App resumed after being paused for {} ms",
             timer.elapsed().as_millis()
         );
@@ -43,10 +42,10 @@ impl ApplicationHandler for App {
         self.window = Some(window.clone());
 
         pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
-        println!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+        info!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         self.load();
-        println!("App initialized in {} ms", timer.elapsed().as_millis());
+        info!("App initialized in {} ms", timer.elapsed().as_millis());
 
         window.request_redraw();
     }
@@ -112,7 +111,6 @@ impl ApplicationHandler for App {
 
             self.current_scene
                 .update(self.delta_time, &mut self.resources);
-            self.current_scene.picking_update(&mut self.resources);
 
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.clear();
@@ -139,6 +137,7 @@ impl ApplicationHandler for App {
             let manager = self.resources.get::<TextureManager>().unwrap();
 
             // TODO: maybe use an event handler for avoid to sync each frame
+            // bub sync when add or removing textures from texture_manager
             imgui_tools::sync_with_registry(&device, &manager, &mut registry, &mut renderer);
         }
 
@@ -177,13 +176,8 @@ impl ApplicationHandler for App {
         }
 
         match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                let mut point = self.resources.get_mut::<PickPoint>().unwrap();
-                point.x = position.x as u32;
-                point.y = position.y as u32;
-            }
             WindowEvent::CloseRequested => {
-                println!("The close button was pressed; stopping");
+                info!("The close button was pressed; stopping");
                 event_loop.exit();
             }
 

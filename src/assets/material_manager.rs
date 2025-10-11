@@ -3,6 +3,8 @@ use std::{
     sync::Arc,
 };
 
+use crate::prelude::*;
+
 use wgpu::{TextureFormat, util::DeviceExt};
 
 use crate::{
@@ -108,7 +110,7 @@ impl MaterialManager {
         let bind2 =
             texture_manager.get_or_create(&metallic_roughness_texture, TextureFormat::Rgba8Unorm);
 
-        println!(
+        info!(
             "--\t Load matererial textures took {} ms",
             timer.elapsed().as_millis()
         );

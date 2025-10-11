@@ -4,6 +4,7 @@ use gltf::buffer;
 use wgpu::util::DeviceExt;
 
 use crate::{
+    prelude::*,
     assets::{
         vertexdata::MeshVertexData,
         material_manager::{Material, MaterialManager},
@@ -53,7 +54,7 @@ pub fn load_gltf(
     let (document, buffers, _) = gltf::import(path)?;
     let images: Vec<gltf::Image<'_>> = document.images().collect();
 
-    println!("--\t gltf import is {} ms", timer.elapsed().as_millis());
+    info!("--\t gltf import is {} ms", timer.elapsed().as_millis());
 
     let gltf_mesh = document.meshes().next().expect("mesh [0] not present");
     let name = gltf_mesh.name().unwrap_or("mesh").to_string();
@@ -87,7 +88,7 @@ pub fn load_gltf(
             })
             .collect();
 
-        println!("---\t {}  {:?}", name, bbox);
+        info!("---\t {}  {:?}", name, bbox);
 
         if let Some(normals) = reader.read_normals() {
             normals.enumerate().for_each(|(i, normal)| {
@@ -124,7 +125,7 @@ pub fn load_gltf(
             path.to_path_buf(),
         );
 
-        println!(
+        info!(
             "--\t create material: {} is {} ms",
             primitive.material().name().unwrap_or("no_name"),
             timer.elapsed().as_millis()
@@ -167,7 +168,7 @@ pub fn load_gltf(
         label: Some("Model Bind Group"),
     });
 
-    println!(
+    info!(
         "Loading mesh {} took {} ms",
         path.display(),
         timer.elapsed().as_millis()

@@ -1,121 +1,14 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicU64;
 use winit::window::Window;
 
+use crate::picking::PickObject;
 use crate::renderer::hdr_frame::HdrFrame;
 use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::light_manager;
 use crate::renderer::skybox_manager;
+use crate::prelude::*;
 
 pub struct Renderer {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PickState {
-    Idle,    // pronto per una nuova copia
-    Copying, // in corso: la GPU sta scrivendo nel buffer
-    Mapped,  // mappato e pronto da leggere
-}
-
-pub struct PickBuffer {
-    pub staging: Arc<wgpu::Buffer>,
-    pub last_id: Arc<AtomicU64>,
-    pub ready: Arc<AtomicBool>,
-    pub state: Arc<std::sync::Mutex<PickState>>,
-}
-
-impl PickBuffer {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let staging = Arc::new(device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("staging Readback Pixel"),
-            size: 256,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        }));
-        let last_id = Arc::new(AtomicU64::new(0));
-        let ready = Arc::new(AtomicBool::new(true));
-        Self {
-            staging,
-            last_id,
-            ready,
-            state: Arc::new(std::sync::Mutex::new(PickState::Idle)),
-        }
-    }
-
-    pub fn read_id(&self) {
-        use std::sync::atomic::Ordering;
-
-        let mut state = self.state.lock().unwrap();
-        if *state != PickState::Idle {
-            // Evita doppio map se non ancora completato
-            return;
-        }
-
-        *state = PickState::Copying;
-        self.ready.store(false, Ordering::Relaxed);
-
-        let staging = Arc::clone(&self.staging);
-        let last_id = Arc::clone(&self.last_id);
-        let staging_clone = Arc::clone(&staging);
-        let ready = Arc::clone(&self.ready);
-        let state_arc = Arc::clone(&self.state);
-        // let timer = std::time::Instant::now();
-
-        // println!("Mapping buffer flag is: {}", ready.load(Ordering::Relaxed));
-        // Map_async direttamente sul buffer
-        staging_clone
-            .slice(..)
-            .map_async(wgpu::MapMode::Read, move |res| {
-                let mut state = state_arc.lock().unwrap();
-                if let Ok(()) = res {
-                    // Prendi la slice solo qui dentro, non prima
-                    let data = staging.slice(..).get_mapped_range();
-
-                    if data.len() >= 8 {
-                        let r = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-                        let g = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
-                        let id = ((g as u64) << 32) | (r as u64);
-                        last_id.store(id, Ordering::Relaxed);
-                        // println!("✅ ID {} letto in {:?}", id, timer.elapsed());
-                    } else {
-                        eprintln!("❌ buffer troppo piccolo per leggere ID");
-                    }
-
-                    drop(data);
-                    staging.unmap();
-                    ready.store(true, Ordering::Relaxed);
-                    *state = PickState::Mapped;
-                } else {
-                    eprintln!("❌ map_async fallita");
-                    *state = PickState::Idle;
-                    ready.store(true, Ordering::Relaxed);
-                }
-            });
-    }
-
-    /// Ritorna l'ultimo ID valido (se pronto)
-    pub fn get_id_if_ready(&self) -> Option<u64> {
-        use std::sync::atomic::Ordering;
-
-        if self.ready.load(Ordering::Relaxed) {
-            let mut state = self.state.lock().unwrap();
-            if *state == PickState::Mapped {
-                *state = PickState::Idle; // pronto per un nuovo ciclo
-            }
-            Some(self.last_id.load(Ordering::Relaxed))
-        } else {
-            None
-        }
-    }
-}
-
-pub struct Hovered(pub u64);
-
-#[derive(Default, Clone, Copy)]
-pub struct PickPoint {
-    pub x: u32,
-    pub y: u32,
-}
 
 pub struct DepthTexture(pub wgpu::TextureView);
 
@@ -179,7 +72,7 @@ impl Ibl {
 impl Renderer {
     pub async fn new(window: Arc<Window>, resources: &mut legion::Resources) {
         let timer = std::time::Instant::now();
-        println!("Initializing renderer...");
+        info!("Initializing renderer...");
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let adapter = instance
@@ -222,7 +115,7 @@ impl Renderer {
         });
         let depth_view = depth_texture.create_view(&Default::default());
 
-        println!("Device initialized in {} ms", timer.elapsed().as_millis());
+        info!("Device initialized in {} ms", timer.elapsed().as_millis());
 
         let gpu_resource_manager = Arc::new(crate::renderer::gpu_manager::GPUResourceManager::new(
             &device,
@@ -232,7 +125,7 @@ impl Renderer {
             &gpu_resource_manager,
             surface_config.format,
         );
-        println!(
+        info!(
             "Pipeline manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -241,7 +134,7 @@ impl Renderer {
             Arc::new(device.clone()),
             gpu_resource_manager.clone(),
         );
-        println!(
+        info!(
             "Material manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -250,7 +143,7 @@ impl Renderer {
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        println!(
+        info!(
             "Texture manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -260,7 +153,7 @@ impl Renderer {
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        println!(
+        info!(
             "Light manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -271,12 +164,12 @@ impl Renderer {
             &gpu_resource_manager,
             &mut texture_manager,
         );
-        println!(
+        info!(
             "Skybox manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
 
-        println!("Surface config format is {:?}", surface_config.format);
+        info!("Surface config format is {:?}", surface_config.format);
 
         let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
         let entity_id_texture = IDTexture::new(&device, &gpu_resource_manager, size);
@@ -287,8 +180,8 @@ impl Renderer {
             &light_manager,
         );
 
-        let pickbuffer = PickBuffer::new(&device);
-        
+        let pickobject = PickObject::new(&device);
+
         resources.insert(device);
         resources.insert(queue);
         resources.insert(surface);
@@ -304,8 +197,6 @@ impl Renderer {
         resources.insert(entity_id_texture);
         resources.insert(ibl_bind_group);
         resources.insert(adapter);
-        resources.insert(pickbuffer);
-        resources.insert(PickPoint::default());
-        resources.insert(Hovered(0));
+        resources.insert(pickobject);
     }
 }

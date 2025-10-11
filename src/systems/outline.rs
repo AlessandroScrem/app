@@ -1,26 +1,34 @@
 use std::sync::Arc;
 
-use crate::renderer::{
-    gpu_manager::GPUResourceManager,
-    hdr_frame::HdrFrame,
-    pipeline_manager::{PipelineKind, PipelineManager},
+use crate::{
+    picking::PickObject,
+    renderer::{
+        gpu_manager::GPUResourceManager,
+        hdr_frame::IDTexture,
+        pipeline_manager::{PipelineKind, PipelineManager},
+    },
 };
 
 use legion::*;
 
 #[system]
-pub fn hdr(
-    #[resource] frame_view: &wgpu::TextureView,
+pub fn outline(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] pipeline_manager: &PipelineManager,
-    #[resource] hdr_frame: &HdrFrame,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
+    #[resource] pipeline_manager: &PipelineManager,
+    #[resource] frame_view: &wgpu::TextureView,
+    #[resource] entity_id_texture: &IDTexture,
+    #[resource] pick_object: &PickObject,
 ) {
+    if pick_object.selected.is_none() {
+        return;
+    }
+
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Hdr Render Pass"),
+        label: Some("Outline Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: frame_view,
+            view: &frame_view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Load,
@@ -32,10 +40,10 @@ pub fn hdr(
         occlusion_query_set: None,
     });
 
-    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Hdr);
+    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Outline);
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &hdr_frame.hdr_bind_group, &[]);
+    renderpass.set_bind_group(0, &entity_id_texture.id_bind_group, &[]);
     renderpass.set_bind_group(1, &gpu_resource_manager.globals_bind_group, &[]);
     renderpass.draw(0..3, 0..1);
 }

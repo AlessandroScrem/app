@@ -1,6 +1,7 @@
 use stb_image::image::load_from_memory_with_depth;
 use std::sync::Arc;
 use wgpu::TextureFormat;
+use crate::prelude::*;
 
 fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
     use half::f16;
@@ -33,7 +34,7 @@ fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
             dst[6..8].copy_from_slice(&f16::from_f32(src[3].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
         });
 
-    println!(
+    info!(
         "Time for decoding HDR (stb_image, parallel): {:?}",
         timer.elapsed().as_millis()
     );
@@ -57,7 +58,7 @@ fn read_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 
     let raw_u8 = img.data;
 
-    println!(
+    info!(
         "Time for Load LDR image (stb_image, parallel): {:?}",
         timer.elapsed().as_millis()
     );

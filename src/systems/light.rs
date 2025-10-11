@@ -67,7 +67,7 @@ pub fn update_transform(
     #[resource] queue: &wgpu::Queue,
     #[resource] light_manager: &LightManager,
 ) {
-    println!("Light maybe_changed");
+    // println!("Light maybe_changed");
     queue.write_buffer(
         &light_manager.light_uniform_buffer,
         0,

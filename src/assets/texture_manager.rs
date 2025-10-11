@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use crate::prelude::*;
 
 pub struct TextureManager {
     device: Arc<wgpu::Device>,
@@ -87,7 +88,7 @@ impl TextureManager {
                 Some(buffer)
             }
             Err(err) => {
-                println!(
+                info!(
                     "{}, Impossibile leggere il file {}",
                     err,
                     filepath.display()

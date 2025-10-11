@@ -74,13 +74,14 @@ impl App {
 
         self.current_scene.schedule = Schedule::builder()
             .add_system(crate::systems::camera_orbit::camera_orbit_system())
+            .add_system(crate::systems::picking::picking_system())
             .build();
 
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
         self.create_gui();
 
-        println!("App loader took {} ms", timer.elapsed().as_millis());
+        info!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
     fn create_gui(&mut self) {

@@ -1,15 +1,12 @@
-use cgmath::num_traits::clamp;
 use wgpu::IndexFormat;
 
 use crate::{
-    MeshComponent, TransformComponent,
-    entities::EntityRawU64,
-    renderer::{
+    entities::EntityRawU64, renderer::{
         gpu_manager::GPUResourceManager,
-        gpu_renderer::{DepthTexture, PickBuffer, PickPoint},
+        gpu_renderer::DepthTexture,
         hdr_frame::{HdrFrame, IDTexture},
         pipeline_manager::{PipelineKind, PipelineManager},
-    },
+    }, MeshComponent, TransformComponent
 };
 
 use legion::{world::SubWorld, *};
@@ -102,7 +99,7 @@ pub fn update_model_matrix(
     entity: &Entity,
     #[resource] queue: &wgpu::Queue,
 ) {
-    println!("Model Matrix maybe_changed");
+    // println!("Model Matrix maybe_changed");
     let model_matrix = transform.compute_model_matrix();
     let mut updated_uniforms = ModelUniform::new(model_matrix);
     updated_uniforms.entity_id = entity.as_raw_u64();
@@ -118,7 +115,7 @@ pub fn update_model_matrix(
 #[system(for_each)]
 #[filter(maybe_changed::<MeshComponent>())]
 pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
-    println!("Material maybe_changed");
+    // println!("Material maybe_changed");
     for submesh in mesh.data.submeshes.iter() {
         let material = &submesh.material;
         if let Some(buffer) = &material.material_uniform_buffer {
@@ -136,43 +133,4 @@ pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
     }
 }
 
-#[system]
-pub fn read_entity_id(
-    #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] entity_id_texture: &IDTexture,
-    #[resource] readback_pixel_buffer: &mut PickBuffer,
-    #[resource] point: &PickPoint,
-) {
-    if readback_pixel_buffer
-        .ready
-        .load(std::sync::atomic::Ordering::Relaxed)
-        == true
-    {
-        let aligned_bytes_per_row = 256; // minimo richiesto
-        let size = entity_id_texture._texture.size();
-        let x = clamp(point.x, 0, size.width - 1);
-        let y = clamp(point.y, 0, size.height - 1);
 
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture: &entity_id_texture._texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x, y, z: 0 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &readback_pixel_buffer.staging,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(aligned_bytes_per_row),
-                    rows_per_image: Some(1),
-                },
-            },
-            wgpu::Extent3d {
-                width: 1,
-                height: 1,
-                depth_or_array_layers: 1,
-            },
-        );
-    } 
-}

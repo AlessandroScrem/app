@@ -8,15 +8,10 @@ use legion::{Entity, Resources, World};
 use winit::window::Window;
 
 use crate::{
-    LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::texture_manager::TextureManager,
-    camera::Camera,
-    prelude::imgui_tools::ui_tools::Timestep,
-    renderer::{
+    assets::texture_manager::TextureManager, camera::Camera, picking::PickObject, renderer::{
         gpu_manager::GPUResourceManager,
-        gpu_renderer::{Hovered, PickPoint},
         uniform::ModelUniform,
-    },
+    }, timestep::Timestep, LightComponent, MeshComponent, TagComponent, TransformComponent
 };
 
 // registro imgui separato
@@ -38,87 +33,6 @@ macro_rules! text_fmt {
 };
 }
 mod ui_tools {
-
-    use std::time::{Duration, Instant};
-
-    pub struct Timestep {
-        time: Duration,     // durata del frame corrente (smoothed)
-        last: Instant,      // istante dell'ultimo frame
-        fps: f32,           // fps corrente (aggiornato ogni secondo)
-        count: f32,         // conteggio frame nel secondo corrente
-        timer: f32,         // timer accumulato per aggiornare fps
-        avg_time: Duration, // media mobile del timestep
-        avg_fps: f32,       // media mobile degli fps (stabile)
-        samples: u32,       // numero di campioni accumulati
-    }
-
-    impl Timestep {
-        pub fn new() -> Self {
-            Self {
-                time: Duration::from_secs_f32(0.0),
-                last: Instant::now(),
-                fps: 0.0,
-                count: 0.0,
-                timer: 0.0,
-                avg_time: Duration::from_secs_f32(0.0),
-                avg_fps: 0.0,
-                samples: 0,
-            }
-        }
-
-        /// Aggiorna il timestep in base al tempo trascorso dall'ultimo frame
-        pub fn update(&mut self) {
-            let now = Instant::now();
-            let dt = now - self.last;
-            self.last = now;
-
-            // smoothing per rendere il valore più stabile
-            const MEDIAN: f32 = 0.9;
-            const VARIANT: f32 = 0.1;
-            let blended = self.time.as_secs_f32() * MEDIAN + dt.as_secs_f32() * VARIANT;
-            self.time = Duration::from_secs_f32(blended);
-
-            // aggiorna media mobile del timestep (average in Duration)
-            self.samples += 1;
-            let avg_secs = (self.avg_time.as_secs_f32() * ((self.samples - 1) as f32)
-                + dt.as_secs_f32())
-                / (self.samples as f32);
-            self.avg_time = Duration::from_secs_f32(avg_secs);
-
-            // aggiorna FPS calcolato
-            self.count += 1.0;
-            self.timer += self.time.as_secs_f32();
-            if self.timer >= 1.0 {
-                self.fps = self.count;
-                self.count = 0.0;
-                self.timer = 0.0;
-
-                // media mobile esponenziale per FPS (stabile e fluida)
-                const FPS_SMOOTH: f32 = 0.9;
-                self.avg_fps = self.avg_fps * FPS_SMOOTH + self.fps * (1.0 - FPS_SMOOTH);
-            }
-        }
-
-        pub fn delta(&self) -> Duration {
-            self.time
-        }
-        
-        #[allow(dead_code)]
-        pub fn fps(&self) -> u32 {
-            self.fps as u32
-        }
-
-        /// Media del timestep dall'avvio (in Duration)
-        pub fn average(&self) -> Duration {
-            self.avg_time
-        }
-
-        /// Media mobile stabile degli FPS
-        pub fn average_fps(&self) -> u32 {
-            self.avg_fps as u32
-        }
-    }
-
     pub fn disabled<F>(ui: &imgui::Ui, func: F)
     where
         F: FnOnce(),
@@ -227,7 +141,6 @@ pub struct ImguiState {
     pub clear_color: wgpu::Color,
     pub demo_open: bool,
     pub last_cursor: Option<MouseCursor>,
-    pub entity_selected: Option<Entity>,
     ini_loaded: bool,
     timestep: Timestep,
 }
@@ -300,7 +213,6 @@ impl ImguiState {
             clear_color,
             demo_open,
             last_cursor,
-            entity_selected: None,
             ini_loaded: false,
             timestep,
         }
@@ -349,8 +261,8 @@ impl ImguiState {
                 &mut self.demo_open,
                 resources,
             );
-            draw_window_entities(ui, &mut win_pos, world, &mut self.entity_selected);
-            draw_window_properties(ui, &mut win_pos, world, &resources, self.entity_selected);
+            draw_window_entities(ui, &mut win_pos, world, &resources);
+            draw_window_properties(ui, &mut win_pos, world, &resources);
 
             draw_debug_window(ui, self.demo_open);
             draw_debug_texture(ui, &resources);
@@ -377,7 +289,7 @@ fn draw_window_settings(
     resources: &mut legion::Resources,
 ) {
     let mut globals = resources.get_mut::<crate::Globals>().unwrap();
-    let hovered = resources.get::<Hovered>().unwrap();
+    let pick_object = resources.get::<PickObject>().unwrap();
 
     let tonemap_filters = [
         "ACES",
@@ -393,6 +305,8 @@ fn draw_window_settings(
     let window = ui.window("Settings");
     let win_size = [300.0, 300.0];
     let adapter_name = resources.get::<wgpu::Adapter>().unwrap().get_info().name;
+    // let selected: Entity = crate::entities::EntityRawU64::from_raw_u64(selected.0);
+
     window
         .size(win_size, Condition::FirstUseEver)
         .position(*win_pos, Condition::FirstUseEver)
@@ -403,24 +317,22 @@ fn draw_window_settings(
                     "Mouse position: ({:.1},{:.1})",
                     mouse_pos[0], mouse_pos[1]
                 ));
-                let point = resources.get::<PickPoint>().unwrap();
                 text_fmt!(ui, "ResultGetPixel  : {} ", 0);
-                text_fmt!(ui, "Mouse point  : {} {}  ", point.x, point.y);
                 let hovered_entity_name = "Noname";
                 let selected_entity_name = "Noname";
-                let hovered_entity_id = hovered.0;
-                let selected_entity_id = 0;
+                let hovered_entity = pick_object.hovered;
+                let selected_entity = pick_object.selected;
                 text_fmt!(
                     ui,
-                    "Hovered Entity  : {} ID: {}",
+                    "Hovered Entity  : {} ID: {:?}",
                     hovered_entity_name,
-                    hovered_entity_id,
+                    hovered_entity,
                 );
                 text_fmt!(
                     ui,
-                    "Selected Entity : {} ID: {}",
+                    "Selected Entity : {} ID: {:?}",
                     selected_entity_name,
-                    selected_entity_id,
+                    selected_entity,
                 );
                 ui.separator();
                 ui_tools::disabled(ui, || {
@@ -568,9 +480,10 @@ fn draw_window_entities(
     ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
     world: &World,
-    selected: &mut Option<Entity>,
+    resources: &Resources,
 ) {
     use legion::query::IntoQuery;
+    let mut pick_object = resources.get_mut::<PickObject>().unwrap();
     let mut query = <(Entity, &TagComponent)>::query();
 
     let win_size = [300.0, 100.0];
@@ -582,14 +495,14 @@ fn draw_window_entities(
             for (entity, tag) in query.iter(world) {
                 // deselect when click on this window
                 if ui.is_window_hovered() && ui.is_mouse_down(MouseButton::Left) {
-                    *selected = None;
+                    pick_object.select(None);
                 }
                 if ui
                     .selectable_config(format!("{} {:?}", tag.name, entity))
-                    .selected(selected.map(|e| e == *entity).unwrap_or(false))
+                    .selected(pick_object.selected.map(|e| e == *entity).unwrap_or(false))
                     .build()
                 {
-                    *selected = Some(*entity);
+                    pick_object.select(Some(*entity));
                 }
             }
         });
@@ -601,27 +514,23 @@ fn draw_window_properties(
     win_pos: &mut [f32; 2],
     world: &mut World,
     resources: &Resources,
-    selected: Option<Entity>,
 ) {
-    let entity = match selected {
-        Some(entity) => entity,
-        None => return,
+    if let Some(entity) = resources.get::<PickObject>().unwrap().selected {
+        
+        let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
+        let win_size = [300.0, 300.0];
+        let window = ui.window(format!("Properties for {:?}", entity));
+        window
+            .size(win_size, Condition::FirstUseEver)
+            .position(*win_pos, Condition::FirstUseEver)
+            .build(|| {
+                ui.separator();
+                draw_ui_mesh(ui, world, &registry, entity.clone());
+                ui.separator();
+                draw_ui_light(ui, world, entity.clone());
+            });
+        win_pos[1] = win_pos[1] + win_size[1];
     };
-
-    let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
-
-    let win_size = [300.0, 300.0];
-    let window = ui.window(format!("Properties for {:?}", entity));
-    window
-        .size(win_size, Condition::FirstUseEver)
-        .position(*win_pos, Condition::FirstUseEver)
-        .build(|| {
-            ui.separator();
-            draw_ui_mesh(ui, world, &registry, entity.clone());
-            ui.separator();
-            draw_ui_light(ui, world, entity.clone());
-        });
-    win_pos[1] = win_pos[1] + win_size[1];
 }
 
 fn draw_ui_mesh(

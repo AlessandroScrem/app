@@ -31,6 +31,7 @@ pub struct Input {
     mouse_buttons_down: HashSet<MouseButton>,
     mouse_buttons_pressed: HashSet<MouseButton>,
     mouse_buttons_released: HashSet<MouseButton>,
+    cursor_moved: bool,
     pub mouse_position: Vector2<f32>,
     pub mouse_delta: Vector2<f32>,
     pub mouse_wheel_movement: Option<Vector2<f32>>,
@@ -49,6 +50,7 @@ impl Input {
             mouse_position: Vector2::zero(),
             mouse_delta: Vector2::zero(),
             mouse_wheel_movement: None,
+            cursor_moved: false,
         }
     }
 
@@ -74,6 +76,10 @@ impl Input {
     
     pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
+    }
+
+    pub fn is_cursor_moved(&self) ->bool {
+        self.cursor_moved
     }
 
     pub(crate) fn update_window_events(&mut self, winit_event: &winit::event::WindowEvent) {
@@ -113,6 +119,7 @@ impl Input {
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_position = Vector2::new(position.x as f32, position.y as f32);
+                self.cursor_moved = true;
             }
             _ => (),
         }
@@ -134,5 +141,6 @@ impl Input {
         self.mouse_buttons_released.clear();
         self.mouse_delta = Vector2::zero();
         self.mouse_wheel_movement = None;
+        self.cursor_moved = false;
     }
 }

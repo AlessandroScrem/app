@@ -162,6 +162,7 @@ pub enum PipelineKind {
     Hdr,
     Light,
     Skybox,
+    Outline,
 }
 
 pub struct PipelineManager {
@@ -390,6 +391,37 @@ fn create_pipeline(
                 device,
                 render_pipeline_layout,
                 hdr_format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Outline => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::EntityId),  //0
+                gpu_resource_manager.get_layout(LayoutKind::Globals), //1
+            ];
+
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Outline Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/outline_selection.wgsl"));
+
+            let buffer_desc = &[];
+
+            let pipeline_desc = PipelineDesc {
+                depth_stencil: None,
+                ..Default::default()
+            };
+
+            pipeline_desc.build_pipeline(
+                "Outline Pipeline",
+                device,
+                render_pipeline_layout,
+                final_format,
                 shader,
                 buffer_desc,
             )

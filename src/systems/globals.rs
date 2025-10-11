@@ -1,4 +1,6 @@
 use crate::camera::Camera;
+use crate::entities::EntityRawU64;
+use crate::picking::PickObject;
 use crate::renderer::gpu_manager::GPUResourceManager;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::Globals;
@@ -13,8 +15,14 @@ pub fn global(
     #[resource] camera: &Camera,
     #[resource] globals: &Globals,
     #[resource] surface_config: &wgpu::SurfaceConfiguration,
+    #[resource] pick_object: &PickObject,
 ) {
     let screen_size = [surface_config.width as f32, surface_config.height as f32];
+    let entity_selected_id = match pick_object.selected {
+        Some(id) => id.as_raw_u64(),
+        None => 0,
+    };
+
     update_globals(
         camera,
         globals,
@@ -22,6 +30,7 @@ pub fn global(
         &resource_manager.camera_uniform_buffer,
         &resource_manager.globals_uniform_buffer,
         screen_size,
+        entity_selected_id,
     );
 }
 
@@ -32,12 +41,14 @@ pub fn update_globals(
     camera_uniform_buffer: &wgpu::Buffer,
     globals_uniform_buffer: &wgpu::Buffer,
     screen_size: [f32; 2],
+    entity_id: u64,
 ) {
     let updated_camera_uniform = CameraUniform {
         view_position: camera.get_position().to_homogeneous().into(),
         view: camera.get_view_mat().into(),
         proj: camera.get_projection_mat().into(),
         screen_size,
+
         ..Default::default()
     };
 
@@ -46,6 +57,8 @@ pub fn update_globals(
         skybox_enable: globals.skybox_enable as u32,
         exposure: globals.exposure,
         tonemap_filter: globals.tonemap_filter,
+        entity_id,
+        ..Default::default()
     };
 
     queue.write_buffer(

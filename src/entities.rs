@@ -72,6 +72,8 @@ mod tests {
     }
 
     #[test]
+    // Ricostruzione come nello shader: high << 32 | low
+    // Da usare nello shader per ricostruire entity_id (u64) da vec2<u32>
     fn test_reconstruct_u64_from_u32() {
         use std::u32;
         // Valore u64 più grande di u32::MAX
@@ -81,8 +83,6 @@ mod tests {
         let low: u32 = original as u32; // parte bassa
         let high: u32 = (original >> 32) as u32; // parte alta
 
-        // Ricostruzione come nello shader: high << 32 | low
-        // Da usare nello shader per ricostruire entity_id (u64) da vec2<u32>
         let reconstructed: u64 = (high as u64) << 32 | (low as u64);
 
         // Verifica
