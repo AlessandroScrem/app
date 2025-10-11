@@ -33,7 +33,7 @@ pub fn mesh(
     };
 
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Render Pass"),
+        label: Some("Mesh Render Pass"),
         color_attachments: &[
             Some(wgpu::RenderPassColorAttachment {
                 view: &hdr_texture.view,
