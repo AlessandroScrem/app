@@ -64,21 +64,12 @@ impl ApplicationHandler for App {
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        device_id: winit::event::DeviceId,
+        _device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
         {
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.update_device_events(&event);
-        }
-
-        //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                &window,
-                &winit::event::Event::DeviceEvent { device_id, event },
-            );
         }
     }
 
@@ -92,6 +83,10 @@ impl ApplicationHandler for App {
         self.frame_time = frame_time * 1000.0;
 
         while frame_time > 0.0 {
+            self.delta_time = f32::min(frame_time, self.fixed_timestep);
+            frame_time -= self.delta_time;
+            self.elapsed_time += self.delta_time;
+
             // Cosa aggiornare dentro questo loop
             // Fisica
             //      Movimento di entità in base a velocità/accelerazione
@@ -107,26 +102,14 @@ impl ApplicationHandler for App {
             // Sistemi ECS
             //      Tutti i sistemi che dipendono dal tempo e non devono "saltare frame"
 
-            self.delta_time = f32::min(frame_time, self.fixed_timestep);
-
-            self.current_scene
-                .update(self.delta_time, &mut self.resources);
-
             let mut input = self.resources.get_mut::<Input>().unwrap();
             input.clear();
-
-            frame_time -= self.delta_time;
-            self.elapsed_time += self.delta_time;
         }
 
-        //imgui
-        if let Some(imgui) = &mut self.imgui {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                &window,
-                &winit::event::Event::AboutToWait,
-            );
-
+        //imgui update texture registry
+        // TODO: maybe use an event handler for avoid to sync each frame
+        // bub sync when add or removing textures from texture_manager
+        if self.imgui.is_some() {
             let mut registry = self
                 .resources
                 .get_mut::<imgui_tools::ImGuiTextureRegistry>()
@@ -136,8 +119,6 @@ impl ApplicationHandler for App {
             let device = self.resources.get::<wgpu::Device>().unwrap();
             let manager = self.resources.get::<TextureManager>().unwrap();
 
-            // TODO: maybe use an event handler for avoid to sync each frame
-            // bub sync when add or removing textures from texture_manager
             imgui_tools::sync_with_registry(&device, &manager, &mut registry, &mut renderer);
         }
 

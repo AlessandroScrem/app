@@ -36,9 +36,6 @@ pub mod colors {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct DeltaTime(pub f32);
-
-#[derive(Clone, Copy, Debug)]
 pub struct Globals {
     pub ibl_enable: bool,
     pub skybox_enable: bool,
