@@ -1,6 +1,7 @@
 pub mod axis;
 pub mod bounding_box;
 pub mod camera_orbit;
+pub mod excute;
 pub mod globals;
 pub mod hdr;
 pub mod imgui;
@@ -14,6 +15,8 @@ pub mod skybox;
 use legion::Schedule;
 pub fn create_render_schedule_builder() -> Schedule {
     Schedule::builder()
+        .add_thread_local(crate::systems::excute::execute_start_system())
+        .flush()
         .add_system(crate::systems::globals::global_system())
         .add_system(crate::systems::light::update_transform_system())
         .add_system(crate::systems::mesh::update_model_matrix_system())
@@ -28,6 +31,7 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::outline::outline_system())
         .add_system(crate::systems::picking::read_entity_id_system())
         .add_thread_local(crate::systems::imgui::imgui_system())
+        .add_thread_local(crate::systems::excute::execute_finish_system())
         .build()
 }
 
@@ -39,7 +43,7 @@ pub fn create_update_schedule_builder() -> Schedule {
 
 pub fn create_current_scene_schedule_builder() -> Schedule {
     Schedule::builder()
-            .add_system(crate::systems::camera_orbit::camera_orbit_system())
-            .add_system(crate::systems::picking::picking_system())
-            .build()
+        .add_system(crate::systems::camera_orbit::camera_orbit_system())
+        .add_system(crate::systems::picking::picking_system())
+        .build()
 }

@@ -141,44 +141,7 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if self.is_minimized {
-                    return;
-                }
-
-                // scheduler di update ecs (camera, mesh, etc)
-                self.current_scene
-                    .schedule
-                    .execute(&mut self.current_scene.world, &mut self.resources);
-
-                if let Some(imgui) = &mut self.imgui {
-                    let mut scene_world = &mut self.current_scene.world;
-                    imgui.update_ui(window, &mut scene_world, &mut self.resources);
-                }
-
-                let (frame, view, encoder) = {
-                    let device = self.resources.get::<wgpu::Device>().unwrap();
-                    let surface = self.resources.get::<wgpu::Surface>().unwrap();
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Failed to get current texture");
-                    let view = frame.texture.create_view(&Default::default());
-                    let encoder = device.create_command_encoder(&Default::default());
-                    (frame, view, encoder)
-                };
-
-                self.resources.insert(encoder);
-                self.resources.insert(view);
-
-                // scheduler di rendering (mesh, gui)
-                self.render_schedule
-                    .execute(&mut self.current_scene.world, &mut self.resources);
-
-                let encoder = self.resources.remove::<wgpu::CommandEncoder>().unwrap();
-                let queue = self.resources.get::<wgpu::Queue>().unwrap();
-
-                queue.submit([encoder.finish()]);
-
-                frame.present();
+                self.render();
             }
             _ => (),
         }
