@@ -14,7 +14,7 @@ pub mod timestep;
 
 
 pub mod prelude {
-    pub use log::{info, debug, warn, error};
+    pub use log::{info, debug, warn, trace, error};
     pub use crate::timestep;
     pub use super::app::App;
     pub use crate::camera::Camera;

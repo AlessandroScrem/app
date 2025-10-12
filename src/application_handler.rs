@@ -1,7 +1,8 @@
 use std::sync::Arc;
+use std::time::Duration;
 
-use crate::prelude::*;
 use crate::input::Input;
+use crate::prelude::*;
 use crate::renderer::gpu_manager::GPUResourceManager;
 use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
@@ -78,35 +79,18 @@ impl ApplicationHandler for App {
             None => return,
         };
 
-        let mut frame_time = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
-        self.frame_time = frame_time * 1000.0;
+        // update timer and input
+        self.timer.tick_step_iter().for_each(|dt| {
+            trace!("dt: {dt}");
+            self.resources.get_mut::<Input>().unwrap().clear();
+        });
 
-        while frame_time > 0.0 {
-            self.delta_time = f32::min(frame_time, self.fixed_timestep);
-            frame_time -= self.delta_time;
-            self.elapsed_time += self.delta_time;
 
-            // Cosa aggiornare dentro questo loop
-            // Fisica
-            //      Movimento di entità in base a velocità/accelerazione
-            //      Collision detection e collision response
-            // Gravità e forze varie
-            //      Animazioni non legate al rendering
-            //      Avanzamento di animazioni di scheletri, timeline di eventi
-            // Logica di gioco
-            //      AI (aggiornamento percorsi, decisioni)
-            //      Stati di missioni/eventi
-            // Timer e countdown
-            //      Conti alla rovescia, spawn di nemici, ecc.
-            // Sistemi ECS
-            //      Tutti i sistemi che dipendono dal tempo e non devono "saltare frame"
-
-            let mut input = self.resources.get_mut::<Input>().unwrap();
-            input.clear();
-        }
-
-        // updater
-        self.update_schedule.execute(&mut self.current_scene.world, &mut self.resources);
+        // Esegue `callback` ogni secondo , in base al clock interno.
+        self.timer.trigger_every(Duration::from_secs(1), || {
+            self.update_schedule
+                .execute(&mut self.current_scene.world, &mut self.resources);
+        });
 
         window.request_redraw();
     }
