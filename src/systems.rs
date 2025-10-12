@@ -1,14 +1,15 @@
-pub mod globals;
-pub mod mesh;
-pub mod bounding_box;
 pub mod axis;
+pub mod bounding_box;
 pub mod camera_orbit;
+pub mod globals;
+pub mod hdr;
 pub mod imgui;
 pub mod light;
-pub mod skybox;
-pub mod hdr;
-pub mod picking;
+pub mod mesh;
 pub mod outline;
+pub mod picking;
+pub mod registry_update;
+pub mod skybox;
 
 use legion::Schedule;
 pub fn create_render_schedule_builder() -> Schedule {
@@ -28,4 +29,17 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::picking::read_entity_id_system())
         .add_thread_local(crate::systems::imgui::imgui_system())
         .build()
+}
+
+pub fn create_update_schedule_builder() -> Schedule {
+    Schedule::builder()
+        .add_system(crate::systems::registry_update::registry_update_system())
+        .build()
+}
+
+pub fn create_current_scene_schedule_builder() -> Schedule {
+    Schedule::builder()
+            .add_system(crate::systems::camera_orbit::camera_orbit_system())
+            .add_system(crate::systems::picking::picking_system())
+            .build()
 }

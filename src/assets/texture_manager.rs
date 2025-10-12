@@ -1,12 +1,12 @@
 use wgpu::TextureFormat;
 
 use crate::assets::texture::{CubeTexture, Texture};
+use crate::prelude::*;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use crate::prelude::*;
 
 pub struct TextureManager {
     device: Arc<wgpu::Device>,
@@ -35,6 +35,7 @@ impl TextureManager {
             white_texture,
         }
     }
+
 
     pub fn create_cubemap(
         &mut self,
@@ -68,6 +69,7 @@ impl TextureManager {
         texture
     }
 
+    // Aggiunge una texture
     fn create_texture(&mut self, filepath: &Path, format: TextureFormat) -> Arc<Texture> {
         match Self::read_bytes(filepath) {
             Some(buffer) => {
@@ -79,6 +81,12 @@ impl TextureManager {
             }
             None => self.white_texture.clone(),
         }
+    }
+
+    // Rimuove una texture e notifica
+    // TODO: add texture removal
+    #[allow(dead_code)]
+    fn remove_texture(&mut self) {
     }
 
     fn read_bytes(filepath: &Path) -> Option<Vec<u8>> {

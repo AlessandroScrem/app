@@ -7,6 +7,7 @@ use crate::prelude::imgui_tools::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
 
+use legion::systems::Builder;
 use legion::Resources;
 use legion::Schedule;
 
@@ -21,6 +22,7 @@ pub struct App {
     pub elapsed_time: f32,
     pub frame_time: f32,
     pub delta_time: f32,
+    pub update_schedule: Schedule,
     pub render_schedule: Schedule,
     pub imgui: Option<ImguiState>,
     pub is_minimized: bool,
@@ -28,13 +30,14 @@ pub struct App {
 
 impl Default for App {
     fn default() -> Self {
-        let mut schedule_builder = Schedule::builder();
-        let render_schedule = schedule_builder.build();
+        let update_schedule = Builder::default().build();
+        let render_schedule = Builder::default().build();
 
         Self {
             window: None,
             current_scene: Scene::default(),
             resources: Resources::default(),
+            update_schedule,
             render_schedule,
             
             size:  winit::dpi::PhysicalSize::new(1280, 1024),
@@ -67,11 +70,8 @@ impl App {
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
-        self.current_scene.schedule = Schedule::builder()
-            .add_system(crate::systems::camera_orbit::camera_orbit_system())
-            .add_system(crate::systems::picking::picking_system())
-            .build();
-
+        self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
+        self.update_schedule = crate::systems::create_update_schedule_builder();
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
         self.create_gui();
