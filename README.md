@@ -23,8 +23,8 @@ A modern 3D/2D render engine that uses wgpu
 - [x] xyz Axis
 - [x] Docking Gui
 - [x] Mesh Bounding box
-- [ ] Entity selection
-- [ ] Outline selection
+- [x] Entity selection
+- [x] Outline selection
 - [ ] Hierarchy entity
 - [ ] Direct Light shadow
 - [ ] SSAO   
