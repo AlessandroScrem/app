@@ -70,7 +70,12 @@ impl Ibl {
 }
 
 impl Renderer {
-    pub async fn new(window: Arc<Window>, resources: &mut legion::Resources) {
+
+    pub fn init(window: Arc<Window>, resources: &mut legion::Resources)  {
+        pollster::block_on(Self::init_async(window, resources));
+    }
+
+    async fn init_async(window: Arc<Window>, resources: &mut legion::Resources) {
         let timer = std::time::Instant::now();
         info!("Initializing renderer...");
         let size = window.inner_size();

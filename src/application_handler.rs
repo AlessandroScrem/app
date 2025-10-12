@@ -9,7 +9,7 @@ use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowId};
+use winit::window::WindowId;
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -19,29 +19,10 @@ impl ApplicationHandler for App {
             timer.elapsed().as_millis()
         );
 
-        let attributes = Window::default_attributes()
-            .with_inner_size(self.size)
-            .with_title(format!("App"));
-        let window = std::sync::Arc::new(event_loop.create_window(attributes).unwrap());
-
-        // After creation let's center window to monitor size (clamping to max size)
-        if let Some(monitor) = window.current_monitor() {
-            let screen_size = monitor.size(); // monotor size in px
-            let safe_width = std::cmp::min(screen_size.width, self.size.width);
-            let safe_height = std::cmp::min(screen_size.height, self.size.height);
-            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
-            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
-            if let Some(size) =
-                window.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
-            {
-                self.size = size;
-            }
-            window.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
-        }
-
+        let window = self.create_and_center_window(event_loop);
         self.window = Some(window.clone());
 
-        pollster::block_on(Renderer::new(window.clone(), &mut self.resources));
+        Renderer::init(window.clone(), &mut self.resources);
         info!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         self.load();

@@ -136,6 +136,32 @@ impl Default for App {
         }
     }
 }
+pub trait CenterWindow {
+    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32>;
+}
+
+impl CenterWindow for winit::window::Window {
+    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32> {
+        let mut size = self.inner_size();
+        if let Some(monitor) = self.current_monitor() {
+            let screen_size = monitor.size();
+            let window_size = self.inner_size();
+            let safe_width = screen_size.width.min(window_size.width);
+            let safe_height = screen_size.height.min(window_size.height);
+
+            if let Some(new_size) =
+                self.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
+            {
+                size = new_size;
+            }
+
+            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
+            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
+            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+        }
+        size
+    }
+}
 
 impl App {
     pub fn new_with_size(width: u32, height: u32) -> Self {
@@ -162,6 +188,21 @@ impl App {
         self.create_gui();
 
         info!("App loader took {} ms", timer.elapsed().as_millis());
+    }
+
+    pub fn create_and_center_window(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+    ) -> std::sync::Arc<winit::window::Window> {
+        let attributes = winit::window::Window::default_attributes()
+            .with_inner_size(self.size)
+            .with_title("App".to_string());
+
+        let window = std::sync::Arc::new(event_loop.create_window(attributes).expect("Failed to crate window"));
+        let new_size = window.try_fit_center_to_monitor();
+        self.size = new_size;
+
+        window
     }
 
     fn create_gui(&mut self) {
@@ -195,6 +236,5 @@ impl App {
         // scheduler di rendering (mesh, gui)
         self.render_schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
-   
     }
 }
