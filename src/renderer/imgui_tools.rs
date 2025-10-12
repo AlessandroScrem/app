@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use cgmath::{Deg, Rad};
 use imgui::*;
-use imgui_wgpu::{RawTextureConfig, Renderer, RendererConfig};
+use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 use legion::{Entity, Resources, World};
 use winit::window::Window;
@@ -82,57 +82,6 @@ mod ui_tools {
         colors[imgui::StyleColor::TitleBgActive as usize] = DARK_COLD_GREY;
         colors[imgui::StyleColor::TitleBgCollapsed as usize] = DARK_COLD_GREY;
     }
-}
-
-// Sync texture with TextureManager textures
-pub fn sync_with_registry(
-    device: &wgpu::Device,
-    manager: &TextureManager,
-    registry: &mut ImGuiTextureRegistry,
-    renderer: &mut imgui_wgpu::Renderer,
-) {
-    // record new textures
-    for (path, tex) in &manager.textures {
-        if !registry.ids.contains_key(path) {
-            let texture_config = RawTextureConfig {
-                label: None,
-                sampler_desc: wgpu::SamplerDescriptor {
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Linear,
-                    ..Default::default()
-                },
-            };
-            let id = renderer
-                .textures
-                .insert(imgui_wgpu::Texture::from_raw_parts(
-                    device,
-                    renderer,
-                    tex.inner.clone(),
-                    tex.view.clone(),
-                    None,
-                    Some(&texture_config),
-                    tex.extent,
-                ));
-            registry.ids.insert(path.clone(), id);
-            // println!("add to registry {} with id {}", path.display(), id.id());
-        }
-    }
-
-    // rimuove quelle che non esistono più nel texture manager
-    registry.ids.retain(|path, id| {
-        if !manager.textures.contains_key(path) {
-            renderer.textures.remove(*id);
-            println!(
-                "remove from registry {} with id {}",
-                path.display(),
-                id.id()
-            );
-            false
-        } else {
-            true
-        }
-    });
 }
 
 pub struct ImguiState {

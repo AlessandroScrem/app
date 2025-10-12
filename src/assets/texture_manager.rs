@@ -8,14 +8,11 @@ use std::{
     sync::Arc,
 };
 
-type TextureCallback = Box<dyn Fn()>;
-
 pub struct TextureManager {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     white_texture: Arc<Texture>,
     pub textures: HashMap<PathBuf, Arc<Texture>>,
-    observers: Vec<TextureCallback>,
 }
 
 impl TextureManager {
@@ -36,24 +33,9 @@ impl TextureManager {
             queue,
             textures: HashMap::new(),
             white_texture,
-            observers: Vec::new(),
         }
     }
 
-    // Iscrizione al callback
-    pub fn subscribe<F>(&mut self, f: F)
-    where
-        F: Fn() + 'static,
-    {
-        self.observers.push(Box::new(f));
-    }
-
-    // Notifica tutti gli osservatori
-    fn notify(&self) {
-        for obs in self.observers.iter() {
-            obs();
-        }
-    }
 
     pub fn create_cubemap(
         &mut self,
@@ -94,7 +76,6 @@ impl TextureManager {
                 let texture = Arc::new(Texture::new(&self.device, &self.queue, &buffer, format));
                 self.textures
                     .insert(filepath.to_path_buf(), texture.clone());
-                self.notify();
 
                 texture
             }
@@ -106,7 +87,6 @@ impl TextureManager {
     // TODO: add texture removal
     #[allow(dead_code)]
     fn remove_texture(&mut self) {
-        self.notify();
     }
 
     fn read_bytes(filepath: &Path) -> Option<Vec<u8>> {
@@ -143,24 +123,6 @@ mod tests {
         let manager = create_manager();
 
         assert!(manager.textures.is_empty());
-    }
-
-    #[test]
-    fn should_add_subscriber() {
-        use std::sync::atomic::Ordering;
-        let mut manager = create_manager();
-
-        let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let flag_clone = called.clone();
-
-
-        // 
-        manager.subscribe(move || {
-            flag_clone.store(true, Ordering::SeqCst);
-        });
-
-        manager.notify();
-        assert!(called.load(Ordering::SeqCst), "Callback non è stata chiamata!");
     }
 
     #[test]

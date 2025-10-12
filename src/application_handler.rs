@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use crate::assets::texture_manager::TextureManager;
-use crate::input::Input;
 use crate::prelude::*;
+use crate::input::Input;
 use crate::renderer::gpu_manager::GPUResourceManager;
 use crate::renderer::hdr_frame::IDTexture;
 use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
@@ -97,7 +96,7 @@ impl ApplicationHandler for App {
             // Logica di gioco
             //      AI (aggiornamento percorsi, decisioni)
             //      Stati di missioni/eventi
-            // Timer e cooldown
+            // Timer e countdown
             //      Conti alla rovescia, spawn di nemici, ecc.
             // Sistemi ECS
             //      Tutti i sistemi che dipendono dal tempo e non devono "saltare frame"
@@ -106,21 +105,8 @@ impl ApplicationHandler for App {
             input.clear();
         }
 
-        //imgui update texture registry
-        // TODO: maybe use an event handler for avoid to sync each frame
-        // bub sync when add or removing textures from texture_manager
-        if self.imgui.is_some() {
-            let mut registry = self
-                .resources
-                .get_mut::<imgui_tools::ImGuiTextureRegistry>()
-                .unwrap();
-            let mut renderer = self.resources.get_mut::<imgui_wgpu::Renderer>().unwrap();
-
-            let device = self.resources.get::<wgpu::Device>().unwrap();
-            let manager = self.resources.get::<TextureManager>().unwrap();
-
-            imgui_tools::sync_with_registry(&device, &manager, &mut registry, &mut renderer);
-        }
+        // updater
+        self.update_schedule.execute(&mut self.current_scene.world, &mut self.resources);
 
         window.request_redraw();
     }
