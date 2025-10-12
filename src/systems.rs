@@ -15,7 +15,7 @@ pub mod skybox;
 use legion::Schedule;
 pub fn create_render_schedule_builder() -> Schedule {
     Schedule::builder()
-        .add_thread_local(crate::systems::excute::execute_start_system())
+        .add_system(crate::systems::excute::execute_start_system()) // create frame view and encoder
         .flush()
         .add_system(crate::systems::globals::global_system())
         .add_system(crate::systems::light::update_transform_system())
@@ -31,7 +31,7 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::outline::outline_system())
         .add_system(crate::systems::picking::read_entity_id_system())
         .add_thread_local(crate::systems::imgui::imgui_system())
-        .add_thread_local(crate::systems::excute::execute_finish_system())
+        .add_system(crate::systems::excute::execute_finish_system()) // submit encoder and present frame
         .build()
 }
 

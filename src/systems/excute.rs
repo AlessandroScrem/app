@@ -1,8 +1,3 @@
-#[derive(Default)]
-struct ExecuteResources {
-    a: u32,
-}
-
 use legion::system;
 #[system]
 pub fn execute_start(cmd: &mut legion::systems::CommandBuffer) {
@@ -21,8 +16,7 @@ pub fn execute_start(cmd: &mut legion::systems::CommandBuffer) {
         resources.insert(encoder);
         resources.insert(frame);
         resources.insert(view);
-
-        resources.insert(ExecuteResources { a: 10 });
+        
     });
 }
 
@@ -36,8 +30,5 @@ pub fn execute_finish(cmd: &mut legion::systems::CommandBuffer) {
         
         queue.submit([encoder.finish()]);
         frame.present();
-
-        let res = resources.get::<ExecuteResources>().unwrap();
-        println!("ExecuteResources a: {}", res.a);
     });
 }
