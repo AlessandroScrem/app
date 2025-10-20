@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
     BoundingBoxComponent, MeshComponent, TagComponent, TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
-    entities::{EntityRawU64, bounding_box::BoundingBox},
+    entities::bounding_box::BoundingBox,
     renderer::{gpu_manager::GPUResourceManager, uniform::ModelUniform},
 };
 
@@ -18,6 +18,7 @@ pub fn create(world: &mut World, resources: &Resources) {
 
     {
         let mesh = load_gltf(
+            world,
             &mut material_manager,
             &mut texture_manager,
             &gpu_resource_manager,
@@ -33,8 +34,9 @@ pub fn create(world: &mut World, resources: &Resources) {
         };
         let bounding_box = (mesh.vmin, mesh.vmax).into();
         let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
+        let model_uniform = ModelUniform::new(transform.compute_model_matrix());
 
-        let entity = world.push((
+        let _entity = world.push((
             TagComponent {
                 name: mesh.name.clone(),
             },
@@ -44,31 +46,28 @@ pub fn create(world: &mut World, resources: &Resources) {
                 bounding_box,
                 vertex_buffer,
             },
+            model_uniform,
         ));
-
-        let mut model_uniform = ModelUniform::new(transform.compute_model_matrix());
-        model_uniform.entity_id = entity.as_raw_u64();
-
-        if let Some(mut entry) = world.entry(entity) {
-            entry.add_component(model_uniform);
-        }
     }
 
     {
         let mesh = load_gltf(
+            world,
             &mut material_manager,
             &mut texture_manager,
             &gpu_resource_manager,
             &device,
-            Path::new("./assets/cube/cube.gltf"),
+            // Path::new("./assets/cube/cube.gltf"),
+            Path::new("C:/Users/aless/Downloads/glTF-Sample-Models/2.0/Lantern/glTF/Lantern.gltf"),
         )
         .expect("unable_load mesh");
 
         let bounding_box = (mesh.vmin, mesh.vmax).into();
         let transform = TransformComponent::default();
         let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
+        let model_uniform = ModelUniform::new(transform.compute_model_matrix());
 
-        let entity = world.push((
+        let _entity = world.push((
             TagComponent {
                 name: mesh.name.clone(),
             },
@@ -78,13 +77,8 @@ pub fn create(world: &mut World, resources: &Resources) {
                 bounding_box,
                 vertex_buffer,
             },
+            model_uniform,
         ));
 
-        let mut model_uniform = ModelUniform::new(transform.compute_model_matrix());
-        model_uniform.entity_id = entity.as_raw_u64();
-
-        if let Some(mut entry) = world.entry(entity) {
-            entry.add_component(model_uniform);
-        }
     }
 }
