@@ -11,6 +11,7 @@ pub mod transform;
 pub mod test_utils;
 pub mod picking;
 pub mod timestep;
+pub mod hirarchy;
 
 
 pub mod prelude {
@@ -22,6 +23,8 @@ pub mod prelude {
     pub use crate::renderer::imgui_tools;
     pub use crate::renderer::uniform::CameraUniform;
 }
+use legion::Entity;
+
 use crate::entities::bounding_box::BoundingBox;
 
 pub mod colors {
@@ -105,4 +108,9 @@ pub struct TagComponent {
 pub struct BoundingBoxComponent {
     pub bounding_box: BoundingBox,
     pub vertex_buffer: wgpu::Buffer,
+}
+
+pub struct HierarchyComponent {
+    pub parent: Option<Entity>,
+    pub children: Vec<Entity>,
 }

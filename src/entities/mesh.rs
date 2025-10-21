@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    BoundingBoxComponent, MeshComponent, TagComponent, TransformComponent,
+    BoundingBoxComponent, HierarchyComponent, MeshComponent, TagComponent, TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
     entities::bounding_box::BoundingBox,
     renderer::{gpu_manager::GPUResourceManager, uniform::ModelUniform},
@@ -79,6 +79,105 @@ pub fn create(world: &mut World, resources: &Resources) {
             },
             model_uniform,
         ));
+    }
+}
 
+/// A function to help create a mesh hierarchy.
+pub fn create_hirarchy(world: &mut World, resources: &Resources) {
+    let device = resources.get::<wgpu::Device>().unwrap();
+    let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
+    let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
+    let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
+
+    {
+        let parent_entity = {
+            let mesh = load_gltf(
+                world,
+                &mut material_manager,
+                &mut texture_manager,
+                &gpu_resource_manager,
+                &device,
+                Path::new("./assets/cube/cube.gltf"),
+            )
+            .expect("unable_load mesh");
+
+            let bounding_box = (mesh.vmin, mesh.vmax).into();
+            let transform = TransformComponent::default();
+            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent {
+                vertex_buffer: BoundingBox::create_vertex_buffer(
+                    &device,
+                    &bounding_box,
+                    &transform,
+                ),
+                bounding_box,
+            };
+            let mesh_component = MeshComponent { data: mesh };
+
+            world.push((
+                TagComponent {
+                    name: "Parent_cube".into(),
+                },
+                bbox_component,
+                transform,
+                model_uniform,
+                mesh_component,
+                HierarchyComponent {
+                    parent: None,
+                    children: Vec::new(),
+                },
+            ))
+        };
+
+        let child_entity = {
+            let mesh = load_gltf(
+                world,
+                &mut material_manager,
+                &mut texture_manager,
+                &gpu_resource_manager,
+                &device,
+                Path::new("./assets/cube/cube.gltf"),
+            )
+            .expect("unable_load mesh");
+
+            let bounding_box = (mesh.vmin, mesh.vmax).into();
+
+            let transform = TransformComponent {
+                position: [0.0, -2.0, 0.0],
+                scale: [0.5f32, 0.5, 0.5],
+                ..Default::default()
+            };
+            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent {
+                vertex_buffer: BoundingBox::create_vertex_buffer(
+                    &device,
+                    &bounding_box,
+                    &transform,
+                ),
+                bounding_box,
+            };
+            let mesh_component = MeshComponent { data: mesh };
+
+            world.push((
+                TagComponent {
+                    name: "Child_cube".into(),
+                },
+                bbox_component,
+                transform,
+                model_uniform,
+                mesh_component,
+                HierarchyComponent {
+                    parent: Some(parent_entity.clone()),
+                    children: Vec::new(),
+                },
+            ))
+        };
+
+        // assign children to parent
+        if let Ok(mut entry) = world.entry_mut(parent_entity) {
+            if let Ok(hierarchy) = entry.get_component_mut::<HierarchyComponent>() {
+                hierarchy.children.push(child_entity.clone());
+            }
+        }
     }
 }

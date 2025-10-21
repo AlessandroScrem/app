@@ -178,7 +178,8 @@ impl App {
         self.resources.insert(Camera::default());
         self.resources.insert(Globals::default());
 
-        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        // crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        crate::entities::mesh::create_hirarchy(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
