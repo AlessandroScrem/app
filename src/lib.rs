@@ -110,6 +110,7 @@ pub struct BoundingBoxComponent {
     pub vertex_buffer: wgpu::Buffer,
 }
 
+#[derive(Clone)]
 pub struct HierarchyComponent {
     pub parent: Option<Entity>,
     pub children: Vec<Entity>,

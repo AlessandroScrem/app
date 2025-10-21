@@ -129,7 +129,7 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
             ))
         };
 
-        let child_entity = {
+        let child_entity1 = {
             let mesh = load_gltf(
                 world,
                 &mut material_manager,
@@ -173,10 +173,61 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
             ))
         };
 
+        let child_entity2 = {
+            let mesh = load_gltf(
+                world,
+                &mut material_manager,
+                &mut texture_manager,
+                &gpu_resource_manager,
+                &device,
+                Path::new("./assets/cube/cube.gltf"),
+            )
+            .expect("unable_load mesh");
+
+            let bounding_box = (mesh.vmin, mesh.vmax).into();
+
+            let transform = TransformComponent {
+                position: [0.0, -4.0, 0.0],
+                scale: [0.5f32, 0.5, 0.5],
+                ..Default::default()
+            };
+            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent {
+                vertex_buffer: BoundingBox::create_vertex_buffer(
+                    &device,
+                    &bounding_box,
+                    &transform,
+                ),
+                bounding_box,
+            };
+            let mesh_component = MeshComponent { data: mesh };
+
+            world.push((
+                TagComponent {
+                    name: "Child_cube2".into(),
+                },
+                bbox_component,
+                transform,
+                model_uniform,
+                mesh_component,
+                HierarchyComponent {
+                    parent: Some(child_entity1.clone()),
+                    children: Vec::new(),
+                },
+            ))
+        };
+
         // assign children to parent
         if let Ok(mut entry) = world.entry_mut(parent_entity) {
             if let Ok(hierarchy) = entry.get_component_mut::<HierarchyComponent>() {
-                hierarchy.children.push(child_entity.clone());
+                hierarchy.children.push(child_entity1.clone());
+            }
+        }
+
+        // assign children to child1
+        if let Ok(mut entry) = world.entry_mut(child_entity1) {
+            if let Ok(hierarchy) = entry.get_component_mut::<HierarchyComponent>() {
+                hierarchy.children.push(child_entity2.clone());
             }
         }
     }

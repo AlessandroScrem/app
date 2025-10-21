@@ -6,7 +6,7 @@ use crate::{
         gpu_renderer::DepthTexture,
         hdr_frame::{HdrFrame, IDTexture},
         pipeline_manager::{PipelineKind, PipelineManager},
-    }, MeshComponent, TransformComponent
+    }, HierarchyComponent, MeshComponent, TransformComponent
 };
 
 use legion::{world::SubWorld, *};
@@ -92,6 +92,7 @@ pub fn mesh(
 use crate::renderer::uniform::ModelUniform;
 #[system(for_each)]
 #[filter(maybe_changed::<TransformComponent>())]
+#[filter(!component::<HierarchyComponent>())]
 pub fn update_model_matrix(
     transform: &TransformComponent,
     model_uniform: &mut ModelUniform,
