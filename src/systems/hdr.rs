@@ -9,7 +9,7 @@ use crate::renderer::{
 use legion::*;
 
 #[system]
-pub fn hdr(
+pub fn render_hdr_to_ldr(
     #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] pipeline_manager: &PipelineManager,

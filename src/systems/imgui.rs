@@ -1,7 +1,7 @@
 use legion::*;
 
 #[system]
-pub fn imgui(
+pub fn render_imgui(
     #[resource] renderer: &mut imgui_wgpu::Renderer,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] frame_view: &wgpu::TextureView,

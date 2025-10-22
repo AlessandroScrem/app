@@ -12,7 +12,7 @@ use crate::{
     assets::texture_manager::TextureManager,
     camera::Camera,
     picking::PickObject,
-    renderer::{gpu_manager::GPUResourceManager, uniform::ModelUniform},
+    renderer::{gpu_manager::GPUResourceManager},
     timestep::Timestep,
 };
 
@@ -546,9 +546,9 @@ fn draw_ui_mesh(
 ) {
     use legion::query::IntoQuery;
 
-    let mut query = <(&mut MeshComponent, &mut TransformComponent, &ModelUniform)>::query();
-    if let Ok((mesh, transform, mu)) = query.get_mut(world, entity) {
-        text_fmt!(ui, "Entity ID: {}", mu.entity_id);
+    let mut query = <(Entity, &mut MeshComponent, &mut TransformComponent)>::query();
+    if let Ok((entity, mesh, transform)) = query.get_mut(world, entity) {
+        text_fmt!(ui, "Entity ID: {:?}", entity);
         for submesh in mesh.data.submeshes.iter_mut() {
             let material = &mut submesh.material;
             let main = &material.main_texture;

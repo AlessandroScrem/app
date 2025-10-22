@@ -25,7 +25,8 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Mesh Bounding box
 - [x] Entity selection
 - [x] Outline selection
-- [ ] Hierarchy entity
+- [x] Hierarchy entity
+- [ ] Import gltf with hierarchy
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 

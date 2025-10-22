@@ -26,7 +26,7 @@ pub mod prelude {
 use cgmath::{Matrix4, SquareMatrix};
 use legion::Entity;
 
-use crate::entities::bounding_box::BoundingBox;
+use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::BoundingBox};
 
 pub mod colors {
     pub const SILVER:[f32;3] = [0.7, 0.7, 0.7];
@@ -103,21 +103,28 @@ pub struct TransformComponent {
 }
 
 #[derive(Clone)]
-pub struct MatrixComponent {
+pub struct GlobalModelComponent {
     pub mat: Matrix4<f32>,
 }
 
-impl Default for MatrixComponent {
+impl Default for GlobalModelComponent {
     fn default() -> Self {
         Self { mat: Matrix4::<f32>::identity() }
     }
-} 
+}
+
+impl From<Matrix4<f32>> for GlobalModelComponent {
+    fn from(value: Matrix4<f32>) -> Self {
+        Self { mat: value }
+    }
+}
 
 pub struct TagComponent {
     pub name: String,
 }
 
 pub struct BoundingBoxComponent {
+    pub vertices: [LinesVertexData; 24],
     pub bounding_box: BoundingBox,
     pub vertex_buffer: wgpu::Buffer,
 }

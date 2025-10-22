@@ -6,8 +6,7 @@ use legion::{
 };
 
 use crate::{
-    HierarchyComponent, MeshComponent, TransformComponent, entities::EntityRawU64,
-    renderer::uniform::ModelUniform,
+    GlobalModelComponent, HierarchyComponent, TransformComponent
 };
 
 #[system]
@@ -22,13 +21,10 @@ pub fn hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     {
         // Calcolo della matrice globale
         let local_matrix = transform.compute_model_matrix();
-
-        // Aggiorna uniform
-        let mut updated_uniform = ModelUniform::new(local_matrix);
-        updated_uniform.entity_id = entity.as_raw_u64();
+        let global_model: GlobalModelComponent = local_matrix.into(); 
 
         // Aggiorna o sostituisce il componente
-        commands.add_component(*entity, updated_uniform);
+        commands.add_component(*entity, global_model);
 
         // Propaga ai figli
         for child in hirarchy.children.iter() {
@@ -67,10 +63,9 @@ fn propagate_recursive(
     // Calcolo della matrice globale
     let local_matrix = parent_matrix * local_matrix;
 
-    // Aggiorna uniform
-    let mut updated_uniform = ModelUniform::new(local_matrix);
-    updated_uniform.entity_id = entity.as_raw_u64();
-    commands.add_component(entity, updated_uniform);
+    // Aggiorna o sostituisce il componente
+    let global_model = GlobalModelComponent::from(local_matrix);
+    commands.add_component(entity, global_model);
 
     // Propaga ai figli
     let children = {
@@ -88,19 +83,5 @@ fn propagate_recursive(
 
     for child in children {
         propagate_recursive(local_matrix, world, child, commands);
-    }
-}
-
-#[system]
-#[read_component(ModelUniform)]
-#[read_component(MeshComponent)]
-pub fn hierarchy_update_uniforms(world: &mut SubWorld, #[resource] queue: &wgpu::Queue) {
-    let mut uniforms_query = <(Entity, &MeshComponent, &ModelUniform)>::query();
-    for (_entity, mesh, model_uniform) in uniforms_query.iter(world) {
-        queue.write_buffer(
-            &mesh.data.model_uniform_buffer,
-            0,
-            bytemuck::bytes_of(model_uniform),
-        );
     }
 }

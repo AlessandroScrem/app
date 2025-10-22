@@ -179,7 +179,7 @@ impl App {
         self.resources.insert(Globals::default());
         self.resources.insert(std::collections::HashMap::<legion::Entity, cgmath::Matrix4<f32>>::new());
 
-        // crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::mesh::create_hirarchy(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 

@@ -5,8 +5,8 @@ use crate::{
         gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
         hdr_frame::{HdrFrame, IDTexture},
-        pipeline_manager::{PipelineKind, PipelineManager},
-    }, HierarchyComponent, MeshComponent, TransformComponent
+        pipeline_manager::{PipelineKind, PipelineManager}, uniform::ModelUniform,
+    }, GlobalModelComponent, MeshComponent, TransformComponent
 };
 
 use legion::{world::SubWorld, *};
@@ -15,7 +15,7 @@ use std::sync::Arc;
 #[system]
 #[read_component(MeshComponent)]
 #[read_component(TransformComponent)]
-pub fn mesh(
+pub fn render_mesh(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
@@ -89,33 +89,9 @@ pub fn mesh(
     }
 }
 
-use crate::renderer::uniform::ModelUniform;
-#[system(for_each)]
-#[filter(maybe_changed::<TransformComponent>())]
-#[filter(!component::<HierarchyComponent>())]
-pub fn update_model_matrix(
-    transform: &TransformComponent,
-    model_uniform: &mut ModelUniform,
-    mesh: &MeshComponent,
-    entity: &Entity,
-    #[resource] queue: &wgpu::Queue,
-) {
-    // println!("Model Matrix maybe_changed");
-    let model_matrix = transform.compute_model_matrix();
-    let mut updated_uniforms = ModelUniform::new(model_matrix);
-    updated_uniforms.entity_id = entity.as_raw_u64();
-    *model_uniform = updated_uniforms;
-
-    queue.write_buffer(
-        &mesh.data.model_uniform_buffer,
-        0,
-        bytemuck::bytes_of(&updated_uniforms),
-    );
-}
-
 #[system(for_each)]
 #[filter(maybe_changed::<MeshComponent>())]
-pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
+pub fn update_material_system_to_gpu(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
     // println!("Material maybe_changed");
     for submesh in mesh.data.submeshes.iter() {
         let material = &submesh.material;
@@ -134,4 +110,19 @@ pub fn update_material(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
     }
 }
 
+#[system]
+#[read_component(GlobalModelComponent)]
+#[read_component(MeshComponent)]
+pub fn update_model_uniforms_to_gpu(world: &mut SubWorld, #[resource] queue: &wgpu::Queue) {
+    let mut uniforms_query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
+    for (entity, mesh, global_model) in uniforms_query.iter(world) {
+        let mut model_uniform = ModelUniform::new(global_model.mat);
+        model_uniform.entity_id = entity.as_raw_u64();
+        queue.write_buffer(
+            &mesh.data.model_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&model_uniform),
+        );
+    }
+}
 

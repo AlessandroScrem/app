@@ -7,6 +7,7 @@ pub fn picking(
     #[resource] input: &Input,
 ) {
     
+    // read hovered entity_id from buffer
     if input.is_cursor_moved() {
         pick_object.apply();
     }
@@ -17,7 +18,7 @@ pub fn picking(
 }
 
 #[system]
-pub fn read_entity_id(
+pub fn read_entity_id_to_buffer(
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] entity_id_texture: &IDTexture,
     #[resource] pick_object: &mut PickObject,

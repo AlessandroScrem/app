@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    BoundingBoxComponent, Globals, MeshComponent, TransformComponent, colors,
+    BoundingBoxComponent, GlobalModelComponent, Globals, colors,
     renderer::{
         gpu_manager::GPUResourceManager,
         hdr_frame::HdrFrame,
@@ -9,12 +9,12 @@ use crate::{
     },
 };
 
-use cgmath::vec4;
+use cgmath::Matrix4;
 use legion::{world::SubWorld, *};
 
 #[system]
 #[read_component(BoundingBoxComponent)]
-pub fn bounding_box(
+pub fn render_bounding_box(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
@@ -55,11 +55,10 @@ pub fn bounding_box(
 }
 
 #[system(for_each)]
-#[filter(maybe_changed::<TransformComponent>())]
-pub fn update_bounding_box(
-    transform: &TransformComponent,
+#[filter(maybe_changed::<GlobalModelComponent>())]
+pub fn update_bounding_box_to_gpu(
+    global_model: &GlobalModelComponent,
     bbox_component: &mut BoundingBoxComponent,
-    mesh: &MeshComponent,
     #[resource] queue: &wgpu::Queue,
     #[resource] globals: &Globals,
 ) {
@@ -67,15 +66,7 @@ pub fn update_bounding_box(
         return;
     }
 
-    // println!("BoundingBox maybe_changed");
-
-    let bounding_box = BoundingBox {
-        min: mesh.data.vmin,
-        max: mesh.data.vmax,
-    };
-
-    let vertices = BoundingBox::gen_vertices(&bounding_box, &transform);
-
+    let vertices = bbox_component.transform_verices(&global_model.mat);
     queue.write_buffer(
         &bbox_component.vertex_buffer,
         0,
@@ -86,23 +77,8 @@ pub fn update_bounding_box(
 use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::BoundingBox};
 
 impl BoundingBox {
-    pub fn transform(&mut self, transform: &TransformComponent) {
-        let matrix = transform.compute_model_matrix();
-
-        let min = vec4(self.min[0], self.min[1], self.min[2], 1.0);
-        let max = vec4(self.max[0], self.max[1], self.max[2], 1.0);
-        let tmin: cgmath::Vector4<f32> = matrix * min;
-        let tmax: cgmath::Vector4<f32> = matrix * max;
-
-        self.min = [tmin.x, tmin.y, tmin.z];
-        self.max = [tmax.x, tmax.y, tmax.z];
-    }
-}
-
-impl BoundingBox {
     pub fn gen_vertices(
-        bbox: &BoundingBox,
-        transform: &TransformComponent,
+        bbox: &BoundingBox, /* , matrix: &Matrix4<f32> */
     ) -> [LinesVertexData; 24] {
         /*
         bbox vertices order:
@@ -118,7 +94,7 @@ impl BoundingBox {
 
         */
         let color = colors::CYAN_COLOR; //Blue bbox
-        #[rustfmt::skip] let mut vertices = [
+        #[rustfmt::skip] let vertices = [
             LinesVertexData{position: bbox.min, color}, //point0
             LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.min[2]], color}, //point 1
 
@@ -156,24 +132,38 @@ impl BoundingBox {
             LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.max[2]], color}, //point 7
             ];
 
-        let matrix = transform.compute_model_matrix();
-        vertices.iter_mut().for_each(|v| {
-            let pos = cgmath::Vector4::new(v.position[0], v.position[1], v.position[2], 1.0);
-            let t = matrix * pos;
-            v.position = [t.x, t.y, t.z];
-        });
-
         vertices
     }
+}
 
-    pub fn create_vertex_buffer(device: &wgpu::Device, bbox: &BoundingBox, transform: &TransformComponent) -> wgpu::Buffer {
-        let vertices = BoundingBox::gen_vertices(bbox, transform);
+impl BoundingBoxComponent {
+    pub fn new(device: &wgpu::Device, bbox: BoundingBox) -> Self {
+        let vertices = BoundingBox::gen_vertices(&bbox);
 
-        device.create_buffer(&wgpu::BufferDescriptor {
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dynamic BBox Vertex Buffer"),
             size: (vertices.len() * std::mem::size_of::<LinesVertexData>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
-        })
+        });
+
+        Self {
+            bounding_box: bbox,
+            vertex_buffer,
+            vertices,
+        }
+    }
+
+    fn transform_verices(&self, matrix: &Matrix4<f32>) -> [LinesVertexData; 24] {
+        let mut out = [LinesVertexData::default(); 24];
+        for (i, v) in self.vertices.iter().enumerate() {
+            let pos = cgmath::Vector4::new(v.position[0], v.position[1], v.position[2], 1.0);
+            let t = matrix * pos;
+            out[i] = LinesVertexData {
+                position: [t.x, t.y, t.z],
+                ..*v
+            };
+        }
+        out
     }
 }

@@ -1,10 +1,10 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    BoundingBoxComponent, HierarchyComponent, MeshComponent, TagComponent, TransformComponent,
+    BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
+    TransformComponent,
     assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager},
-    entities::bounding_box::BoundingBox,
-    renderer::{gpu_manager::GPUResourceManager, uniform::ModelUniform},
+    renderer::gpu_manager::GPUResourceManager,
 };
 
 use legion::*;
@@ -33,8 +33,8 @@ pub fn create(world: &mut World, resources: &Resources) {
             ..Default::default()
         };
         let bounding_box = (mesh.vmin, mesh.vmax).into();
-        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
-        let model_uniform = ModelUniform::new(transform.compute_model_matrix());
+        let global_model = GlobalModelComponent::from(transform.compute_model_matrix());
+        let bbox_component = BoundingBoxComponent::new(&device, bounding_box);
 
         let _entity = world.push((
             TagComponent {
@@ -42,11 +42,8 @@ pub fn create(world: &mut World, resources: &Resources) {
             },
             transform.clone(),
             MeshComponent { data: mesh },
-            BoundingBoxComponent {
-                bounding_box,
-                vertex_buffer,
-            },
-            model_uniform,
+            bbox_component,
+            global_model,
         ));
     }
 
@@ -64,8 +61,8 @@ pub fn create(world: &mut World, resources: &Resources) {
 
         let bounding_box = (mesh.vmin, mesh.vmax).into();
         let transform = TransformComponent::default();
-        let vertex_buffer = BoundingBox::create_vertex_buffer(&device, &bounding_box, &transform);
-        let model_uniform = ModelUniform::new(transform.compute_model_matrix());
+        let global_model = GlobalModelComponent::from(transform.compute_model_matrix());
+        let bbox_component = BoundingBoxComponent::new(&device, bounding_box);
 
         let _entity = world.push((
             TagComponent {
@@ -73,11 +70,8 @@ pub fn create(world: &mut World, resources: &Resources) {
             },
             MeshComponent { data: mesh },
             transform.clone(),
-            BoundingBoxComponent {
-                bounding_box,
-                vertex_buffer,
-            },
-            model_uniform,
+            bbox_component,
+            global_model,
         ));
     }
 }
@@ -103,15 +97,8 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
 
             let bounding_box = (mesh.vmin, mesh.vmax).into();
             let transform = TransformComponent::default();
-            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
-            let bbox_component = BoundingBoxComponent {
-                vertex_buffer: BoundingBox::create_vertex_buffer(
-                    &device,
-                    &bounding_box,
-                    &transform,
-                ),
-                bounding_box,
-            };
+            let global_model = GlobalModelComponent::from(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent::new(&device, bounding_box);
             let mesh_component = MeshComponent { data: mesh };
 
             world.push((
@@ -120,7 +107,7 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
                 },
                 bbox_component,
                 transform,
-                model_uniform,
+                global_model,
                 mesh_component,
                 HierarchyComponent {
                     parent: None,
@@ -147,15 +134,16 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
                 scale: [0.5f32, 0.5, 0.5],
                 ..Default::default()
             };
-            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
-            let bbox_component = BoundingBoxComponent {
-                vertex_buffer: BoundingBox::create_vertex_buffer(
-                    &device,
-                    &bounding_box,
-                    &transform,
-                ),
-                bounding_box,
-            };
+            let global_model = GlobalModelComponent::from(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent::new(&device, bounding_box);
+            // let bbox_component = BoundingBoxComponent {
+            //     vertex_buffer: BoundingBox::create_vertex_buffer(
+            //         &device,
+            //         &bounding_box,
+            //         &global_model.mat,
+            //     ),
+            //     bounding_box,
+            // };
             let mesh_component = MeshComponent { data: mesh };
 
             world.push((
@@ -164,7 +152,7 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
                 },
                 bbox_component,
                 transform,
-                model_uniform,
+                global_model,
                 mesh_component,
                 HierarchyComponent {
                     parent: Some(parent_entity.clone()),
@@ -191,15 +179,16 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
                 scale: [0.5f32, 0.5, 0.5],
                 ..Default::default()
             };
-            let model_uniform = ModelUniform::new(transform.compute_model_matrix());
-            let bbox_component = BoundingBoxComponent {
-                vertex_buffer: BoundingBox::create_vertex_buffer(
-                    &device,
-                    &bounding_box,
-                    &transform,
-                ),
-                bounding_box,
-            };
+            let global_model = GlobalModelComponent::from(transform.compute_model_matrix());
+            let bbox_component = BoundingBoxComponent::new(&device, bounding_box);
+            // let bbox_component = BoundingBoxComponent {
+            //     vertex_buffer: BoundingBox::create_vertex_buffer(
+            //         &device,
+            //         &bounding_box,
+            //         &global_model.mat,
+            //     ),
+            //     bounding_box,
+            // };
             let mesh_component = MeshComponent { data: mesh };
 
             world.push((
@@ -208,7 +197,7 @@ pub fn create_hirarchy(world: &mut World, resources: &Resources) {
                 },
                 bbox_component,
                 transform,
-                model_uniform,
+                global_model,
                 mesh_component,
                 HierarchyComponent {
                     parent: Some(child_entity1.clone()),
