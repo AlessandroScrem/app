@@ -1,73 +1,106 @@
 use cgmath::Matrix4;
-use legion::{world::SubWorld, *};
+use legion::{
+    systems::CommandBuffer,
+    world::SubWorld,
+    *,
+};
 
 use crate::{
     HierarchyComponent, MeshComponent, TransformComponent, entities::EntityRawU64,
     renderer::uniform::ModelUniform,
 };
 
-use std::collections::HashMap;
-
 #[system]
 #[read_component(TransformComponent)]
 #[read_component(HierarchyComponent)]
-pub fn compute_global_transforms(
-    world: &mut SubWorld,
-    #[resource] transforms: &mut HashMap<Entity, Matrix4<f32>>,
-) {
-    let entities: Vec<(Entity, TransformComponent, HierarchyComponent)> = 
-        <(Entity, &TransformComponent, &HierarchyComponent)>::query()
-        .iter(world)
-        .map(|(e, t, h)| (*e, t.clone(), h.clone()))
-        .collect();
+pub fn hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
+    let mut query = <(Entity, Read<HierarchyComponent>, Read<TransformComponent>)>::query();
 
-    transforms.clear();
-  
-    fn compute_child_transforms_recurse(
-        parent: &Entity,
-        parent_matrix: &Matrix4<f32>,
-        entities: &[(Entity, TransformComponent, HierarchyComponent)],
-        model_matrices: &mut HashMap<Entity, Matrix4<f32>>,
-    ) {
-        model_matrices.insert(*parent, *parent_matrix);
-    
-        for (entity, transform, hierarchy) in entities {
-            if hierarchy.parent == Some(*parent) {
-                let local = transform.compute_model_matrix();
-                let global = *parent_matrix * local;
-                compute_child_transforms_recurse(entity, &global, entities, model_matrices);
-            }
-        }
-    }
+    // Entities with a `HierarchyComponent` and NOT a `Parent` (ie those that are
+    // roots of a hierarchy).
+    for (entity, hirarchy, transform) in query.iter(world).filter(|(_e, h, _t)| h.parent.is_none())
+    {
+        // Calcolo della matrice globale
+        let local_matrix = transform.compute_model_matrix();
 
-    for (entity, transform, hierarchy) in &entities {
-        if hierarchy.parent.is_none() {
-            let model = transform.compute_model_matrix();
-            compute_child_transforms_recurse(entity, &model, &entities, transforms);
+        // Aggiorna uniform
+        let mut updated_uniform = ModelUniform::new(local_matrix);
+        updated_uniform.entity_id = entity.as_raw_u64();
+
+        // Aggiorna o sostituisce il componente
+        commands.add_component(*entity, updated_uniform);
+
+        // Propaga ai figli
+        for child in hirarchy.children.iter() {
+            propagate_recursive(local_matrix, world, *child, commands);
         }
     }
 }
 
-#[system]
-#[write_component(ModelUniform)]
-#[read_component(MeshComponent)]
-pub fn update_model_uniforms(
-    world: &mut SubWorld,
-    #[resource] queue: &wgpu::Queue,
-    #[resource] transforms: &HashMap<Entity, Matrix4<f32>>,
+fn propagate_recursive(
+    parent_matrix: Matrix4<f32>,
+    world: &SubWorld,
+    entity: Entity,
+    commands: &mut CommandBuffer,
 ) {
-    let mut uniforms_query = <(Entity, &MeshComponent, &mut ModelUniform)>::query();
-    for (entity, mesh, model_uniform) in uniforms_query.iter_mut(world) {
-        if let Some(model) = transforms.get(&entity) {
-            let mut updated = ModelUniform::new(*model);
-            updated.entity_id = entity.as_raw_u64();
-            *model_uniform = updated;
+    // Ottieni la matrice locale
+    let local_matrix = {
+        let entry = match world.entry_ref(entity) {
+            Ok(e) => e,
+            Err(_) => {
+                log::warn!("Entity {:?} not found in world", entity);
+                return;
+            }
+        };
 
-            queue.write_buffer(
-                &mesh.data.model_uniform_buffer,
-                0,
-                bytemuck::bytes_of(&updated),
+        if let Ok(transform) = entry.get_component::<TransformComponent>() {
+            transform.compute_model_matrix()
+        } else {
+            log::warn!(
+                "Entity {:?} is a child in the hierarchy but does not have a TransformComponent",
+                entity
             );
+            return;
         }
+    };
+
+    // Calcolo della matrice globale
+    let local_matrix = parent_matrix * local_matrix;
+
+    // Aggiorna uniform
+    let mut updated_uniform = ModelUniform::new(local_matrix);
+    updated_uniform.entity_id = entity.as_raw_u64();
+    commands.add_component(entity, updated_uniform);
+
+    // Propaga ai figli
+    let children = {
+        let entry = match world.entry_ref(entity) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+
+        if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
+            hierarchy.children.clone()
+        } else {
+            return;
+        }
+    };
+
+    for child in children {
+        propagate_recursive(local_matrix, world, child, commands);
+    }
+}
+
+#[system]
+#[read_component(ModelUniform)]
+#[read_component(MeshComponent)]
+pub fn hierarchy_update_uniforms(world: &mut SubWorld, #[resource] queue: &wgpu::Queue) {
+    let mut uniforms_query = <(Entity, &MeshComponent, &ModelUniform)>::query();
+    for (_entity, mesh, model_uniform) in uniforms_query.iter(world) {
+        queue.write_buffer(
+            &mesh.data.model_uniform_buffer,
+            0,
+            bytemuck::bytes_of(model_uniform),
+        );
     }
 }

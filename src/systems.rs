@@ -21,8 +21,8 @@ pub fn create_render_schedule_builder() -> Schedule {
         .add_system(crate::systems::globals::global_system())
         .add_system(crate::systems::light::update_transform_system())
         .add_system(crate::systems::mesh::update_model_matrix_system())
-        .add_system(crate::systems::hierarchy::compute_global_transforms_system()) // hierarchy
-        .add_system(crate::systems::hierarchy::update_model_uniforms_system()) // hierarchy
+        .add_system(crate::systems::hierarchy::hieararchy_system()) // hierarchy
+        .add_system(crate::systems::hierarchy::hierarchy_update_uniforms_system()) // hierarchy
         .add_system(crate::systems::bounding_box::update_bounding_box_system())
         .add_system(crate::systems::mesh::update_material_system())
         .add_system(crate::systems::mesh::mesh_system())

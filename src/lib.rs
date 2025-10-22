@@ -23,6 +23,7 @@ pub mod prelude {
     pub use crate::renderer::imgui_tools;
     pub use crate::renderer::uniform::CameraUniform;
 }
+use cgmath::{Matrix4, SquareMatrix};
 use legion::Entity;
 
 use crate::entities::bounding_box::BoundingBox;
@@ -100,6 +101,17 @@ pub struct TransformComponent {
     pub rotation: [f32; 3],
     pub scale: [f32; 3],
 }
+
+#[derive(Clone)]
+pub struct MatrixComponent {
+    pub mat: Matrix4<f32>,
+}
+
+impl Default for MatrixComponent {
+    fn default() -> Self {
+        Self { mat: Matrix4::<f32>::identity() }
+    }
+} 
 
 pub struct TagComponent {
     pub name: String,
