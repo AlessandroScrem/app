@@ -45,6 +45,10 @@ cd app
 cargo build
 cargo test
 cargo run --release
+
+// run with options 
+cargo run --release -- --help
+cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
 ```
 
 
