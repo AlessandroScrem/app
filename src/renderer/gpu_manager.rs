@@ -1,10 +1,11 @@
-use crate::assets::vertexdata::LinesVertexData;
-use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
+use super::*;
+use crate::assets::vertexdata::LinesVertexData;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum LayoutKind {

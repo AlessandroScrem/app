@@ -25,7 +25,8 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Mesh Bounding box
 - [x] Entity selection
 - [x] Outline selection
-- [ ] Hierarchy entity
+- [x] Hierarchy entity
+- [ ] Import gltf with hierarchy
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 
@@ -44,6 +45,10 @@ cd app
 cargo build
 cargo test
 cargo run --release
+
+// run with options 
+cargo run --release -- --help
+cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
 ```
 
 

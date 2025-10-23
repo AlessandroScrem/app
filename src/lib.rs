@@ -1,38 +1,51 @@
 mod app;
 mod application_handler;
-mod camera;
-mod renderer;
 mod scene;
+mod camera;
+mod picking;
+mod systems;
+mod transform;
+pub mod renderer;
 pub mod assets;
 pub mod entities;
 pub mod input;
-pub mod systems;
-pub mod transform;
-pub mod test_utils;
-pub mod picking;
 pub mod timestep;
-
+pub mod test_utils;
 
 pub mod prelude {
-    pub use log::{info, debug, warn, trace, error};
-    pub use crate::timestep;
     pub use super::app::App;
     pub use crate::camera::Camera;
     pub use crate::renderer::Renderer;
     pub use crate::renderer::imgui_tools;
-    pub use crate::renderer::uniform::CameraUniform;
+    pub use crate::timestep;
+    pub use log::{debug, error, info, trace, warn};
 }
-use crate::entities::bounding_box::BoundingBox;
+
+pub mod math {
+    use cgmath::*;
+    pub type Mat4 = Matrix4<f32>;
+    pub type Vec2 = Vector2<f32>;
+    pub type Vec3 = Vector3<f32>;
+    pub type Vec4 = Vector4<f32>;
+    pub type Point3f = Point3<f32>;
+    pub type Quat = Quaternion<f32>;
+    pub use cgmath::{Deg, Euler, Rad, perspective, vec3, vec4, Zero};
+    pub use cgmath::{EuclideanSpace, InnerSpace as _, Matrix as _, SquareMatrix as _, Rotation3 as _};
+}
+
+use math::*;
+use legion::Entity;
+use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::BoundingBox};
 
 pub mod colors {
-    pub const SILVER:[f32;3] = [0.7, 0.7, 0.7];
-    pub const CYAN_COLOR:[f32;3] = [0.0, 1.0, 1.0];
-    pub const YELLOW_COLOR:[f32;3] = [1.0, 0.5, 1.0];
-    pub const LIGHT_YELLOW_COLOR:[f32; 3] = [1.0, 0.9, 0.5];
-    pub const RED_COLOR:[f32; 3] = [0.8, 0.3, 0.2]; 
-    pub const GREEN_COLOR:[f32; 3] = [0.2, 0.8, 0.3]; 
-    pub const BLUE_COLOR:[f32; 3] = [0.2, 0.3, 0.8]; 
-    pub const CLEAR_COLOR:[f32; 3] = [0.1, 0.1, 0.1]; 
+    pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
+    pub const CYAN_COLOR: [f32; 3] = [0.0, 1.0, 1.0];
+    pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
+    pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
+    pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
+    pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
+    pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
+    pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -57,7 +70,7 @@ impl Default for Globals {
     }
 }
 
-///shader: [pbr, blinnphong, light] 
+///shader: [pbr, blinnphong, light]
 #[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Light {
@@ -66,7 +79,7 @@ pub struct Light {
     position: [f32; 3],
     cast_shadow: u32,
     entity_id: u64,
-    pad2: [i32; 2],  
+    pad2: [i32; 2],
 }
 impl Default for Light {
     fn default() -> Self {
@@ -98,11 +111,37 @@ pub struct TransformComponent {
     pub scale: [f32; 3],
 }
 
+#[derive(Clone)]
+pub struct GlobalModelComponent {
+    pub mat: Mat4,
+}
+
+impl Default for GlobalModelComponent {
+    fn default() -> Self {
+        Self {
+            mat: Mat4::identity(),
+        }
+    }
+}
+
+impl From<Mat4> for GlobalModelComponent {
+    fn from(value: Mat4) -> Self {
+        Self { mat: value }
+    }
+}
+
 pub struct TagComponent {
     pub name: String,
 }
 
 pub struct BoundingBoxComponent {
+    pub vertices: [LinesVertexData; 24],
     pub bounding_box: BoundingBox,
     pub vertex_buffer: wgpu::Buffer,
+}
+
+#[derive(Clone)]
+pub struct HierarchyComponent {
+    pub parent: Option<Entity>,
+    pub children: Vec<Entity>,
 }

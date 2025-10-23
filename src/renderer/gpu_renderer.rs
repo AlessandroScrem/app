@@ -1,11 +1,10 @@
 use std::sync::Arc;
 use winit::window::Window;
 
+use crate::assets::material_manager;
+use crate::assets::texture_manager;
 use crate::picking::PickObject;
-use crate::renderer::hdr_frame::HdrFrame;
-use crate::renderer::hdr_frame::IDTexture;
-use crate::renderer::light_manager;
-use crate::renderer::skybox_manager;
+use crate::renderer::*;
 use crate::prelude::*;
 
 pub struct Renderer {}
@@ -19,7 +18,7 @@ pub struct Ibl {
 impl Ibl {
     pub fn new(
         device: &wgpu::Device,
-        gpu_resource_manager: &crate::renderer::gpu_manager::GPUResourceManager,
+        gpu_resource_manager: &GPUResourceManager,
         skybox_manager: &skybox_manager::SkyboxManager,
         light_manager: &light_manager::LightManager,
     ) -> Self {
@@ -36,7 +35,7 @@ impl Ibl {
         let ibl_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Ibl Bind Group"),
             layout: &gpu_resource_manager
-                .get_layout(crate::renderer::gpu_manager::LayoutKind::LightIbl),
+                .get_layout(gpu_manager::LayoutKind::LightIbl),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -122,10 +121,10 @@ impl Renderer {
 
         info!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let gpu_resource_manager = Arc::new(crate::renderer::gpu_manager::GPUResourceManager::new(
+        let gpu_resource_manager = Arc::new(gpu_manager::GPUResourceManager::new(
             &device,
         ));
-        let pipeline_manager = crate::renderer::pipeline_manager::PipelineManager::new(
+        let pipeline_manager = pipeline_manager::PipelineManager::new(
             &device,
             &gpu_resource_manager,
             surface_config.format,
@@ -135,7 +134,7 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let material_manager = crate::assets::material_manager::MaterialManager::new(
+        let material_manager = material_manager::MaterialManager::new(
             Arc::new(device.clone()),
             gpu_resource_manager.clone(),
         );
@@ -144,7 +143,7 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let mut texture_manager = crate::assets::texture_manager::TextureManager::new(
+        let mut texture_manager = texture_manager::TextureManager::new(
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );

@@ -1,17 +1,19 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
-use legion::{Entity, Resources, World};
+use legion::*;
 use winit::window::Window;
 
 use crate::{
-    assets::texture_manager::TextureManager, camera::Camera, picking::PickObject, renderer::{
-        gpu_manager::GPUResourceManager,
-        uniform::ModelUniform,
-    }, timestep::Timestep, LightComponent, MeshComponent, TagComponent, TransformComponent
+    HierarchyComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
+    assets::texture_manager::TextureManager,
+    camera::Camera,
+    picking::PickObject,
+    renderer::{gpu_manager::GPUResourceManager},
+    timestep::Timestep,
+    math::{Deg, Rad},
 };
 
 // registro imgui separato
@@ -433,7 +435,20 @@ fn draw_window_entities(
 ) {
     use legion::query::IntoQuery;
     let mut pick_object = resources.get_mut::<PickObject>().unwrap();
-    let mut query = <(Entity, &TagComponent)>::query();
+    let mut hierarchy_query = <(Entity, &HierarchyComponent)>::query();
+    let mut flat_query =
+        <(Entity, &TagComponent)>::query().filter(!component::<HierarchyComponent>());
+
+    fn handle_deselection(ui: &imgui::Ui, pick_object: &mut PickObject) {
+        // Deseleziona solo se clicchi nella finestra stessa
+        // ma non sopra un widget/interazione
+        if ui.is_window_hovered()
+            && ui.is_mouse_clicked(MouseButton::Left)
+            && !ui.is_any_item_hovered()
+        {
+            pick_object.select(None);
+        }
+    }
 
     let win_size = [300.0, 100.0];
     let window = ui.window("Entities");
@@ -441,21 +456,63 @@ fn draw_window_entities(
         .size(win_size, Condition::FirstUseEver)
         .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
-            for (entity, tag) in query.iter(world) {
-                // deselect when click on this window
-                if ui.is_window_hovered() && ui.is_mouse_down(MouseButton::Left) {
-                    pick_object.select(None);
+            handle_deselection(ui, &mut pick_object);
+            // draw hierarchy components
+            for (entity, hirarchy) in hierarchy_query.iter(world) {
+                if hirarchy.parent.is_none() {
+                    draw_entity_node_recurse(ui, entity.clone(), world, &mut pick_object);
                 }
+            }
+            ui.separator();
+
+            for (entity, tag) in flat_query.iter(world) {
                 if ui
                     .selectable_config(format!("{} {:?}", tag.name, entity))
                     .selected(pick_object.selected.map(|e| e == *entity).unwrap_or(false))
                     .build()
                 {
                     pick_object.select(Some(*entity));
+                    println!("Selected");
                 }
             }
         });
+
     win_pos[1] = win_pos[1] + win_size[1];
+}
+
+fn draw_entity_node_recurse(ui: &Ui, entity: Entity, world: &World, pick_object: &mut PickObject) {
+    let (name, children) = {
+        let entry = world.entry_ref(entity).unwrap();
+        let tag = entry.get_component::<TagComponent>().unwrap();
+        let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
+        (tag.name.clone(), hierarchy.children.clone())
+    };
+
+    let is_selected = pick_object.selected.is_some_and(|e| e == entity);
+    let flags = TreeNodeFlags::SPAN_AVAIL_WIDTH;
+    let flags = if children.is_empty() {
+        flags | TreeNodeFlags::LEAF
+    } else {
+        flags
+    };
+    let flags = if is_selected {
+        flags | TreeNodeFlags::SELECTED
+    } else {
+        flags
+    };
+
+    ui.tree_node_config(name.clone())
+        .flags(flags)
+        .default_open(true)
+        .build(|| {
+            // Controlla se il nodo è stato cliccato e aggiorna la selezione
+            if ui.is_item_clicked() {
+                pick_object.select(Some(entity));
+            }
+            for child in children {
+                draw_entity_node_recurse(ui, child, world, pick_object);
+            }
+        });
 }
 
 fn draw_window_properties(
@@ -465,7 +522,6 @@ fn draw_window_properties(
     resources: &Resources,
 ) {
     if let Some(entity) = resources.get::<PickObject>().unwrap().selected {
-        
         let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
         let win_size = [300.0, 300.0];
         let window = ui.window(format!("Properties for {:?}", entity));
@@ -490,9 +546,9 @@ fn draw_ui_mesh(
 ) {
     use legion::query::IntoQuery;
 
-    let mut query = <(&mut MeshComponent, &mut TransformComponent, &ModelUniform)>::query();
-    if let Ok((mesh, transform, mu)) = query.get_mut(world, entity) {
-        text_fmt!(ui, "Entity ID: {}", mu.entity_id);
+    let mut query = <(Entity, &mut MeshComponent, &mut TransformComponent)>::query();
+    if let Ok((entity, mesh, transform)) = query.get_mut(world, entity) {
+        text_fmt!(ui, "Entity ID: {:?}", entity);
         for submesh in mesh.data.submeshes.iter_mut() {
             let material = &mut submesh.material;
             let main = &material.main_texture;

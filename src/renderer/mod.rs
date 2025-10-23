@@ -8,3 +8,7 @@ pub mod skybox_manager;
 pub mod hdr_frame;
 
 pub use gpu_renderer::Renderer;
+
+pub use uniform::{CameraUniform, GlobalUniform};
+pub use gpu_manager::{GPUResourceManager};
+pub use hdr_frame::{HdrFrame, IDTexture};

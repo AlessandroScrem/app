@@ -20,7 +20,7 @@ use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
 use crate::assets::texture;
 
 mod utils {
-    use crate::renderer::uniform;
+    use crate::{math::*, renderer::uniform};
     use wgpu::util::DeviceExt;
 
     /// Calculate the size of a mip level based on the original size and the mip level index.
@@ -99,11 +99,10 @@ mod utils {
 
     /// Create camera views for each face of a cubemap.
     /// # Returns
-    /// * A vector of 6 `cgmath::Matrix4<f32>` representing the view matrices for each cubemap face.
-    pub fn create_camera_views() -> Vec<cgmath::Matrix4<f32>> {
-        use cgmath::{Matrix4, Point3};
+    /// * A vector of 6 `Matrix4<f32>` representing the view matrices for each cubemap face.
+    pub fn create_camera_views() -> Vec<Mat4> {
 
-        const ZERO: Point3<f32> = Point3::new(0.0, 0.0, 0.0);
+        const ZERO: Point3f = Point3f::new(0.0, 0.0, 0.0);
         const PX: [f32; 3] = [1.0, 0.0, 0.0];
         const NX: [f32; 3] = [-1.0, 0.0, 0.0];
         const PY: [f32; 3] = [0.0, 1.0, 0.0];
@@ -113,17 +112,17 @@ mod utils {
 
         vec![
             // +X (right)
-            Matrix4::look_at_lh(ZERO, PX.into(), NY.into()),
+            Mat4::look_at_lh(ZERO, PX.into(), NY.into()),
             // -X (left)
-            Matrix4::look_at_lh(ZERO, NX.into(), NY.into()),
+            Mat4::look_at_lh(ZERO, NX.into(), NY.into()),
             // +Y (top)
-            Matrix4::look_at_lh(ZERO, PY.into(), PZ.into()),
+            Mat4::look_at_lh(ZERO, PY.into(), PZ.into()),
             // -Y (bottom)
-            Matrix4::look_at_lh(ZERO, NY.into(), NZ.into()),
+            Mat4::look_at_lh(ZERO, NY.into(), NZ.into()),
             // +Z (front)
-            Matrix4::look_at_lh(ZERO, PZ.into(), NY.into()),
+            Mat4::look_at_lh(ZERO, PZ.into(), NY.into()),
             // -Z (back)
-            Matrix4::look_at_lh(ZERO, NZ.into(), NY.into()),
+            Mat4::look_at_lh(ZERO, NZ.into(), NY.into()),
         ]
     }
 
@@ -150,9 +149,9 @@ mod utils {
     pub fn update_camera_buffer(
         queue: &wgpu::Queue,
         camera_uniform_buffer: &wgpu::Buffer,
-        cam_view: cgmath::Matrix4<f32>,
+        cam_view: Mat4,
     ) {
-        let cam_proj = cgmath::perspective(cgmath::Deg::<f32>(90.0), 1.0, 0.1, 10.0);
+        let cam_proj = perspective(Deg(90.0), 1.0, 0.1, 10.0);
 
         let updated_uniforms = uniform::CameraUniform {
             view: cam_view.into(),

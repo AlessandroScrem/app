@@ -14,7 +14,7 @@ use crate::{
 use legion::*;
 
 #[system]
-pub fn skybox(
+pub fn render_skybox(
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,

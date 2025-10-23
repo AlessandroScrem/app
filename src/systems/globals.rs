@@ -9,7 +9,7 @@ use legion::*;
 use std::sync::Arc;
 
 #[system]
-pub fn global(
+pub fn update_global_uniform_to_gpu(
     #[resource] resource_manager: &Arc<GPUResourceManager>,
     #[resource] queue: &wgpu::Queue,
     #[resource] camera: &Camera,

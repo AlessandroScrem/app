@@ -1,3 +1,6 @@
+use crate::math::*;
+use crate::TransformComponent;
+
 impl Default for TransformComponent {
     fn default() -> Self {
         Self {
@@ -8,25 +11,21 @@ impl Default for TransformComponent {
     }
 } 
 
-use cgmath::{Matrix4, Quaternion};
-use cgmath::{Euler, Rad, Vector3};
-
-use crate::TransformComponent;
 impl TransformComponent {
-    pub fn compute_model_matrix(&self) -> Matrix4<f32> {
+    pub fn compute_model_matrix(&self) -> Mat4 {
         // converte la rotazione xyz "Radianti" in Quaternion
-        fn to_quat(r: &[f32; 3]) -> Quaternion<f32> {
+        fn to_quat(r: &[f32; 3]) -> Quat {
             let euler = Euler::new(Rad(r[0]), Rad(r[1]), Rad(r[2]));
-            Quaternion::from(euler)
+            Quat::from(euler)
         }
 
-        let translation = Vector3::from(self.position);
+        let translation = Vec3::from(self.position);
         let rotation = to_quat(&self.rotation);
-        let scale = Vector3::from(self.scale);
+        let scale = Vec3::from(self.scale);
 
-        let t = Matrix4::from_translation(translation);
-        let r = Matrix4::from(rotation);
-        let s = Matrix4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+        let t = Mat4::from_translation(translation);
+        let r = Mat4::from(rotation);
+        let s = Mat4::from_nonuniform_scale(scale.x, scale.y, scale.z);
 
         t * r * s
     }

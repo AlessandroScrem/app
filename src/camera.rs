@@ -1,10 +1,7 @@
-use cgmath::{
-    EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion, Rad, Rotation3, SquareMatrix, Vector3,
-    perspective,
-};
+use crate::math::*;
 
 #[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 0.5, 0.0,
@@ -25,39 +22,38 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
             DVec4::new(0.0, 0.0, -r * z_near, 0.0),
         )
     }
-*/
-/*
-    use cgmath::{Matrix4, Rad};
-    /// Perspective LH (left-handed) come in DirectX (da testare)
+ */
+
+/*     /// Perspective LH (left-handed) come in DirectX (da testare)
     #[rustfmt::skip]
-    pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
+    pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Mat4 {
         let fovy = fovy.into();
         let f = 1.0 / (fovy.0 / 2.0).tan();
-        Matrix4::new(
+        Mat4::new(
         f / aspect, 0.0, 0.0, 0.0,
         0.0, f, 0.0, 0.0,
         0.0, 0.0, far / (far - near), 1.0,
         0.0, 0.0, -(near * far) / (far - near), 0.0,)
     }
-*/
+ */
 
 #[derive(Clone, Debug)]
 pub struct Camera {
-    position: Vector3<f32>,
+    position: Vec3,
     aspect: f32,
     pub fov: Rad<f32>,
     pub near: f32,
     pub far: f32,
     yaw: f32,
     pitch: f32,
-    focal_point: Vector3<f32>,
+    focal_point: Vec3,
     distance: f32,
-    view_matrix: Matrix4<f32>,
+    view_matrix: Mat4,
 }
 
 impl Camera {
     pub fn default() -> Self {
-        const FOV: cgmath::Deg<f32> = cgmath::Deg::<f32>(45.0);
+        const FOV: Deg<f32> = Deg::<f32>(45.0);
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
 
@@ -68,16 +64,16 @@ impl Camera {
         far: f32,
     ) -> Self {
         let mut camera = Self {
-            position: Vector3::new(0.0, 0.0, 0.0),
+            position: Vec3::new(0.0, 0.0, 0.0),
             aspect,
             fov: fov.into(),
             near,
             far,
             yaw: 0.0,
             pitch: 0.0,
-            focal_point: Vector3::new(0.0, 0.0, 0.0),
+            focal_point: Vec3::new(0.0, 0.0, 0.0),
             distance: 5.0,
-            view_matrix: Matrix4::identity(),
+            view_matrix: Mat4::identity(),
         };
         camera.update_view();
         camera
@@ -86,8 +82,8 @@ impl Camera {
     pub fn update_view(&mut self) {
         self.position = self.calculate_position();
         let orientation = self.get_orientation();
-        let translation = Matrix4::from_translation(self.position);
-        self.view_matrix = (translation * Matrix4::from(orientation)).invert().unwrap();
+        let translation = Mat4::from_translation(self.position);
+        self.view_matrix = (translation * Mat4::from(orientation)).invert().unwrap();
     }
 
     // move camera in screen asis [left/right] [up/bottom]
@@ -122,22 +118,22 @@ impl Camera {
     }
 
     // getters
-    pub fn get_view_mat(&self) -> Matrix4<f32> {
+    pub fn get_view_mat(&self) -> Mat4 {
         self.view_matrix
     }
 
     // La matrice di cgmath è RH e OpenGL-style (z in NDC tra -1 e 1)
     // (OPENGL_TO_WGPU_MATRIX) corregge lo z NDC da opengl [-1, 1] a Vulkan(wgpu) Z [0, 1]
     // TODO: implementare una projection LH con z [0, 1]
-    pub fn get_projection_mat(&self) -> Matrix4<f32> {
+    pub fn get_projection_mat(&self) -> Mat4 {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
     }
 
-    pub fn get_position(&self) -> Point3<f32> {
+    pub fn get_position(&self) -> Point3f {
         EuclideanSpace::from_vec(self.position)
     }
 
-    pub fn get_focal_point(&self) -> Point3<f32> {
+    pub fn get_focal_point(&self) -> Point3f {
         EuclideanSpace::from_vec(self.focal_point)
     }
 
@@ -166,23 +162,23 @@ impl Camera {
     // Regola RH: Up × Forward = Right oppure Right × Up = Forward
 
     // private
-    fn get_forward_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(0.0, 0.0, -1.0)).normalize()
+    fn get_forward_direction(&self) -> Vec3 {
+        (self.get_orientation() * Vec3::new(0.0, 0.0, -1.0)).normalize()
     }
 
-    fn get_right_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(1.0, 0.0, 0.0)).normalize()
+    fn get_right_direction(&self) -> Vec3 {
+        (self.get_orientation() * Vec3::new(1.0, 0.0, 0.0)).normalize()
     }
 
-    fn get_up_direction(&self) -> Vector3<f32> {
-        (self.get_orientation() * Vector3::new(0.0, 1.0, 0.0)).normalize()
+    fn get_up_direction(&self) -> Vec3 {
+        (self.get_orientation() * Vec3::new(0.0, 1.0, 0.0)).normalize()
     }
 
-    fn get_orientation(&self) -> Quaternion<f32> {
-        Quaternion::from_angle_y(Rad(-self.yaw)) * Quaternion::from_angle_x(Rad(-self.pitch))
+    fn get_orientation(&self) -> Quat {
+        Quat::from_angle_y(Rad(-self.yaw)) * Quat::from_angle_x(Rad(-self.pitch))
     }
 
-    fn calculate_position(&self) -> Vector3<f32> {
+    fn calculate_position(&self) -> Vec3 {
         self.focal_point - self.get_forward_direction() * self.distance
     }
 
@@ -214,7 +210,7 @@ impl Camera {
 #[cfg(test)]
 mod tests {
 
-    use cgmath::{EuclideanSpace, InnerSpace, Vector3};
+    use super::*;
 
     #[test]
     fn test_camera_update_view() {
@@ -229,9 +225,9 @@ mod tests {
         // Estrai i vettori della camera dalla view matrix
         // Column-major: view = inv(translation * rotation)
         // right = view x-axis, up = view y-axis, forward = -view z-axis
-        let right = Vector3::new(view.x.x, view.y.x, view.z.x).normalize();
-        let up = Vector3::new(view.x.y, view.y.y, view.z.y).normalize();
-        let forward = -Vector3::new(view.x.z, view.y.z, view.z.z).normalize();
+        let right = Vec3::new(view.x.x, view.y.x, view.z.x).normalize();
+        let up = Vec3::new(view.x.y, view.y.y, view.z.y).normalize();
+        let forward = -Vec3::new(view.x.z, view.y.z, view.z.z).normalize();
 
         // Vettori ortogonali
         let eps = 1e-6;
@@ -264,8 +260,7 @@ mod tests {
 
     #[test]
     fn test_camera_perspective_is_rh_and_wgpu_compatible() {
-        use super::Camera;
-        use cgmath::{Deg, vec4};
+        use super::*;
 
         let fovy = Deg(45.0);
         let aspect = 1.0;
@@ -303,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_cgmath_perspective_is_opengl_style_rh() {
-        use cgmath::{Deg, Matrix4, perspective, vec4};
+        use super::*;
 
         let fovy = Deg(45.0);
         let aspect = 1.0;
@@ -311,7 +306,7 @@ mod tests {
         let far = 100.0;
 
         // Proiezione di cgmath
-        let proj: Matrix4<f32> = perspective(fovy, aspect, near, far);
+        let proj: Mat4 = perspective(fovy, aspect, near, far);
 
         // Near plane: z = -near (perché RH guarda lungo -Z)
         let near_point = vec4(0.0, 0.0, -near, 1.0);
@@ -339,8 +334,7 @@ mod tests {
 
     #[test]
     fn test_cgmath_perspective_with_correction_is_wgpu_compatible() {
-        use super::OPENGL_TO_WGPU_MATRIX;
-        use cgmath::{Deg, Matrix4, perspective, vec4};
+        use super::*;
 
         let fovy = Deg(45.0);
         let aspect = 1.0;
@@ -348,7 +342,7 @@ mod tests {
         let far = 100.0;
 
         // Proiezione di cgmath (RH, OpenGL-style [-1,1])
-        let cgmath_proj: Matrix4<f32> = perspective(fovy, aspect, near, far);
+        let cgmath_proj: Mat4 = perspective(fovy, aspect, near, far);
 
         // Applico la correzione OpenGL → wgpu ([-1,1] → [0,1])
         let proj = OPENGL_TO_WGPU_MATRIX * cgmath_proj;
@@ -379,17 +373,18 @@ mod tests {
 
     #[test]
     fn custom_perspective_lh_is_wgpu_compatible() {
-        use cgmath::{Matrix4, vec4};
+        use super::*;
+
         let fovy = std::f32::consts::FRAC_PI_4; // 45°
         let aspect = 1.0;
         let near = 1.0;
         let far = 100.0;
 
-        fn projection_lh_zo(fovy: f32, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
+        fn projection_lh_zo(fovy: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
             let ctan_fov = 1.0f32 / f32::tan(fovy * 0.5);
             let k: f32 = far / (far - near);
 
-            let proj = Matrix4::<f32>::from_cols(
+            let proj = Mat4::from_cols(
                 vec4(ctan_fov / aspect, 0.0, 0.0, 0.0),
                 vec4(0.0, ctan_fov, 0.0, 0.0),
                 vec4(0.0, 0.0, k, 1.0),

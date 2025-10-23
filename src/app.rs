@@ -106,6 +106,33 @@ impl Timer {
     }
 }
 
+pub trait CenterWindow {
+    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32>;
+}
+
+impl CenterWindow for winit::window::Window {
+    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32> {
+        let mut size = self.inner_size();
+        if let Some(monitor) = self.current_monitor() {
+            let screen_size = monitor.size();
+            let window_size = self.inner_size();
+            let safe_width = screen_size.width.min(window_size.width);
+            let safe_height = screen_size.height.min(window_size.height);
+
+            if let Some(new_size) =
+                self.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
+            {
+                size = new_size;
+            }
+
+            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
+            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
+            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+        }
+        size
+    }
+}
+
 pub struct App {
     pub(super) window: Option<Arc<winit::window::Window>>,
     pub current_scene: Scene,
@@ -136,32 +163,6 @@ impl Default for App {
         }
     }
 }
-pub trait CenterWindow {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32>;
-}
-
-impl CenterWindow for winit::window::Window {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32> {
-        let mut size = self.inner_size();
-        if let Some(monitor) = self.current_monitor() {
-            let screen_size = monitor.size();
-            let window_size = self.inner_size();
-            let safe_width = screen_size.width.min(window_size.width);
-            let safe_height = screen_size.height.min(window_size.height);
-
-            if let Some(new_size) =
-                self.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
-            {
-                size = new_size;
-            }
-
-            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
-            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
-            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
-        }
-        size
-    }
-}
 
 impl App {
     pub fn new_with_size(width: u32, height: u32) -> Self {
@@ -169,6 +170,13 @@ impl App {
             size: winit::dpi::PhysicalSize::new(width, height),
             ..Default::default()
         }
+    }
+
+    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let event_loop = winit::event_loop::EventLoop::new().unwrap();
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        event_loop.run_app(&mut self)?;
+        Ok(())
     }
 
     pub fn load(&mut self) {
@@ -179,6 +187,7 @@ impl App {
         self.resources.insert(Globals::default());
 
         crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        crate::entities::mesh::create_hirarchy(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
@@ -198,7 +207,11 @@ impl App {
             .with_inner_size(self.size)
             .with_title("App".to_string());
 
-        let window = std::sync::Arc::new(event_loop.create_window(attributes).expect("Failed to crate window"));
+        let window = std::sync::Arc::new(
+            event_loop
+                .create_window(attributes)
+                .expect("Failed to crate window"),
+        );
         let new_size = window.try_fit_center_to_monitor();
         self.size = new_size;
 

@@ -1,6 +1,7 @@
-use cgmath::{Vector2, Zero};
 use winit::keyboard::Key;
 use std::collections::HashSet;
+
+use crate::math::{Vec2, Zero};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum MouseButton {
@@ -32,9 +33,9 @@ pub struct Input {
     mouse_buttons_pressed: HashSet<MouseButton>,
     mouse_buttons_released: HashSet<MouseButton>,
     cursor_moved: bool,
-    pub mouse_position: Vector2<f32>,
-    pub mouse_delta: Vector2<f32>,
-    pub mouse_wheel_movement: Option<Vector2<f32>>,
+    pub mouse_position: Vec2,
+    pub mouse_delta: Vec2,
+    pub mouse_wheel_movement: Option<Vec2>,
 }
 
 impl Input {
@@ -47,8 +48,8 @@ impl Input {
             mouse_buttons_down: HashSet::new(),
             mouse_buttons_pressed: HashSet::new(),
             mouse_buttons_released: HashSet::new(),
-            mouse_position: Vector2::zero(),
-            mouse_delta: Vector2::zero(),
+            mouse_position: Vec2::zero(),
+            mouse_delta: Vec2::zero(),
             mouse_wheel_movement: None,
             cursor_moved: false,
         }
@@ -113,12 +114,12 @@ impl Input {
             }
             winit::event::WindowEvent::MouseWheel { delta, .. } => {
                 self.mouse_wheel_movement = match delta {
-                    winit::event::MouseScrollDelta::LineDelta(x, y) => Some(Vector2::new(*x, *y)),
-                    winit::event::MouseScrollDelta::PixelDelta(pos) => Some(Vector2::new(pos.x as f32, pos.y as f32)),
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => Some(Vec2::new(*x, *y)),
+                    winit::event::MouseScrollDelta::PixelDelta(pos) => Some(Vec2::new(pos.x as f32, pos.y as f32)),
                 };
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
-                self.mouse_position = Vector2::new(position.x as f32, position.y as f32);
+                self.mouse_position = Vec2::new(position.x as f32, position.y as f32);
                 self.cursor_moved = true;
             }
             _ => (),
@@ -128,7 +129,7 @@ impl Input {
     pub(crate) fn update_device_events(&mut self, winit_event: &winit::event::DeviceEvent) {
         match winit_event {
             winit::event::DeviceEvent::MouseMotion { delta } => {
-                self.mouse_delta = Vector2::new(delta.0 as f32, delta.1 as f32);
+                self.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
             }
             _ => (),
         }
@@ -139,7 +140,7 @@ impl Input {
         self.keys_released.clear();
         self.mouse_buttons_pressed.clear();
         self.mouse_buttons_released.clear();
-        self.mouse_delta = Vector2::zero();
+        self.mouse_delta = Vec2::zero();
         self.mouse_wheel_movement = None;
         self.cursor_moved = false;
     }

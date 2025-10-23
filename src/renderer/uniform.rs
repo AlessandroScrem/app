@@ -1,4 +1,4 @@
-use cgmath::{Matrix, Matrix4, SquareMatrix};
+use crate::math::*;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
@@ -36,8 +36,8 @@ pub struct ModelUniform {
 impl Default for ModelUniform {
     fn default() -> Self {
         Self {
-            model: Matrix4::<f32>::identity().into(),
-            normal_matrix: Matrix4::<f32>::identity().into(),
+            model: Mat4::identity().into(),
+            normal_matrix: Mat4::identity().into(),
             entity_id: 0,
             pad2: [0, 0],
         }
@@ -45,8 +45,8 @@ impl Default for ModelUniform {
 }
 
 impl ModelUniform {
-    pub fn new(model: Matrix4<f32>) -> Self {
-        let normal_matrix = model.invert().unwrap_or(Matrix4::identity()).transpose();
+    pub fn new(model: Mat4) -> Self {
+        let normal_matrix = model.invert().unwrap_or(Mat4::identity()).transpose();
 
         Self {
             model: model.into(),

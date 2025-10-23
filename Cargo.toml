@@ -48,6 +48,8 @@ rayon = "1.11.0"
 stb_image = "0.3.0"
 rfd = "0.15.4"
 log = "0.4.28"
-env_logger = "0.11.8"
+
+simplelog = "0.12.2"
+clap = "2.33.0"
 # nofmt = "1.0.0"
 

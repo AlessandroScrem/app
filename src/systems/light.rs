@@ -15,7 +15,7 @@ use legion::{world::SubWorld, *};
 
 #[system]
 #[read_component(LightComponent)]
-pub fn light(
+pub fn render_light(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
@@ -62,7 +62,7 @@ pub fn light(
 
 #[system(for_each)]
 #[filter(maybe_changed::<LightComponent>())]
-pub fn update_transform(
+pub fn update_light_uniform_to_gpu(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
     #[resource] light_manager: &LightManager,
