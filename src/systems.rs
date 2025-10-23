@@ -1,17 +1,17 @@
-pub mod axis;
-pub mod bounding_box;
-pub mod camera_orbit;
-pub mod excute;
-pub mod globals;
-pub mod hdr;
-pub mod hierarchy;
-pub mod imgui;
-pub mod light;
-pub mod mesh;
-pub mod outline;
-pub mod picking;
-pub mod registry_update;
-pub mod skybox;
+mod axis;
+mod bounding_box;
+mod camera_orbit;
+mod excute;
+mod globals;
+mod hdr;
+mod hierarchy;
+mod imgui;
+mod light;
+mod mesh;
+mod outline;
+mod picking;
+mod registry_update;
+mod skybox;
 
 use legion::Schedule;
 
@@ -20,32 +20,32 @@ use legion::Schedule;
 // 2) render_schedule_builder()
 pub fn create_current_scene_schedule_builder() -> Schedule {
     Schedule::builder()
-    .add_system(crate::systems::camera_orbit::camera_orbit_system())
-    .add_system(crate::systems::picking::picking_system())
+    .add_system(camera_orbit::camera_orbit_system())
+    .add_system(picking::picking_system())
     .build()
 }
 
 pub fn create_render_schedule_builder() -> Schedule {
     Schedule::builder()
-    .add_system(crate::systems::excute::execute_start_system()) // create frame view and encoder
+    .add_system(excute::execute_start_system()) // create frame view and encoder
     .flush()
-    .add_system(crate::systems::globals::update_global_uniform_to_gpu_system())
-    .add_system(crate::systems::light::update_light_uniform_to_gpu_system())
-    .add_system(crate::systems::hierarchy::hieararchy_system()) 
-    .add_system(crate::systems::mesh::update_model_uniforms_to_gpu_system())
-    .add_system(crate::systems::mesh::update_material_system_to_gpu_system())
-    .add_system(crate::systems::bounding_box::update_bounding_box_to_gpu_system())
+    .add_system(globals::update_global_uniform_to_gpu_system())
+    .add_system(light::update_light_uniform_to_gpu_system())
+    .add_system(hierarchy::hieararchy_system()) 
+    .add_system(mesh::update_model_uniforms_to_gpu_system())
+    .add_system(mesh::update_material_system_to_gpu_system())
+    .add_system(bounding_box::update_bounding_box_to_gpu_system())
     // render passes
-    .add_system(crate::systems::mesh::render_mesh_system())
-    .add_system(crate::systems::light::render_light_system())
-    .add_system(crate::systems::skybox::render_skybox_system())
-    .add_system(crate::systems::axis::render_axis_system())
-    .add_system(crate::systems::bounding_box::render_bounding_box_system())
-    .add_system(crate::systems::hdr::render_hdr_to_ldr_system())
-    .add_system(crate::systems::outline::render_outline_system())
-    .add_system(crate::systems::picking::read_entity_id_to_buffer_system())
-    .add_thread_local(crate::systems::imgui::render_imgui_system())
-    .add_system(crate::systems::excute::execute_finish_system()) // submit encoder and present frame
+    .add_system(mesh::render_mesh_system())
+    .add_system(light::render_light_system())
+    .add_system(skybox::render_skybox_system())
+    .add_system(axis::render_axis_system())
+    .add_system(bounding_box::render_bounding_box_system())
+    .add_system(hdr::render_hdr_to_ldr_system())
+    .add_system(outline::render_outline_system())
+    .add_system(picking::read_entity_id_to_buffer_system())
+    .add_thread_local(imgui::render_imgui_system())
+    .add_system(excute::execute_finish_system()) // submit encoder and present frame
     .build()
 }
 
@@ -53,6 +53,6 @@ pub fn create_render_schedule_builder() -> Schedule {
 // 1) update_schedule_builder (every 1 sec)
 pub fn create_update_schedule_builder() -> Schedule {
     Schedule::builder()
-        .add_system(crate::systems::registry_update::registry_update_system())
+        .add_system(registry_update::registry_update_system())
         .build()
 }

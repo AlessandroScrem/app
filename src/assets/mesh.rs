@@ -2,20 +2,19 @@ use std::{path::Path, time::Instant};
 use wgpu::util::DeviceExt;
 
 use crate::{
+    prelude::*,
     assets::{
         material_manager::{Material, MaterialManager},
         texture_manager::TextureManager,
         vertexdata::MeshVertexData,
     },
     entities::bounding_box::BoundingBox,
-    prelude::*,
     renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+    math::*,
 };
 
-use cgmath::{Matrix4 as Mat4, SquareMatrix};
-
 fn compute_global_transforms(nodes: &mut [Node]) {
-    fn compute_global_recursive(nodes: &mut [Node], index: usize, parent_transform: Mat4<f32>) {
+    fn compute_global_recursive(nodes: &mut [Node], index: usize, parent_transform: Mat4) {
         let local = nodes[index].local_transform;
         let global = parent_transform * local;
         nodes[index].global_transform = global;
@@ -54,8 +53,8 @@ pub struct Node {
     pub parent: Option<usize>,
     pub children: Vec<usize>,
     pub mesh_id: Option<usize>,
-    pub local_transform: Mat4<f32>,
-    pub global_transform: Mat4<f32>,
+    pub local_transform: Mat4,
+    pub global_transform: Mat4,
     pub name: Option<String>,
 }
 
@@ -368,7 +367,6 @@ fn print_gltf_document(document: &gltf::Document) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::renderer::gpu_manager::GPUResourceManager;
     use std::sync::Arc;
 
     #[test]

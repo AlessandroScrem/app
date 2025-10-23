@@ -1,4 +1,4 @@
-use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::*;
 
 pub struct HdrFrame {
     pub _texture: wgpu::Texture,

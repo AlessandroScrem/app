@@ -7,9 +7,9 @@ use crate::{
         hdr_frame::HdrFrame,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
+    math::*,
 };
 
-use cgmath::Matrix4;
 use legion::{world::SubWorld, *};
 
 #[system]
@@ -78,7 +78,7 @@ use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::Boundin
 
 impl BoundingBox {
     pub fn gen_vertices(
-        bbox: &BoundingBox, /* , matrix: &Matrix4<f32> */
+        bbox: &BoundingBox,
     ) -> [LinesVertexData; 24] {
         /*
         bbox vertices order:
@@ -154,10 +154,10 @@ impl BoundingBoxComponent {
         }
     }
 
-    fn transform_verices(&self, matrix: &Matrix4<f32>) -> [LinesVertexData; 24] {
+    fn transform_verices(&self, matrix: &Mat4) -> [LinesVertexData; 24] {
         let mut out = [LinesVertexData::default(); 24];
         for (i, v) in self.vertices.iter().enumerate() {
-            let pos = cgmath::Vector4::new(v.position[0], v.position[1], v.position[2], 1.0);
+            let pos = Vec4::new(v.position[0], v.position[1], v.position[2], 1.0);
             let t = matrix * pos;
             out[i] = LinesVertexData {
                 position: [t.x, t.y, t.z],

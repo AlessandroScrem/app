@@ -3,16 +3,16 @@ use std::{
     sync::Arc,
 };
 
-use crate::prelude::*;
-
 use wgpu::{TextureFormat, util::DeviceExt};
 
 use crate::{
+    prelude::*,
     assets::texture_manager::TextureManager,
     renderer::{
         gpu_manager::{GPUResourceManager, LayoutKind},
         uniform::MaterialUniform,
     },
+    math::*,
 };
 
 pub struct Material {
@@ -25,7 +25,7 @@ pub struct Material {
     pub roughness_use_texture: u32,
     pub metallic_use_texture: u32,
     pub color_use_texture: u32,
-    pub color: cgmath::Vector4<f32>,
+    pub color: Vec4,
     pub bind_group: Option<wgpu::BindGroup>,
     pub material_uniform_buffer: Option<wgpu::Buffer>,
 }
@@ -55,7 +55,7 @@ impl MaterialManager {
         // materials
         let pbr = gltf_material.pbr_metallic_roughness();
         let color_factor = pbr.base_color_factor();
-        let color = cgmath::Vector4::new(
+        let color = vec4(
             color_factor[0],
             color_factor[1],
             color_factor[2],

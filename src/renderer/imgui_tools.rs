@@ -1,6 +1,5 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use cgmath::{Deg, Rad};
 use imgui::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
@@ -14,6 +13,7 @@ use crate::{
     picking::PickObject,
     renderer::{gpu_manager::GPUResourceManager},
     timestep::Timestep,
+    math::{Deg, Rad},
 };
 
 // registro imgui separato

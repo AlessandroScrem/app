@@ -1,4 +1,3 @@
-use cgmath::Matrix4;
 use legion::{
     systems::CommandBuffer,
     world::SubWorld,
@@ -6,7 +5,8 @@ use legion::{
 };
 
 use crate::{
-    GlobalModelComponent, HierarchyComponent, TransformComponent
+    GlobalModelComponent, HierarchyComponent, TransformComponent,
+    math::*,
 };
 
 #[system]
@@ -34,7 +34,7 @@ pub fn hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
 }
 
 fn propagate_recursive(
-    parent_matrix: Matrix4<f32>,
+    parent_matrix: Mat4,
     world: &SubWorld,
     entity: Entity,
     commands: &mut CommandBuffer,
