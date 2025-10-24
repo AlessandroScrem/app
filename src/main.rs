@@ -59,4 +59,5 @@ fn main() ->Result<(), Box<dyn std::error::Error>>{
     );
 
     App::new_with_size(width, height).run()
-}
+} 
+

@@ -26,7 +26,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Entity selection
 - [x] Outline selection
 - [x] Hierarchy entity
-- [ ] Import gltf with hierarchy
+- [x] Import gltf with hierarchy
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 

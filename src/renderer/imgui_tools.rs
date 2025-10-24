@@ -10,10 +10,10 @@ use crate::{
     HierarchyComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
     assets::texture_manager::TextureManager,
     camera::Camera,
-    picking::PickObject,
-    renderer::{gpu_manager::GPUResourceManager},
-    timestep::Timestep,
     math::{Deg, Rad},
+    picking::PickObject,
+    renderer::gpu_manager::GPUResourceManager,
+    timestep::Timestep,
 };
 
 // registro imgui separato
@@ -430,13 +430,13 @@ fn draw_ui_skybox_selector(ui: &imgui::Ui, resources: &Resources) {
 fn draw_window_entities(
     ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
-    world: &World,
+    world: &mut World,
     resources: &Resources,
 ) {
     use legion::query::IntoQuery;
     let mut pick_object = resources.get_mut::<PickObject>().unwrap();
     let mut hierarchy_query = <(Entity, &HierarchyComponent)>::query();
-    let mut flat_query =
+    let mut no_hierarchy_query =
         <(Entity, &TagComponent)>::query().filter(!component::<HierarchyComponent>());
 
     fn handle_deselection(ui: &imgui::Ui, pick_object: &mut PickObject) {
@@ -456,6 +456,20 @@ fn draw_window_entities(
         .size(win_size, Condition::FirstUseEver)
         .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
+            // add Context menu
+            if let Some(selected) = pick_object.selected {
+                if ui.is_window_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
+                    ui.open_popup("entity_context");
+                }
+    
+                if let Some(popup) = ui.begin_popup("entity_context") {
+                    if ui.menu_item("Add Parent to Node") {
+                        crate::entities::add_parent(selected.clone(), world);
+                    }
+                    popup.end();
+                }
+            }
+            // deselect if clicked on empty
             handle_deselection(ui, &mut pick_object);
             // draw hierarchy components
             for (entity, hirarchy) in hierarchy_query.iter(world) {
@@ -465,7 +479,7 @@ fn draw_window_entities(
             }
             ui.separator();
 
-            for (entity, tag) in flat_query.iter(world) {
+            for (entity, tag) in no_hierarchy_query.iter(world) {
                 if ui
                     .selectable_config(format!("{} {:?}", tag.name, entity))
                     .selected(pick_object.selected.map(|e| e == *entity).unwrap_or(false))
@@ -530,6 +544,8 @@ fn draw_window_properties(
             .position(*win_pos, Condition::FirstUseEver)
             .build(|| {
                 ui.separator();
+                draw_ui_transform(ui, world, entity.clone());
+                ui.separator();
                 draw_ui_mesh(ui, world, &registry, entity.clone());
                 ui.separator();
                 draw_ui_light(ui, world, entity.clone());
@@ -546,8 +562,8 @@ fn draw_ui_mesh(
 ) {
     use legion::query::IntoQuery;
 
-    let mut query = <(Entity, &mut MeshComponent, &mut TransformComponent)>::query();
-    if let Ok((entity, mesh, transform)) = query.get_mut(world, entity) {
+    let mut query = <(Entity, &mut MeshComponent)>::query();
+    if let Ok((entity, mesh)) = query.get_mut(world, entity) {
         text_fmt!(ui, "Entity ID: {:?}", entity);
         for submesh in mesh.data.submeshes.iter_mut() {
             let material = &mut submesh.material;
@@ -616,9 +632,6 @@ fn draw_ui_mesh(
                 ui.separator();
             }
         }
-
-        draw_ui_transform(ui, "Mesh Transform", transform);
-        ui.separator();
     }
 }
 
@@ -651,30 +664,35 @@ fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
     }
 }
 
-fn draw_ui_transform(ui: &imgui::Ui, name: &str, transform: &mut TransformComponent) {
-    if ui.collapsing_header(
-        name,
-        TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-    ) {
-        ui.text(format!("Position: {:?}", transform.position));
-        ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
-        ui.text(format!("Scale: {:?}", transform.scale));
-        ui.separator();
+fn draw_ui_transform(ui: &imgui::Ui, world: &mut World, entity: Entity) {
+    use legion::query::IntoQuery;
 
-        let id = ui.push_id(name);
-        let mut pos = transform.position;
-        let mut rot = transform.rotation;
-        let mut scale = transform.scale;
-        if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
-            transform.position = pos;
-        };
-        if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
-            transform.rotation = rot;
-        };
-        if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
-            transform.scale = scale;
-        };
-        id.pop();
+    let mut query = <(Entity, &TagComponent, &mut TransformComponent)>::query();
+    if let Ok((_entity, tag, transform)) = query.get_mut(world, entity) {
+        if ui.collapsing_header(
+            tag.name.clone(),
+            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+        ) {
+            ui.text(format!("Position: {:?}", transform.position));
+            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
+            ui.text(format!("Scale: {:?}", transform.scale));
+            ui.separator();
+
+            let id = ui.push_id(tag.name.clone());
+            let mut pos = transform.position;
+            let mut rot = transform.rotation;
+            let mut scale = transform.scale;
+            if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
+                transform.position = pos;
+            };
+            if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
+                transform.rotation = rot;
+            };
+            if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
+                transform.scale = scale;
+            };
+            id.pop();
+        }
     }
 }
 

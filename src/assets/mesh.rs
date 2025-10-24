@@ -1,51 +1,24 @@
-use std::{path::Path, time::Instant};
+use legion::Entity;
+use std::{collections::HashMap, path::Path, time::Instant};
 use wgpu::util::DeviceExt;
 
 use crate::{
-    prelude::*,
+    BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
+    TransformComponent,
     assets::{
         material_manager::{Material, MaterialManager},
         texture_manager::TextureManager,
         vertexdata::MeshVertexData,
     },
     entities::bounding_box::BoundingBox,
-    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
     math::*,
+    prelude::*,
+    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
-fn compute_global_transforms(nodes: &mut [Node]) {
-    fn compute_global_recursive(nodes: &mut [Node], index: usize, parent_transform: Mat4) {
-        let local = nodes[index].local_transform;
-        let global = parent_transform * local;
-        nodes[index].global_transform = global;
-
-        // visita i figli
-        let children = nodes[index].children.clone();
-        for child_id in children {
-            compute_global_recursive(nodes, child_id, global);
-        }
-    }
-    // i nodi root sono quelli senza parent
-    let roots: Vec<usize> = nodes
-        .iter()
-        .filter(|n| n.parent.is_none())
-        .map(|n| n.index)
-        .collect();
-
-    for root_id in roots {
-        compute_global_recursive(nodes, root_id, Mat4::identity());
-    }
-}
-
-fn assign_parents(nodes: &mut [Node]) {
-    for i in 0..nodes.len() {
-        let children = nodes[i].children.clone(); // copia perché ci serve iterare
-        for &child_id in &children {
-            if let Some(child) = nodes.get_mut(child_id) {
-                child.parent = Some(i);
-            }
-        }
-    }
+fn quat_to_euler_rad_array(q: Quat) -> [f32; 3] {
+    let euler: Euler<Rad<f32>> = q.into();
+    [euler.x.0, euler.y.0, euler.z.0]
 }
 
 pub struct Node {
@@ -275,38 +248,34 @@ impl Mesh {
 }
 
 pub fn load_gltf(
-    _world: &mut legion::World,
+    world: &mut legion::World,
     material_manager: &mut MaterialManager,
     texture_manager: &mut TextureManager,
     gpu_resource_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
-) -> Result<Mesh, Box<dyn std::error::Error>> {
+) {
     let timer = std::time::Instant::now();
 
     if path.extension().unwrap_or_default() != "gltf" {
-        return Err("File is not a glTF file".into());
+        warn!("File: {} is not a glTF", path.display());
+        return;
     }
 
-    let (document, buffers, _) = gltf::import(path)?;
+    let (document, buffers, _) = match gltf::import(path) {
+        Ok((doc, buffers, images)) => (doc, buffers, images),
+        Err(e) => {
+            warn!("Error loading Gltf {e}");
+            return;
+        }
+    };
+
     let images: Vec<gltf::Image<'_>> = document.images().collect();
 
-    info!("--\t gltf import is {} ms", timer.elapsed().as_millis());
-
-    let mut nodes: Vec<Node> = document
-        .nodes()
-        .map(|g_node| Node::from_gltf(&g_node))
-        .collect();
-
-    // 1. Collega i genitori
-    assign_parents(&mut nodes);
-    // 2. Calcola i global transform
-    compute_global_transforms(&mut nodes);
-
-    let mut meshes: Vec<Mesh> = document
+    let mut indexed_meshes: HashMap<usize, (Mesh, BoundingBoxComponent)> = document
         .meshes()
         .map(|gltf_mesh| {
-            Mesh::from_gltf(
+            let mesh = Mesh::from_gltf(
                 &gltf_mesh,
                 buffers.clone(),
                 &images,
@@ -315,13 +284,124 @@ pub fn load_gltf(
                 texture_manager,
                 gpu_resource_manager,
                 device,
-            )
+            );
+            let bounding_box = BoundingBoxComponent::new(device, (mesh.vmin, mesh.vmax).into());
+            (gltf_mesh.index(), (mesh, bounding_box))
         })
         .collect();
 
-    let mesh = meshes.remove(0);
+    debug!("Numero mesh caricate {}", indexed_meshes.len());
 
-    Ok(mesh)
+    let scene = document
+        .default_scene()
+        .unwrap_or_else(|| document.scenes().next().expect("No scene in glTF file"));
+    let mut root_entities = Vec::new();
+    let mut node_entity_map = HashMap::new();
+
+    let initial_size = world.len();
+
+    for root_node in scene.nodes() {
+        let entity = create_entities_recursively(
+            world,
+            &root_node,
+            None,
+            &mut indexed_meshes,
+            &mut node_entity_map,
+        );
+        root_entities.push(entity);
+    }
+
+    let num_entities = world.len() - initial_size;
+    info!("Create: #{} entities", num_entities);
+
+    info!("Root entities: {:?}", root_entities);
+    if let Some(root) = root_entities.first() {
+        info!("First root entity: {:?}", root);
+    }
+
+    info!("Gltf import is {} ms", timer.elapsed().as_millis());
+
+    if let Some(e) = node_entity_map.get(&0) {
+        debug!("Entity for node 0: {:?}", e);
+    }
+}
+
+fn create_entities_recursively(
+    world: &mut legion::World,
+    node: &gltf::Node,
+    parent: Option<Entity>,
+    indexed_meshes: &mut HashMap<usize, (Mesh, BoundingBoxComponent)>,
+    node_entity_map: &mut HashMap<usize, Entity>,
+) -> Entity {
+    // Crea l'entità per questo nodo
+    let name = node.name().map(|s| s.into()).unwrap_or("no-name".into());
+    info!("Create node {} id {}", name, node.index());
+
+    let (position, r, scale) = node.transform().decomposed();
+    let rotation = quat_to_euler_rad_array(Quat::new(r[3], r[0], r[1], r[2]));
+
+    let transform = TransformComponent {
+        position,
+        rotation,
+        scale,
+    };
+    let hierarchy = HierarchyComponent {
+        parent,
+        children: Vec::new(),
+    };
+    let parent_transform = match parent {
+        Some(parent) => {
+            let entry = world.entry(parent).unwrap();
+            entry
+                .get_component::<GlobalModelComponent>()
+                .unwrap_or(&GlobalModelComponent::default())
+                .mat
+        }
+        None => GlobalModelComponent::default().mat,
+    };
+    let global_model =
+        GlobalModelComponent::from(parent_transform * transform.compute_model_matrix());
+
+    let entity = world.push((
+        TagComponent { name },
+        transform.clone(),
+        hierarchy,
+        global_model,
+    ));
+
+    if let Some(g_mesh) = node.mesh() {
+        let mut entry = world.entry(entity).unwrap();
+        let (mesh, bbox_component) = indexed_meshes.remove(&g_mesh.index()).unwrap();
+        entry.add_component(MeshComponent { data: mesh });
+        entry.add_component(bbox_component);
+    }
+
+    // Salva il mapping nodo → entità
+    node_entity_map.insert(node.index(), entity);
+
+    // Per ogni figlio: crealo e aggiungilo alla lista children
+    let mut children_entities = Vec::new();
+    for child in node.children() {
+        let child_entity = create_entities_recursively(
+            world,
+            &child,
+            Some(entity),
+            indexed_meshes,
+            node_entity_map,
+        );
+        children_entities.push(child_entity);
+    }
+
+    // Aggiorna la lista dei figli
+    if !children_entities.is_empty() {
+        let mut entry = world.entry(entity).unwrap();
+        entry
+            .get_component_mut::<HierarchyComponent>()
+            .unwrap()
+            .children = children_entities;
+    }
+
+    entity
 }
 
 #[allow(dead_code)]
@@ -367,6 +447,8 @@ fn print_gltf_document(document: &gltf::Document) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use legion::query::IntoQuery;
+    use legion::*;
     use std::sync::Arc;
 
     #[test]
@@ -381,7 +463,7 @@ mod tests {
 
         let mut world = legion::World::default();
 
-        let result = load_gltf(
+        load_gltf(
             &mut world,
             &mut material_manager,
             &mut texture_manager,
@@ -390,80 +472,7 @@ mod tests {
             std::path::Path::new("./assets/cube/cube.gltf"),
         );
 
-        assert!(result.is_ok());
-        let mesh = result.unwrap();
-
-        assert_eq!(mesh.submeshes.len(), 1);
-        assert_eq!(mesh.submeshes[0].indices.len(), 36);
-    }
-
-    #[test]
-    fn assign_parent_to_nodes() {
-        let path = std::path::Path::new("./assets/Lantern/Lantern.gltf");
-        let (document, _buffers, _) = gltf::import(path).unwrap();
-
-        let mut nodes: Vec<Node> = document
-            .nodes()
-            .map(|g_node| Node::from_gltf(&g_node))
-            .collect();
-
-        assert_eq!(nodes.len(), 4);
-
-        print_gltf_document(&document);
-
-        // 1. Collega i genitori
-        assign_parents(&mut nodes);
-
-        let child0 = &nodes[0];
-        let child1 = &nodes[1];
-        let child2 = &nodes[2];
-        let parent = &nodes[3];
-
-        assert_eq!(child0.parent.unwrap(), parent.index);
-        assert_eq!(child1.parent.unwrap(), parent.index);
-        assert_eq!(child2.parent.unwrap(), parent.index);
-
-        assert_eq!(parent.children, [child0.index, child1.index, child2.index]);
-    }
-
-    #[test]
-    fn compute_global_trasforms_to_child_nodes() {
-        let path = std::path::Path::new("./assets/Lantern/Lantern.gltf");
-        let (document, _buffers, _) = gltf::import(path).unwrap();
-
-        let mut nodes: Vec<Node> = document
-            .nodes()
-            .map(|g_node| Node::from_gltf(&g_node))
-            .collect();
-
-        assert_eq!(nodes.len(), 4);
-
-        // 1. Collega i genitori
-        assign_parents(&mut nodes);
-        // 2. Calcola i global transform
-        compute_global_transforms(&mut nodes);
-
-        let child0 = &nodes[0];
-        let child1 = &nodes[1];
-        let child2 = &nodes[2];
-        let parent = &nodes[3];
-        let parent_transform = parent.local_transform;
-
-        // childs
-        assert_eq!(
-            child0.global_transform,
-            parent_transform * child0.local_transform
-        );
-        assert_eq!(
-            child1.global_transform,
-            parent_transform * child1.local_transform
-        );
-        assert_eq!(
-            child2.global_transform,
-            parent_transform * child2.local_transform
-        );
-
-        // parent global_transform reflect local_transform
-        assert_eq!(parent.global_transform, parent.local_transform);
+        assert_eq!(Read::<MeshComponent>::query().iter(&world).count(), 1);
+        assert_eq!(world.len(), 1)
     }
 }

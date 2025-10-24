@@ -2,7 +2,7 @@ pub mod bounding_box;
 pub mod light;
 pub mod mesh;
 
-use legion::Entity;
+use legion::{Entity, EntityStore};
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -42,6 +42,8 @@ impl From<EntityId> for Entity {
 }
 
 use std::hash::{Hash, Hasher};
+
+use crate::HierarchyComponent;
 pub trait EntityHash {
     /// Restituisce un hash `u64` deterministico
     fn entity_hash(&self) -> u64;
@@ -53,6 +55,39 @@ impl EntityHash for Entity {
         self.hash(&mut hasher);
         hasher.finish()
     }
+}
+
+pub fn add_parent(entity: Entity, world: &mut legion::World) {
+    // if not root node do nothing
+    if let Some(entry) = world.entry(entity) {
+        if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
+            if hierarchy.parent.is_some() {
+                return;
+            }
+        }
+    }
+    // Add parent node and set entity as child
+    let new_root = {
+        world.push((
+            crate::TagComponent {
+                name: "New Node".into(),
+            },
+            crate::HierarchyComponent {
+                parent: None,
+                children: vec![entity],
+            },
+            crate::GlobalModelComponent::default(),
+            crate::TransformComponent::default(),
+        ))
+    };
+
+    // Register new node as root
+    if let Ok(mut entry) = world.entry_mut(entity) {
+        let hierarchy = entry
+            .get_component_mut::<crate::HierarchyComponent>()
+            .unwrap();
+        hierarchy.parent = Some(new_root);
+    };
 }
 
 #[cfg(test)]
