@@ -86,6 +86,131 @@ mod ui_tools {
     }
 }
 
+pub struct InspectorContext<'a> {
+    pub ui: &'a imgui::Ui,
+    pub resources: &'a mut Resources, // o ResourceManager
+    pub selected: Option<Entity>,
+    pub demo_open: & 'a mut bool,
+}
+
+trait ComponentDrawer {
+    fn draw_component(&mut self, ctx: &mut InspectorContext);
+}
+
+impl ComponentDrawer for TagComponent {
+    fn draw_component(&mut self, ctx: &mut InspectorContext) {
+        let ui = ctx.ui;
+        let tag = self;
+        if ui.collapsing_header(
+            "TagComponent",
+            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+        ) {
+            ui.text(format!("Name: {}", tag.name));
+        }
+    }
+}
+
+impl ComponentDrawer for TransformComponent {
+    fn draw_component(&mut self, ctx: &mut InspectorContext) {
+        let ui = ctx.ui;
+        let transform = self;
+        if ui.collapsing_header(
+            "TransformComponent",
+            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+        ) {
+            ui.text(format!("Position: {:?}", transform.position));
+            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
+            ui.text(format!("Scale: {:?}", transform.scale));
+            ui.separator();
+
+            let id = ui.push_id_ptr(transform);
+            let mut pos = transform.position;
+            let mut rot = transform.rotation;
+            let mut scale = transform.scale;
+            if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
+                transform.position = pos;
+            };
+            if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
+                transform.rotation = rot;
+            };
+            if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
+                transform.scale = scale;
+            };
+            id.pop();
+        }
+    }
+}
+
+impl ComponentDrawer for MeshComponent {
+    fn draw_component(&mut self, ctx: &mut InspectorContext) {
+        let ui = ctx.ui;
+        let mesh = self;
+        let registry = ctx.resources.get::<ImGuiTextureRegistry>().unwrap();
+        if ui.collapsing_header(
+            "MeshComponent",
+            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+        ) {
+            ui.text(format!("Mesh: {}", mesh.data.name));
+            for (id, submesh) in mesh.data.submeshes.iter_mut().enumerate() {
+                ui.text(format!("Material id {}", id));
+                draw_ui_mesh_material(ui, &registry, &mut submesh.material);
+            }
+        }
+    }
+}
+
+impl ComponentDrawer for LightComponent {
+    fn draw_component(&mut self, ctx: &mut InspectorContext) {
+        let ui = ctx.ui;
+        let light = self;
+        if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
+            text_fmt!(ui, "Entity ID: {}", light.data.entity_id);
+            let data = &mut light.data;
+            Drag::new("Position")
+                .speed(0.1)
+                .build_array(ui, &mut data.position);
+            ui.color_edit3("Color", &mut data.color);
+            {
+                let mut directional = data.directional != 0;
+                if ui.checkbox("Directional", &mut directional) {
+                    data.directional = directional as u32;
+                }
+            }
+
+            {
+                let mut cast_shadow = data.cast_shadow != 0;
+                if ui.checkbox("Cast Shadow", &mut cast_shadow) {
+                    data.cast_shadow = cast_shadow as u32;
+                }
+            }
+        }
+    }
+}
+
+fn draw_entity_inspector(world: &mut World, ctx: &mut InspectorContext) {
+    if let Some(entity) = ctx.selected {
+        let mut entry = world.entry(entity).unwrap();
+
+        // Tag
+        if let Ok(comp) = entry.get_component_mut::<TagComponent>() {
+            comp.draw_component(ctx);
+        }
+        // Transform
+        if let Ok(comp) = entry.get_component_mut::<TransformComponent>() {
+            comp.draw_component(ctx);
+        }
+        // Mesh
+        if let Ok(comp) = entry.get_component_mut::<MeshComponent>() {
+            comp.draw_component(ctx);
+        }
+        // Light
+        if let Ok(comp) = entry.get_component_mut::<LightComponent>() {
+            comp.draw_component(ctx);
+        }
+    }
+    // Qui puoi aggiungere altri componenti
+}
+
 pub struct ImguiState {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
@@ -135,9 +260,6 @@ impl ImguiState {
             a: 1.0,
         };
 
-        let last_cursor = None;
-        let demo_open = false;
-
         let renderer = {
             let device = resources.get::<wgpu::Device>().unwrap();
             let queue = resources.get::<wgpu::Queue>().unwrap();
@@ -162,8 +284,8 @@ impl ImguiState {
             context,
             platform,
             clear_color,
-            demo_open,
-            last_cursor,
+            demo_open: false,
+            last_cursor: None,
             ini_loaded: false,
             timestep,
         }
@@ -200,23 +322,25 @@ impl ImguiState {
             .prepare_frame(self.context.io_mut(), &window)
             .expect("failed_to prepare frame");
 
+        let selected = resources.get::<PickObject>().unwrap().selected;
+
         let ui = self.context.frame();
         {
+            let mut ctx = InspectorContext {
+                ui,
+                resources,
+                selected,
+                demo_open: &mut self.demo_open,
+            };
             ui.dockspace_over_main_viewport();
 
             let mut win_pos = [0.0, 0.0];
-            draw_window_settings(
-                ui,
-                &mut win_pos,
-                &self.timestep,
-                &mut self.demo_open,
-                resources,
-            );
-            draw_window_entities(ui, &mut win_pos, world, &resources);
-            draw_window_properties(ui, &mut win_pos, world, &resources);
+            draw_window_settings(&mut win_pos, &self.timestep, &mut ctx);
+            draw_window_entities(&mut win_pos, world, &mut ctx);
+            draw_window_properties(&mut win_pos, world, &mut ctx);
 
-            draw_debug_window(ui, self.demo_open);
-            draw_debug_texture(ui, &resources);
+            draw_debug_window(&ctx);
+            draw_debug_texture(&ctx);
         }
 
         if self.last_cursor != ui.mouse_cursor() {
@@ -233,12 +357,12 @@ impl ImguiState {
 }
 
 fn draw_window_settings(
-    ui: &imgui::Ui,
     win_pos: &mut [f32; 2],
     timestep: &Timestep,
-    demo_open: &mut bool,
-    resources: &mut legion::Resources,
+    ctx: &mut InspectorContext,
 ) {
+    let resources = &ctx.resources;
+    let ui = ctx.ui;
     let mut globals = resources.get_mut::<crate::Globals>().unwrap();
     let pick_object = resources.get::<PickObject>().unwrap();
 
@@ -312,7 +436,7 @@ fn draw_window_settings(
                 ui.checkbox("Skybox enable", &mut globals.skybox_enable);
                 ui.checkbox("Axis enable", &mut globals.axis_enable);
                 ui.checkbox("BoundingBox", &mut globals.bbox_enable);
-                ui.checkbox("Show demo window", demo_open);
+                ui.checkbox("Show demo window", &mut ctx.demo_open);
 
                 if globals.ibl_enable {
                     ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
@@ -427,12 +551,10 @@ fn draw_ui_skybox_selector(ui: &imgui::Ui, resources: &Resources) {
         }
     }
 }
-fn draw_window_entities(
-    ui: &imgui::Ui,
-    win_pos: &mut [f32; 2],
-    world: &mut World,
-    resources: &Resources,
-) {
+
+fn draw_window_entities(win_pos: &mut [f32; 2], world: &mut World, ctx: &mut InspectorContext) {
+    let resources = &ctx.resources;
+    let ui = ctx.ui;
     use legion::query::IntoQuery;
     let mut pick_object = resources.get_mut::<PickObject>().unwrap();
     let mut hierarchy_query = <(Entity, &HierarchyComponent)>::query();
@@ -456,27 +578,36 @@ fn draw_window_entities(
         .size(win_size, Condition::FirstUseEver)
         .position(*win_pos, Condition::FirstUseEver)
         .build(|| {
-            // add Context menu
-            if let Some(selected) = pick_object.selected {
-                if ui.is_window_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
-                    ui.open_popup("entity_context");
-                }
-    
-                if let Some(popup) = ui.begin_popup("entity_context") {
-                    if ui.menu_item("Add Parent to Node") {
-                        crate::entities::add_parent(selected.clone(), world);
-                    }
-                    popup.end();
-                }
-            }
             // deselect if clicked on empty
             handle_deselection(ui, &mut pick_object);
             // draw hierarchy components
-            for (entity, hirarchy) in hierarchy_query.iter(world) {
-                if hirarchy.parent.is_none() {
-                    draw_entity_node_recurse(ui, entity.clone(), world, &mut pick_object);
+
+            ui.group(|| {
+                for (entity, hirarchy) in hierarchy_query.iter(world) {
+                    if hirarchy.parent.is_none() {
+                        draw_entity_node_recurse(ui, entity.clone(), world, &mut pick_object);
+                    }
+                }
+            });
+
+            if let Some(selected) = pick_object.selected {
+                // add Context menu to group
+                if hierarchy_query
+                    .get(world, selected)
+                    .is_ok_and(|e| e.1.parent == None)
+                {
+                    if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
+                        ui.open_popup("entity_context");
+                    }
+                    if let Some(popup) = ui.begin_popup("entity_context") {
+                        if ui.menu_item("Add Parent to Node") {
+                            crate::entities::add_parent(selected.clone(), world);
+                        }
+                        popup.end();
+                    }
                 }
             }
+
             ui.separator();
 
             for (entity, tag) in no_hierarchy_query.iter(world) {
@@ -529,181 +660,101 @@ fn draw_entity_node_recurse(ui: &Ui, entity: Entity, world: &World, pick_object:
         });
 }
 
-fn draw_window_properties(
-    ui: &imgui::Ui,
-    win_pos: &mut [f32; 2],
-    world: &mut World,
-    resources: &Resources,
-) {
-    if let Some(entity) = resources.get::<PickObject>().unwrap().selected {
-        let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
+fn draw_window_properties(win_pos: &mut [f32; 2], world: &mut World, ctx: &mut InspectorContext) {
+    if let Some(entity) = ctx.selected.as_ref() {
         let win_size = [300.0, 300.0];
-        let window = ui.window(format!("Properties for {:?}", entity));
+        let window = ctx.ui.window(format!("Properties for {:?}", entity));
         window
             .size(win_size, Condition::FirstUseEver)
             .position(*win_pos, Condition::FirstUseEver)
             .build(|| {
-                ui.separator();
-                draw_ui_transform(ui, world, entity.clone());
-                ui.separator();
-                draw_ui_mesh(ui, world, &registry, entity.clone());
-                ui.separator();
-                draw_ui_light(ui, world, entity.clone());
+                draw_entity_inspector(world, ctx);
             });
         win_pos[1] = win_pos[1] + win_size[1];
     };
 }
 
-fn draw_ui_mesh(
+fn draw_ui_mesh_material(
     ui: &imgui::Ui,
-    world: &mut World,
     registry: &ImGuiTextureRegistry,
-    entity: Entity,
+    material: &mut crate::assets::material_manager::Material,
 ) {
-    use legion::query::IntoQuery;
+    let main = &material.main_texture;
+    let normal = &material.normal_texture;
+    let roughness = &material.metallic_roughness_texture;
+    let mut color_use_texture = material.color_use_texture == 1;
+    let mut metallic_use_texture = material.metallic_use_texture == 1;
+    let mut roughness_use_texture = material.roughness_use_texture == 1;
+    ui.checkbox("color override", &mut color_use_texture);
+    ui.checkbox("metallic override", &mut metallic_use_texture);
+    ui.checkbox("roughness override", &mut roughness_use_texture);
+    material.color_use_texture = color_use_texture as u32;
+    material.metallic_use_texture = metallic_use_texture as u32;
+    material.roughness_use_texture = roughness_use_texture as u32;
 
-    let mut query = <(Entity, &mut MeshComponent)>::query();
-    if let Ok((entity, mesh)) = query.get_mut(world, entity) {
-        text_fmt!(ui, "Entity ID: {:?}", entity);
-        for submesh in mesh.data.submeshes.iter_mut() {
-            let material = &mut submesh.material;
-            let main = &material.main_texture;
-            let normal = &material.normal_texture;
-            let roughness = &material.metallic_roughness_texture;
-            let mut color_use_texture = material.color_use_texture == 1;
-            let mut metallic_use_texture = material.metallic_use_texture == 1;
-            let mut roughness_use_texture = material.roughness_use_texture == 1;
-            ui.checkbox("color override", &mut color_use_texture);
-            ui.checkbox("metallic override", &mut metallic_use_texture);
-            ui.checkbox("roughness override", &mut roughness_use_texture);
-            material.color_use_texture = color_use_texture as u32;
-            material.metallic_use_texture = metallic_use_texture as u32;
-            material.roughness_use_texture = roughness_use_texture as u32;
-
-            if !color_use_texture {
-                let mut color: [f32; 4] = material.color.into();
-                if ui.color_edit4("Color", &mut color) {
-                    material.color = color.into();
-                }
-            };
-
-            if !metallic_use_texture {
-                Drag::new("Metallic")
-                    .speed(0.01)
-                    .range(0.01, 1.0)
-                    .build(ui, &mut material.metallic);
-            }
-            if !roughness_use_texture {
-                Drag::new("Roughness")
-                    .speed(0.01)
-                    .range(0.01, 1.0)
-                    .build(ui, &mut material.roughness);
-            }
-            ui.separator();
-
-            if let Some(id) = registry.ids.get(main) {
-                let name = main
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("no name");
-                ui.image_button(name, *id, [100.0, 100.0]);
-                ui.same_line();
-                ui.text(name);
-                ui.separator();
-            }
-            if let Some(id) = registry.ids.get(normal) {
-                let name = normal
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("no name");
-                ui.image_button(name, *id, [100.0, 100.0]);
-                ui.same_line();
-                ui.text(name);
-                ui.separator();
-            }
-            if let Some(id) = registry.ids.get(roughness) {
-                let name = roughness
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("no name");
-                ui.image_button(name, *id, [100.0, 100.0]);
-                ui.same_line();
-                ui.text(name);
-                ui.separator();
-            }
+    if !color_use_texture {
+        let mut color: [f32; 4] = material.color.into();
+        if ui.color_edit4("Color", &mut color) {
+            material.color = color.into();
         }
+    };
+
+    if !metallic_use_texture {
+        Drag::new("Metallic")
+            .speed(0.01)
+            .range(0.01, 1.0)
+            .build(ui, &mut material.metallic);
+    }
+    if !roughness_use_texture {
+        Drag::new("Roughness")
+            .speed(0.01)
+            .range(0.01, 1.0)
+            .build(ui, &mut material.roughness);
+    }
+    ui.separator();
+
+    if let Some(id) = registry.ids.get(main) {
+        let name = main
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("no name");
+        ui.image_button(name, *id, [100.0, 100.0]);
+        ui.same_line();
+        ui.text(name);
+        ui.separator();
+    }
+    if let Some(id) = registry.ids.get(normal) {
+        let name = normal
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("no name");
+        ui.image_button(name, *id, [100.0, 100.0]);
+        ui.same_line();
+        ui.text(name);
+        ui.separator();
+    }
+    if let Some(id) = registry.ids.get(roughness) {
+        let name = roughness
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("no name");
+        ui.image_button(name, *id, [100.0, 100.0]);
+        ui.same_line();
+        ui.text(name);
+        ui.separator();
     }
 }
 
-fn draw_ui_light(ui: &imgui::Ui, world: &mut World, entity: Entity) {
-    use legion::query::IntoQuery;
-    let mut query = <&mut LightComponent>::query();
-
-    if let Ok(light) = query.get_mut(world, entity) {
-        if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
-            text_fmt!(ui, "Entity ID: {}", light.data.entity_id);
-            let data = &mut light.data;
-            Drag::new("Position")
-                .speed(0.1)
-                .build_array(ui, &mut data.position);
-            ui.color_edit3("Color", &mut data.color);
-            {
-                let mut directional = data.directional != 0;
-                if ui.checkbox("Directional", &mut directional) {
-                    data.directional = directional as u32;
-                }
-            }
-
-            {
-                let mut cast_shadow = data.cast_shadow != 0;
-                if ui.checkbox("Cast Shadow", &mut cast_shadow) {
-                    data.cast_shadow = cast_shadow as u32;
-                }
-            }
-        }
+fn draw_debug_window(ctx: &InspectorContext) {
+    if *ctx.demo_open {
+        ctx.ui.show_demo_window(&mut true);
     }
 }
 
-fn draw_ui_transform(ui: &imgui::Ui, world: &mut World, entity: Entity) {
-    use legion::query::IntoQuery;
+fn draw_debug_texture(ctx: &InspectorContext) {
+    let registry = ctx.resources.get::<ImGuiTextureRegistry>().unwrap();
+    let ui = ctx.ui;
 
-    let mut query = <(Entity, &TagComponent, &mut TransformComponent)>::query();
-    if let Ok((_entity, tag, transform)) = query.get_mut(world, entity) {
-        if ui.collapsing_header(
-            tag.name.clone(),
-            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-        ) {
-            ui.text(format!("Position: {:?}", transform.position));
-            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
-            ui.text(format!("Scale: {:?}", transform.scale));
-            ui.separator();
-
-            let id = ui.push_id(tag.name.clone());
-            let mut pos = transform.position;
-            let mut rot = transform.rotation;
-            let mut scale = transform.scale;
-            if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
-                transform.position = pos;
-            };
-            if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
-                transform.rotation = rot;
-            };
-            if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
-                transform.scale = scale;
-            };
-            id.pop();
-        }
-    }
-}
-
-fn draw_debug_window(ui: &imgui::Ui, demo_open: bool) {
-    if demo_open {
-        ui.show_demo_window(&mut true);
-    }
-}
-
-fn draw_debug_texture(ui: &imgui::Ui, resources: &legion::Resources) {
-    let registry = resources.get::<ImGuiTextureRegistry>().unwrap();
     let debug_tex_path = std::path::Path::new("debug_texture");
     let name = debug_tex_path
         .file_stem()
