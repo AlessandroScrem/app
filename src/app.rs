@@ -4,7 +4,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use crate::Globals;
-use crate::prelude::imgui_tools::ImguiState;
+use crate::prelude::ui::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
 
@@ -219,7 +219,7 @@ impl App {
 
     fn create_gui(&mut self) {
         if let Some(window) = &self.window {
-            let imgui = imgui_tools::ImguiState::create_imgui(window, &mut self.resources);
+            let imgui = ui::ImguiState::create_imgui(window, &mut self.resources);
 
             self.imgui = Some(imgui);
         }

@@ -16,7 +16,7 @@ pub mod prelude {
     pub use super::app::App;
     pub use crate::camera::Camera;
     pub use crate::renderer::Renderer;
-    pub use crate::renderer::imgui_tools;
+    pub use crate::renderer::ui;
     pub use crate::timestep;
     pub use log::{debug, error, info, trace, warn};
 }

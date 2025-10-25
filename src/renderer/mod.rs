@@ -1,4 +1,4 @@
-pub mod imgui_tools;
+pub mod ui;
 pub mod pipeline_manager;
 pub mod uniform;
 pub mod gpu_renderer;

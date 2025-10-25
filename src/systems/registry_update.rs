@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{assets::texture_manager::TextureManager, prelude::imgui_tools::ImGuiTextureRegistry};
+use crate::{assets::texture_manager::TextureManager, prelude::ui::ImGuiTextureRegistry};
 use legion::*;
 use log::debug;
 
