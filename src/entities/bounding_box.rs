@@ -19,6 +19,11 @@ impl BoundingBox {
         }
     }
 
+    pub fn merge(&mut self, other: &BoundingBox) {
+        self.extend(&other.min);
+        self.extend(&other.max);
+    }
+
     #[allow(dead_code)]
     pub fn from_points<'a, I: IntoIterator<Item = &'a [f32; 3]>>(points: I) -> Self {
         let mut bbox = BoundingBox::new_empty();

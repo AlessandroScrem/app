@@ -144,6 +144,9 @@ impl Camera {
     pub fn get_distance(&self) -> f32 {
         self.distance
     }
+    pub fn get_aspect(&self) -> f32 {
+        self.aspect
+    }
 
     // setters
     pub fn set_distance(&mut self, distance: f32) {
@@ -153,6 +156,12 @@ impl Camera {
 
     pub fn set_aspect(&mut self, aspect: f32) {
         self.aspect = aspect;
+    }
+
+
+    pub fn set_focal_point(&mut self, new_focal_point: Vec3) {
+        self.focal_point = new_focal_point;
+        self.update_view();
     }
 
     // RH classico (OpenGL)
