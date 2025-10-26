@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use crate::{
-    BoundingBoxComponent, GlobalModelComponent, Globals, colors,
+    BoundingBoxComponent, GlobalModelComponent, Globals,
+    assets::vertexdata::LinesVertexData,
+    colors,
+    entities::bounding_box::BoundingBox,
+    math::*,
     renderer::{
         gpu_manager::GPUResourceManager,
         hdr_frame::HdrFrame,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
-    math::*,
 };
 
 use legion::{world::SubWorld, *};
@@ -66,7 +69,11 @@ pub fn update_bounding_box_to_gpu(
         return;
     }
 
-    let vertices = bbox_component.transform_verices(&global_model.mat);
+
+    // transform local bbox and save to global_bounding_box
+    bbox_component.global_bounding_box = bbox_component.bounding_box.transform(&global_model.mat);    
+    let vertices = BoundingBox::gen_vertices(&bbox_component.global_bounding_box);
+
     queue.write_buffer(
         &bbox_component.vertex_buffer,
         0,
@@ -74,12 +81,8 @@ pub fn update_bounding_box_to_gpu(
     );
 }
 
-use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::BoundingBox};
-
 impl BoundingBox {
-    pub fn gen_vertices(
-        bbox: &BoundingBox,
-    ) -> [LinesVertexData; 24] {
+    pub fn gen_vertices(bbox: &BoundingBox) -> [LinesVertexData; 24] {
         /*
         bbox vertices order:
                7----------6
@@ -134,6 +137,22 @@ impl BoundingBox {
 
         vertices
     }
+
+    fn transform(&self, matrix: &Mat4) -> Self {
+        // TODO: fix this
+        // transform local bbox and save to global_bounding_box
+        let min = self.min;
+        let max = self.max;
+        let min = Vec4::new(min[0], min[1], min[2], 1.0);
+        let max = Vec4::new(max[0], max[1], max[2], 1.0);
+        let min = matrix * min;
+        let max = matrix * max;
+
+        let min = [min.x, min.y, min.z];
+        let max = [max.x, max.y, max.z];
+
+        Self{ min, max }
+    }
 }
 
 impl BoundingBoxComponent {
@@ -148,22 +167,10 @@ impl BoundingBoxComponent {
         });
 
         Self {
+            global_bounding_box: bbox.clone(),
             bounding_box: bbox,
             vertex_buffer,
             vertices,
         }
-    }
-
-    fn transform_verices(&self, matrix: &Mat4) -> [LinesVertexData; 24] {
-        let mut out = [LinesVertexData::default(); 24];
-        for (i, v) in self.vertices.iter().enumerate() {
-            let pos = Vec4::new(v.position[0], v.position[1], v.position[2], 1.0);
-            let t = matrix * pos;
-            out[i] = LinesVertexData {
-                position: [t.x, t.y, t.z],
-                ..*v
-            };
-        }
-        out
     }
 }

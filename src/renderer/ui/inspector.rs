@@ -2,9 +2,8 @@ use imgui::{Drag, TreeNodeFlags};
 use legion::{Entity, Resources, World};
 
 use crate::{
-    LightComponent, MeshComponent, TagComponent, TransformComponent,
-    prelude::ui::{registry::ImGuiTextureRegistry},
-    text_fmt,
+    BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
+    prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
 };
 
 pub struct InspectorContext<'a> {
@@ -62,6 +61,24 @@ impl ComponentDrawer for TransformComponent {
     }
 }
 
+impl ComponentDrawer for BoundingBoxComponent {
+    fn draw_component(&mut self, ctx: &mut InspectorContext) {
+        let ui = ctx.ui;
+        let bbox = &self.bounding_box;
+        let gbbox = &self.global_bounding_box;
+        if ui.collapsing_header(
+            "BoundingBoxComponent",
+            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+        ) {
+            ui.text(format!("Min: {:?}", bbox.min));
+            ui.text(format!("Max: {:?}", bbox.max));
+            ui.separator();
+            ui.text(format!("GlobalMin: {:?}", gbbox.min));
+            ui.text(format!("GLobalMax: {:?}", gbbox.max));
+        }
+    }
+}
+
 impl ComponentDrawer for MeshComponent {
     fn draw_component(&mut self, ctx: &mut InspectorContext) {
         let ui = ctx.ui;
@@ -72,6 +89,9 @@ impl ComponentDrawer for MeshComponent {
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
             ui.text(format!("Mesh: {}", mesh.data.name));
+            ui.text(format!("Min: {:?}", mesh.data.vmin));
+            ui.text(format!("Max: {:?}", mesh.data.vmax));
+            ui.separator();
             for (id, submesh) in mesh.data.submeshes.iter_mut().enumerate() {
                 ui.text(format!("Material id {}", id));
                 draw_ui_mesh_material(ui, &registry, &mut submesh.material);
@@ -119,6 +139,10 @@ pub fn draw_entity_inspector(world: &mut World, ctx: &mut InspectorContext) {
         if let Ok(comp) = entry.get_component_mut::<TransformComponent>() {
             comp.draw_component(ctx);
         }
+        // BoundingBox
+        if let Ok(comp) = entry.get_component_mut::<BoundingBoxComponent>() {
+            comp.draw_component(ctx);
+        }
         // Mesh
         if let Ok(comp) = entry.get_component_mut::<MeshComponent>() {
             comp.draw_component(ctx);
@@ -130,7 +154,6 @@ pub fn draw_entity_inspector(world: &mut World, ctx: &mut InspectorContext) {
     }
     // Qui puoi aggiungere altri componenti
 }
-
 
 pub fn draw_ui_mesh_material(
     ui: &imgui::Ui,

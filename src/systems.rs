@@ -35,6 +35,7 @@ pub fn create_render_schedule_builder() -> Schedule {
     .add_system(mesh::update_model_uniforms_to_gpu_system())
     .add_system(mesh::update_material_system_to_gpu_system())
     .add_system(bounding_box::update_bounding_box_to_gpu_system())
+    .add_system(recenter_camera_system())
     // render passes
     .add_system(mesh::render_mesh_system())
     .add_system(light::render_light_system())
@@ -56,3 +57,36 @@ pub fn create_update_schedule_builder() -> Schedule {
         .add_system(registry_update::registry_update_system())
         .build()
 }
+
+use legion::*;
+use legion::world::SubWorld;
+use log::warn;
+use crate::entities::bounding_box::BoundingBox;
+use crate::BoundingBoxComponent;
+#[system]
+#[read_component(BoundingBoxComponent)]
+pub fn recenter_camera(
+    #[resource] camera: &mut crate::camera::Camera,
+    world: &mut SubWorld,
+) {
+    if camera.recenter_request {
+        camera.recenter_request = false;
+        warn!("Recenter Camera");
+
+        let bbox = get_bounding_box_from_world(world);
+        crate::camera::center_camera_to_bounding_box(camera, bbox);
+    }
+}
+
+pub fn get_bounding_box_from_world(world: &mut SubWorld) -> BoundingBox {
+    let mut bbox = BoundingBox::new_empty();
+    let mut query = <&BoundingBoxComponent>::query();
+
+    for b in query.iter(world) {
+        bbox.merge(&b.global_bounding_box);
+    }
+
+    bbox
+}
+
+

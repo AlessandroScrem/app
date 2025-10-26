@@ -14,7 +14,7 @@ pub mod test_utils;
 
 pub mod prelude {
     pub use super::app::App;
-    pub use crate::camera::Camera;
+    pub use crate::camera::{Camera, center_camera_to_bounding_box};
     pub use crate::renderer::Renderer;
     pub use crate::renderer::ui;
     pub use crate::timestep;
@@ -29,7 +29,7 @@ pub mod math {
     pub type Vec4 = Vector4<f32>;
     pub type Point3f = Point3<f32>;
     pub type Quat = Quaternion<f32>;
-    pub use cgmath::{Deg, Euler, Rad, perspective, vec3, vec4, Zero};
+    pub use cgmath::{Deg, Euler, Rad, perspective, vec3, vec4, Zero, Angle};
     pub use cgmath::{EuclideanSpace, InnerSpace as _, Matrix as _, SquareMatrix as _, Rotation3 as _};
 }
 
@@ -135,8 +135,9 @@ pub struct TagComponent {
 }
 
 pub struct BoundingBoxComponent {
-    pub vertices: [LinesVertexData; 24],
+    pub global_bounding_box: BoundingBox,
     pub bounding_box: BoundingBox,
+    pub vertices: [LinesVertexData; 24],
     pub vertex_buffer: wgpu::Buffer,
 }
 

@@ -49,6 +49,7 @@ pub struct Camera {
     focal_point: Vec3,
     distance: f32,
     view_matrix: Mat4,
+    pub recenter_request: bool,
 }
 
 impl Camera {
@@ -74,6 +75,7 @@ impl Camera {
             focal_point: Vec3::new(0.0, 0.0, 0.0),
             distance: 5.0,
             view_matrix: Mat4::identity(),
+            recenter_request: true,
         };
         camera.update_view();
         camera
@@ -214,6 +216,29 @@ impl Camera {
         let speed = distance.min(max_speed);
         speed
     }
+}
+
+pub fn center_camera_to_bounding_box(camera: &mut Camera, bbox: crate::entities::bounding_box::BoundingBox) {
+    use crate::math::*;
+    let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
+    let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
+    let size = max - min;
+
+    let fov = camera.fov;
+    let aspect = camera.get_aspect();
+    let center = (min + max)  * 0.5;
+    let max_size = size.magnitude();
+    let fit_offset = 1.5f32;
+    let fit_height_distance = max_size / (2.0f32 * Angle::tan(fov * 0.5));
+    let fit_width_distance = fit_height_distance / aspect;
+    let distance = fit_offset * fit_height_distance.max(fit_width_distance);
+    let near = distance / 100.0;
+    let far = distance * 100.0;
+
+    camera.near = near;
+    camera.far = far;
+    camera.set_focal_point(center); 
+    camera.set_distance(distance);
 }
 
 #[cfg(test)]

@@ -33,3 +33,4 @@ pub fn create(world: &mut World, resources: &Resources) {
         Path::new("./assets/avocado/avocado.gltf"),
     );
 }
+

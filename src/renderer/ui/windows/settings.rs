@@ -1,20 +1,17 @@
 use super::*;
 use cgmath::{Deg, Rad};
-use legion::query::IntoQuery;
-use legion::{Resources, World};
+use legion::Resources;
 
 use crate::{
-    BoundingBoxComponent,
     assets::texture_manager::TextureManager,
     camera::Camera,
-    entities::bounding_box::BoundingBox,
     picking::PickObject,
     renderer::{GPUResourceManager, skybox_manager::SkyboxManager},
     text_fmt,
     timestep::Timestep,
 };
 
-pub fn draw_window_settings(world: &mut World, timestep: &Timestep, ctx: &mut InspectorContext) {
+pub fn draw_window_settings(timestep: &Timestep, ctx: &mut InspectorContext) {
     let ui = ctx.ui;
 
     ctx.ui
@@ -27,7 +24,7 @@ pub fn draw_window_settings(world: &mut World, timestep: &Timestep, ctx: &mut In
             tools::disabled(ui, || {
                 if ui.collapsing_header("SSAO", TreeNodeFlags::empty()) {}
             });
-            draw_ui_camera(world, ctx);
+            draw_ui_camera(ctx);
         });
 }
 
@@ -134,7 +131,7 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
     }
 }
 
-fn draw_ui_camera(world: &mut World, ctx: &InspectorContext) {
+fn draw_ui_camera(ctx: &InspectorContext) {
     let ui = ctx.ui;
     if ui.collapsing_header("Camera", TreeNodeFlags::empty()) {
         let mut camera = match ctx.resources.get_mut::<Camera>() {
@@ -150,8 +147,7 @@ fn draw_ui_camera(world: &mut World, ctx: &InspectorContext) {
             camera.get_yaw_pitch().1
         ));
         if ui.button("Recenter From All") {
-            let bbox = get_bounding_box_from_world(world);
-            center_camera_to_bounding_box(&mut camera, bbox);
+            camera.recenter_request = true;
         }
         if ui.button("Recenter From Selection") {}
         ui.separator();
@@ -226,37 +222,3 @@ fn draw_ui_skybox_selector(ui: &Ui, resources: &Resources) {
     }
 }
 
-fn get_bounding_box_from_world(world: &mut World) -> BoundingBox {
-    let mut bbox = BoundingBox::new_empty();
-
-    let mut query = <&BoundingBoxComponent>::query();
-
-    for b in query.iter(world) {
-        bbox.merge(&b.bounding_box);
-    }
-
-    bbox
-}
-
-use crate::math::*;
-fn center_camera_to_bounding_box(camera: &mut Camera, bbox: BoundingBox) {
-    let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
-    let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
-    let size = max - min;
-
-    let fov = camera.fov;
-    let aspect = camera.get_aspect();
-    let center = (min + max) / 2.0f32;
-    let max_size = size.magnitude();
-    let fit_offset = 1.5f32;
-    let fit_height_distance = max_size / (2.0f32 * cgmath::Angle::tan(fov / 2.0f32));
-    let fit_width_distance = fit_height_distance / aspect;
-    let distance = fit_offset * fit_height_distance.max(fit_width_distance);
-    let near = distance / 100.0;
-    let far = distance * 100.0;
-
-    camera.set_focal_point(center); 
-    camera.near = near;
-    camera.far = far;
-    camera.set_distance(distance);
-}

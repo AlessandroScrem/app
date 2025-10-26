@@ -128,7 +128,7 @@ impl ImguiState {
             };
             ui.dockspace_over_main_viewport();
 
-            windows::draw_window_settings(world, &self.timestep, &mut ctx);
+            windows::draw_window_settings(&self.timestep, &mut ctx);
             windows::draw_window_entities(world, &mut ctx);
             windows::draw_window_properties(world, &mut ctx);
 
