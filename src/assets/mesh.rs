@@ -254,19 +254,19 @@ pub fn load_gltf(
     gpu_resource_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
-) {
+) ->Option<Entity>{
     let timer = std::time::Instant::now();
 
     if path.extension().unwrap_or_default() != "gltf" {
         warn!("File: {} is not a glTF", path.display());
-        return;
+        return None;
     }
 
     let (document, buffers, _) = match gltf::import(path) {
         Ok((doc, buffers, images)) => (doc, buffers, images),
         Err(e) => {
             warn!("Error loading Gltf {e}");
-            return;
+            return None;
         }
     };
 
@@ -314,15 +314,20 @@ pub fn load_gltf(
     let num_entities = world.len() - initial_size;
     info!("Create: #{} entities", num_entities);
 
-    info!("Root entities: {:?}", root_entities);
-    if let Some(root) = root_entities.first() {
-        info!("First root entity: {:?}", root);
-    }
-
-    info!("Gltf import is {} ms", timer.elapsed().as_millis());
-
     if let Some(e) = node_entity_map.get(&0) {
         debug!("Entity for node 0: {:?}", e);
+    }
+    
+    info!("Gltf import is {} ms", timer.elapsed().as_millis());
+    info!("Root entities: {:?}", root_entities);
+    
+
+    if let Some(root) = root_entities.first() {
+        info!("First root entity: {:?}", root);
+        Some(root.clone())
+    }
+     else {
+        None
     }
 }
 
