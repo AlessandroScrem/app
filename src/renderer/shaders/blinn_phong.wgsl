@@ -16,7 +16,7 @@ struct Light {
 
 struct Model {
     model: mat4x4<f32>,
-    normal_matrix: mat4x4<f32>,
+    normal_matrix: mat3x3<f32>,
     entity_id_low: u32,
     entity_id_high: u32,
     pad2: vec2<u32>,
@@ -60,7 +60,7 @@ fn vs_main(
 
     out.clip_position = camera.proj * camera.view * world_position;
     out.world_pos = world_position.xyz;
-    out.normal = normalize((model.normal_matrix * vec4<f32>(vertex.normal, 0.0)).xyz);
+    out.normal = normalize(model.normal_matrix * vertex.normal);
     out.uv =  vertex.uv;
     out.color = vertex.color;
 

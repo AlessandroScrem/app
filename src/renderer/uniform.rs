@@ -1,3 +1,5 @@
+use cgmath::{Matrix, Matrix3};
+
 use crate::math::*;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
@@ -23,12 +25,42 @@ impl Default for CameraUniform {
     }
 }
 
+#[repr(C, align(16))]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Mat4x3 {
+    m: [[f32; 4]; 3],
+}
+
+impl Mat4x3 {
+    fn mat3_to_std140(m: Matrix3<f32>) -> [[f32; 4]; 3] {
+        [
+            [m.x.x, m.x.y, m.x.z, 0.0],
+            [m.y.x, m.y.y, m.y.z, 0.0],
+            [m.z.x, m.z.y, m.z.z, 0.0],
+        ]
+    }
+    fn identity() -> Self {
+        Self {
+            m: Self::mat3_to_std140(Matrix3::identity()),
+        }
+    }
+
+    fn inverse_transpose(mat: &Mat4) -> Self {
+        let mat3x3 = Matrix3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
+        let nm = mat3x3.invert().unwrap_or(Matrix3::identity()).transpose();
+
+        Self {
+            m: Self::mat3_to_std140(nm),
+        }
+    }
+}
+
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelUniform {
     pub model: [[f32; 4]; 4],
-    pub normal_matrix: [[f32; 4]; 4],
+    normal_matrix: Mat4x3,
     pub entity_id: u64,
     pad2: [u32; 2],
 }
@@ -37,7 +69,7 @@ impl Default for ModelUniform {
     fn default() -> Self {
         Self {
             model: Mat4::identity().into(),
-            normal_matrix: Mat4::identity().into(),
+            normal_matrix: Mat4x3::identity(),
             entity_id: 0,
             pad2: [0, 0],
         }
@@ -46,17 +78,15 @@ impl Default for ModelUniform {
 
 impl ModelUniform {
     pub fn new(model: Mat4) -> Self {
-        let normal_matrix = model.invert().unwrap_or(Mat4::identity()).transpose();
-
         Self {
             model: model.into(),
-            normal_matrix: normal_matrix.into(),
+            normal_matrix: Mat4x3::inverse_transpose(&model),
             ..Default::default()
         }
     }
 }
 
-///shader: [pbr, hdr] 
+///shader: [pbr, hdr]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalUniform {
@@ -68,7 +98,7 @@ pub struct GlobalUniform {
     pub pad2: [u32; 2],
 }
 
-///shader: [pbr, blinnphong] 
+///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialUniform {
@@ -93,4 +123,3 @@ impl Default for MaterialUniform {
         }
     }
 }
-
