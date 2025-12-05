@@ -109,6 +109,10 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
         ui.checkbox("Skybox enable", &mut globals.skybox_enable);
         ui.checkbox("Axis enable", &mut globals.axis_enable);
         ui.checkbox("BoundingBox", &mut globals.bbox_enable);
+        if globals.bbox_enable {
+            ui.same_line();
+            ui.checkbox("BoxAligned", &mut globals.bbox_axis_aligned);
+        }
         ui.checkbox("Show demo window", &mut ctx.demo_open);
 
         if globals.ibl_enable {

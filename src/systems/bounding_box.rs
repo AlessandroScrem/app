@@ -69,10 +69,17 @@ pub fn update_bounding_box_to_gpu(
         return;
     }
 
+    bbox_component.global_bounding_box = bbox_component
+        .bounding_box
+        .transform_aabb(&global_model.mat);
 
-    // transform local bbox and save to global_bounding_box
-    bbox_component.global_bounding_box = bbox_component.bounding_box.transform(&global_model.mat);    
-    let vertices = BoundingBox::gen_vertices(&bbox_component.global_bounding_box);
+    let vertices = {
+        if globals.bbox_axis_aligned {
+            BoundingBox::gen_aabb_vertices(&bbox_component.global_bounding_box)
+        } else {
+            BoundingBox::gen_obb_vertices(&bbox_component.bounding_box, &global_model.mat)
+        }
+    };
 
     queue.write_buffer(
         &bbox_component.vertex_buffer,
@@ -81,87 +88,104 @@ pub fn update_bounding_box_to_gpu(
     );
 }
 
+const VERTICES: usize = 24;
+const CORNERS: usize = VERTICES / 3;
+
 impl BoundingBox {
-    pub fn gen_vertices(bbox: &BoundingBox) -> [LinesVertexData; 24] {
-        /*
-        bbox vertices order:
-               7----------6
-              /|         /|
-             / |        / |
-            3----------2  |
-            |  |       |  |
-            |  4-------|--5
-            | /        | /
-            |/         |/
-            0----------1
+    pub fn gen_aabb_vertices(bbox: &BoundingBox) -> [LinesVertexData; VERTICES] {
+        let corners = bbox.gen_corners();
+        Self::gen_vertices(corners)
+    }
 
-        */
-        let color = colors::CYAN_COLOR; //Blue bbox
-        #[rustfmt::skip] let vertices = [
-            LinesVertexData{position: bbox.min, color}, //point0
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.min[2]], color}, //point 1
+    pub fn gen_obb_vertices(bbox: &BoundingBox, model: &Mat4) -> [LinesVertexData; VERTICES] {
+        let local_corners = bbox.gen_corners();
 
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.min[2]], color}, //point 1
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.min[2]], color}, //point 2
+        // Trasforma i corner con la Mat4 dell'oggetto
+        let corners = local_corners.map(|c| (model * c.extend(1.0)).truncate());
 
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.min[2]], color}, //point 2
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.min[2]], color}, //point 3
+        Self::gen_vertices(corners)
+    }
 
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.min[2]], color}, //point 3
-            LinesVertexData{position: bbox.min, color}, //point0
+    fn gen_vertices(corners: [Vec3; CORNERS]) -> [LinesVertexData; VERTICES] {
+        let edges = [
+            // bottom
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            // top
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            // vertical
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ];
 
-            LinesVertexData{position: [bbox.min[0], bbox.min[1], bbox.max[2]], color}, //point 4
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.max[2]], color}, //point 5
-
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.max[2]], color}, //point 5
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.max[2]], color}, //point 6
-
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.max[2]], color}, //point 6
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.max[2]], color}, //point 7
-
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.max[2]], color}, //point 7
-            LinesVertexData{position: [bbox.min[0], bbox.min[1], bbox.max[2]], color}, //point 4
-
-            LinesVertexData{position: bbox.min, color}, //point0
-            LinesVertexData{position: [bbox.min[0], bbox.min[1], bbox.max[2]], color}, //point 4
-
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.min[2]], color}, //point 1
-            LinesVertexData{position: [bbox.max[0], bbox.min[1], bbox.max[2]], color}, //point 5
-
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.min[2]], color}, //point 2
-            LinesVertexData{position: [bbox.max[0], bbox.max[1], bbox.max[2]], color}, //point 6
-
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.min[2]], color}, //point 3
-            LinesVertexData{position: [bbox.min[0], bbox.max[1], bbox.max[2]], color}, //point 7
-            ];
-
+        let color = colors::CYAN_COLOR;
+        let mut vertices = [LinesVertexData::default(); VERTICES];
+        for (i, &(a, b)) in edges.iter().enumerate() {
+            let base = i * 2;
+            vertices[base] = LinesVertexData {
+                position: corners[a].into(),
+                color,
+            };
+            vertices[base + 1] = LinesVertexData {
+                position: corners[b].into(),
+                color,
+            }
+        }
         vertices
     }
 
-    fn transform(&self, matrix: &Mat4) -> Self {
-        // TODO: fix this
-        // transform local bbox and save to global_bounding_box
-        let min = self.min;
-        let max = self.max;
-        let min = Vec4::new(min[0], min[1], min[2], 1.0);
-        let max = Vec4::new(max[0], max[1], max[2], 1.0);
-        let min = matrix * min;
-        let max = matrix * max;
+    fn gen_corners(&self) -> [Vec3; CORNERS] {
+        /*
+        bbox vertices order:
+            y  7----------6
+            | /|         /|
+            |/ |        / |
+            3----------2  |
+            |  | z     |  |
+            |  4-------|--5
+            | /        | /
+            |/         |/
+            0----------1 --->x
+        */
+        [
+            Vec3::new(self.min[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.max[1], self.max[2]),
+            Vec3::new(self.min[0], self.max[1], self.max[2]),
+        ]
+    }
 
-        let min = [min.x, min.y, min.z];
-        let max = [max.x, max.y, max.z];
+    fn transform_aabb(&self, matrix: &Mat4) -> Self {
+        let corners = self.gen_corners();
 
-        Self{ min, max }
+        // Trasformazione
+        let transformed = corners.map(|c| matrix * c.extend(1.0));
+
+        // Ricostruzione AABB
+        let mut bbox = Self::new_empty();
+        for p in transformed {
+            bbox.extend(&p.truncate().into());
+        }
+        bbox
     }
 }
 
 impl BoundingBoxComponent {
     pub fn new(device: &wgpu::Device, bbox: BoundingBox) -> Self {
-        let vertices = BoundingBox::gen_vertices(&bbox);
-
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dynamic BBox Vertex Buffer"),
-            size: (vertices.len() * std::mem::size_of::<LinesVertexData>()) as u64,
+            size: (VERTICES * std::mem::size_of::<LinesVertexData>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -170,7 +194,6 @@ impl BoundingBoxComponent {
             global_bounding_box: bbox.clone(),
             bounding_box: bbox,
             vertex_buffer,
-            vertices,
         }
     }
 }

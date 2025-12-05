@@ -1,16 +1,16 @@
 mod app;
 mod application_handler;
-mod scene;
-mod camera;
-mod picking;
-mod systems;
-mod transform;
-pub mod renderer;
 pub mod assets;
+mod camera;
 pub mod entities;
 pub mod input;
-pub mod timestep;
+mod picking;
+pub mod renderer;
+mod scene;
+mod systems;
 pub mod test_utils;
+pub mod timestep;
+mod transform;
 
 pub mod prelude {
     pub use super::app::App;
@@ -22,6 +22,21 @@ pub mod prelude {
 }
 
 pub mod math {
+    pub fn vec3_min(a: &Vec3, b: &Vec3) -> Vec3 {
+        Vec3 {
+            x: a.x.min(b.x),
+            y: a.y.min(b.y),
+            z: a.z.min(b.z),
+        }
+    }
+
+    pub fn vec3_max(a: &Vec3, b: &Vec3) -> Vec3 {
+        Vec3 {
+            x: a.x.max(b.x),
+            y: a.y.max(b.y),
+            z: a.z.max(b.z),
+        }
+    }
     use cgmath::*;
     pub type Mat4 = Matrix4<f32>;
     pub type Vec2 = Vector2<f32>;
@@ -29,13 +44,15 @@ pub mod math {
     pub type Vec4 = Vector4<f32>;
     pub type Point3f = Point3<f32>;
     pub type Quat = Quaternion<f32>;
-    pub use cgmath::{Deg, Euler, Rad, perspective, vec3, vec4, Zero, Angle};
-    pub use cgmath::{EuclideanSpace, InnerSpace as _, Matrix as _, SquareMatrix as _, Rotation3 as _};
+    pub use cgmath::{Angle, Deg, Euler, Rad, Zero, perspective, vec3, vec4};
+    pub use cgmath::{
+        EuclideanSpace, InnerSpace as _, Matrix as _, Rotation3 as _, SquareMatrix as _,
+    };
 }
 
-use math::*;
+use crate::entities::bounding_box::BoundingBox;
 use legion::Entity;
-use crate::{assets::vertexdata::LinesVertexData, entities::bounding_box::BoundingBox};
+use math::*;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -56,6 +73,7 @@ pub struct Globals {
     pub tonemap_filter: u32,
     pub axis_enable: bool,
     pub bbox_enable: bool,
+    pub bbox_axis_aligned: bool,
 }
 impl Default for Globals {
     fn default() -> Self {
@@ -66,6 +84,7 @@ impl Default for Globals {
             tonemap_filter: 0,
             axis_enable: true,
             bbox_enable: true,
+            bbox_axis_aligned: false,
         }
     }
 }
@@ -137,7 +156,6 @@ pub struct TagComponent {
 pub struct BoundingBoxComponent {
     pub global_bounding_box: BoundingBox,
     pub bounding_box: BoundingBox,
-    pub vertices: [LinesVertexData; 24],
     pub vertex_buffer: wgpu::Buffer,
 }
 
