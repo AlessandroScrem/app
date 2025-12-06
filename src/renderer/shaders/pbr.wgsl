@@ -90,7 +90,8 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(1) @binding(0) var tex_sampler: sampler;
 @group(1) @binding(1) var albedo_map: texture_2d<f32>;
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
-@group(1) @binding(3) var roughness_map: texture_2d<f32>;
+// Occlusion (R), Roughness (G), Metallic (B) https://github.com/KhronosGroup/glTF/issues/857
+@group(1) @binding(3) var orm_map: texture_2d<f32>; 
 @group(1) @binding(4) var <uniform> material: Material;
 
 @group(3) @binding(0) var<uniform> light: Light;
@@ -100,90 +101,78 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(3) @binding(4) var brdf_lut_map: texture_2d<f32>;
 
 
-fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) ->f32 {
-  var PI = 3.14159265359;
-  var a = roughness * roughness;
-  var a2 = a * a;
-  let NdotH = max(dot(N, H), 0.0);
-  let NdotH2 = NdotH * NdotH;
-
-  let nom = a2;
-  var denom = (NdotH2 * (a2 - 1.0) + 1.0);
-  denom = PI * denom * denom;
-
-  return nom / denom;
-}
-
-fn GeometrySchlickGGX(NdotV: f32, roughness: f32, k: f32) ->f32 {
-  let nom = NdotV;
-  let denom = NdotV * (1.0 - k) + k;
-  return nom / denom;
-}
-
-fn GeometrySmith_kdirect(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) ->f32{
-  let a = (roughness + 1.0);
-  let k = (a * a) / 8.0;
-
-  let NdotV = max(dot(N, V), 0.0);
-  let NdotL = max(dot(N, L), 0.0);
-  let ggx2 = GeometrySchlickGGX(NdotV, roughness, k);
-  let ggx1 = GeometrySchlickGGX(NdotL, roughness, k);
-
-  return ggx1 * ggx2;
-}
-
-fn fresnelSchlick(cosTheta: f32, F0: vec3<f32>) ->vec3<f32> {
-  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-fn fresnelSchlickRoughness(cosTheta: f32, F0: vec3<f32>, roughness: f32) ->vec3<f32> {
-  return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
 fn CalculateLight(
     N: vec3<f32>,
     V: vec3<f32>,
-    F0: vec3<f32>,
     albedo: vec3<f32>,
     metallic: f32,
     roughness: f32,
     frag_pos: vec3<f32>,
-    num_lights: u32,
 ) -> vec3<f32> {
-    var PI = 3.14159265359;
-    var color = vec3<f32>(0.0, 0.0, 0.0);
+    let PI = 3.14159265359;
+    // -------------------------------
+    // Base reflectivity (F0)
+    // -------------------------------
+    let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
 
-    for (var i: u32 = 0u; i < num_lights; i = i + 1u) {
+    var color = vec3<f32>(0.0);
+    for (var i: u32 = 0u; i < NUM_LIGHTS; i += 1u) {
         let L =  normalize(light.position - frag_pos);
         let H = normalize(V + L);
+        let NdotV = max(dot(N, V), 0.0);
+        let NdotL = max(dot(N, L), 0.0);
+        let HdotV = max(dot(H, V), 0.0);
         
-        var attenuation = 1.0;
-        if (light.directional == 0u) {
-            let distance = length(light.position - frag_pos);
-            attenuation = 1.0 / (distance * distance);
+        var radiance =  vec3<f32>(0.0, 0.0, 0.0);
+        if light.directional == 1 {
+            radiance = light.color;
+        } else {
+            let d = length(light.position - frag_pos);
+            let attenuation = 1.0 / (d * d);
+            radiance = light.color * attenuation;
         };
 
-        let radiance = light.color * attenuation;
+       // -------------------------------
+        // Cook–Torrance BRDF
+        // -------------------------------
 
-        let NDF = DistributionGGX(N, H, roughness);
-        let G   = GeometrySmith_kdirect(N, V, L, roughness);
-        let F   = fresnelSchlick(max(dot(H, V), 0.0), F0);
+        // NDF - normal distribution
+        let a  = roughness * roughness;
+        let a2 = a * a;
+        let NdotH = max(dot(N, H), 0.0);
+        let NdotH2 = NdotH * NdotH;
 
-         // --------- Cook-Torrance specular BRDF ----------
-        let numerator = NDF * G * F;
-        let denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
-        let specular = numerator / denominator;
+        var denomD = (NdotH2 * (a2 - 1.0) + 1.0);
+        let D = a2 / (PI * denomD * denomD + 0.00001);
 
-        // kS represents the energy of light that gets reflected, is equal to Fresnel
+        // Geometry (Smith)
+        let k = (roughness + 1.0);
+        let k2 = (k * k) / 8.0;
+        let G1 = NdotV / (NdotV * (1.0 - k2) + k2 + 0.00001);
+        let G2 = NdotL / (NdotL * (1.0 - k2) + k2 + 0.00001);
+        let G = G1 * G2;
+
+        // Fresnel
+        let F = F0 + (1.0 - F0) * pow(1.0 - HdotV, 5.0);
+
+        // Final specular
+        let numerator = D * G * F;
+        let denom     = 4.0 * NdotV * NdotL + 0.00001;
+        let specular  = numerator / denom;
+
+        // -------------------------------
+        // Diffuse term (Lambert)
+        // -------------------------------
         let kS = F;
-        var kD = vec3<f32>(1.0, 1.0, 1.0) - kS;
-        kD = kD * (1.0 - metallic);
+        let kD = (1.0 - kS) * (1.0 - metallic);
 
-        let diffuse:vec3<f32> = kD * albedo / PI;
+        // Lambertian
+        let diffuse = (albedo / PI);
 
-        let NdotL = max(dot(N, L), 0.0);
-
-        color += (diffuse + specular) * radiance * NdotL;
+        // -------------------------------
+        // Final contribution
+        // -------------------------------
+        color += (kD * diffuse + specular) * radiance * NdotL;  
     }
 
     return color;
@@ -192,20 +181,22 @@ fn CalculateLight(
 fn CalculateAmbient(
     N: vec3<f32>,
     V: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
     albedo: vec3<f32>,
     metallic: f32,
     roughness: f32,
 ) -> vec3<f32> {
-    let F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
+    let NdotV = max(dot(N, V), 0.0);
+    let R = reflect(-V, N);
+
+    // Fresnel 
+    let F =  F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - NdotV, 0.0, 1.0), 5.0);
+    
     let kS = F;
-    var kD = vec3<f32>(1.0, 1.0, 1.0) - kS;
-    kD = kD * (1.0 - metallic);
+    var kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
     let MAX_REFLECTION_LOD: f32 = 4.0;
     let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, roughness * MAX_REFLECTION_LOD).rgb;
-    let NdotV: f32 = max(dot(N, V), 0.0);
     let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
     let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
@@ -213,10 +204,7 @@ fn CalculateAmbient(
     let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y);
 
     return (kD * diffuse + specular);
-    // debug
-    // return vec3<f32>(env_brdf.y);
 }
-
 
 struct FSOutput {
     @location(0) color : vec4<f32>,
@@ -233,34 +221,22 @@ fn fs_main(input: VertexOutput) -> FSOutput {
 
     let N = normalize(input.normal);
     let V = normalize(camera.view_pos - input.world_pos);
-    let R = reflect(-V, N);
 
     if (material.color_use_texture == 1u) {
         albedo_color = textureSample(albedo_map, tex_sampler, input.uv).rgb;
     }
 
-    if (material.metallic_use_texture == 1u) {
-        metallic = textureSample(roughness_map, tex_sampler, input.uv).r;
-    }
-
     if (material.roughness_use_texture == 1u) {
-        roughness = textureSample(roughness_map, tex_sampler, input.uv).g;
+        roughness = textureSample(orm_map, tex_sampler, input.uv).g;
+    }
+    if (material.metallic_use_texture == 1u) {
+        metallic = textureSample(orm_map, tex_sampler, input.uv).b;
     }
 
-    let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo_color, metallic);
-
-    var color = vec3<f32>(0.0, 0.0, 0.0);
-    color += CalculateLight(N, V, F0, albedo_color, metallic, roughness, input.world_pos, NUM_LIGHTS);
+    var color = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
     if use_ibl == true {
-        color += CalculateAmbient(N, V, R, F0, albedo_color, metallic, roughness);
+        color += CalculateAmbient(N, V, albedo_color, metallic, roughness);
     }
-
-    // debug normal
-    // color = -N * 0.5 + 0.5;
-    // return vec4<f32>(normalize(input.normal) * 0.5 + 0.5, 1.0);
-
-    // debug vettore vista
-    // return vec4<f32>((V*0.5+0.5),1.0);
     
     out.color = vec4<f32>(color, 1.0);
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
@@ -269,3 +245,9 @@ fn fs_main(input: VertexOutput) -> FSOutput {
 }
 
 
+    // debug normal
+    // color = -N * 0.5 + 0.5;
+    // return vec4<f32>(normalize(input.normal) * 0.5 + 0.5, 1.0);
+
+    // debug vettore vista
+    // return vec4<f32>((V*0.5+0.5),1.0);

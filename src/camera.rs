@@ -107,7 +107,6 @@ impl Camera {
         let yaw_sign = self.get_up_direction().y.signum();
 
         self.yaw += yaw_sign * dx * SPEED;
-        println!("yaw {}", self.yaw);
         self.pitch += dy * SPEED;
         self.update_view();
     }
