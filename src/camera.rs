@@ -101,12 +101,13 @@ impl Camera {
 
     // Orbit the camera
     pub fn orbit(&mut self, delta: (f64, f64)) {
-        const SPEED: f32 = 0.01;
+        const SPEED: f32 = 0.003;
         let dx = delta.0 as f32;
         let dy = delta.1 as f32;
         let yaw_sign = self.get_up_direction().y.signum();
 
         self.yaw += yaw_sign * dx * SPEED;
+        println!("yaw {}", self.yaw);
         self.pitch += dy * SPEED;
         self.update_view();
     }
@@ -195,7 +196,7 @@ impl Camera {
 
     fn zoom_speed(&self) -> f32 {
         let max_speed = self.far - self.near;
-        const ZOOM_GAIN: f32 = 0.2;
+        const ZOOM_GAIN: f32 = 0.02;
         let mut distance = self.distance * ZOOM_GAIN;
         distance = distance.max(0.0);
         let speed = distance.min(max_speed);
