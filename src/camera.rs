@@ -9,33 +9,33 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
 );
 
 /* //glam implementation
-    pub fn perspective_lh(fov_y_radians: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Self {
-        glam_assert!(z_near > 0.0 && z_far > 0.0);
-        let (sin_fov, cos_fov) = math::sin_cos(0.5 * fov_y_radians);
-        let h = cos_fov / sin_fov;
-        let w = h / aspect_ratio;
-        let r = z_far / (z_far - z_near);
-        Self::from_cols(
-            DVec4::new(w, 0.0, 0.0, 0.0),
-            DVec4::new(0.0, h, 0.0, 0.0),
-            DVec4::new(0.0, 0.0, r, 1.0),
-            DVec4::new(0.0, 0.0, -r * z_near, 0.0),
-        )
-    }
- */
+   pub fn perspective_lh(fov_y_radians: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Self {
+       glam_assert!(z_near > 0.0 && z_far > 0.0);
+       let (sin_fov, cos_fov) = math::sin_cos(0.5 * fov_y_radians);
+       let h = cos_fov / sin_fov;
+       let w = h / aspect_ratio;
+       let r = z_far / (z_far - z_near);
+       Self::from_cols(
+           DVec4::new(w, 0.0, 0.0, 0.0),
+           DVec4::new(0.0, h, 0.0, 0.0),
+           DVec4::new(0.0, 0.0, r, 1.0),
+           DVec4::new(0.0, 0.0, -r * z_near, 0.0),
+       )
+   }
+*/
 
 /*     /// Perspective LH (left-handed) come in DirectX (da testare)
-    #[rustfmt::skip]
-    pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Mat4 {
-        let fovy = fovy.into();
-        let f = 1.0 / (fovy.0 / 2.0).tan();
-        Mat4::new(
-        f / aspect, 0.0, 0.0, 0.0,
-        0.0, f, 0.0, 0.0,
-        0.0, 0.0, far / (far - near), 1.0,
-        0.0, 0.0, -(near * far) / (far - near), 0.0,)
-    }
- */
+   #[rustfmt::skip]
+   pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Mat4 {
+       let fovy = fovy.into();
+       let f = 1.0 / (fovy.0 / 2.0).tan();
+       Mat4::new(
+       f / aspect, 0.0, 0.0, 0.0,
+       0.0, f, 0.0, 0.0,
+       0.0, 0.0, far / (far - near), 1.0,
+       0.0, 0.0, -(near * far) / (far - near), 0.0,)
+   }
+*/
 
 #[derive(Clone, Debug)]
 pub struct Camera {
@@ -54,7 +54,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn default() -> Self {
-        const FOV: Deg<f32> = Deg::<f32>(45.0);
+        const FOV: Deg<f32> = Deg::<f32>(30.0);
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
 
@@ -73,7 +73,7 @@ impl Camera {
             yaw: 0.0,
             pitch: 0.0,
             focal_point: Vec3::new(0.0, 0.0, 0.0),
-            distance: 5.0,
+            distance: 20.0,
             view_matrix: Mat4::identity(),
             recenter_request: true,
         };
@@ -92,9 +92,10 @@ impl Camera {
     pub fn pan(&mut self, delta: (f64, f64)) {
         let dx = delta.0 as f32;
         let dy = delta.1 as f32;
-        let (xspeed, yspeed) = self.pan_speed();
-        self.focal_point += -self.get_right_direction() * dx * xspeed * self.distance;
-        self.focal_point += self.get_up_direction() * dy * yspeed * self.distance;
+        let speed = 0.003 * (self.fov * 0.5).tan() * self.distance;
+
+        self.focal_point += -self.get_right_direction() * dx * speed;
+        self.focal_point += self.get_up_direction() * dy * speed;
         self.update_view();
     }
 
@@ -160,7 +161,6 @@ impl Camera {
         self.aspect = aspect;
     }
 
-
     pub fn set_focal_point(&mut self, new_focal_point: Vec3) {
         self.focal_point = new_focal_point;
         self.update_view();
@@ -193,21 +193,6 @@ impl Camera {
         self.focal_point - self.get_forward_direction() * self.distance
     }
 
-    fn pan_speed(&self) -> (f32, f32) {
-        const GAIN: f32 = 0.008;
-        const MAX_DELTA: f32 = 2.4;
-        const A: f32 = 0.0366;
-        const B: f32 = 0.1778;
-        const C: f32 = 0.3021;
-
-        let compute_factor = |value: f32| -> f32 {
-            let value = value.min(MAX_DELTA);
-            (A * (value * value) - B * value + C) * GAIN
-        };
-
-        (compute_factor(1.0), compute_factor(self.aspect.recip()))
-    }
-
     fn zoom_speed(&self) -> f32 {
         let max_speed = self.far - self.near;
         const ZOOM_GAIN: f32 = 0.2;
@@ -218,7 +203,10 @@ impl Camera {
     }
 }
 
-pub fn center_camera_to_bounding_box(camera: &mut Camera, bbox: crate::entities::bounding_box::BoundingBox) {
+pub fn center_camera_to_bounding_box(
+    camera: &mut Camera,
+    bbox: crate::entities::bounding_box::BoundingBox,
+) {
     use crate::math::*;
     let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
     let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
@@ -226,7 +214,7 @@ pub fn center_camera_to_bounding_box(camera: &mut Camera, bbox: crate::entities:
 
     let fov = camera.fov;
     let aspect = camera.get_aspect();
-    let center = (min + max)  * 0.5;
+    let center = (min + max) * 0.5;
     let max_size = size.magnitude();
     let fit_offset = 1.5f32;
     let fit_height_distance = max_size / (2.0f32 * Angle::tan(fov * 0.5));
@@ -237,7 +225,7 @@ pub fn center_camera_to_bounding_box(camera: &mut Camera, bbox: crate::entities:
 
     camera.near = near;
     camera.far = far;
-    camera.set_focal_point(center); 
+    camera.set_focal_point(center);
     camera.set_distance(distance);
 }
 
