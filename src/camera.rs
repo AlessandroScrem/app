@@ -113,10 +113,10 @@ impl Camera {
 
     // move camera position [back/forward] to focal_point
     pub fn zoom(&mut self, delta: f32) {
-        let distance = self.distance - delta * self.zoom_speed();
-        if distance > 0.0 {
-            self.distance = distance;
-        }
+        const GAIN: f32 = 0.1;
+
+        self.distance = (self.distance * (1.0 - delta * GAIN)).max(0.001);
+
         self.update_view();
     }
 
@@ -191,15 +191,6 @@ impl Camera {
 
     fn calculate_position(&self) -> Vec3 {
         self.focal_point - self.get_forward_direction() * self.distance
-    }
-
-    fn zoom_speed(&self) -> f32 {
-        let max_speed = self.far - self.near;
-        const ZOOM_GAIN: f32 = 0.02;
-        let mut distance = self.distance * ZOOM_GAIN;
-        distance = distance.max(0.0);
-        let speed = distance.min(max_speed);
-        speed
     }
 }
 
