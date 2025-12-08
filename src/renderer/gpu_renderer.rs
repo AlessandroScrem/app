@@ -134,15 +134,6 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let material_manager = material_manager::MaterialManager::new(
-            Arc::new(device.clone()),
-            gpu_resource_manager.clone(),
-        );
-        info!(
-            "Material manager initialized in {} ms",
-            timer.elapsed().as_millis()
-        );
-
         let mut texture_manager = texture_manager::TextureManager::new(
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
@@ -151,6 +142,17 @@ impl Renderer {
             "Texture manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
+
+        let material_manager = material_manager::MaterialManager::new(
+            Arc::new(device.clone()),
+            gpu_resource_manager.clone(),
+            &mut texture_manager
+        );
+        info!(
+            "Material manager initialized in {} ms",
+            timer.elapsed().as_millis()
+        );
+
 
         let light_manager = light_manager::LightManager::new(
             &gpu_resource_manager,

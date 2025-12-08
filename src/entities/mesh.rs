@@ -19,7 +19,7 @@ pub fn create(world: &mut World, resources: &Resources) {
         &mut texture_manager,
         &gpu_resource_manager,
         &device,
-        Path::new("C:/Users/aless/Downloads/glTF-Sample-Models/2.0/Lantern/glTF/Lantern.gltf"),
+        Path::new("./assets/Lantern/Lantern.gltf"),
     ) {
         if let Ok(mut entry) = world.entry_mut(e) {
             let transform = entry.get_component_mut::<TransformComponent>().unwrap();
@@ -38,6 +38,21 @@ pub fn create(world: &mut World, resources: &Resources) {
         if let Ok(mut entry) = world.entry_mut(e) {
             let transform = entry.get_component_mut::<TransformComponent>().unwrap();
             transform.scale = [30.0, 1.0, 30.0];
+        }
+    }
+
+    if let Some(e) = load_gltf(
+        world,
+        &mut material_manager,
+        &mut texture_manager,
+        &gpu_resource_manager,
+        &device,
+        Path::new("C:/Users/aless/Downloads/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf"),
+    ) {
+        if let Ok(mut entry) = world.entry_mut(e) {
+            let transform = entry.get_component_mut::<TransformComponent>().unwrap();
+            transform.position = [15.0, 10.0, 0.0];
+            transform.scale = [10.0, 10.0, 10.0];
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::{
-        material_manager::{Material, MaterialManager},
+        material_manager::{MaterialId, MaterialManager},
         texture_manager::TextureManager,
         vertexdata::MeshVertexData,
     },
@@ -59,7 +59,7 @@ pub struct SubMesh {
     pub(crate) index_buffer: Option<wgpu::Buffer>,
     pub(crate) index_count: usize,
     pub primitive_topology: wgpu::PrimitiveTopology,
-    pub material: Material,
+    pub material: MaterialId,
 }
 
 impl SubMesh {
@@ -189,7 +189,7 @@ impl Mesh {
     ) -> Self {
         let timer = Instant::now();
 
-        let name = gltf_mesh.name().unwrap_or("mesh").to_string();
+        let name = gltf_mesh.name().unwrap_or("mesh-no-name").to_string();
         let submeshes: Vec<SubMesh> = gltf_mesh
             .primitives()
             .map(|prim| {
@@ -462,9 +462,9 @@ mod tests {
 
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
-        let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone());
-
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+        let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone(), &mut texture_manager);
+
 
         let mut world = legion::World::default();
 

@@ -35,11 +35,16 @@ struct Model {
 
 struct Material {
     color: vec4<f32>,
+    emissive: vec4<f32>,
     roughness: f32,
     metallic: f32,
-    roughness_use_texture: u32,
-    metallic_use_texture: u32,
-    color_use_texture: u32,
+    normal_scale: f32,
+    occlusion_strength: f32,
+    use_color_texture: u32,
+    use_metal_roughness_texture: u32,
+    use_normal_texture: u32,
+    use_emissive_texture: u32,
+    use_occlusion_texture: u32,
 }
 
 struct VertexInput {
@@ -92,7 +97,9 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
 // Occlusion (R), Roughness (G), Metallic (B) https://github.com/KhronosGroup/glTF/issues/857
 @group(1) @binding(3) var orm_map: texture_2d<f32>; 
-@group(1) @binding(4) var <uniform> material: Material;
+@group(1) @binding(4) var emissive_map: texture_2d<f32>; 
+@group(1) @binding(5) var occlusion_map: texture_2d<f32>; 
+@group(1) @binding(6) var <uniform> material: Material;
 
 @group(3) @binding(0) var<uniform> light: Light;
 @group(3) @binding(1) var ibl_sampler: sampler;
@@ -100,6 +107,8 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(3) @binding(3) var prefilter_map: texture_cube<f32>;
 @group(3) @binding(4) var brdf_lut_map: texture_2d<f32>;
 
+
+fn check(value: u32)->bool {return value == 1;}
 
 fn CalculateLight(
     N: vec3<f32>,
@@ -185,6 +194,10 @@ fn CalculateAmbient(
     metallic: f32,
     roughness: f32,
 ) -> vec3<f32> {
+    if !check(globals.ibl_enable) {
+        return vec3<f32> (0.0);
+    } 
+
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
     let NdotV = max(dot(N, V), 0.0);
     let R = reflect(-V, N);
@@ -214,29 +227,39 @@ struct FSOutput {
 @fragment
 fn fs_main(input: VertexOutput) -> FSOutput {
     var out: FSOutput;
-    var use_ibl: bool = globals.ibl_enable == 1u;
     var albedo_color = material.color.rgb;
     var metallic = material.metallic;
     var roughness = material.roughness;
+    var emissive = vec3<f32>(0.0);
+    var ao = 1.0;
 
     let N = normalize(input.normal);
     let V = normalize(camera.view_pos - input.world_pos);
 
-    if (material.color_use_texture == 1u) {
-        albedo_color = textureSample(albedo_map, tex_sampler, input.uv).rgb;
+    if check(material.use_color_texture)  {
+        albedo_color *= textureSample(albedo_map, tex_sampler, input.uv).rgb;
+    }
+    if check(material.use_metal_roughness_texture) {
+        roughness *= textureSample(orm_map, tex_sampler, input.uv).g;
+        metallic *= textureSample(orm_map, tex_sampler, input.uv).b;
     }
 
-    if (material.roughness_use_texture == 1u) {
-        roughness = textureSample(orm_map, tex_sampler, input.uv).g;
-    }
-    if (material.metallic_use_texture == 1u) {
-        metallic = textureSample(orm_map, tex_sampler, input.uv).b;
+    if check(material.use_occlusion_texture) {
+        let occlusion_texture = textureSample(occlusion_map, tex_sampler, input.uv).r;
+        ao = 1.0 + material.occlusion_strength * (occlusion_texture - 1.0);
     }
 
-    var color = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
-    if use_ibl == true {
-        color += CalculateAmbient(N, V, albedo_color, metallic, roughness);
+    if check(material.use_emissive_texture) {
+        let emissive_texture = textureSample(emissive_map, tex_sampler, input.uv).rgb;
+        emissive = emissive_texture * material.emissive.rgb;
     }
+
+    var lo = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
+
+    var ambient = CalculateAmbient(N, V, albedo_color, metallic, roughness);
+    ambient *=  ao; 
+    
+    let color = lo + ambient + emissive;
     
     out.color = vec4<f32>(color, 1.0);
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);

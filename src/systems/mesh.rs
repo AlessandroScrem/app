@@ -1,12 +1,18 @@
 use wgpu::IndexFormat;
 
 use crate::{
-    entities::EntityRawU64, renderer::{
+    GlobalModelComponent, MeshComponent, TransformComponent,
+    assets::{
+        material_manager::MaterialManager,
+    },
+    entities::EntityRawU64,
+    renderer::{
         gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
         hdr_frame::{HdrFrame, IDTexture},
-        pipeline_manager::{PipelineKind, PipelineManager}, uniform::ModelUniform,
-    }, GlobalModelComponent, MeshComponent, TransformComponent
+        pipeline_manager::{PipelineKind, PipelineManager},
+        uniform::{MaterialUniform, ModelUniform},
+    },
 };
 
 use legion::{world::SubWorld, *};
@@ -20,6 +26,7 @@ pub fn render_mesh(
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
+    #[resource] material_manager: &MaterialManager,
     #[resource] depth_texture: &DepthTexture,
     #[resource] hdr_texture: &HdrFrame,
     #[resource] entity_id_texture: &IDTexture,
@@ -78,9 +85,9 @@ pub fn render_mesh(
             let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
             let index_buffer = submesh.index_buffer.as_ref().unwrap();
             let index_count = submesh.index_count as u32;
+            let material = material_manager.get(&submesh.material);
 
-            let texture_bind_group = submesh.material.bind_group.as_ref().unwrap();
-            renderpass.set_bind_group(1, texture_bind_group, &[]);
+            renderpass.set_bind_group(1, &material.bind_group, &[]);
 
             renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
             renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
@@ -91,22 +98,17 @@ pub fn render_mesh(
 
 #[system(for_each)]
 #[filter(maybe_changed::<MeshComponent>())]
-pub fn update_material_system_to_gpu(mesh: &MeshComponent, #[resource] queue: &wgpu::Queue) {
+pub fn update_material_system_to_gpu(
+    mesh: &MeshComponent,
+    #[resource] queue: &wgpu::Queue,
+    #[resource] material_manager: &MaterialManager,
+) {
     // println!("Material maybe_changed");
     for submesh in mesh.data.submeshes.iter() {
-        let material = &submesh.material;
-        if let Some(buffer) = &material.material_uniform_buffer {
-            let updated_uniforms = crate::renderer::uniform::MaterialUniform {
-                color: material.color.to_owned().into(),
-                roughness: material.roughness,
-                metallic: material.metallic,
-                roughness_use_texture: material.roughness_use_texture as u32,
-                metallic_use_texture: material.metallic_use_texture as u32,
-                color_use_texture: material.color_use_texture as u32,
-                ..Default::default()
-            };
-            queue.write_buffer(buffer, 0, bytemuck::bytes_of(&updated_uniforms));
-        }
+        let material = material_manager.get(&submesh.material);
+        let buffer = &material.uniform_buffer;
+        let updated_uniforms =  MaterialUniform::from(&material.material_pbr);
+        queue.write_buffer(buffer, 0, bytemuck::bytes_of(&updated_uniforms));
     }
 }
 
@@ -125,4 +127,3 @@ pub fn update_model_uniforms_to_gpu(world: &mut SubWorld, #[resource] queue: &wg
         );
     }
 }
-

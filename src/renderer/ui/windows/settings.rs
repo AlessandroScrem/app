@@ -1,5 +1,7 @@
+use core::f32;
+
 use super::*;
-use cgmath::{Deg, Rad};
+use cgmath::{Deg, Rad, num_traits::{zero}};
 use legion::Resources;
 
 use crate::{
@@ -158,7 +160,7 @@ fn draw_ui_camera(ctx: &InspectorContext) {
 
         let mut fov = Deg::from(camera.fov).0;
         if Drag::new("Fov")
-            .range(1.0f32, 179.0f32)
+            .range(1.0, 179.0)
             .speed(1.0)
             .build(ui, &mut fov)
         {
@@ -167,8 +169,8 @@ fn draw_ui_camera(ctx: &InspectorContext) {
 
         let mut distance = camera.get_distance();
         if Drag::new("Distance")
-            .range(0f32, 10f32)
-            .speed(0.01)
+            .range(zero(), f32::MAX)
+            .speed(1.0)
             .build(ui, &mut distance)
         {
             camera.set_distance(distance);
@@ -177,8 +179,8 @@ fn draw_ui_camera(ctx: &InspectorContext) {
         let mut near = camera.near;
         let mut far = camera.far;
         if DragRange::new("Near/Far")
-            .range(0.1, 100.0)
-            .speed(0.01)
+            .range(0.01, f32::MAX)
+            .speed(1.0)
             .build(ui, &mut near, &mut far)
         {
             let near = near.max(0.1);

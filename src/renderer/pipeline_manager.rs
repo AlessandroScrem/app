@@ -167,26 +167,24 @@ pub enum PipelineKind {
 
 pub struct PipelineManager {
     pipelines: Vec<wgpu::RenderPipeline>,
-    #[allow(dead_code)]
-    hdr_format: wgpu::TextureFormat,
 }
 
 impl PipelineManager {
+    const  HDR_FORMAT:wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
     pub fn new(
         device: &wgpu::Device,
         gpu_resource_manager: &GPUResourceManager,
         final_format: wgpu::TextureFormat,
     ) -> Self {
-        let hdr_format = wgpu::TextureFormat::Rgba16Float;
         let pipelines: Vec<wgpu::RenderPipeline> = PipelineKind::iter()
             .map(|kind| {
-                create_pipeline(device, gpu_resource_manager, kind, hdr_format, final_format)
+                create_pipeline(device, gpu_resource_manager, kind, Self::HDR_FORMAT, final_format)
             })
             .collect();
 
         Self {
             pipelines,
-            hdr_format,
         }
     }
 

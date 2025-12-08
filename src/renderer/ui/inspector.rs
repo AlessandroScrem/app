@@ -1,9 +1,12 @@
+use std::path::PathBuf;
+
 use imgui::{Drag, TreeNodeFlags};
 use legion::{Entity, Resources, World};
 
 use crate::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
-    prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
+    assets::material_manager::MaterialManager, prelude::ui::registry::ImGuiTextureRegistry,
+    text_fmt,
 };
 
 pub struct InspectorContext<'a> {
@@ -84,17 +87,14 @@ impl ComponentDrawer for MeshComponent {
         let ui = ctx.ui;
         let mesh = self;
         let registry = ctx.resources.get::<ImGuiTextureRegistry>().unwrap();
+        let mut material_manager = ctx.resources.get_mut::<MaterialManager>().unwrap();
         if ui.collapsing_header(
             "MeshComponent",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
-            ui.text(format!("Mesh: {}", mesh.data.name));
-            ui.text(format!("Min: {:?}", mesh.data.vmin));
-            ui.text(format!("Max: {:?}", mesh.data.vmax));
-            ui.separator();
-            for (id, submesh) in mesh.data.submeshes.iter_mut().enumerate() {
-                ui.text(format!("Material id {}", id));
-                draw_ui_mesh_material(ui, &registry, &mut submesh.material);
+            for submesh in mesh.data.submeshes.iter_mut() {
+                let material = material_manager.get_mut(&submesh.material);
+                draw_ui_mesh_material(ui, &registry, &mut material.material_pbr);
             }
         }
     }
@@ -155,73 +155,77 @@ pub fn draw_entity_inspector(world: &mut World, ctx: &mut InspectorContext) {
     // Qui puoi aggiungere altri componenti
 }
 
-pub fn draw_ui_mesh_material(
+fn draw_ui_texture_icon(ui: &imgui::Ui, registry: &ImGuiTextureRegistry, name: &PathBuf) {
+    if let Some(id) = registry.ids.get(name) {
+        let name = name
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("no name");
+        ui.image_button(name, *id, [100.0, 100.0]);
+        ui.same_line();
+        ui.text(name);
+        ui.separator();
+    }
+}
+
+fn draw_ui_mesh_material(
     ui: &imgui::Ui,
     registry: &ImGuiTextureRegistry,
-    material: &mut crate::assets::material_manager::Material,
+    material: &mut crate::assets::material_manager::MaterialPBR,
 ) {
-    let main = &material.main_texture;
-    let normal = &material.normal_texture;
-    let roughness = &material.metallic_roughness_texture;
-    let mut color_use_texture = material.color_use_texture == 1;
-    let mut metallic_use_texture = material.metallic_use_texture == 1;
-    let mut roughness_use_texture = material.roughness_use_texture == 1;
-    ui.checkbox("color override", &mut color_use_texture);
-    ui.checkbox("metallic override", &mut metallic_use_texture);
-    ui.checkbox("roughness override", &mut roughness_use_texture);
-    material.color_use_texture = color_use_texture as u32;
-    material.metallic_use_texture = metallic_use_texture as u32;
-    material.roughness_use_texture = roughness_use_texture as u32;
+    let main = &material.base_texture_path;
+    let normal = &material.normal_texture_path;
+    let roughness = &material.met_rough_texture_path;
+    let emissive = &material.emissive_texture_path;
+    let occlusion = &material.occlusion_texture_path;
+    let name = format!("Material: {} ", material.name);
 
-    if !color_use_texture {
-        let mut color: [f32; 4] = material.color.into();
-        if ui.color_edit4("Color", &mut color) {
-            material.color = color.into();
-        }
-    };
+    if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
+        ui.checkbox("use_color_texture", &mut material.use_color_texture);
+        ui.disabled(material.use_color_texture, || {
+            let mut color: [f32; 4] = material.base_color_factor.into();
+            if ui.color_edit4("Base Color", &mut color) {
+                material.base_color_factor = color.into();
+            }
+        });
 
-    if !metallic_use_texture {
-        Drag::new("Metallic")
-            .speed(0.01)
-            .range(0.01, 1.0)
-            .build(ui, &mut material.metallic);
-    }
-    if !roughness_use_texture {
-        Drag::new("Roughness")
-            .speed(0.01)
-            .range(0.01, 1.0)
-            .build(ui, &mut material.roughness);
-    }
-    ui.separator();
+        ui.checkbox("use_emissive_texture", &mut material.use_emissive_texture);
+        ui.disabled(material.use_emissive_texture, || {
+            let mut color: [f32; 4] = material.emissive_factor.into();
+            if ui.color_edit4("Emissive Color", &mut color) {
+                material.emissive_factor = color.into();
+            }
+        });
 
-    if let Some(id) = registry.ids.get(main) {
-        let name = main
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("no name");
-        ui.image_button(name, *id, [100.0, 100.0]);
-        ui.same_line();
-        ui.text(name);
+        ui.checkbox("use_occlusion_texture", &mut material.use_occlusion_texture);
+        ui.disabled(material.use_occlusion_texture, || {
+             Drag::new("Occlusion strength")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut material.occlusion_strength);
+        });
+
+        ui.checkbox(
+            "use_metal_roughness_texture",
+            &mut material.use_metal_roughness_texture,
+        );
+        ui.disabled(material.use_metal_roughness_texture, || {
+            Drag::new("Metallic")
+                .speed(0.01)
+                .range(0.01, 1.0)
+                .build(ui, &mut material.metallic_factor);
+            Drag::new("Roughness")
+                .speed(0.01)
+                .range(0.01, 1.0)
+                .build(ui, &mut material.roughness_factor);
+        });
+        ui.checkbox("use_normal_texture", &mut material.use_normal_texture);
+
         ui.separator();
-    }
-    if let Some(id) = registry.ids.get(normal) {
-        let name = normal
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("no name");
-        ui.image_button(name, *id, [100.0, 100.0]);
-        ui.same_line();
-        ui.text(name);
-        ui.separator();
-    }
-    if let Some(id) = registry.ids.get(roughness) {
-        let name = roughness
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("no name");
-        ui.image_button(name, *id, [100.0, 100.0]);
-        ui.same_line();
-        ui.text(name);
-        ui.separator();
+        draw_ui_texture_icon(ui, registry, main);
+        draw_ui_texture_icon(ui, registry, normal);
+        draw_ui_texture_icon(ui, registry, roughness);
+        draw_ui_texture_icon(ui, registry, emissive);
+        draw_ui_texture_icon(ui, registry, occlusion);
     }
 }

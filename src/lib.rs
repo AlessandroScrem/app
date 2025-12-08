@@ -83,7 +83,7 @@ impl Default for Globals {
             exposure: 1.0,
             tonemap_filter: 0,
             axis_enable: true,
-            bbox_enable: true,
+            bbox_enable: false,
             bbox_axis_aligned: false,
         }
     }

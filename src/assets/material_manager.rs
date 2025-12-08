@@ -1,46 +1,150 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use wgpu::{TextureFormat, util::DeviceExt};
+use cgmath::{Array, num_traits::{one, zero}};
+use log::info;
+use wgpu::{
+    TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb},
+    util::DeviceExt,
+};
 
 use crate::{
-    prelude::*,
     assets::texture_manager::TextureManager,
+    math::*,
     renderer::{
         gpu_manager::{GPUResourceManager, LayoutKind},
         uniform::MaterialUniform,
     },
-    math::*,
 };
 
-pub struct Material {
-    pub main_texture: PathBuf,
-    pub normal_texture: PathBuf,
-    pub metallic_roughness_texture: PathBuf,
+pub type MaterialId = PathBuf;
 
-    pub roughness: f32,
-    pub metallic: f32,
-    pub roughness_use_texture: u32,
-    pub metallic_use_texture: u32,
-    pub color_use_texture: u32,
-    pub color: Vec4,
-    pub bind_group: Option<wgpu::BindGroup>,
-    pub material_uniform_buffer: Option<wgpu::Buffer>,
+pub struct MaterialPBR {
+    pub name: String,
+
+    pub base_texture_path: PathBuf,
+    pub normal_texture_path: PathBuf,
+    pub met_rough_texture_path: PathBuf,
+    pub emissive_texture_path: PathBuf,
+    pub occlusion_texture_path: PathBuf,
+
+    pub base_color_factor: Vec4,
+    pub emissive_factor: Vec4,
+    pub roughness_factor: f32,
+    pub metallic_factor: f32,
+    pub normal_scale: f32,
+    pub occlusion_strength: f32,
+    pub use_color_texture: bool,
+    pub use_metal_roughness_texture: bool,
+    pub use_normal_texture: bool,
+    pub use_emissive_texture: bool,
+    pub use_occlusion_texture: bool,
+}
+impl Default for MaterialPBR {
+    fn default() -> Self {
+        Self {
+            name: "Default".into(),
+
+            base_texture_path: "void".into(),
+            normal_texture_path: "void".into(),
+            met_rough_texture_path: "void".into(),
+            emissive_texture_path: "void".into(),
+            occlusion_texture_path: "void".into(),
+
+            base_color_factor: Vec4::from_value(one()),
+            emissive_factor: Vec4::from_value(one()),
+            roughness_factor: one(),
+            metallic_factor: one(),
+            normal_scale: one(),
+            occlusion_strength: zero(),
+            use_color_texture: false,
+            use_metal_roughness_texture: false,
+            use_normal_texture: false,
+            use_emissive_texture: false,
+            use_occlusion_texture: false,
+        }
+    }
+}
+
+impl From<&MaterialPBR> for MaterialUniform {
+    fn from(value: &MaterialPBR) -> Self {
+        Self {
+            color_factor: value.base_color_factor.into(),
+            emissive_factor: value.emissive_factor.into(),
+            metallic_factor: value.metallic_factor,
+            roughness_factor: value.roughness_factor,
+            normal_scale: value.normal_scale,
+            occlusion_strength: value.occlusion_strength,
+            use_color_texture: value.use_color_texture as u32,
+            use_metal_roughness_texture: value.use_metal_roughness_texture as u32,
+            use_normal_texture: value.use_normal_texture as u32,
+            use_emissive_texture: value.use_emissive_texture as u32,
+            use_occlusion_texture: value.use_occlusion_texture as u32,
+            ..Default::default()
+        }
+    }
+}
+
+pub struct Material {
+    pub material_pbr: MaterialPBR,
+    pub bind_group: wgpu::BindGroup,
+    pub uniform_buffer: wgpu::Buffer,
+}
+
+impl Material {
+    fn create_default(
+        device: &wgpu::Device,
+        texture_manager: &mut TextureManager,
+        gpu_manager: &GPUResourceManager,
+    ) -> Self {
+        let material_pbr = MaterialPBR::default();
+        let uniform_buffer = create_uniform(device, &material_pbr);
+        let bind_group = create_bindgroup(
+            device,
+            &material_pbr,
+            &uniform_buffer,
+            texture_manager,
+            gpu_manager,
+        );
+        Self {
+            material_pbr,
+            bind_group,
+            uniform_buffer,
+        }
+    }
 }
 
 pub struct MaterialManager {
     device: Arc<wgpu::Device>,
     gpu_manager: Arc<GPUResourceManager>,
+    materials: HashMap<MaterialId, Material>,
+    default: Material,
 }
 
 impl MaterialManager {
-    pub fn new(device: Arc<wgpu::Device>, gpu_manager: Arc<GPUResourceManager>) -> Self {
+    pub fn new(
+        device: Arc<wgpu::Device>,
+        gpu_manager: Arc<GPUResourceManager>,
+        texture_manager: &mut TextureManager,
+    ) -> Self {
+        let default = Material::create_default(&device, texture_manager, &gpu_manager);
         Self {
             device,
             gpu_manager,
+            materials: HashMap::new(),
+            default,
         }
+    }
+
+    pub fn get(&self, id: &MaterialId) -> &Material {
+        self.materials.get(id).unwrap_or(&self.default)
+    }
+
+    pub fn get_mut(&mut self, id: &MaterialId) -> &mut Material {
+        self.materials.get_mut(id).unwrap_or(&mut self.default)
     }
 
     pub fn create_material(
@@ -49,170 +153,208 @@ impl MaterialManager {
         gltf_material: &gltf::Material,
         images: &Vec<gltf::Image<'_>>,
         path: PathBuf,
-    ) -> Material {
-        let parent_path = path.parent().expect("anable to find parent path");
+    ) -> MaterialId {
+        let name = gltf_material.name().unwrap_or("material_no_name");
+        let material_id = path.join(&name);
 
-        // materials
+        if self.materials.contains_key(&material_id) {
+            return material_id;
+        }
+        let parent_path = path.parent().expect("Unable to find parent path");
+
+        // pbr materials
         let pbr = gltf_material.pbr_metallic_roughness();
         let color_factor = pbr.base_color_factor();
-        let color = vec4(
-            color_factor[0],
-            color_factor[1],
-            color_factor[2],
-            color_factor[3],
-        );
+        let roughness_factor = pbr.roughness_factor();
+        let metallic_factor = pbr.metallic_factor();
+        let emissive_factor = gltf_material.emissive_factor();
 
-        let mut normal_texture = None;
-        let normals_texture = gltf_material.normal_texture();
-        if normals_texture.is_some() {
-            let normal_source = normals_texture.unwrap().texture().source().source();
-            match normal_source {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let texture_file_name = Some(
-                        Path::new(&uri)
-                            .file_name()
-                            .and_then(std::ffi::OsStr::to_str)
-                            .unwrap()
-                            .to_string(),
-                    );
-                    if texture_file_name.is_some() {
-                        normal_texture = Some(texture_file_name.unwrap());
-                    }
+        let use_color_texture = pbr.base_color_texture().is_some();
+        let use_metal_roughness_texture = pbr.base_color_texture().is_some();
+        let use_normal_texture = gltf_material.normal_texture().is_some();
+        let use_emissive_texture = gltf_material.emissive_texture().is_some();
+        let use_occlusion_texture = gltf_material.occlusion_texture().is_some();
+
+        let base_texture_path = get_texture_url(pbr.base_color_texture(), parent_path, &images);
+        let met_rough_texture =
+            get_texture_url(pbr.metallic_roughness_texture(), parent_path, &images);
+        let emissive_texture_path =
+            get_texture_url(gltf_material.emissive_texture(), parent_path, &images);
+
+        let normal_texture_path = gltf_material
+            .normal_texture()
+            .map(|nt| nt.texture().source().source())
+            .and_then(|s| {
+                if let gltf::image::Source::Uri { uri, .. } = s {
+                    Some(parent_path.join(uri))
+                } else {
+                    None
                 }
-                _ => (),
-            }
-        }
+            });
 
-        let main_info = pbr.base_color_texture();
-        let roughness_info = pbr.metallic_roughness_texture();
-        let roughness = pbr.roughness_factor();
-        let metallic = pbr.metallic_factor();
+        let normal_scale = gltf_material
+            .normal_texture()
+            .map(|nt| nt.scale())
+            .unwrap_or(1.0);
 
-        let metallic_roughness_texture = get_texture_url(&roughness_info, &images);
+        let occlusion_texture_path = gltf_material
+            .occlusion_texture()
+            .map(|ot| ot.texture().source().source())
+            .and_then(|s| {
+                if let gltf::image::Source::Uri { uri, .. } = s {
+                    Some(parent_path.join(uri))
+                } else {
+                    None
+                }
+            });
 
-        let roughness_use_texture: u32 = metallic_roughness_texture.is_some() as u32;
-        let metallic_use_texture: u32 = metallic_roughness_texture.is_some() as u32;
-        let color_use_texture = pbr.base_color_texture().is_some() as u32;
+        let occlusion_strength = gltf_material
+            .occlusion_texture()
+            .map(|ot| ot.strength())
+            .unwrap_or(1.0);
 
-        let main_texture = get_texture_url(&main_info, &images)
-            .map(|s| parent_path.join(s))
-            .unwrap_or("no-name".into());
-        let normal_texture = normal_texture
-            .map(|s| parent_path.join(s))
-            .unwrap_or("no-name".into());
-        let metallic_roughness_texture = metallic_roughness_texture
-            .map(|s| parent_path.join(s))
-            .unwrap_or("no-name".into());
+        let material_pbr = MaterialPBR {
+            name: name.into(),
+            base_color_factor: color_factor.into(),
+            emissive_factor: Vec3::from(emissive_factor).extend(1.0),
+            base_texture_path: base_texture_path.unwrap_or_default(),
+            normal_texture_path: normal_texture_path.unwrap_or_default(),
+            met_rough_texture_path: met_rough_texture.unwrap_or_default(),
+            emissive_texture_path: emissive_texture_path.unwrap_or_default(),
+            occlusion_texture_path: occlusion_texture_path.unwrap_or_default(),
+            roughness_factor,
+            metallic_factor,
+            normal_scale,
+            occlusion_strength,
+            use_color_texture,
+            use_metal_roughness_texture,
+            use_normal_texture,
+            use_emissive_texture,
+            use_occlusion_texture
+        };
 
         let timer = std::time::Instant::now();
-        let bind0 = texture_manager.get_or_create(&main_texture, TextureFormat::Rgba8UnormSrgb);
-        let bind1 = texture_manager.get_or_create(&normal_texture, TextureFormat::Rgba8Unorm);
-        let bind2 =
-            texture_manager.get_or_create(&metallic_roughness_texture, TextureFormat::Rgba8Unorm);
+        // create also textures
+        let uniform_buffer = create_uniform(&self.device, &material_pbr);
+        let bind_group = create_bindgroup(
+            &self.device,
+            &material_pbr,
+            &uniform_buffer,
+            texture_manager,
+            &self.gpu_manager,
+        );
 
         info!(
-            "--\t Load matererial textures took {} ms",
+            "--\t Load matererial {} textures took {} ms",
+            material_id.to_string_lossy(),
             timer.elapsed().as_millis()
         );
 
-        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
+        let material = Material {
+            material_pbr,
+            bind_group,
+            uniform_buffer,
+        };
 
-        let material_uniform_buffer =
-            self.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Material Uniform Buffer"),
-                    contents: bytemuck::cast_slice(&[MaterialUniform {
-                        color: [color.x, color.y, color.z, color.w],
-                        metallic,
-                        roughness,
-                        roughness_use_texture,
-                        metallic_use_texture,
-                        color_use_texture,
-                        ..Default::default()
-                    }]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
-
-        let texture_bind_group_layout = self.gpu_manager.get_layout(LayoutKind::Material);
-
-        let diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                // main texture
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&bind0.view),
-                },
-                // normal texture
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&bind1.view),
-                },
-                // metallic_roughness texture
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&bind2.view),
-                },
-                // material uniform
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: material_uniform_buffer.as_entire_binding(),
-                },
-            ],
-            label: Some("texture_bind_group"),
-        });
-
-        Material {
-            main_texture,
-            normal_texture,
-            metallic_roughness_texture,
-            roughness,
-            metallic,
-            roughness_use_texture,
-            metallic_use_texture,
-            color_use_texture,
-            color,
-            bind_group: Some(diffuse_bind_group),
-            material_uniform_buffer: Some(material_uniform_buffer),
-        }
+        self.materials.insert(material_id.clone(), material);
+        material_id
     }
 }
 
 fn get_texture_url(
-    info: &Option<gltf::texture::Info<'_>>,
-    images: &Vec<gltf::Image<'_>>,
-) -> Option<String> {
-    let mut file_name = None;
-    if info.is_some() {
-        let info = info.as_ref().unwrap();
-        let tex = info.texture();
+    info: Option<gltf::texture::Info<'_>>,
+    path: &Path,
+    images: &[gltf::Image<'_>],
+) -> Option<PathBuf> {
+    let info = info?;
+    let image = images.get(info.texture().index())?;
 
-        let image: Option<&gltf::Image<'_>> = images.get(tex.index());
-        if image.is_some() {
-            let image = image.unwrap();
-            let source = image.source();
-            match source {
-                gltf::image::Source::Uri { uri, .. } => {
-                    let texture_file_name = Some(Path::new(&uri).to_str().unwrap().to_string());
-                    if texture_file_name.is_some() {
-                        file_name = Some(texture_file_name.unwrap());
-                    }
-                }
-                _ => (),
-            }
-        }
+    if let gltf::image::Source::Uri { uri, .. } = image.source() {
+        return Path::new(uri).file_name().map(|u| path.join(u));
     }
-    file_name
+
+    None
+}
+
+fn create_uniform(device: &wgpu::Device, material_pbr: &MaterialPBR) -> wgpu::Buffer {
+    let uniform = MaterialUniform::from(material_pbr);
+
+    let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Material Uniform Buffer"),
+        contents: bytemuck::bytes_of(&uniform),
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+    });
+    uniform_buffer
+}
+
+fn create_bindgroup(
+    device: &wgpu::Device,
+    material_pbr: &MaterialPBR,
+    uniform_buffer: &wgpu::Buffer,
+    texture_manager: &mut TextureManager,
+    gpu_manager: &GPUResourceManager,
+) -> wgpu::BindGroup {
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: wgpu::AddressMode::Repeat,
+        address_mode_v: wgpu::AddressMode::Repeat,
+        address_mode_w: wgpu::AddressMode::Repeat,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+    let base_texture =
+        texture_manager.get_or_create(&material_pbr.base_texture_path, Rgba8UnormSrgb);
+    let met_rough_texture =
+        texture_manager.get_or_create(&material_pbr.met_rough_texture_path, Rgba8Unorm);
+    let normal_texture =
+        texture_manager.get_or_create(&material_pbr.normal_texture_path, Rgba8Unorm);
+    let emissive_texture =
+        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8Unorm);
+    let occlusion_texture =
+        texture_manager.get_or_create(&material_pbr.occlusion_texture_path, Rgba8Unorm);
+
+    let texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::Material);
+
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &texture_bind_group_layout,
+        label: Some("Material  bind_group"),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Sampler(&sampler),
+            },
+            // main texture
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&base_texture.view),
+            },
+            // normal texture
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&normal_texture.view),
+            },
+            // metallic_roughness texture
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(&met_rough_texture.view),
+            },
+            // material emissive
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::TextureView(&emissive_texture.view),
+            },
+            // material occlusion
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::TextureView(&occlusion_texture.view),
+            },
+            // uniform buffer
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+        ],
+    });
+    bind_group
 }
