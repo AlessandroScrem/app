@@ -310,7 +310,7 @@ fn create_bindgroup(
     let normal_texture =
         texture_manager.get_or_create(&material_pbr.normal_texture_path, Rgba8Unorm);
     let emissive_texture =
-        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8Unorm);
+        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8UnormSrgb);
     let occlusion_texture =
         texture_manager.get_or_create(&material_pbr.occlusion_texture_path, Rgba8Unorm);
 
