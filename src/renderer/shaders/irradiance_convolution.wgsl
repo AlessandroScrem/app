@@ -96,9 +96,10 @@ fn calc_irradiance(dir: vec3<f32>) ->vec3<f32> {
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // direzione dal centro della cubemap
-    let dir0 = normalize(input.frag_pos);
-    // twick rotazione 180° sull'asse Y e flip Y
-    let dir  = vec3<f32>(-dir0.x, -dir0.y, -dir0.z);
+    let d0 = normalize(input.frag_pos);
+
+    // Flip asse Y
+    let dir  = vec3<f32>(d0.x, -d0.y, d0.z);
 
     //debug dir result
     // let color = textureSample(environmentMap, environmentSampler, dir).rgb;
