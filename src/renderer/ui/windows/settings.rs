@@ -102,6 +102,16 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
             "Exponential",
         ];
 
+        const DEBUG_CODE: [&str; 7] = [
+            "None",
+            "Base Color",
+            "Normal",
+            "Metallic",
+            "Roughness",
+            "Occlusion",
+            "Emissive",
+        ];
+
         tools::disabled(ui, || {
             let mut mode = false;
             ui.checkbox("Vsync", &mut mode);
@@ -117,9 +127,20 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
         }
         ui.checkbox("Show demo window", &mut ctx.demo_open);
 
-        if globals.ibl_enable {
-            ui.slider("Exposure", 0.1, 8.0, &mut globals.exposure);
+        {
+            let mut current_item = globals.debug_code as usize;
+            if ui.combo("Debug Mode", &mut current_item, &DEBUG_CODE, |item| {
+                std::borrow::Cow::Borrowed(*item)
+            }) {
+                globals.debug_code = current_item as u32;
+            }
+        }
+        
+        ui.slider_config("Scene Exposure", 0.01, 64.0).flags(SliderFlags::LOGARITHMIC).build(&mut globals.exposure);
+        ui.slider_config("Ibl Intensity", 0.01, 10_000.0).flags(SliderFlags::LOGARITHMIC).build(&mut globals.ibl_intensity);
+        ui.separator();
 
+        if globals.ibl_enable {
             let mut current_item = globals.tonemap_filter as usize;
             if ui.combo("Tonemap", &mut current_item, &TONEMAP_FILTERS, |item| {
                 std::borrow::Cow::Borrowed(*item)
@@ -128,7 +149,6 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
             }
         } else {
             globals.tonemap_filter = 0;
-            globals.exposure = 1.0;
         }
         if globals.skybox_enable {
             ui.separator();

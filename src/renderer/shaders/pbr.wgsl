@@ -11,9 +11,11 @@ struct Globals {
     ibl_enable: u32,
     skybox_enable: u32,
     exposure: f32,
-    tonemap_filter: u32,
+    ibl_intensity: f32,
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
+    tonemap_filter: u32,
+    debug: u32,
 };
 
 struct Light {
@@ -90,6 +92,14 @@ const LIGHT_TARGET: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 const AMBIENT_COLOR: vec3<f32> = vec3<f32>(0.2, 0.2, 0.2);
 const MATERIAL_SHININESS: f32 = 4.0;
 const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+
+const DebugNone: u32 = 0; 
+const DebugBaseColor: u32 = 1; 
+const DebugNormal: u32 = 2; 
+const DebugMetallic: u32 = 3; 
+const DebugRoughness: u32 = 4; 
+const DebugOcclusion: u32 = 5; 
+const DebugEmissive: u32 = 6; 
 
 
 @group(1) @binding(0) var tex_sampler: sampler;
@@ -208,13 +218,14 @@ fn CalculateAmbient(
     let kS = F;
     var kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
+    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
+
     let MAX_REFLECTION_LOD: f32 = 4.0;
     let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, roughness * MAX_REFLECTION_LOD).rgb;
     let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
-    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
-    let diffuse = irradiance * albedo;
-    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y);
+    let diffuse = irradiance * albedo * globals.ibl_intensity;
+    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y) * globals.ibl_intensity;
 
     return (kD * diffuse + specular);
 }
@@ -259,7 +270,27 @@ fn fs_main(input: VertexOutput) -> FSOutput {
     var ambient = CalculateAmbient(N, V, albedo_color, metallic, roughness);
     ambient *=  ao; 
     
-    let color = lo + ambient + emissive;
+    var color = lo + ambient + emissive;
+
+
+    if globals.debug == DebugBaseColor {
+        color = albedo_color;
+    }
+    if globals.debug == DebugNormal {
+        color = (N + 1.0) / 2.0;
+    }
+    if globals.debug == DebugRoughness {
+        color = vec3(roughness);
+    }
+    if globals.debug == DebugMetallic {
+        color = vec3(metallic);
+    }
+    if globals.debug == DebugOcclusion {
+        color = vec3(ao);
+    }
+    if globals.debug == DebugEmissive {
+        color = emissive;
+    }
     
     out.color = vec4<f32>(color, 1.0);
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);

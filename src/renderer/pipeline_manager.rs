@@ -358,8 +358,8 @@ fn create_pipeline(
         }
         PipelineKind::Skybox => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
-                gpu_resource_manager.get_layout(LayoutKind::Skybox), //1
+                gpu_resource_manager.get_layout(LayoutKind::Globals), //0
+                gpu_resource_manager.get_layout(LayoutKind::Skybox),  //1
             ];
 
             let render_pipeline_layout =
