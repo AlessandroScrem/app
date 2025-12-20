@@ -34,9 +34,21 @@ struct Globals {
 /// Fragment shader
 ///
 
+// preso da basic_glfw cpp
+fn aces(x: vec3<f32> )->vec3<f32> {
+  let a:f32 = 2.51;
+  let b:f32 = 0.03;
+  let c:f32 = 2.43;
+  let d:f32 = 0.59;
+  let e:f32 = 0.14;
+
+  let val: vec3<f32> = (x * (a * x + b)) / (x * (c * x + d) + e);
+  return clamp(val , vec3(0.0), vec3(1.0));
+}
+
 // Maps HDR values to linear values
 // Based on http://www.oscars.org/science-technology/sci-tech-projects/aces
-fn aces(hdr: vec3<f32>) -> vec3<f32> {
+fn aces_(hdr: vec3<f32>) -> vec3<f32> {
     let m1 = mat3x3(
         0.59719, 0.07600, 0.02840,
         0.35458, 0.90834, 0.13383,

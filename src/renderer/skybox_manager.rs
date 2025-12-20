@@ -983,7 +983,8 @@ impl SkyboxManager {
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
 
-        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+        // #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
         // Create skybox
         let skybox = Self::create_skybox(
             device,
@@ -1125,9 +1126,9 @@ mod tests {
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
+        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
         #[cfg(feature = "save_tests")]
         {
-            test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
         }
     }
 
@@ -1150,9 +1151,9 @@ mod tests {
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
+        test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
         #[cfg(feature = "save_tests")]
         {
-            test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
         }
     }
 
@@ -1200,9 +1201,9 @@ mod tests {
         assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
 
+        test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
         #[cfg(feature = "save_tests")]
         {
-            test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
         }
     }
 
