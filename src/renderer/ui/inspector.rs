@@ -73,11 +73,13 @@ impl ComponentDrawer for BoundingBoxComponent {
             "BoundingBoxComponent",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
+            ui.text("Local");
             ui.text(format!("Min: {:?}", bbox.min));
             ui.text(format!("Max: {:?}", bbox.max));
             ui.separator();
-            ui.text(format!("GlobalMin: {:?}", gbbox.min));
-            ui.text(format!("GLobalMax: {:?}", gbbox.max));
+            ui.text("Global");
+            ui.text(format!("Min: {:?}", gbbox.min));
+            ui.text(format!("Max: {:?}", gbbox.max));
         }
     }
 }
@@ -157,14 +159,7 @@ pub fn draw_entity_inspector(world: &mut World, ctx: &mut InspectorContext) {
 
 fn draw_ui_texture_icon(ui: &imgui::Ui, registry: &ImGuiTextureRegistry, name: &PathBuf) {
     if let Some(id) = registry.ids.get(name) {
-        let name = name
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("no name");
-        ui.image_button(name, *id, [100.0, 100.0]);
-        ui.same_line();
-        ui.text(name);
-        ui.separator();
+        ui.image_button(name.to_str().unwrap(), *id, [25.0, 25.0]);
     }
 }
 
@@ -181,51 +176,64 @@ fn draw_ui_mesh_material(
     let name = format!("Material: {} ", material.name);
 
     if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
-        ui.checkbox("use_color_texture", &mut material.use_color_texture);
+        ui.text("Color");
+        ui.checkbox("Use##_ct", &mut material.use_color_texture);
+        ui.same_line();
+        draw_ui_texture_icon(ui, registry, main);
+        ui.same_line();
         ui.disabled(material.use_color_texture, || {
             let mut color: [f32; 4] = material.base_color_factor.into();
-            if ui.color_edit4("Base Color", &mut color) {
+            if ui.color_edit4("##Base Color", &mut color) {
                 material.base_color_factor = color.into();
             }
         });
+        ui.separator();
 
-        ui.checkbox("use_emissive_texture", &mut material.use_emissive_texture);
+        ui.text("Emissive");
+        ui.checkbox("Use##_em", &mut material.use_emissive_texture);
+        ui.same_line();
+        draw_ui_texture_icon(ui, registry, emissive);
+        ui.same_line();
         ui.disabled(material.use_emissive_texture, || {
             let mut color: [f32; 4] = material.emissive_factor.into();
-            if ui.color_edit4("Emissive Color", &mut color) {
+            if ui.color_edit4("##Emissive", &mut color) {
                 material.emissive_factor = color.into();
             }
         });
+        ui.separator();
 
-        ui.checkbox("use_occlusion_texture", &mut material.use_occlusion_texture);
+        ui.text("Occlusion");
+        ui.checkbox("Use##_occ", &mut material.use_occlusion_texture);
+        ui.same_line();
+        draw_ui_texture_icon(ui, registry, occlusion);
+        ui.same_line();
         ui.disabled(material.use_occlusion_texture, || {
-             Drag::new("Occlusion strength")
+            Drag::new("##Occlusion")
                 .speed(0.01)
                 .range(0.0, 1.0)
                 .build(ui, &mut material.occlusion_strength);
         });
+        ui.separator();
 
-        ui.checkbox(
-            "use_metal_roughness_texture",
-            &mut material.use_metal_roughness_texture,
-        );
+        ui.text("Metallic Roughness");
+        ui.checkbox("Use##_mr", &mut material.use_metal_roughness_texture);
+        ui.same_line();
+        draw_ui_texture_icon(ui, registry, roughness);
         ui.disabled(material.use_metal_roughness_texture, || {
-            Drag::new("Metallic")
+            Drag::new("Met")
                 .speed(0.01)
                 .range(0.01, 1.0)
                 .build(ui, &mut material.metallic_factor);
-            Drag::new("Roughness")
+            Drag::new("Rough")
                 .speed(0.01)
                 .range(0.01, 1.0)
                 .build(ui, &mut material.roughness_factor);
         });
-        ui.checkbox("use_normal_texture", &mut material.use_normal_texture);
-
         ui.separator();
-        draw_ui_texture_icon(ui, registry, main);
+
+        ui.text("Normal");
+        ui.checkbox("Use##_normal_texture", &mut material.use_normal_texture);
+        ui.same_line();
         draw_ui_texture_icon(ui, registry, normal);
-        draw_ui_texture_icon(ui, registry, roughness);
-        draw_ui_texture_icon(ui, registry, emissive);
-        draw_ui_texture_icon(ui, registry, occlusion);
     }
 }

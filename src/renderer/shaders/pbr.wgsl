@@ -11,9 +11,11 @@ struct Globals {
     ibl_enable: u32,
     skybox_enable: u32,
     exposure: f32,
-    tonemap_filter: u32,
+    ibl_intensity: f32,
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
+    tonemap_filter: u32,
+    debug: u32,
 };
 
 struct Light {
@@ -36,8 +38,8 @@ struct Model {
 struct Material {
     color: vec4<f32>,
     emissive: vec4<f32>,
-    roughness: f32,
-    metallic: f32,
+    roughness_factor: f32,
+    metallic_factor: f32,
     normal_scale: f32,
     occlusion_strength: f32,
     use_color_texture: u32,
@@ -85,11 +87,17 @@ fn vs_main(
 
 /// Fragment shader
 ///
-const NUM_LIGHTS: u32 = 1u;
-const LIGHT_TARGET: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
-const AMBIENT_COLOR: vec3<f32> = vec3<f32>(0.2, 0.2, 0.2);
-const MATERIAL_SHININESS: f32 = 4.0;
-const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
+const NUM_LIGHTS: u32 = 1;
+const True:u32 = 1;
+const False:u32 = 0;
+
+const DebugNone: u32 = 0; 
+const DebugBaseColor: u32 = 1; 
+const DebugNormal: u32 = 2; 
+const DebugMetallic: u32 = 3; 
+const DebugRoughness: u32 = 4; 
+const DebugOcclusion: u32 = 5; 
+const DebugEmissive: u32 = 6; 
 
 
 @group(1) @binding(0) var tex_sampler: sampler;
@@ -106,9 +114,6 @@ const MATERIAL_SPECULAR: vec3<f32> = vec3<f32>(1.0, 1.0, 1.0);
 @group(3) @binding(2) var irradiance_map: texture_cube<f32>;
 @group(3) @binding(3) var prefilter_map: texture_cube<f32>;
 @group(3) @binding(4) var brdf_lut_map: texture_2d<f32>;
-
-
-fn check(value: u32)->bool {return value == 1;}
 
 fn CalculateLight(
     N: vec3<f32>,
@@ -194,7 +199,7 @@ fn CalculateAmbient(
     metallic: f32,
     roughness: f32,
 ) -> vec3<f32> {
-    if !check(globals.ibl_enable) {
+    if globals.ibl_enable == False {
         return vec3<f32> (0.0);
     } 
 
@@ -208,13 +213,14 @@ fn CalculateAmbient(
     let kS = F;
     var kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
+    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
+
     let MAX_REFLECTION_LOD: f32 = 4.0;
     let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, roughness * MAX_REFLECTION_LOD).rgb;
     let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
-    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
-    let diffuse = irradiance * albedo;
-    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y);
+    let diffuse = irradiance * albedo * globals.ibl_intensity;
+    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y) * globals.ibl_intensity;
 
     return (kD * diffuse + specular);
 }
@@ -224,49 +230,80 @@ struct FSOutput {
     @location(1) entity_id : vec2<u32>,
 }
 
+
+fn get_color(uv: vec2<f32>) ->vec3<f32> {
+    var albedo_color = material.color.rgb;
+    if material.use_color_texture == True  {
+        albedo_color *= textureSample(albedo_map, tex_sampler, uv).rgb;
+    }
+    return albedo_color;
+}
+
+fn get_metallic(uv: vec2<f32>) ->f32 {
+    var metallic = material.metallic_factor;
+    if material.use_metal_roughness_texture == True {
+        metallic *= textureSample(orm_map, tex_sampler, uv).b;
+    }
+    return clamp(metallic, 0.0, 1.0);
+}
+
+fn get_roughness(uv: vec2<f32>) ->f32 {
+    var roughness = material.metallic_factor;
+    if material.use_metal_roughness_texture == True {
+        roughness *= textureSample(orm_map, tex_sampler, uv).g;
+    }
+    return clamp(roughness, 0.05, 1.0);
+}
+
+fn get_occlusion(uv: vec2<f32>) ->f32 {
+    var ao:f32 = 1.0;
+    if material.use_occlusion_texture == True {
+        let occlusion_texture = textureSample(occlusion_map, tex_sampler, uv).r;
+        ao = 1.0 + material.occlusion_strength * (occlusion_texture - 1.0);
+    }
+    return ao;
+}
+
+fn get_emissive(uv: vec2<f32>) ->vec3<f32> {
+    var emissive = vec3<f32>(0.0);
+    if material.use_emissive_texture == True {
+        let emissive_texture = textureSample(emissive_map, tex_sampler, uv).rgb;
+        emissive = emissive_texture * material.emissive.rgb;
+    }
+    return emissive;
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> FSOutput {
     var out: FSOutput;
-    var albedo_color = material.color.rgb;
-    var metallic = material.metallic;
-    var roughness = material.roughness;
-    var emissive = vec3<f32>(0.0);
-    var ao = 1.0;
+    let albedo_color = get_color(input.uv);
+    let metallic = get_metallic(input.uv);
+    let roughness = get_roughness(input.uv);
+    let emissive = get_emissive(input.uv);
+    let ao = get_occlusion(input.uv);
 
     let N = normalize(input.normal);
     let V = normalize(camera.view_pos - input.world_pos);
 
-    if check(material.use_color_texture)  {
-        albedo_color *= textureSample(albedo_map, tex_sampler, input.uv).rgb;
-    }
-    if check(material.use_metal_roughness_texture) {
-        roughness *= textureSample(orm_map, tex_sampler, input.uv).g;
-        metallic *= textureSample(orm_map, tex_sampler, input.uv).b;
-    }
-
-    if check(material.use_occlusion_texture) {
-        let occlusion_texture = textureSample(occlusion_map, tex_sampler, input.uv).r;
-        ao = 1.0 + material.occlusion_strength * (occlusion_texture - 1.0);
-    }
-
-    if check(material.use_emissive_texture) {
-        let emissive_texture = textureSample(emissive_map, tex_sampler, input.uv).rgb;
-        emissive = emissive_texture * material.emissive.rgb;
-    }
-
-    var lo = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
-
-    var ambient = CalculateAmbient(N, V, albedo_color, metallic, roughness);
-    ambient *=  ao; 
+    let lo = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
+    let ambient = CalculateAmbient(N, V, albedo_color, metallic, roughness) * ao;
     
-    let color = lo + ambient + emissive;
+    var color = lo + ambient + emissive; 
+    switch globals.debug {
+        case DebugBaseColor: { color = albedo_color; }
+        case DebugNormal: {color = (N + 1.0) / 2.0;}
+        case DebugRoughness {color = vec3(roughness);}
+        case DebugMetallic: {color = vec3(metallic);}
+        case DebugOcclusion: {color = vec3(ao);}
+        case DebugEmissive: { color = emissive;}
+        default: {;} 
+    }
     
     out.color = vec4<f32>(color, 1.0);
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
 
     return out;
 }
-
 
     // debug normal
     // color = -N * 0.5 + 0.5;

@@ -48,17 +48,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     );
 
     let pos = box[vertex_index];
-
-
-    // remove translation from camera view matrix
-    let rot_view = mat4x4<f32>(
-        vec4<f32>(camera.view[0].xyz, 0.0), // prima colonna, senza traslazione
-        vec4<f32>(camera.view[1].xyz, 0.0), // seconda colonna
-        vec4<f32>(camera.view[2].xyz, 0.0), // terza colonna
-        vec4<f32>(0.0, 0.0, 0.0, 1.0)       // ultima colonna (nessuna traslazione)
-    );
-
-    let clip = camera.proj * rot_view * vec4<f32>(pos, 1.0);
+    let clip = camera.proj * camera.view * vec4<f32>(pos, 1.0);
 
     out.clip_position = clip;
     out.frag_pos = pos;
@@ -161,11 +151,17 @@ const SAMPLECOUNT = 1024u;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    // flip asse Y
-    // var N = normalize(vec3<f32>(input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+    // flip asse X,Y
+    let d1 = normalize(vec3<f32>(-input.frag_pos.x, -input.frag_pos.y, input.frag_pos.z));
+    
+    // twick rotazione 180° asse  Y
+    let dir = vec3<f32>(
+        -d1.x, // X
+         d1.y, // Y
+        -d1.z, // Z
+    );
 
-    // twick rotazione 180° sull'asse Y e flip Y
-    var N = normalize(vec3<f32>(-input.frag_pos.x, -input.frag_pos.y, -input.frag_pos.z));
+    var N = dir;
     let V = N;
 
     let color = prefilterEnvironment(N, V, roughness, SATEXEL);

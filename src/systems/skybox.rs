@@ -54,7 +54,7 @@ pub fn render_skybox(
     let skybox_bind_group = skybox_manager.get_skybox();
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_resource_manager.globals_bind_group, &[]);
     renderpass.set_bind_group(1, skybox_bind_group, &[]);
     renderpass.draw(0..36, 0..1);
 }

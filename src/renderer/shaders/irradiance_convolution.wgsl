@@ -22,63 +22,34 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
     //local cube [-1 1]
     var box: array<vec3<f32>, 36> = array<vec3<f32>, 36>(
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
+        // +X
+        vec3( 1, -1, -1), vec3( 1, -1,  1), vec3( 1,  1,  1),
+        vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        // -X
+        vec3(-1, -1,  1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+        vec3(-1, -1,  1), vec3(-1,  1, -1), vec3(-1,  1,  1),
 
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
+        // +Y (top)
+        vec3(-1,  1,  1), vec3( 1,  1,  1), vec3( 1,  1, -1),
+        vec3(-1,  1,  1), vec3( 1,  1, -1), vec3(-1,  1, -1),
 
-        vec3<f32>(-1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
+        // -Y (bottom)
+        vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1, -1,  1),
+        vec3(-1, -1, -1), vec3( 1, -1,  1), vec3(-1, -1,  1),
 
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0, -1.0),
-        vec3<f32>(1.0, -1.0, -1.0),
-        vec3<f32>(1.0,  1.0,  1.0),
-        vec3<f32>(1.0, -1.0,  1.0),
-        
-        vec3<f32>(-1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0, -1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>( 1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0,  1.0),
-        vec3<f32>(-1.0, -1.0, -1.0),
-        
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>( 1.0,  1.0, -1.0),
-        vec3<f32>( 1.0,  1.0,  1.0),
-        vec3<f32>(-1.0,  1.0, -1.0),
-        vec3<f32>(-1.0,  1.0,  1.0),
+        // +Z
+        vec3(-1, -1,  1), vec3(-1,  1,  1), vec3( 1,  1,  1),
+        vec3(-1, -1,  1), vec3( 1,  1,  1), vec3( 1, -1,  1),
+        // -Z
+        vec3( 1, -1, -1), vec3( 1,  1, -1), vec3(-1,  1, -1),
+        vec3( 1, -1, -1), vec3(-1,  1, -1), vec3(-1, -1, -1)
 
-    );
-
-    // remove translation from camera view matrix
-    let rot_view = mat4x4<f32>(
-        vec4<f32>(camera.view[0].xyz, 0.0), // prima colonna, senza traslazione
-        vec4<f32>(camera.view[1].xyz, 0.0), // seconda colonna
-        vec4<f32>(camera.view[2].xyz, 0.0), // terza colonna
-        vec4<f32>(0.0, 0.0, 0.0, 1.0)       // ultima colonna (nessuna traslazione)
     );
 
     let pos = box[vertex_index];
+    let clip_position = camera.proj * camera.view * vec4<f32>(pos, 1.0);	
 
-    let clip_position = camera.proj * rot_view * vec4<f32>(pos, 1.0);	
-
-    out.clip_position = clip_position.xyww;
+    out.clip_position = clip_position;
     out.frag_pos = pos;
 
     return out;
@@ -89,9 +60,9 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
 const PI: f32 = 3.1415927;
 
-@fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let N = normalize(input.frag_pos);
+
+fn calc_irradiance(dir: vec3<f32>) ->vec3<f32> {
+    let N = normalize(dir);
     var irradiance = vec3<f32>(0.0, 0.0, 0.0);
 
     // tangent space calculation from origin point
@@ -117,9 +88,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             nrSamples++;
         }
     }
+
     irradiance = PI * irradiance * (1.0 / f32(nrSamples));
-    let color = irradiance;
+    return irradiance;
+}
 
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    // direzione dal centro della cubemap
+    let d0 = normalize(input.frag_pos);
+
+    // Flip asse Y
+    let dir  = vec3<f32>(d0.x, -d0.y, d0.z);
+
+    //debug dir result
+    // let color = textureSample(environmentMap, environmentSampler, dir).rgb;
+
+    let color = calc_irradiance(dir);
     return vec4<f32>(color, 1.0);
-
 }

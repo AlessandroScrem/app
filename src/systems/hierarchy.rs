@@ -15,8 +15,8 @@ use crate::{
 pub fn hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     let mut query = <(Entity, Read<HierarchyComponent>, Read<TransformComponent>)>::query();
 
-    // Entities with a `HierarchyComponent` and NOT a `Parent` (ie those that are
-    // roots of a hierarchy).
+    // Entities with a `HierarchyComponent` and NOT a `Parent` 
+    // (roots of a hierarchy)
     for (entity, hirarchy, transform) in query.iter(world).filter(|(_e, h, _t)| h.parent.is_none())
     {
         // Calcolo della matrice globale

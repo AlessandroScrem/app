@@ -5,7 +5,7 @@ use std::{
 };
 
 use cgmath::{Array, num_traits::{one, zero}};
-use log::info;
+use crate::prelude::*;
 use wgpu::{
     TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb},
     util::DeviceExt,
@@ -244,7 +244,7 @@ impl MaterialManager {
             &self.gpu_manager,
         );
 
-        info!(
+        debug!(
             "--\t Load matererial {} textures took {} ms",
             material_id.to_string_lossy(),
             timer.elapsed().as_millis()
@@ -310,7 +310,7 @@ fn create_bindgroup(
     let normal_texture =
         texture_manager.get_or_create(&material_pbr.normal_texture_path, Rgba8Unorm);
     let emissive_texture =
-        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8Unorm);
+        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8UnormSrgb);
     let occlusion_texture =
         texture_manager.get_or_create(&material_pbr.occlusion_texture_path, Rgba8Unorm);
 

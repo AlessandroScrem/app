@@ -1,7 +1,6 @@
 use wgpu::TextureFormat;
 
 use crate::assets::texture::{CubeTexture, Texture};
-use crate::prelude::*;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -95,12 +94,12 @@ impl TextureManager {
                 // println!("read filepath {} ", filepath.display());
                 Some(buffer)
             }
-            Err(err) => {
-                info!(
-                    "{}, Impossibile leggere il file {}",
-                    err,
-                    filepath.display()
-                );
+            Err(_err) => {
+                // info!(
+                //     "{}, Impossibile leggere il file {}",
+                //     err,
+                //     filepath.display()
+                // );
                 None
             }
         }

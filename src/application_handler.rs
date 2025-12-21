@@ -14,19 +14,16 @@ use winit::window::WindowId;
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let timer = std::time::Instant::now();
-        info!(
-            "App resumed after being paused for {} ms",
-            timer.elapsed().as_millis()
-        );
+        debug!("App resumed after  {} ms", timer.elapsed().as_millis());
 
         let window = self.create_and_center_window(event_loop);
         self.window = Some(window.clone());
 
         Renderer::init(window.clone(), &mut self.resources);
-        info!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         self.load();
-        info!("App initialized in {} ms", timer.elapsed().as_millis());
+        debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
         window.request_redraw();
     }
@@ -65,7 +62,6 @@ impl ApplicationHandler for App {
             trace!("dt: {dt}");
             self.resources.get_mut::<Input>().unwrap().clear();
         });
-
 
         // Esegue `callback` ogni secondo , in base al clock interno.
         self.timer.trigger_every(Duration::from_secs(1), || {
@@ -122,6 +118,7 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
+                self.update_scene();
                 self.render();
             }
             _ => (),

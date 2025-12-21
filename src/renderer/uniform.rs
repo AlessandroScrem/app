@@ -93,9 +93,10 @@ pub struct GlobalUniform {
     pub ibl_enable: u32,
     pub skybox_enable: u32,
     pub exposure: f32,
-    pub tonemap_filter: u32,
+    pub ibl_intensity: f32,
     pub entity_id: u64,
-    pub pad2: [u32; 2],
+    pub tonemap_filter: u32,
+    pub debug: u32,
 }
 
 ///shader: [pbr, blinnphong]

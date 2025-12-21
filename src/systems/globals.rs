@@ -56,8 +56,10 @@ pub fn update_globals(
         ibl_enable: globals.ibl_enable as u32,
         skybox_enable: globals.skybox_enable as u32,
         exposure: globals.exposure,
+        ibl_intensity: globals.ibl_intensity,
         tonemap_filter: globals.tonemap_filter,
         entity_id,
+        debug: globals.debug_code,
         ..Default::default()
     };
 

@@ -70,10 +70,12 @@ pub struct Globals {
     pub ibl_enable: bool,
     pub skybox_enable: bool,
     pub exposure: f32,
+    pub ibl_intensity: f32,
     pub tonemap_filter: u32,
     pub axis_enable: bool,
     pub bbox_enable: bool,
     pub bbox_axis_aligned: bool,
+    pub debug_code: u32,
 }
 impl Default for Globals {
     fn default() -> Self {
@@ -81,10 +83,12 @@ impl Default for Globals {
             ibl_enable: true,
             skybox_enable: true,
             exposure: 1.0,
+            ibl_intensity: 1.0,
             tonemap_filter: 0,
             axis_enable: true,
             bbox_enable: false,
             bbox_axis_aligned: false,
+            debug_code: 0,
         }
     }
 }

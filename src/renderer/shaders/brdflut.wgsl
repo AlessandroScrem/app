@@ -21,12 +21,12 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32)  -> VertexOutput {
 
     // UV nello spazio [0,1]
     var uv: array<vec2<f32>, 6> = array<vec2<f32>, 6>(
-        vec2<f32>(0.0, 0.0), // bottom-left
-        vec2<f32>(1.0, 0.0), // bottom-right
-        vec2<f32>(1.0, 1.0), // top-right
-        vec2<f32>(1.0, 1.0), // top-right
-        vec2<f32>(0.0, 1.0), // top-left
-        vec2<f32>(0.0, 0.0), // bottom-left
+        vec2<f32>(0.0, 1.0), // bottom-left
+        vec2<f32>(1.0, 1.0), // bottom-right
+        vec2<f32>(1.0, 0.0), // top-right
+        vec2<f32>(1.0, 0.0), // top-right
+        vec2<f32>(0.0, 0.0), // top-left
+        vec2<f32>(0.0, 1.0), // bottom-left
     );
 
     out.clip_position = vec4<f32>( quad[vertex_index], 0.0, 1.0); // scala a schermo pieno

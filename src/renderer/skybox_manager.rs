@@ -101,7 +101,6 @@ mod utils {
     /// # Returns
     /// * A vector of 6 `Matrix4<f32>` representing the view matrices for each cubemap face.
     pub fn create_camera_views() -> Vec<Mat4> {
-
         const ZERO: Point3f = Point3f::new(0.0, 0.0, 0.0);
         const PX: [f32; 3] = [1.0, 0.0, 0.0];
         const NX: [f32; 3] = [-1.0, 0.0, 0.0];
@@ -983,7 +982,8 @@ impl SkyboxManager {
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
 
-        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+        // #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
+        #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
         // Create skybox
         let skybox = Self::create_skybox(
             device,
@@ -1111,6 +1111,8 @@ mod tests {
     use crate::test_utils;
     use std::path::Path;
 
+    const FILEPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+
     /// BRDFLut
     #[test]
     fn should_create_brdflut_rg16f_texture() {
@@ -1131,39 +1133,14 @@ mod tests {
         }
     }
 
-    /// PrefilterMap
-    #[test]
-    fn should_create_prefilter_rgba16f_cubemap() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
-        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
-
-        let prefilter = PrefilterMap::build(device, queue, &cubemap);
-
-        assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(prefilter.height(), 128);
-        assert_eq!(prefilter.width(), 128);
-        assert_eq!(prefilter.mip_level_count(), 5); // cup to 5 mip levels 
-        assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
-        assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
-
-        #[cfg(feature = "save_tests")]
-        {
-            test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
-        }
-    }
-
     /// EquirectangularToCubemap
     #[test]
     fn should_crate_cubetexture_rgba16f_from_equirectangular() {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
+        let hdr_path = std::path::Path::new(FILEPATH);
+        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
 
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
@@ -1181,14 +1158,39 @@ mod tests {
         }
     }
 
+    /// PrefilterMap
+    #[test]
+    fn should_create_prefilter_rgba16f_cubemap() {
+        let (device, queue) = test_utils::get_device_and_queue();
+        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
+
+        let hdr_path = std::path::Path::new(FILEPATH);
+        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
+
+        let prefilter = PrefilterMap::build(device, queue, &cubemap);
+
+        assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
+        assert_eq!(prefilter.height(), 128);
+        assert_eq!(prefilter.width(), 128);
+        assert_eq!(prefilter.mip_level_count(), 5); // cup to 5 mip levels 
+        assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
+        assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
+
+        #[cfg(feature = "save_tests")]
+        {
+            test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
+        }
+    }
+
     /// IrradianceCubemap
     #[test]
     fn should_crate_irradiance_cubetexture_rgba16f() {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        #[rustfmt::skip] let filepath = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-        let hdr_texture = texture_manager.get_or_create(filepath, wgpu::TextureFormat::Rgba16Float);
+        let hdr_path = std::path::Path::new(FILEPATH);
+        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);

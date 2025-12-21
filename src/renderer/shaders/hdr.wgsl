@@ -26,32 +26,28 @@ struct Globals {
     ibl_enable: u32,
     skybox_enable: u32,
     exposure: f32,
-    tonemap_filter: u32,
+    ibl_intensity: f32,
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
+    tonemap_filter: u32,
+    debug: u32,
 };
 
 /// Fragment shader
 ///
 
-// Maps HDR values to linear values
-// Based on http://www.oscars.org/science-technology/sci-tech-projects/aces
-fn aces(hdr: vec3<f32>) -> vec3<f32> {
-    let m1 = mat3x3(
-        0.59719, 0.07600, 0.02840,
-        0.35458, 0.90834, 0.13383,
-        0.04823, 0.01566, 0.83777,
-    );
-    let m2 = mat3x3(
-        1.60475, -0.10208, -0.00327,
-        -0.53108,  1.10813, -0.07276,
-        -0.07367, -0.00605,  1.07602,
-    );
-    let v = m1 * hdr;
-    let a = v * (v + 0.0245786) - 0.000090537;
-    let b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return clamp(m2 * (a / b), vec3(0.0), vec3(1.0));
+// preso da basic_glfw cpp
+fn aces(x: vec3<f32> )->vec3<f32> {
+  let a:f32 = 2.51;
+  let b:f32 = 0.03;
+  let c:f32 = 2.43;
+  let d:f32 = 0.59;
+  let e:f32 = 0.14;
+
+  let val: vec3<f32> = (x * (a * x + b)) / (x * (c * x + d) + e);
+  return clamp(val , vec3(0.0), vec3(1.0));
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Filmic Tonemapping Operators http://filmicworlds.com/blog/filmic-tonemapping-operators/

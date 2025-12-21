@@ -119,7 +119,7 @@ impl Renderer {
         });
         let depth_view = depth_texture.create_view(&Default::default());
 
-        info!("Device initialized in {} ms", timer.elapsed().as_millis());
+        debug!("Device initialized in {} ms", timer.elapsed().as_millis());
 
         let gpu_resource_manager = Arc::new(gpu_manager::GPUResourceManager::new(
             &device,
@@ -129,7 +129,7 @@ impl Renderer {
             &gpu_resource_manager,
             surface_config.format,
         );
-        info!(
+        debug!(
             "Pipeline manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -138,7 +138,7 @@ impl Renderer {
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        info!(
+        debug!(
             "Texture manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -148,7 +148,7 @@ impl Renderer {
             gpu_resource_manager.clone(),
             &mut texture_manager
         );
-        info!(
+        debug!(
             "Material manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -159,7 +159,7 @@ impl Renderer {
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
-        info!(
+        debug!(
             "Light manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
@@ -170,7 +170,7 @@ impl Renderer {
             &gpu_resource_manager,
             &mut texture_manager,
         );
-        info!(
+        debug!(
             "Skybox manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
