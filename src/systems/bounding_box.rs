@@ -65,9 +65,6 @@ pub fn update_bounding_box_to_gpu(
     #[resource] queue: &wgpu::Queue,
     #[resource] globals: &Globals,
 ) {
-    if !globals.bbox_enable {
-        return;
-    }
 
     bbox_component.global_bounding_box = bbox_component
         .bounding_box

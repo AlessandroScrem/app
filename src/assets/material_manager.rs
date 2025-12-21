@@ -5,7 +5,7 @@ use std::{
 };
 
 use cgmath::{Array, num_traits::{one, zero}};
-use log::info;
+use crate::prelude::*;
 use wgpu::{
     TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb},
     util::DeviceExt,
@@ -244,7 +244,7 @@ impl MaterialManager {
             &self.gpu_manager,
         );
 
-        info!(
+        debug!(
             "--\t Load matererial {} textures took {} ms",
             material_id.to_string_lossy(),
             timer.elapsed().as_millis()

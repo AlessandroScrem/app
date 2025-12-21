@@ -55,5 +55,6 @@ pub fn create(world: &mut World, resources: &Resources) {
             transform.scale = [20.0, 20.0, 20.0];
         }
     }
+
 }
 

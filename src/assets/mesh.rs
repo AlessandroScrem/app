@@ -134,7 +134,7 @@ impl SubMesh {
             path.to_path_buf(),
         );
 
-        info!(
+        debug!(
             "--\t create material: {} is {} ms",
             primitive.material().name().unwrap_or("no_name"),
             timer.elapsed().as_millis()
@@ -231,8 +231,12 @@ impl Mesh {
         });
 
         info!(
-            "Loading mesh {} took {} ms",
-            path.display(),
+            "Loading mesh: {}",
+            path.display()
+        );
+
+        debug!(
+            "-- took {} ms",
             timer.elapsed().as_millis()
         );
 
@@ -318,7 +322,7 @@ pub fn load_gltf(
         debug!("Entity for node 0: {:?}", e);
     }
     
-    info!("Gltf import is {} ms", timer.elapsed().as_millis());
+    debug!("Gltf import is {} ms", timer.elapsed().as_millis());
     info!("Root entities: {:?}", root_entities);
     
 

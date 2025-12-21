@@ -438,13 +438,16 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
 }
 
 fn create_axis_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    const RED: [f32; 3] = [1.0, 0.0, 0.0];
+    const GREEN: [f32; 3] = [0.0, 1.0, 0.0];
+    const BLUE: [f32; 3] = [0.0, 0.0, 1.0];
     #[rustfmt::skip] let vertices = [
-        LinesVertexData{color: [1.0,0.0,0.0], ..Default::default()},
-        LinesVertexData{position: [1.0, 0.0, 0.0], color: [1.0, 0.0, 0.0]}, // X axis red
-        LinesVertexData{color: [0.0,1.0,0.0], ..Default::default()},
-        LinesVertexData{position: [0.0, 1.0, 0.0], color: [0.0, 1.0, 0.0]}, // y axis green
-        LinesVertexData{color: [0.0,0.0,1.0], ..Default::default()},
-        LinesVertexData{position: [0.0, 0.0, 1.0], color: [0.0, 0.0, 1.0]}, // z axis blue
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: RED},
+        LinesVertexData{position: [10.0, 0.0, 0.0], color: RED},   //X  
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: GREEN},
+        LinesVertexData{position: [0.0, 10.0, 0.0], color: GREEN}, //Y
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: BLUE},
+        LinesVertexData{position: [0.0, 0.0, 10.0], color: BLUE},  //Z
     ];
 
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

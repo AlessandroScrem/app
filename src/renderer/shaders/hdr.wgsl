@@ -26,9 +26,11 @@ struct Globals {
     ibl_enable: u32,
     skybox_enable: u32,
     exposure: f32,
-    tonemap_filter: u32,
+    ibl_intensity: f32,
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
+    tonemap_filter: u32,
+    debug: u32,
 };
 
 /// Fragment shader

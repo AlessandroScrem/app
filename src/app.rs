@@ -195,7 +195,7 @@ impl App {
 
         self.create_gui();
 
-        info!("App loader took {} ms", timer.elapsed().as_millis());
+        debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
     pub fn create_and_center_window(
@@ -225,24 +225,26 @@ impl App {
         }
     }
 
-    pub fn render(&mut self) {
-        if self.is_minimized {
-            return;
-        }
-
+    pub fn update_scene(&mut self) {
+        // scheduler di update ecs (camera, mesh, etc)
         let window = match &mut self.window {
             Some(window) => window,
             None => return,
         };
 
-        // scheduler di update ecs (camera, mesh, etc)
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
-
+    
         if let Some(imgui) = &mut self.imgui {
             let mut scene_world = &mut self.current_scene.world;
             imgui.update_ui(window, &mut scene_world, &mut self.resources);
+        }
+    }
+
+    pub fn render(&mut self) {
+        if self.is_minimized {
+            return;
         }
 
         // scheduler di rendering (mesh, gui)

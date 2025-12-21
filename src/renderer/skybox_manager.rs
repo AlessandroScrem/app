@@ -1111,7 +1111,6 @@ mod tests {
     use crate::test_utils;
     use std::path::Path;
 
-    // const HDR_PATH =
     const FILEPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
 
     /// BRDFLut
@@ -1128,9 +1127,10 @@ mod tests {
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
         #[cfg(feature = "save_tests")]
-        {}
+        {
+            test_utils::save_texture(&device, &queue, "brdflut.png", &brdflut, 0).unwrap();
+        }
     }
 
     /// EquirectangularToCubemap
@@ -1152,9 +1152,10 @@ mod tests {
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
         // +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
-        test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
         #[cfg(feature = "save_tests")]
-        {}
+        {
+            test_utils::save_cubemap_cross(&device, &queue, "cubemap.png", &cubemap).unwrap();
+        }
     }
 
     /// PrefilterMap
@@ -1176,11 +1177,11 @@ mod tests {
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
         #[cfg(feature = "save_tests")]
-        {}
+        {
+            test_utils::save_cubemap_cross(&device, &queue, "prefilter.png", &prefilter).unwrap();
+        }
     }
-
 
     /// IrradianceCubemap
     #[test]
@@ -1201,9 +1202,10 @@ mod tests {
         assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
 
-        test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
         #[cfg(feature = "save_tests")]
-        {}
+        {
+            test_utils::save_cubemap_cross(&device, &queue, "Irradiance.png", &irradiance).unwrap();
+        }
     }
 
     /// Skybox

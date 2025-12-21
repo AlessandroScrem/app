@@ -34,7 +34,7 @@ fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
             dst[6..8].copy_from_slice(&f16::from_f32(src[3].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
         });
 
-    info!(
+    debug!(
         "Time for decoding HDR (stb_image, parallel): {:?}",
         timer.elapsed().as_millis()
     );
@@ -58,7 +58,7 @@ fn read_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 
     let raw_u8 = img.data;
 
-    info!(
+    debug!(
         "Time for Load LDR image (stb_image, parallel): {:?}",
         timer.elapsed().as_millis()
     );
