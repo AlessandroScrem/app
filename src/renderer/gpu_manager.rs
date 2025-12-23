@@ -20,7 +20,6 @@ pub enum LayoutKind {
     Skybox,
     Hdr,
     EntityId,
-    Equirect,
 }
 
 pub struct GPUResourceManager {
@@ -406,29 +405,6 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                         multisampled: false,
                         view_dimension: wgpu::TextureViewDimension::D2,
                         sample_type: wgpu::TextureSampleType::Uint,
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::Equirect => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Equirectangular_Texture_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // main
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
                     count: None,
                 },

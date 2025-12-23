@@ -12,7 +12,6 @@ use crate::{
     assets::texture_manager::TextureManager,
     renderer::{
         gpu_manager::{GPUResourceManager, LayoutKind},
-        pipeline_manager,
     },
 };
 use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
@@ -20,8 +19,14 @@ use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
 use crate::assets::texture;
 
 mod utils {
-    use crate::{math::*, renderer::uniform};
-    use wgpu::util::DeviceExt;
+    use crate::math::*;
+    use wgpu::{ShaderModule, util::DeviceExt};
+
+    #[repr(C, align(16))]
+    #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+    pub struct Camera {
+        pub view_proj: [[f32; 4]; 4],
+    }
 
     /// Calculate the size of a mip level based on the original size and the mip level index.
     /// # Arguments
@@ -69,7 +74,7 @@ mod utils {
     pub fn render_to_cubemap(
         encoder: &mut wgpu::CommandEncoder,
         pipeline: &wgpu::RenderPipeline,
-        prefilter_bind_group: &wgpu::BindGroup,
+        bind_group: &wgpu::BindGroup,
         frame_view: &wgpu::TextureView,
         capture_size: u32,
     ) {
@@ -93,7 +98,7 @@ mod utils {
         renderpass.set_viewport(0.0, 0.0, capture_size as f32, capture_size as f32, 0.0, 1.0);
 
         renderpass.set_pipeline(pipeline);
-        renderpass.set_bind_group(0, prefilter_bind_group, &[]);
+        renderpass.set_bind_group(0, bind_group, &[]);
         renderpass.draw(0..36, 0..1);
     }
 
@@ -133,7 +138,7 @@ mod utils {
     pub fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniform::CameraUniform::default()]),
+            contents: bytemuck::cast_slice(&[Camera::default()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         })
     }
@@ -152,10 +157,8 @@ mod utils {
     ) {
         let cam_proj = perspective(Deg(90.0), 1.0, 0.1, 10.0);
 
-        let updated_uniforms = uniform::CameraUniform {
-            view: cam_view.into(),
-            proj: cam_proj.into(),
-            ..Default::default()
+        let updated_uniforms = Camera {
+            view_proj: (cam_proj * cam_view).into(),
         };
 
         queue.write_buffer(
@@ -215,6 +218,43 @@ mod utils {
         });
         texture
     }
+
+    pub fn create_pipeline(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        shader: ShaderModule,
+        label: &str,
+    ) -> wgpu::RenderPipeline {
+        // let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefilter_map.wgsl"));
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some(label),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+
+            primitive: Default::default(),
+            multisample: Default::default(),
+            layout: None,
+            depth_stencil: None,
+            cache: None,
+            multiview: None,
+        });
+
+        pipeline
+    }
 }
 
 pub struct BRDFLUTBuilder {}
@@ -223,7 +263,8 @@ impl BRDFLUTBuilder {
     const TEXTURE_SIZE:u32 = 512;
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
-        let pipeline = Self::create_pipeline(device, format);
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/brdflut.wgsl"));
+        let pipeline = utils::create_pipeline(device, format, shader, "BRDFLUT Pipeline");
         let size = Self::TEXTURE_SIZE;
         let mip_level_count = 1;
         let depth_or_array_layers = 1;
@@ -272,35 +313,6 @@ impl BRDFLUTBuilder {
         renderpass.set_pipeline(pipeline);
         renderpass.draw(0..6, 0..1);
     }
-
-    fn create_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("BRDFLUT Pipeline Layout"),
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/brdflut.wgsl"));
-        let buffer_desc = &[];
-
-        let pipeline_desc = pipeline_manager::PipelineDesc {
-            depth_stencil: None,
-            blend: None,
-            ..Default::default()
-        };
-
-        let pipeline = pipeline_desc.build_pipeline(
-            "BRDFLUT Pipeline",
-            &device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffer_desc,
-        );
-
-        pipeline
-    }
 }
 
 struct PrefilerMapResources {
@@ -316,12 +328,15 @@ impl PrefilerMapResources {
         hdr_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
     ) -> Self {
-        let layout = Self::create_bind_group_layout(device);
+
         let camera_buffer = utils::create_camera_buffer(device);
         let roughness_buffer = Self::create_roughness_buffer(device);
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefilter_map.wgsl"));
+        let pipeline = utils::create_pipeline(device, format, shader, "Prefilter Pipeline");
+
+        let layout = pipeline.get_bind_group_layout(0);
         let bind_group =
             Self::create_bind_group(device, hdr_view, &camera_buffer, &roughness_buffer, &layout);
-        let pipeline = Self::create_pipeline(device, &layout, format);
 
         Self {
             pipeline,
@@ -331,91 +346,11 @@ impl PrefilerMapResources {
         }
     }
 
-    fn create_pipeline(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::RenderPipeline {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[layout],
-                push_constant_ranges: &[],
-            });
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefilter_map.wgsl"));
-        let buffer_desc = &[];
-
-        let pipeline_desc = pipeline_manager::PipelineDesc {
-            depth_stencil: None,
-            ..Default::default()
-        };
-
-        let pipeline = pipeline_desc.build_pipeline(
-            "Prefilter Pipeline",
-            &device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffer_desc,
-        );
-
-        pipeline
-    }
-
     fn create_roughness_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Roughness Uniform Buffer"),
             contents: bytemuck::cast_slice(&[f32::default()]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        })
-    }
-
-    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Prefiler_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // cube view
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::Cube,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                // camera uniform
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // roughness uniform
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
         })
     }
 
@@ -514,86 +449,18 @@ impl EquirectResources {
         hdr_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
     ) -> Self {
-        let layout = Self::create_bind_group_layout(device);
         let camera_buffer = utils::create_camera_buffer(device);
+        let shader = device.create_shader_module(wgpu::include_wgsl!(
+            "shaders/equirectangular_to_cubemap.wgsl"));
+        let pipeline = utils::create_pipeline(device, format, shader, "Equirect Pipeline");
+        let layout =  pipeline.get_bind_group_layout(0);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
-        let pipeline = Self::create_pipeline(device, &layout, format);
 
         Self {
             pipeline,
             bind_group,
             camera_buffer,
         }
-    }
-
-    fn create_pipeline(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::RenderPipeline {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[layout],
-                push_constant_ranges: &[],
-            });
-
-        let shader = device.create_shader_module(wgpu::include_wgsl!(
-            "shaders/equirectangular_to_cubemap.wgsl"
-        ));
-        let buffer_desc = &[];
-
-        let pipeline_desc = pipeline_manager::PipelineDesc {
-            depth_stencil: None,
-            ..Default::default()
-        };
-
-        let pipeline = pipeline_desc.build_pipeline(
-            "Equirect Pipeline",
-            &device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffer_desc,
-        );
-
-        pipeline
-    }
-
-    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Equirectangular_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // main
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        })
     }
 
     fn create_bind_group(
@@ -680,86 +547,18 @@ impl IrradianceResources {
         hdr_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
     ) -> Self {
-        let layout = Self::create_bind_group_layout(device);
         let camera_buffer = utils::create_camera_buffer(device);
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("shaders/irradiance_convolution.wgsl"));
+        let pipeline = utils::create_pipeline(device, format, shader, "Irradiance Pipeline");
+        let layout = pipeline.get_bind_group_layout(0);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
-        let pipeline = Self::create_pipeline(device, &layout, format);
 
         Self {
             pipeline,
             bind_group,
             camera_buffer,
         }
-    }
-
-    fn create_pipeline(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        format: wgpu::TextureFormat,
-    ) -> wgpu::RenderPipeline {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[layout],
-                push_constant_ranges: &[],
-            });
-
-        let shader =
-            device.create_shader_module(wgpu::include_wgsl!("shaders/irradiance_convolution.wgsl"));
-        let buffer_desc = &[];
-
-        let pipeline_desc = pipeline_manager::PipelineDesc {
-            depth_stencil: None,
-            ..Default::default()
-        };
-
-        let pipeline = pipeline_desc.build_pipeline(
-            "Irradiance Pipeline",
-            &device,
-            render_pipeline_layout,
-            format,
-            shader,
-            buffer_desc,
-        );
-
-        pipeline
-    }
-
-    fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Irradiance_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // cube view
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::Cube,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                // camera uniform
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        })
     }
 
     fn create_bind_group(
