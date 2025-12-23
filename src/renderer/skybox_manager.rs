@@ -220,10 +220,11 @@ mod utils {
 pub struct BRDFLUTBuilder {}
 
 impl BRDFLUTBuilder {
+    const TEXTURE_SIZE:u32 = 512;
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
         let pipeline = Self::create_pipeline(device, format);
-        let size = 512;
+        let size = Self::TEXTURE_SIZE;
         let mip_level_count = 1;
         let depth_or_array_layers = 1;
 
@@ -463,13 +464,14 @@ impl PrefilerMapResources {
 pub struct PrefilterMap {}
 
 impl PrefilterMap {
+    const TEXTURE_SIZE: u32 = 128;
+    const MIP_LEVELS: u32 = 5; // cap to 5 mip levels
+
     fn build(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cube_texture: &wgpu::Texture,
     ) -> wgpu::Texture {
-        const TARGET_SIZE: u32 = 128;
-        let mip_level_count = 5; // cap to 5 mip levels
         let format = wgpu::TextureFormat::Rgba16Float;
 
         let cube_texture_view = cube_texture.create_view(&TextureViewDescriptor {
@@ -481,8 +483,8 @@ impl PrefilterMap {
         let target_texture = utils::create_cube_texture(
             device,
             "Prefilter_map",
-            TARGET_SIZE,
-            mip_level_count,
+            Self::TEXTURE_SIZE,
+            Self::MIP_LEVELS,
             format,
         );
 
@@ -491,8 +493,8 @@ impl PrefilterMap {
             queue,
             &cube_texture_view,
             &target_texture,
-            TARGET_SIZE,
-            mip_level_count,
+            Self::TEXTURE_SIZE,
+            Self::MIP_LEVELS,
             format,
         );
 
@@ -800,12 +802,13 @@ impl IrradianceResources {
 pub struct IrrarianceMap {}
 
 impl IrrarianceMap {
+    const TEXTURE_SIZE: u32 = 32;
+
     pub fn build(
         cube_texture: &wgpu::Texture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> wgpu::Texture {
-        let cube_size: u32 = 32;
         let dest_format = wgpu::TextureFormat::Rgba16Float;
         let mip_level_count = 1;
 
@@ -818,7 +821,7 @@ impl IrrarianceMap {
         let target_texture = utils::create_cube_texture(
             &device,
             "Irradiance_Cube",
-            cube_size,
+            Self::TEXTURE_SIZE,
             mip_level_count,
             dest_format,
         );
@@ -828,7 +831,7 @@ impl IrrarianceMap {
             queue,
             &cube_texture_view,
             &target_texture,
-            cube_size,
+            Self::TEXTURE_SIZE,
             mip_level_count,
             dest_format,
         );
@@ -982,7 +985,6 @@ impl SkyboxManager {
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/clarens_night_02_2k_16bit.hdr"));
         #[rustfmt::skip] let hdr_path = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/core/newport_loft.hdr"));
         // Create skybox
         let skybox = Self::create_skybox(
@@ -1109,9 +1111,9 @@ mod tests {
     use super::*;
     use crate::assets::texture_manager::TextureManager;
     use crate::test_utils;
-    use std::path::Path;
 
-    const FILEPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+    const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+    const CUBEMAP_SIZE:u32 = 512;
 
     /// BRDFLut
     #[test]
@@ -1121,8 +1123,8 @@ mod tests {
         let brdflut = BRDFLUTBuilder::build(device, queue);
 
         assert_eq!(brdflut.format(), wgpu::TextureFormat::Rg16Float);
-        assert_eq!(brdflut.width(), 512);
-        assert_eq!(brdflut.height(), 512);
+        assert_eq!(brdflut.width(), BRDFLUTBuilder::TEXTURE_SIZE);
+        assert_eq!(brdflut.height(), BRDFLUTBuilder::TEXTURE_SIZE);
         assert_eq!(brdflut.mip_level_count(), 1); // <- only 1 mip level
         assert_eq!(brdflut.depth_or_array_layers(), 1); // <- 2D texture
         assert_eq!(brdflut.dimension(), wgpu::TextureDimension::D2);
@@ -1139,15 +1141,14 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let hdr_path = std::path::Path::new(FILEPATH);
-        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture = texture_manager.get_or_create(HDR_PATH, wgpu::TextureFormat::Rgba16Float);
 
-        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(cubemap.height(), 512);
-        assert_eq!(cubemap.width(), 512);
-        assert_eq!(cubemap.mip_level_count(), 10); // <- log2(512) + 1
+        assert_eq!(cubemap.height(), CUBEMAP_SIZE);
+        assert_eq!(cubemap.width(), CUBEMAP_SIZE);
+        assert_eq!(cubemap.mip_level_count(), utils::mip_levels(CUBEMAP_SIZE)); 
         assert_eq!(cubemap.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(cubemap.dimension(), wgpu::TextureDimension::D2);
 
@@ -1164,16 +1165,16 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let hdr_path = std::path::Path::new(FILEPATH);
+        let hdr_path = std::path::Path::new(HDR_PATH);
         let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
-        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
 
         assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(prefilter.height(), 128);
-        assert_eq!(prefilter.width(), 128);
-        assert_eq!(prefilter.mip_level_count(), 5); // cup to 5 mip levels 
+        assert_eq!(prefilter.height(), PrefilterMap::TEXTURE_SIZE);
+        assert_eq!(prefilter.width(), PrefilterMap::TEXTURE_SIZE);
+        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS); // cup to 5 mip levels 
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
@@ -1189,15 +1190,15 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let hdr_path = std::path::Path::new(FILEPATH);
+        let hdr_path = std::path::Path::new(HDR_PATH);
         let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
-        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, 512);
+        let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
 
         assert_eq!(irradiance.format(), wgpu::TextureFormat::Rgba16Float);
-        assert_eq!(irradiance.width(), 32);
-        assert_eq!(irradiance.height(), 32);
+        assert_eq!(irradiance.width(), IrrarianceMap::TEXTURE_SIZE);
+        assert_eq!(irradiance.height(), IrrarianceMap::TEXTURE_SIZE);
         assert_eq!(irradiance.mip_level_count(), 1); // <- only 1 mip level
         assert_eq!(irradiance.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(irradiance.dimension(), wgpu::TextureDimension::D2);
@@ -1212,40 +1213,10 @@ mod tests {
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_resource_manager = GPUResourceManager::new(&device);
+        let gpu_manager = GPUResourceManager::new(&device);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let _manager =
-            SkyboxManager::new(&device, &queue, &gpu_resource_manager, &mut texture_manager);
-    }
-
-    #[test]
-    fn should_create_skybox_from_6_images() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/right.png"));
-        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/left.png"));
-        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/top.png"));
-        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/bottom.png"));
-        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/front.png"));
-        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/back.png"));
-
-        let _cube = texture_manager.create_cubemap(
-            f0,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            wgpu::TextureFormat::Rgba8UnormSrgb,
-        );
-
-        #[cfg(feature = "save_tests")]
-        {
-            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &_cube.inner)
-                .unwrap();
-        }
+        let _manager = SkyboxManager::new(&device, &queue, &gpu_manager, &mut texture_manager);
     }
 
     /// Utils

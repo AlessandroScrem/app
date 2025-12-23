@@ -35,23 +35,17 @@ impl TextureManager {
         }
     }
 
-
-    pub fn create_cubemap(
+    pub fn create_cubemap<P: AsRef<Path>>(
         &mut self,
-        f0: &Path,
-        f1: &Path,
-        f2: &Path,
-        f3: &Path,
-        f4: &Path,
-        f5: &Path,
+        path: [P; 6],
         format: TextureFormat,
     ) -> Arc<CubeTexture> {
-        let buffer0 = Self::read_bytes(f0).unwrap();
-        let buffer1 = Self::read_bytes(f1).unwrap();
-        let buffer2 = Self::read_bytes(f2).unwrap();
-        let buffer3 = Self::read_bytes(f3).unwrap();
-        let buffer4 = Self::read_bytes(f4).unwrap();
-        let buffer5 = Self::read_bytes(f5).unwrap();
+        let buffer0 = Self::read_bytes(path[0].as_ref()).unwrap();
+        let buffer1 = Self::read_bytes(path[1].as_ref()).unwrap();
+        let buffer2 = Self::read_bytes(path[2].as_ref()).unwrap();
+        let buffer3 = Self::read_bytes(path[3].as_ref()).unwrap();
+        let buffer4 = Self::read_bytes(path[4].as_ref()).unwrap();
+        let buffer5 = Self::read_bytes(path[5].as_ref()).unwrap();
 
         // Slice di slice
         let buffers: [&[u8]; 6] = [&buffer0, &buffer1, &buffer2, &buffer3, &buffer4, &buffer5];
@@ -60,21 +54,21 @@ impl TextureManager {
         Arc::new(cubemap)
     }
 
-    pub fn get_or_create(&mut self, filepath: &Path, format: TextureFormat) -> Arc<Texture> {
-        let texture = match self.textures.get(filepath) {
+    pub fn get_or_create<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
+        let texture = match self.textures.get(filepath.as_ref()) {
             Some(texture) => texture.clone(),
-            None => self.create_texture(filepath, format),
+            None => self.create_texture(filepath.as_ref(), format),
         };
         texture
     }
 
     // Aggiunge una texture
-    fn create_texture(&mut self, filepath: &Path, format: TextureFormat) -> Arc<Texture> {
-        match Self::read_bytes(filepath) {
+    fn create_texture<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
+        match Self::read_bytes(filepath.as_ref()) {
             Some(buffer) => {
                 let texture = Arc::new(Texture::new(&self.device, &self.queue, &buffer, format));
                 self.textures
-                    .insert(filepath.to_path_buf(), texture.clone());
+                    .insert(filepath.as_ref().to_path_buf(), texture.clone());
 
                 texture
             }
@@ -85,10 +79,9 @@ impl TextureManager {
     // Rimuove una texture e notifica
     // TODO: add texture removal
     #[allow(dead_code)]
-    fn remove_texture(&mut self) {
-    }
+    fn remove_texture(&mut self) {}
 
-    fn read_bytes(filepath: &Path) -> Option<Vec<u8>> {
+    fn read_bytes<P: AsRef<Path>>(filepath: P) -> Option<Vec<u8>> {
         match std::fs::read(filepath) {
             Ok(buffer) => {
                 // println!("read filepath {} ", filepath.display());
@@ -108,9 +101,9 @@ impl TextureManager {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::test_utils;
+    const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
 
     fn create_manager() -> TextureManager {
         let (device, queue) = test_utils::get_device_and_queue();
@@ -128,25 +121,32 @@ mod tests {
     fn should_load_cube_texture() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/right.png"));
-        #[rustfmt::skip] let f1 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/left.png"));
-        #[rustfmt::skip] let f2 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/top.png"));
-        #[rustfmt::skip] let f3 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/bottom.png"));
-        #[rustfmt::skip] let f4 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/front.png"));
-        #[rustfmt::skip] let f5 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/back.png"));
+        let images = [
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/right.png"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/left.png"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/top.png"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/bottom.png"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/front.png"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/back.png"),
+        ];
 
-        let cube = manager.create_cubemap(f0, f1, f2, f3, f4, f5, TextureFormat::Rgba8UnormSrgb);
+        let cube = manager.create_cubemap(images, TextureFormat::Rgba8UnormSrgb);
 
         assert_eq!(cube.extent.depth_or_array_layers, 6);
+
+        #[cfg(feature = "save_tests")]
+        {
+            let (device, queue) = test_utils::get_device_and_queue();
+            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &cube.inner)
+                .unwrap();
+        }
     }
 
     #[test]
     fn should_load_hdr_texture_rgba32float() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-
-        let hdr = manager.get_or_create(f0, TextureFormat::Rgba32Float);
+        let hdr = manager.get_or_create(HDR_PATH, TextureFormat::Rgba32Float);
 
         assert_eq!(hdr.inner.format(), TextureFormat::Rgba32Float);
     }
@@ -156,9 +156,7 @@ mod tests {
     fn should_load_hdr_texture_rgba16float() {
         let mut manager = create_manager();
 
-        #[rustfmt::skip] let f0 = Path::new(concat!(env!("CARGO_MANIFEST_DIR"),"/assets/test/clarens_night_02_256.hdr"));
-
-        let hdr = manager.get_or_create(f0, TextureFormat::Rgba16Float);
+        let hdr = manager.get_or_create(HDR_PATH, TextureFormat::Rgba16Float);
 
         assert_eq!(hdr.inner.format(), TextureFormat::Rgba16Float);
         assert!(hdr.inner.width() > 0);
