@@ -253,7 +253,7 @@ fn get_metallic(uv: vec2<f32>) ->f32 {
 }
 
 fn get_roughness(uv: vec2<f32>) ->f32 {
-    var roughness = material.metallic_factor;
+    var roughness = material.roughness_factor;
     if material.use_metal_roughness_texture == True {
         roughness *= textureSample(orm_map, tex_sampler, uv).g;
     }
