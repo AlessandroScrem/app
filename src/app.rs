@@ -97,11 +97,8 @@ impl Timer {
             let steps = elapsed.as_nanos() / interval.as_nanos();
             self.last_trigger += interval * steps as u32;
 
-            // Esegui la callback una volta per ogni intervallo passato
-            for step in 0..steps {
-                trace!("triggerd: step: {} at: {:?}", step, self.clock.elapsed());
-                callback();
-            }
+            // Esegui la callback
+            callback();
         }
     }
 }

@@ -102,10 +102,14 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
             "Exponential",
         ];
 
-        const DEBUG_CODE: [&str; 7] = [
+        const DEBUG_CODE: [&str; 11] = [
             "None",
             "Base Color",
-            "Normal",
+            "Normal Texture",
+            "Geometry Normal",
+            "Geometry Tangent",
+            "Geometry Bitangent",
+            "Geometry Tangent W",
             "Metallic",
             "Roughness",
             "Occlusion",

@@ -50,10 +50,10 @@ struct Material {
 }
 
 struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) color: vec3<f32>,
-    @location(3) uv: vec2<f32>,
+    @location(0) position : vec3<f32>,
+    @location(1) normal   : vec3<f32>,
+    @location(2) tangent  : vec4<f32>, // xyz = T, w = sign
+    @location(3) uv       : vec2<f32>,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -61,26 +61,27 @@ struct VertexInput {
 @group(2) @binding(0) var<uniform> model: Model;
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) world_pos: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) color: vec3<f32>,
-    @location(3) uv: vec2<f32>,
+    @builtin(position) clip_position : vec4<f32>,
+    @location(0) world_pos           : vec3<f32>,
+    @location(1) normal              : vec3<f32>,
+    @location(2) tangent             : vec4<f32>, // xyz = T, w = sign
+    @location(3) uv                  : vec2<f32>,
 };
 
 @vertex
 fn vs_main(
-    vertex: VertexInput,
+    in: VertexInput,
 ) -> VertexOutput {
 
     var out: VertexOutput;
-    let world_position = model.model * vec4<f32>(vertex.position, 1.0);
+    let world_position = model.model * vec4<f32>(in.position, 1.0);
 
     out.clip_position = camera.proj * camera.view * world_position;
     out.world_pos = world_position.xyz;
-    out.normal = normalize(model.normal_matrix * vertex.normal);
-    out.uv =  vertex.uv;
-    out.color = vertex.color;
+
+    out.tangent = vec4(normalize(model.normal_matrix * in.tangent.xyz), in.tangent.w);
+    out.normal  = normalize(model.normal_matrix * in.normal);
+    out.uv =  in.uv;
 
     return out;
 }
@@ -91,13 +92,17 @@ const NUM_LIGHTS: u32 = 1;
 const True:u32 = 1;
 const False:u32 = 0;
 
-const DebugNone: u32 = 0; 
-const DebugBaseColor: u32 = 1; 
-const DebugNormal: u32 = 2; 
-const DebugMetallic: u32 = 3; 
-const DebugRoughness: u32 = 4; 
-const DebugOcclusion: u32 = 5; 
-const DebugEmissive: u32 = 6; 
+const DebugNone              : u32 = 0; 
+const DebugBaseColor         : u32 = 1; 
+const DebugNormalTexture     : u32 = 2; 
+const DebugGeometryNormal    : u32 = 3; 
+const DebugGeometryTangent   : u32 = 4; 
+const DebugGeometryBitangent : u32 = 5; 
+const DebugGeometryTangentW  : u32 = 6; 
+const DebugMetallic          : u32 = 7; 
+const DebugRoughness         : u32 = 8; 
+const DebugOcclusion         : u32 = 9; 
+const DebugEmissive          : u32 = 10; 
 
 
 @group(1) @binding(0) var tex_sampler: sampler;
@@ -273,29 +278,53 @@ fn get_emissive(uv: vec2<f32>) ->vec3<f32> {
     return emissive;
 }
 
+fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
+    var normal_ts = vec3<f32>(0.0);
+    if material.use_normal_texture == True {
+        normal_ts = textureSample(normal_map, tex_sampler, uv).rgb;
+        normal_ts =  normal_ts * 2.0 - 1.0;            // map to [-1, 1.0]
+        normal_ts *= material.normal_scale;
+    }
+    return normal_ts;
+}
+
 @fragment
-fn fs_main(input: VertexOutput) -> FSOutput {
+fn fs_main(in: VertexOutput) -> FSOutput {
     var out: FSOutput;
-    let albedo_color = get_color(input.uv);
-    let metallic = get_metallic(input.uv);
-    let roughness = get_roughness(input.uv);
-    let emissive = get_emissive(input.uv);
-    let ao = get_occlusion(input.uv);
+    let albedo_color = get_color(in.uv);
+    let normal_texture = get_normal_texture(in.uv);
+    let metallic = get_metallic(in.uv);
+    let roughness = get_roughness(in.uv);
+    let emissive = get_emissive(in.uv);
+    let ao = get_occlusion(in.uv);
 
-    let N = normalize(input.normal);
-    let V = normalize(camera.view_pos - input.world_pos);
+    let N = normalize(in.normal);
+    let T = normalize(in.tangent.xyz);
+    let B = in.tangent.w * normalize(cross(N, T));
 
-    let lo = CalculateLight(N, V, albedo_color, metallic, roughness, input.world_pos);
-    let ambient = CalculateAmbient(N, V, albedo_color, metallic, roughness) * ao;
+    var Nws = N;
+    if material.use_normal_texture == True {
+        let TBN = mat3x3<f32>(T, B, N);
+        Nws = normalize(TBN * normal_texture);
+    }
+
+    let V = normalize(camera.view_pos - in.world_pos);
+
+    let lo = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
+    let ambient = CalculateAmbient(Nws, V, albedo_color, metallic, roughness) * ao;
     
     var color = lo + ambient + emissive; 
     switch globals.debug {
-        case DebugBaseColor: { color = albedo_color; }
-        case DebugNormal: {color = (N + 1.0) / 2.0;}
-        case DebugRoughness {color = vec3(roughness);}
-        case DebugMetallic: {color = vec3(metallic);}
-        case DebugOcclusion: {color = vec3(ao);}
-        case DebugEmissive: { color = emissive;}
+        case DebugBaseColor         : { color = albedo_color; }
+        case DebugNormalTexture     : { color = (normal_texture + 1.0) / 2.0;}
+        case DebugGeometryNormal    : { color = (N + 1.0) / 2.0;}
+        case DebugGeometryTangent   : { color = (T + 1.0) / 2.0;}
+        case DebugGeometryBitangent : { color = (B + 1.0) / 2.0;}
+        case DebugGeometryTangentW  : { color = vec3(in.tangent.w + 1.0) / 2.0;}
+        case DebugRoughness         : { color = vec3(roughness);}
+        case DebugMetallic          : { color = vec3(metallic);}
+        case DebugOcclusion         : { color = vec3(ao);}
+        case DebugEmissive          : { color = emissive;}
         default: {;} 
     }
     
@@ -307,7 +336,7 @@ fn fs_main(input: VertexOutput) -> FSOutput {
 
     // debug normal
     // color = -N * 0.5 + 0.5;
-    // return vec4<f32>(normalize(input.normal) * 0.5 + 0.5, 1.0);
+    // return vec4<f32>(normalize(in.normal) * 0.5 + 0.5, 1.0);
 
     // debug vettore vista
     // return vec4<f32>((V*0.5+0.5),1.0);

@@ -16,6 +16,67 @@ use crate::{
     renderer::gpu_manager::{GPUResourceManager, LayoutKind},
 };
 
+
+pub fn generate_mikktspace_tangents(
+    vertices: &mut [MeshVertexData],
+    indices: &[u32],
+) {
+    use mikktspace::{generate_tangents, Geometry};
+
+    struct Mikkt<'a> {
+        vertices: &'a mut [MeshVertexData],
+        indices:  &'a [u32],
+    }
+
+    impl Geometry for Mikkt<'_> {
+        fn num_faces(&self) -> usize {
+            self.indices.len() / 3
+        }
+
+        fn num_vertices_of_face(&self, _: usize) -> usize {
+            3
+        }
+
+        fn position(&self, face: usize, vert: usize) -> [f32; 3] {
+            self.vertices[self.indices[face * 3 + vert] as usize].position
+        }
+
+        fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
+            self.vertices[self.indices[face * 3 + vert] as usize].normal
+        }
+
+        fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
+            self.vertices[self.indices[face * 3 + vert] as usize].uv
+        }
+
+        fn set_tangent(
+            &mut self,
+            tangent: [f32; 3],
+            _bitangent: [f32; 3],
+            _f_mag_s: f32,
+            _f_mag_t: f32,
+            b_is_orientation_preserving: bool,
+            face: usize,
+            vert: usize,
+        ) {
+            let sign = if b_is_orientation_preserving { 1.0 } else { -1.0 };
+            let idx = self.indices[face * 3 + vert] as usize;
+
+            self.vertices[idx].tangent = [
+                tangent[0],
+                tangent[1],
+                tangent[2],
+                sign,
+            ];
+        }
+    }
+
+    let mut geom = Mikkt { vertices, indices };
+    generate_tangents(&mut geom);
+}
+
+
+
 fn quat_to_euler_rad_array(q: Quat) -> [f32; 3] {
     let euler: Euler<Rad<f32>> = q.into();
     [euler.x.0, euler.y.0, euler.z.0]
@@ -93,8 +154,8 @@ impl SubMesh {
                 MeshVertexData {
                     position,
                     normal: [0.0, 1.0, 0.0],
-                    color: [0.5, 0.5, 0.5],
                     uv: [0.0, 0.0],
+                    tangent: [0.0, 0.0, 0.0, 0.0],
                 }
             })
             .collect();
@@ -103,12 +164,24 @@ impl SubMesh {
             normals.enumerate().for_each(|(i, normal)| {
                 vertices[i].normal = normal;
             });
+        } else {
+            warn!("Missing Texture Normal");
         }
 
         if let Some(uvs) = reader.read_tex_coords(0) {
             uvs.into_f32().enumerate().for_each(|(i, uv)| {
                 vertices[i].uv = uv;
             });
+        } else {
+            warn!("Missing UV Coords");
+        }
+
+        if let Some(tangent) = reader.read_tangents() {
+            tangent.enumerate().for_each(|(i, t)| {
+                vertices[i].tangent = t;
+            });
+        } else {
+             generate_mikktspace_tangents(&mut vertices, &indices);
         }
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -230,15 +303,9 @@ impl Mesh {
             label: Some("Model Bind Group"),
         });
 
-        info!(
-            "Loading mesh: {}",
-            path.display()
-        );
+        info!("Loading mesh: {}", path.display());
 
-        debug!(
-            "-- took {} ms",
-            timer.elapsed().as_millis()
-        );
+        debug!("-- took {} ms", timer.elapsed().as_millis());
 
         Mesh {
             name,
@@ -258,7 +325,7 @@ pub fn load_gltf(
     gpu_resource_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
-) ->Option<Entity>{
+) -> Option<Entity> {
     let timer = std::time::Instant::now();
 
     if path.extension().unwrap_or_default() != "gltf" {
@@ -321,16 +388,14 @@ pub fn load_gltf(
     if let Some(e) = node_entity_map.get(&0) {
         debug!("Entity for node 0: {:?}", e);
     }
-    
+
     debug!("Gltf import is {} ms", timer.elapsed().as_millis());
     info!("Root entities: {:?}", root_entities);
-    
 
     if let Some(root) = root_entities.first() {
         info!("First root entity: {:?}", root);
         Some(root.clone())
-    }
-     else {
+    } else {
         None
     }
 }
@@ -467,8 +532,8 @@ mod tests {
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-        let mut material_manager = MaterialManager::new(device.clone(), gpu_manager.clone(), &mut texture_manager);
-
+        let mut material_manager =
+            MaterialManager::new(device.clone(), gpu_manager.clone(), &mut texture_manager);
 
         let mut world = legion::World::default();
 

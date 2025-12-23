@@ -2,9 +2,6 @@ use app_wgpu::prelude::App;
 
 use clap::crate_version;
 use clap::{AppSettings, Arg};
-// use simplelog::{
-//     ColorChoice, ConfigBuilder as LogConfigBuilder, LevelFilter, TermLogger, TerminalMode,
-// };
 
 use log::LevelFilter;
 use std::env;
@@ -66,12 +63,12 @@ fn init_logger(verbose_count: u64) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = clap::App::new("gltf-viewer")
+    let args = clap::App::new("App WGPU")
         .version(option_env!("VERSION").unwrap_or(crate_version!()))
         .setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::DeriveDisplayOrder)
         .before_help("Wgpu App viewer\n\nNavigate with the mouse (left/right click + drag, mouse wheel)")
-        .arg(Arg::with_name("FILE") // TODO!: re-add URL when fixed...
+        .arg(Arg::with_name("FILE")
             .required(false)
             .takes_value(true)
             .help("glTF file name"))
@@ -100,24 +97,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let height: u32 = args.value_of("HEIGHT").unwrap().parse().unwrap();
 
     init_logger(args.occurrences_of("verbose"));
-
-    // let log_level = match args.occurrences_of("verbose") {
-    //     0 => LevelFilter::Warn,
-    //     1 => LevelFilter::Info,
-    //     2 => LevelFilter::Debug,
-    //     _ => LevelFilter::Trace,
-    // };
-
-    // let _ = TermLogger::init(
-    //     log_level,
-    //     LogConfigBuilder::new()
-    //         .set_time_level(LevelFilter::Off)
-    //         .set_target_level(LevelFilter::Warn)
-    //         .set_thread_level(LevelFilter::Off)
-    //         .build(),
-    //     TerminalMode::Stdout,
-    //     ColorChoice::Auto,
-    // );
 
     App::new_with_size(width, height).run()
 }

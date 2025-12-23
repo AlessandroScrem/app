@@ -58,8 +58,7 @@ impl ApplicationHandler for App {
         };
 
         // update timer and input
-        self.timer.tick_step_iter().for_each(|dt| {
-            trace!("dt: {dt}");
+        self.timer.tick_step_iter().for_each(|_dt| {
             self.resources.get_mut::<Input>().unwrap().clear();
         });
 
