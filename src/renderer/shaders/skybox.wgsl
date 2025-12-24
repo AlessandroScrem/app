@@ -18,8 +18,11 @@ struct Globals {
     debug: u32,
 };
 
+// PerFrame
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<uniform> globals: Globals;
+
+// Skybox
 @group(1) @binding(0) var tex_sampler: sampler;
 @group(1) @binding(1) var env_map: texture_cube<f32>;
 

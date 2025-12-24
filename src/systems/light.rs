@@ -50,9 +50,8 @@ pub fn render_light(
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.camera_bind_group, &[]);
-    renderpass.set_bind_group(1, &light_manager.light_uniform_bind_group, &[]);
-    renderpass.set_bind_group(2, &light_manager.light_texture_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
+    renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
 
     let mut query = <&LightComponent>::query();
     for _light in query.iter(world) {
@@ -65,11 +64,11 @@ pub fn render_light(
 pub fn update_light_uniform_to_gpu(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
-    #[resource] light_manager: &LightManager,
+    #[resource] gpu_manager: &Arc<GPUResourceManager>,
 ) {
     // println!("Light maybe_changed");
     queue.write_buffer(
-        &light_manager.light_uniform_buffer,
+        &gpu_manager.light_uniform_buffer,
         0,
         bytemuck::bytes_of(&light.data),
     );

@@ -20,7 +20,6 @@ impl Ibl {
         device: &wgpu::Device,
         gpu_resource_manager: &GPUResourceManager,
         skybox_manager: &skybox_manager::SkyboxManager,
-        light_manager: &light_manager::LightManager,
     ) -> Self {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -35,30 +34,22 @@ impl Ibl {
         let ibl_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Ibl Bind Group"),
             layout: &gpu_resource_manager
-                .get_layout(gpu_manager::LayoutKind::LightIbl),
+                .get_layout(gpu_manager::LayoutKind::Ibl),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &light_manager.light_uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 2,
+                    binding: 1,
                     resource: wgpu::BindingResource::TextureView(skybox_manager.get_irradiance()),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 3,
+                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(skybox_manager.get_prefilter()),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 4,
+                    binding: 3,
                     resource: wgpu::BindingResource::TextureView(skybox_manager.get_brdf_lut()),
                 },
             ],
@@ -183,7 +174,6 @@ impl Renderer {
             &device,
             &gpu_resource_manager,
             &skybox_manager,
-            &light_manager,
         );
 
         let pickobject = PickObject::new(&device);

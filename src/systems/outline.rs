@@ -44,6 +44,6 @@ pub fn render_outline(
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &entity_id_texture.id_bind_group, &[]);
-    renderpass.set_bind_group(1, &gpu_resource_manager.globals_bind_group, &[]);
+    renderpass.set_bind_group(1, &gpu_resource_manager.per_frame_bind_group, &[]);
     renderpass.draw(0..3, 0..1);
 }

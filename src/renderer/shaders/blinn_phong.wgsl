@@ -38,7 +38,11 @@ struct VertexInput {
     @location(3) uv: vec2<f32>,
 };
 
+// PerFrame
 @group(0) @binding(0) var<uniform> camera: Camera;
+@group(0) @binding(2) var<uniform> light: Light;
+
+// Model
 @group(2) @binding(0) var<uniform> model: Model;
 
 struct VertexOutput {
@@ -105,13 +109,13 @@ fn debug_uv(uv: vec2<f32>) -> vec3<f32> {
     return vec3<f32>(uv * 0.5 + vec2<f32>(0.5), 0.0);
 }
 
+// Material
 @group(1) @binding(0) var tex_sampler: sampler;
 @group(1) @binding(1) var main_map: texture_2d<f32>;
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
 @group(1) @binding(3) var roughness_map: texture_2d<f32>;
 @group(1) @binding(4) var <uniform> material: Material;
 
-@group(3) @binding(0) var<uniform> light: Light;
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {

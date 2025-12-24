@@ -36,6 +36,6 @@ pub fn render_hdr_to_ldr(
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &hdr_frame.hdr_bind_group, &[]);
-    renderpass.set_bind_group(1, &gpu_resource_manager.globals_bind_group, &[]);
+    renderpass.set_bind_group(1, &gpu_resource_manager.per_frame_bind_group, &[]);
     renderpass.draw(0..3, 0..1);
 }

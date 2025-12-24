@@ -56,9 +56,11 @@ struct VertexInput {
     @location(3) uv       : vec2<f32>,
 };
 
-@group(0) @binding(0) var<uniform> camera: Camera;
-@group(0) @binding(1) var<uniform> globals: Globals;
-@group(2) @binding(0) var<uniform> model: Model;
+// PerFrame
+@group(0) @binding(0) var<uniform> camera  : Camera;
+@group(0) @binding(1) var<uniform> globals : Globals;
+@group(0) @binding(2) var<uniform> light   : Light;
+@group(2) @binding(0) var<uniform> model   : Model;
 
 struct VertexOutput {
     @builtin(position) clip_position : vec4<f32>,
@@ -104,7 +106,7 @@ const DebugRoughness         : u32 = 8;
 const DebugOcclusion         : u32 = 9; 
 const DebugEmissive          : u32 = 10; 
 
-
+// Material
 @group(1) @binding(0) var tex_sampler: sampler;
 @group(1) @binding(1) var albedo_map: texture_2d<f32>;
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
@@ -114,11 +116,11 @@ const DebugEmissive          : u32 = 10;
 @group(1) @binding(5) var occlusion_map: texture_2d<f32>; 
 @group(1) @binding(6) var <uniform> material: Material;
 
-@group(3) @binding(0) var<uniform> light: Light;
-@group(3) @binding(1) var ibl_sampler: sampler;
-@group(3) @binding(2) var irradiance_map: texture_cube<f32>;
-@group(3) @binding(3) var prefilter_map: texture_cube<f32>;
-@group(3) @binding(4) var brdf_lut_map: texture_2d<f32>;
+// Ibl 
+@group(3) @binding(0) var ibl_sampler: sampler;
+@group(3) @binding(1) var irradiance_map: texture_cube<f32>;
+@group(3) @binding(2) var prefilter_map: texture_cube<f32>;
+@group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 
 fn CalculateLight(
     N: vec3<f32>,

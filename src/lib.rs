@@ -93,34 +93,12 @@ impl Default for Globals {
     }
 }
 
-///shader: [pbr, blinnphong, light]
-#[repr(C, align(16))]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Light {
-    color: [f32; 3],
-    directional: u32,
-    position: [f32; 3],
-    cast_shadow: u32,
-    entity_id: u64,
-    pad2: [i32; 2],
-}
-impl Default for Light {
-    fn default() -> Self {
-        Self {
-            color: [1.0, 1.0, 1.0],
-            cast_shadow: 0,
-            directional: 1,
-            position: [0.0, 0.0, -1.0],
-            entity_id: 0,
-            pad2: [0, 0],
-        }
-    }
-}
+
 
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {
-    pub data: Light,
+    pub data: renderer::LightUniform,
 }
 
 pub struct MeshComponent {

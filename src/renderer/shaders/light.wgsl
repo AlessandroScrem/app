@@ -16,10 +16,13 @@ struct Light {
     entity_id_high: u32,
 }
 
+// PerFrame
 @group(0) @binding(0) var<uniform> camera: Camera;
-@group(1) @binding(0) var<uniform> light: Light;
-@group(2) @binding(0) var tex_sampler: sampler;
-@group(2) @binding(1) var main_map: texture_2d<f32>;
+@group(0) @binding(2) var<uniform> light: Light;
+
+// Light Texture
+@group(1) @binding(0) var tex_sampler: sampler;
+@group(1) @binding(1) var main_map: texture_2d<f32>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,

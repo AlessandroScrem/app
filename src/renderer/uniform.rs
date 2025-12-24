@@ -99,6 +99,30 @@ pub struct GlobalUniform {
     pub debug: u32,
 }
 
+///shader: [pbr, blinnphong, light]
+#[repr(C, align(16))]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct LightUniform {
+    pub color: [f32; 3],
+    pub directional: u32,
+    pub position: [f32; 3],
+    pub cast_shadow: u32,
+    pub entity_id: u64,
+    pub pad2: [i32; 2],
+}
+impl Default for LightUniform {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0],
+            cast_shadow: 0,
+            directional: 1,
+            position: [0.0, 0.0, -1.0],
+            entity_id: 0,
+            pad2: [0, 0],
+        }
+    }
+}
+
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

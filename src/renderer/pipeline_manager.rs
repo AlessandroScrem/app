@@ -203,10 +203,9 @@ fn create_pipeline(
     match kind {
         PipelineKind::BlinnPhong => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
                 gpu_resource_manager.get_layout(LayoutKind::Material), //1
                 gpu_resource_manager.get_layout(LayoutKind::Model),  //2
-                gpu_resource_manager.get_layout(LayoutKind::Light),  //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -262,10 +261,10 @@ fn create_pipeline(
         }
         PipelineKind::Pbr => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Globals), //0
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
                 gpu_resource_manager.get_layout(LayoutKind::Material), //1
                 gpu_resource_manager.get_layout(LayoutKind::Model),   //2
-                gpu_resource_manager.get_layout(LayoutKind::LightIbl), //3
+                gpu_resource_manager.get_layout(LayoutKind::Ibl), //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -303,7 +302,7 @@ fn create_pipeline(
         PipelineKind::Hdr => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
                 gpu_resource_manager.get_layout(LayoutKind::Hdr), //0
-                gpu_resource_manager.get_layout(LayoutKind::Globals), //1
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //1
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -330,9 +329,8 @@ fn create_pipeline(
         }
         PipelineKind::Light => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Camera), //0
-                gpu_resource_manager.get_layout(LayoutKind::Light),  //1
-                gpu_resource_manager.get_layout(LayoutKind::LightTexture), //2
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
+                gpu_resource_manager.get_layout(LayoutKind::LightTexture), //1
             ];
 
             let render_pipeline_layout =
@@ -358,7 +356,7 @@ fn create_pipeline(
         }
         PipelineKind::Skybox => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::Globals), //0
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
                 gpu_resource_manager.get_layout(LayoutKind::Skybox),  //1
             ];
 
@@ -396,7 +394,7 @@ fn create_pipeline(
         PipelineKind::Outline => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
                 gpu_resource_manager.get_layout(LayoutKind::EntityId),  //0
-                gpu_resource_manager.get_layout(LayoutKind::Globals), //1
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //1
             ];
 
             let render_pipeline_layout =
