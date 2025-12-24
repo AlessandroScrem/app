@@ -1,5 +1,5 @@
 use crate::{
-    BoundingBoxComponent, GlobalModelComponent, Globals,
+    BoundingBoxComponent, GlobalModelComponent, Globals, renderer::bbox_manager,
 };
 use legion::*;
 
@@ -8,14 +8,18 @@ use legion::*;
 pub fn update_bounding_box_to_gpu(
     global_model: &GlobalModelComponent,
     bbox_component: &mut BoundingBoxComponent,
+    entity: &Entity,
+    #[resource] device: &wgpu::Device,
     #[resource] queue: &wgpu::Queue,
     #[resource] globals: &Globals,
+    #[resource] bbox_manager: &mut bbox_manager::BBoxManager,
 ) {
 
-    bbox_component.global_bounding_box = bbox_component
-        .bounding_box
-        .transform_aabb(&global_model.mat);
-
+    // //FIXME: update bbox with globalmat
+    // bbox_component.global_bounding_box = bbox_component
+    //     .bounding_box
+    //     .transform_aabb(&global_model.mat);
+    
     let vertices = {
         if globals.bbox_axis_aligned {
             bbox_component.gen_aabb_vertices()
@@ -25,7 +29,7 @@ pub fn update_bounding_box_to_gpu(
     };
 
     queue.write_buffer(
-        &bbox_component.vertex_buffer,
+        &bbox_manager.get_or_create(device, *entity),
         0,
         bytemuck::cast_slice(&vertices.as_slice()),
     );

@@ -3,6 +3,7 @@ mod gpu_update;
 mod gpu_render;
 mod hierarchy;
 mod picking;
+mod bounding_box;
 mod registry_update;
 
 use legion::Schedule;
@@ -16,6 +17,7 @@ pub fn create_current_scene_schedule_builder() -> Schedule {
     .add_system(picking::picking_system())
     .add_system(hierarchy::update_hieararchy_system()) 
     .flush()
+    .add_system(bounding_box::update_bounding_box_system())
     .add_system(camera_update::recenter_camera_system())
     .build()
 }

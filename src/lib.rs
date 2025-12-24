@@ -93,8 +93,6 @@ impl Default for Globals {
     }
 }
 
-
-
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {
@@ -138,7 +136,6 @@ pub struct TagComponent {
 pub struct BoundingBoxComponent {
     pub global_bounding_box: BoundingBox,
     pub bounding_box: BoundingBox,
-    pub vertex_buffer: wgpu::Buffer,
 }
 
 #[derive(Clone)]

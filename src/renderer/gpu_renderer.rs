@@ -114,6 +114,8 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
+        let bbox_manager = bbox_manager::BBoxManager::new();
+
         info!("Surface config format is {:?}", surface_config.format);
 
         let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
@@ -131,6 +133,7 @@ impl Renderer {
         resources.insert(texture_manager);
         resources.insert(light_manager);
         resources.insert(skybox_manager);
+        resources.insert(bbox_manager);
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
         resources.insert(entity_id_texture);

@@ -356,8 +356,11 @@ pub fn load_gltf(
                 gpu_resource_manager,
                 device,
             );
-            let bounding_box = BoundingBoxComponent::new(device, (mesh.vmin, mesh.vmax).into());
-            (gltf_mesh.index(), (mesh, bounding_box))
+
+            let bounding_box = BoundingBox{min: mesh.vmin.into(), max: mesh.vmax.into() };
+
+            let bbox_comp = BoundingBoxComponent::new(bounding_box);
+            (gltf_mesh.index(), (mesh, bbox_comp))
         })
         .collect();
 

@@ -4,6 +4,12 @@ pub struct BoundingBox {
     pub max: [f32; 3],
 }
 
+impl Default for BoundingBox{
+    fn default() -> Self {
+        Self::new_empty()
+    }
+}
+
 impl BoundingBox {
     pub fn new_empty() -> Self {
         Self {
