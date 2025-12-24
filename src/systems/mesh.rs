@@ -2,9 +2,7 @@ use wgpu::IndexFormat;
 
 use crate::{
     GlobalModelComponent, MeshComponent, TransformComponent,
-    assets::{
-        material_manager::MaterialManager,
-    },
+    assets::material_manager::MaterialManager,
     entities::EntityRawU64,
     renderer::{
         gpu_manager::GPUResourceManager,
@@ -12,6 +10,7 @@ use crate::{
         hdr_frame::{HdrFrame, IDTexture},
         pipeline_manager::{PipelineKind, PipelineManager},
         uniform::{MaterialUniform, ModelUniform},
+        skybox_manager::SkyboxManager,
     },
 };
 
@@ -30,7 +29,7 @@ pub fn render_mesh(
     #[resource] depth_texture: &DepthTexture,
     #[resource] hdr_texture: &HdrFrame,
     #[resource] entity_id_texture: &IDTexture,
-    #[resource] ibl: &crate::renderer::gpu_renderer::Ibl,
+    #[resource] skybox_manager: &SkyboxManager,
 ) {
     let clear_color = wgpu::Color {
         r: 0.1,
@@ -75,7 +74,7 @@ pub fn render_mesh(
 
     renderpass.set_pipeline(render_pipeline);
     renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
-    renderpass.set_bind_group(3, &ibl.ibl_bind_group, &[]);
+    renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
     let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
     for (mesh, _) in mesh_query.iter(world) {

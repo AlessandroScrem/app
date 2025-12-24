@@ -4,64 +4,15 @@ use winit::window::Window;
 use crate::assets::material_manager;
 use crate::assets::texture_manager;
 use crate::picking::PickObject;
-use crate::renderer::*;
 use crate::prelude::*;
+use crate::renderer::*;
 
 pub struct Renderer {}
 
 pub struct DepthTexture(pub wgpu::TextureView);
 
-pub struct Ibl {
-    pub ibl_bind_group: wgpu::BindGroup,
-}
-
-impl Ibl {
-    pub fn new(
-        device: &wgpu::Device,
-        gpu_resource_manager: &GPUResourceManager,
-        skybox_manager: &skybox_manager::SkyboxManager,
-    ) -> Self {
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        let ibl_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Ibl Bind Group"),
-            layout: &gpu_resource_manager
-                .get_layout(gpu_manager::LayoutKind::Ibl),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_irradiance()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_prefilter()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(skybox_manager.get_brdf_lut()),
-                },
-            ],
-        });
-
-        Self { ibl_bind_group }
-    }
-}
-
 impl Renderer {
-
-    pub fn init(window: Arc<Window>, resources: &mut legion::Resources)  {
+    pub fn init(window: Arc<Window>, resources: &mut legion::Resources) {
         pollster::block_on(Self::init_async(window, resources));
     }
 
@@ -112,9 +63,7 @@ impl Renderer {
 
         debug!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let gpu_resource_manager = Arc::new(gpu_manager::GPUResourceManager::new(
-            &device,
-        ));
+        let gpu_resource_manager = Arc::new(gpu_manager::GPUResourceManager::new(&device));
         let pipeline_manager = pipeline_manager::PipelineManager::new(
             &device,
             &gpu_resource_manager,
@@ -125,10 +74,8 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
-        let mut texture_manager = texture_manager::TextureManager::new(
-            Arc::new(device.clone()),
-            Arc::new(queue.clone()),
-        );
+        let mut texture_manager =
+            texture_manager::TextureManager::new(Arc::new(device.clone()), Arc::new(queue.clone()));
         debug!(
             "Texture manager initialized in {} ms",
             timer.elapsed().as_millis()
@@ -137,13 +84,12 @@ impl Renderer {
         let material_manager = material_manager::MaterialManager::new(
             Arc::new(device.clone()),
             gpu_resource_manager.clone(),
-            &mut texture_manager
+            &mut texture_manager,
         );
         debug!(
             "Material manager initialized in {} ms",
             timer.elapsed().as_millis()
         );
-
 
         let light_manager = light_manager::LightManager::new(
             &gpu_resource_manager,
@@ -155,7 +101,9 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
+        let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
         let skybox_manager = skybox_manager::SkyboxManager::new(
+            hdrpath,
             &device,
             &queue,
             &gpu_resource_manager,
@@ -170,11 +118,6 @@ impl Renderer {
 
         let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
         let entity_id_texture = IDTexture::new(&device, &gpu_resource_manager, size);
-        let ibl_bind_group = Ibl::new(
-            &device,
-            &gpu_resource_manager,
-            &skybox_manager,
-        );
 
         let pickobject = PickObject::new(&device);
 
@@ -191,7 +134,6 @@ impl Renderer {
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
         resources.insert(entity_id_texture);
-        resources.insert(ibl_bind_group);
         resources.insert(adapter);
         resources.insert(pickobject);
     }
