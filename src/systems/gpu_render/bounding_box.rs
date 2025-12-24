@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    BoundingBoxComponent, GlobalModelComponent, Globals,
+    BoundingBoxComponent, Globals,
     assets::vertexdata::LinesVertexData,
     colors,
     entities::bounding_box::BoundingBox,
@@ -57,45 +57,60 @@ pub fn render_bounding_box(
     }
 }
 
-#[system(for_each)]
-#[filter(maybe_changed::<GlobalModelComponent>())]
-pub fn update_bounding_box_to_gpu(
-    global_model: &GlobalModelComponent,
-    bbox_component: &mut BoundingBoxComponent,
-    #[resource] queue: &wgpu::Queue,
-    #[resource] globals: &Globals,
-) {
-
-    bbox_component.global_bounding_box = bbox_component
-        .bounding_box
-        .transform_aabb(&global_model.mat);
-
-    let vertices = {
-        if globals.bbox_axis_aligned {
-            BoundingBox::gen_aabb_vertices(&bbox_component.global_bounding_box)
-        } else {
-            BoundingBox::gen_obb_vertices(&bbox_component.bounding_box, &global_model.mat)
-        }
-    };
-
-    queue.write_buffer(
-        &bbox_component.vertex_buffer,
-        0,
-        bytemuck::cast_slice(&vertices.as_slice()),
-    );
-}
-
 const VERTICES: usize = 24;
 const CORNERS: usize = VERTICES / 3;
+type BBoxVertexData = [LinesVertexData; VERTICES];
+type BBoxCornerData = [Vec3; CORNERS];
 
 impl BoundingBox {
-    pub fn gen_aabb_vertices(bbox: &BoundingBox) -> [LinesVertexData; VERTICES] {
-        let corners = bbox.gen_corners();
+    fn gen_corners(&self) -> BBoxCornerData{
+        /*
+        bbox vertices order:
+            y  7----------6
+            | /|         /|
+            |/ |        / |
+            3----------2  |
+            |  | z     |  |
+            |  4-------|--5
+            | /        | /
+            |/         |/
+            0----------1 --->x
+        */
+        [
+            Vec3::new(self.min[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.max[1], self.max[2]),
+            Vec3::new(self.min[0], self.max[1], self.max[2]),
+        ]
+    }
+
+    pub fn transform_aabb(&self, matrix: &Mat4) -> Self {
+        let corners = self.gen_corners();
+
+        // Trasformazione
+        let transformed = corners.map(|c| matrix * c.extend(1.0));
+
+        // Ricostruzione AABB
+        let mut bbox = Self::new_empty();
+        for p in transformed {
+            bbox.extend(&p.truncate().into());
+        }
+        bbox
+    }
+}
+
+impl BoundingBoxComponent {
+    pub fn gen_aabb_vertices(&self) -> BBoxVertexData {
+        let corners = self.bounding_box.gen_corners();
         Self::gen_vertices(corners)
     }
 
-    pub fn gen_obb_vertices(bbox: &BoundingBox, model: &Mat4) -> [LinesVertexData; VERTICES] {
-        let local_corners = bbox.gen_corners();
+    pub fn gen_obb_vertices(&self, model: &Mat4) ->BBoxVertexData {
+        let local_corners = self.global_bounding_box.gen_corners();
 
         // Trasforma i corner con la Mat4 dell'oggetto
         let corners = local_corners.map(|c| (model * c.extend(1.0)).truncate());
@@ -103,7 +118,7 @@ impl BoundingBox {
         Self::gen_vertices(corners)
     }
 
-    fn gen_vertices(corners: [Vec3; CORNERS]) -> [LinesVertexData; VERTICES] {
+    fn gen_vertices(corners: BBoxCornerData) -> BBoxVertexData {
         let edges = [
             // bottom
             (0, 1),
@@ -137,52 +152,13 @@ impl BoundingBox {
         }
         vertices
     }
-
-    fn gen_corners(&self) -> [Vec3; CORNERS] {
-        /*
-        bbox vertices order:
-            y  7----------6
-            | /|         /|
-            |/ |        / |
-            3----------2  |
-            |  | z     |  |
-            |  4-------|--5
-            | /        | /
-            |/         |/
-            0----------1 --->x
-        */
-        [
-            Vec3::new(self.min[0], self.min[1], self.min[2]),
-            Vec3::new(self.max[0], self.min[1], self.min[2]),
-            Vec3::new(self.max[0], self.max[1], self.min[2]),
-            Vec3::new(self.min[0], self.max[1], self.min[2]),
-            Vec3::new(self.min[0], self.min[1], self.max[2]),
-            Vec3::new(self.max[0], self.min[1], self.max[2]),
-            Vec3::new(self.max[0], self.max[1], self.max[2]),
-            Vec3::new(self.min[0], self.max[1], self.max[2]),
-        ]
-    }
-
-    fn transform_aabb(&self, matrix: &Mat4) -> Self {
-        let corners = self.gen_corners();
-
-        // Trasformazione
-        let transformed = corners.map(|c| matrix * c.extend(1.0));
-
-        // Ricostruzione AABB
-        let mut bbox = Self::new_empty();
-        for p in transformed {
-            bbox.extend(&p.truncate().into());
-        }
-        bbox
-    }
 }
 
 impl BoundingBoxComponent {
     pub fn new(device: &wgpu::Device, bbox: BoundingBox) -> Self {
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dynamic BBox Vertex Buffer"),
-            size: (VERTICES * std::mem::size_of::<LinesVertexData>()) as u64,
+            size: (std::mem::size_of::<BBoxVertexData>()) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
