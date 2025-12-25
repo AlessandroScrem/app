@@ -2,6 +2,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::assets::material_manager;
+use crate::assets::mesh_manager::MeshManager;
 use crate::assets::texture_manager;
 use crate::picking::PickObject;
 use crate::prelude::*;
@@ -115,6 +116,7 @@ impl Renderer {
         );
 
         let bbox_manager = bbox_manager::BBoxManager::new();
+        let mesh_manager = MeshManager::new();
 
         info!("Surface config format is {:?}", surface_config.format);
 
@@ -130,6 +132,7 @@ impl Renderer {
         resources.insert(gpu_resource_manager);
         resources.insert(pipeline_manager);
         resources.insert(material_manager);
+        resources.insert(mesh_manager);
         resources.insert(texture_manager);
         resources.insert(light_manager);
         resources.insert(skybox_manager);

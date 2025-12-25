@@ -1,15 +1,16 @@
 use wgpu::IndexFormat;
 
 use crate::{
-    MeshComponent, TransformComponent,
-    assets::material_manager::MaterialManager,
-    renderer::{
+    MeshComponent, assets::{
+        material_manager::MaterialManager,
+        mesh_manager::MeshManager,
+    }, renderer::{
         gpu_manager::GPUResourceManager,
         gpu_renderer::DepthTexture,
         hdr_frame::{HdrFrame, IDTexture},
         pipeline_manager::{PipelineKind, PipelineManager},
         skybox_manager::SkyboxManager,
-    },
+    }
 };
 
 use legion::{world::SubWorld, *};
@@ -17,12 +18,12 @@ use std::sync::Arc;
 
 #[system]
 #[read_component(MeshComponent)]
-#[read_component(TransformComponent)]
 pub fn render_mesh(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
     #[resource] pipeline_manager: &PipelineManager,
+    #[resource] mesh_manager: &MeshManager,
     #[resource] material_manager: &MaterialManager,
     #[resource] depth_texture: &DepthTexture,
     #[resource] hdr_texture: &HdrFrame,
@@ -74,21 +75,20 @@ pub fn render_mesh(
     renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
     renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
-    let mut mesh_query = <(&MeshComponent, &TransformComponent)>::query();
-    for (mesh, _) in mesh_query.iter(world) {
-        renderpass.set_bind_group(2, &mesh.data.model_bind_group, &[]);
+    let mut mesh_query = <&MeshComponent>::query();
+    for mesh in mesh_query.iter(world) {
+        let uniform_bind_group = mesh_manager.get_model_bindgroup(mesh.handle);
+        renderpass.set_bind_group(2, uniform_bind_group, &[]);
 
-        for submesh in mesh.data.submeshes.iter() {
-            let vertex_buffer = submesh.vertex_buffer.as_ref().unwrap();
-            let index_buffer = submesh.index_buffer.as_ref().unwrap();
-            let index_count = submesh.index_count as u32;
-            let material = material_manager.get(&submesh.material);
+        let vertex_buffer = mesh_manager.get_vertexbuffer(mesh.handle);
+        let index_buffer = mesh_manager.get_indexbuffer(mesh.handle);
+        let index_count = mesh_manager.get_indexcount(mesh.handle);
+        let material = material_manager.get(mesh_manager.get_material(mesh.handle));
 
-            renderpass.set_bind_group(1, &material.bind_group, &[]);
+        renderpass.set_bind_group(1, &material.bind_group, &[]);
 
-            renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
-            renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            renderpass.draw_indexed(0..index_count, 0, 0..1);
-        }
+        renderpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+        renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        renderpass.draw_indexed(0..index_count, 0, 0..1);
     }
 }

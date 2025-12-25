@@ -99,9 +99,16 @@ pub struct LightComponent {
     pub data: renderer::LightUniform,
 }
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct MeshHandle(usize);
+
 pub struct MeshComponent {
-    data: assets::mesh::Mesh,
+    pub handle: MeshHandle,
 }
+
+// pub struct MeshComponent {
+//     data: assets::mesh::Mesh,
+// }
 
 #[derive(Clone)]
 pub struct TransformComponent {

@@ -1,7 +1,12 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    TransformComponent, assets::{material_manager::MaterialManager, mesh::*, texture_manager::TextureManager}, renderer::gpu_manager::GPUResourceManager
+    TransformComponent,
+    assets::{
+        material_manager::MaterialManager, mesh::*, mesh_manager::MeshManager,
+        texture_manager::TextureManager,
+    },
+    renderer::gpu_manager::GPUResourceManager,
 };
 
 use legion::*;
@@ -9,6 +14,7 @@ use legion::*;
 /// A function to help create a mesh entity.
 pub fn create(world: &mut World, resources: &Resources) {
     let device = resources.get::<wgpu::Device>().unwrap();
+    let mut mesh_manager = resources.get_mut::<MeshManager>().unwrap();
     let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
     let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
@@ -43,11 +49,14 @@ pub fn create(world: &mut World, resources: &Resources) {
 
     if let Some(e) = load_gltf(
         world,
+        &mut mesh_manager,
         &mut material_manager,
         &mut texture_manager,
         &gpu_resource_manager,
         &device,
-        Path::new("C:/Users/aless/Downloads/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf"),
+        Path::new(
+            "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
+        ),
     ) {
         if let Ok(mut entry) = world.entry_mut(e) {
             let transform = entry.get_component_mut::<TransformComponent>().unwrap();
@@ -55,6 +64,4 @@ pub fn create(world: &mut World, resources: &Resources) {
             transform.scale = [20.0, 20.0, 20.0];
         }
     }
-
 }
-

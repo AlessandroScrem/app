@@ -5,7 +5,7 @@ use legion::{Entity, Resources, World};
 
 use crate::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::material_manager::MaterialManager, prelude::ui::registry::ImGuiTextureRegistry,
+    assets::{material_manager::MaterialManager, mesh_manager::MeshManager}, prelude::ui::registry::ImGuiTextureRegistry,
     text_fmt,
 };
 
@@ -90,14 +90,14 @@ impl ComponentDrawer for MeshComponent {
         let mesh = self;
         let registry = ctx.resources.get::<ImGuiTextureRegistry>().unwrap();
         let mut material_manager = ctx.resources.get_mut::<MaterialManager>().unwrap();
+        let mesh_manager = ctx.resources.get::<MeshManager>().unwrap();
         if ui.collapsing_header(
             "MeshComponent",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
-            for submesh in mesh.data.submeshes.iter_mut() {
-                let material = material_manager.get_mut(&submesh.material);
-                draw_ui_mesh_material(ui, &registry, &mut material.material_pbr);
-            }
+            let handle = mesh_manager.get_material(mesh.handle);
+            let material = material_manager.get_mut(handle);
+            draw_ui_mesh_material(ui, &registry, &mut material.material_pbr);
         }
     }
 }
