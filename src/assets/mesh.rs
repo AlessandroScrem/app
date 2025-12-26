@@ -1,22 +1,35 @@
 use gltf::mesh::Reader;
 use legion::Entity;
-use std::{collections::HashMap, path::Path, time::Instant};
-use wgpu::util::DeviceExt;
+use std::{collections::HashMap, path::Path};
 
 use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::{
-        material_manager::{MaterialId, MaterialManager},
+        material_manager::MaterialManager,
         mesh_manager::{self, MeshManager},
         texture_manager::TextureManager,
         vertexdata::MeshVertexData,
     },
-    entities::bounding_box::{self, BoundingBox},
+    entities::bounding_box::BoundingBox,
     math::*,
     prelude::*,
-    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::gpu_manager::GPUResourceManager,
 };
+
+impl TransformComponent {
+    fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
+        let (position, r, scale) = g_node.transform().decomposed();
+        let quat = Quat::new(r[3], r[0], r[1], r[2]);
+        let euler = Euler::from(quat);
+        let rotation = [euler.x.0, euler.y.0, euler.z.0];
+        Self {
+            position,
+            rotation,
+            scale,
+        }
+    }
+}
 
 pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
@@ -72,60 +85,29 @@ pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[
     generate_tangents(&mut geom);
 }
 
-fn quat_to_euler_rad_array(q: Quat) -> [f32; 3] {
-    let euler: Euler<Rad<f32>> = q.into();
-    [euler.x.0, euler.y.0, euler.z.0]
-}
-
-pub struct Node {
-    pub index: usize, // glTF index
-    pub parent: Option<usize>,
-    pub children: Vec<usize>,
-    pub mesh_id: Option<usize>,
-    pub local_transform: Mat4,
-    pub global_transform: Mat4,
-    pub name: Option<String>,
-}
-
-impl Node {
-    pub fn from_gltf(g_node: &gltf::Node<'_>) -> Node {
-        let mesh_id = g_node.mesh().map(|m| m.index());
-        let children: Vec<_> = g_node.children().map(|g_node| g_node.index()).collect();
-        let name = g_node.name().map(|s| s.into());
-        let local_transform = g_node.transform().matrix().into();
-
-        Node {
-            index: g_node.index(),
-            parent: None,
-            children,
-            mesh_id,
-            local_transform,
-            global_transform: Mat4::identity(),
-            name,
-        }
-    }
-}
-
-fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>) -> Vec<u32>
+fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>) -> Result<Vec<u32>, ImportError>
 where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
     let indices = reader
         .read_indices()
-        .expect("primitives must have the INDICES attribute ")
+        .ok_or(ImportError::MissingIndices)?
         .into_u32()
         .collect::<Vec<u32>>();
 
-    indices
+    Ok(indices)
 }
 
-fn extract_vertices<'a, F>(reader: &Reader<'a, 'a, F>, indices: &Vec<u32>) -> Vec<MeshVertexData>
+fn extract_vertices<'a, F>(
+    reader: &Reader<'a, 'a, F>,
+    indices: &Vec<u32>,
+) -> Result<Vec<MeshVertexData>, ImportError>
 where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
     let positions = reader
         .read_positions()
-        .expect("primitives must have the POSITION attribute ");
+        .ok_or(ImportError::MissingPositions)?;
 
     let mut vertices: Vec<MeshVertexData> = positions
         .map(|position| MeshVertexData {
@@ -160,215 +142,62 @@ where
         generate_mikktspace_tangents(&mut vertices, &indices);
     }
 
-    vertices
+    Ok(vertices)
 }
 
-pub struct SubMesh {
-    pub vertices: Vec<MeshVertexData>,
-    pub indices: Vec<u32>,
-    pub vmin: [f32; 3],
-    pub vmax: [f32; 3],
-    pub(crate) vertex_buffer: Option<wgpu::Buffer>,
-    pub(crate) index_buffer: Option<wgpu::Buffer>,
-    pub(crate) index_count: usize,
-    pub primitive_topology: wgpu::PrimitiveTopology,
-    pub material: MaterialId,
-}
-
-impl SubMesh {
-    fn from_primitive(
-        primitive: &gltf::Primitive,
-        buffers: Vec<gltf::buffer::Data>,
-        images: &Vec<gltf::Image>,
-        path: &Path,
-        material_manager: &mut MaterialManager,
-        texture_manager: &mut TextureManager,
-        device: &wgpu::Device,
-    ) -> Self {
-        let timer = std::time::Instant::now();
-
-        let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-
-        let positions = reader
-            .read_positions()
-            .expect("primitives must have the POSITION attribute ");
-        let indices = reader
-            .read_indices()
-            .expect("primitives must have the INDICES attribute ")
-            .into_u32()
-            .collect::<Vec<u32>>();
-
-        let mut bbox = BoundingBox::new_empty();
-        let mut vertices: Vec<MeshVertexData> = positions
-            .map(|position| {
-                //extend bbox
-                bbox.extend(&position);
-                MeshVertexData {
-                    position,
-                    normal: [0.0, 1.0, 0.0],
-                    uv: [0.0, 0.0],
-                    tangent: [0.0, 0.0, 0.0, 0.0],
-                }
-            })
-            .collect();
-
-        if let Some(normals) = reader.read_normals() {
-            normals.enumerate().for_each(|(i, normal)| {
-                vertices[i].normal = normal;
-            });
-        } else {
-            warn!("Missing Texture Normal");
-        }
-
-        if let Some(uvs) = reader.read_tex_coords(0) {
-            uvs.into_f32().enumerate().for_each(|(i, uv)| {
-                vertices[i].uv = uv;
-            });
-        } else {
-            warn!("Missing UV Coords");
-        }
-
-        if let Some(tangent) = reader.read_tangents() {
-            tangent.enumerate().for_each(|(i, t)| {
-                vertices[i].tangent = t;
-            });
-        } else {
-            generate_mikktspace_tangents(&mut vertices, &indices);
-        }
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Index Buffer"),
-            contents: &bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let index_count = indices.len();
-
-        // begin material
-        let gltf_material: gltf::Material<'_> = primitive.material();
-        let material = material_manager.create_material(
-            texture_manager,
-            &gltf_material,
-            &images,
-            path.to_path_buf(),
-        );
-
-        debug!(
-            "--\t create material: {} is {} ms",
-            primitive.material().name().unwrap_or("no_name"),
-            timer.elapsed().as_millis()
-        );
-
-        let primitive_topology = Self::get_primitive_mode(primitive.mode());
-
-        SubMesh {
-            vertices,
-            indices,
-            vertex_buffer: Some(vertex_buffer),
-            index_buffer: Some(index_buffer),
-            index_count,
-            primitive_topology,
-            material,
-            vmin: bbox.min,
-            vmax: bbox.max,
-        }
+fn extract_bbox(mesh: &gltf::Mesh) -> BoundingBox {
+    let mut bounding_box = BoundingBox::new_empty();
+    for primitive in mesh.primitives() {
+        let b = primitive.bounding_box();
+        bounding_box.extend(&b.min);
+        bounding_box.extend(&b.max);
     }
+    bounding_box
+}
 
-    fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
-        match mode {
-            gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
-            gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
-            gltf::mesh::Mode::LineStrip => wgpu::PrimitiveTopology::LineStrip,
-            gltf::mesh::Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
-            gltf::mesh::Mode::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
-            _ => panic!("Error loading mesh topology isn't supported!"),
+fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
+    match mode {
+        gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
+        gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
+        gltf::mesh::Mode::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+        gltf::mesh::Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
+        gltf::mesh::Mode::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
+        _ => panic!("Error loading mesh topology isn't supported!"),
+    }
+}
+
+#[derive(Debug)]
+pub enum ImportError {
+    Io(std::io::Error),
+    Gltf(gltf::Error),
+    MissingPositions,
+    MissingIndices,
+    MeshLoadFailed,
+}
+
+impl std::fmt::Display for ImportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ImportError::MissingPositions => write!(f, "Missing POSITION"),
+            ImportError::MissingIndices => write!(f, "Missing INDICES"),
+            ImportError::MeshLoadFailed => write!(f, "Failed to load mesh"),
+            ImportError::Io(e) => write!(f, "IO error: {}", e),
+            ImportError::Gltf(e) => write!(f, "glTF error: {}", e),
         }
     }
 }
 
-// pub struct Mesh {
-//     pub name: String,
-//     pub submeshes: Vec<SubMesh>,
-//     pub model_uniform_buffer: wgpu::Buffer,
-//     pub model_bind_group: wgpu::BindGroup,
-//     pub vmin: [f32; 3],
-//     pub vmax: [f32; 3],
-// }
-/*
-impl Mesh {
-    fn from_gltf(
-        gltf_mesh: &gltf::Mesh,
-        buffers: Vec<gltf::buffer::Data>,
-        images: &Vec<gltf::Image>,
-        path: &Path,
-        material_manager: &mut MaterialManager,
-        texture_manager: &mut TextureManager,
-        gpu_resource_manager: &GPUResourceManager,
-        device: &wgpu::Device,
-    ) -> Self {
-        let timer = Instant::now();
-
-        let name = gltf_mesh.name().unwrap_or("mesh-no-name").to_string();
-        let submeshes: Vec<SubMesh> = gltf_mesh
-            .primitives()
-            .map(|prim| {
-                SubMesh::from_primitive(
-                    &prim,
-                    buffers.clone(),
-                    &images,
-                    path,
-                    material_manager,
-                    texture_manager,
-                    device,
-                )
-            })
-            .collect();
-
-        let mesh_bbox = submeshes
-            .iter()
-            .fold(BoundingBox::new_empty(), |mut acc, submesh| {
-                acc.extend(&submesh.vmin);
-                acc.extend(&submesh.vmax);
-                acc
-            });
-
-        let model_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Model Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[crate::renderer::uniform::ModelUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let model_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Model);
-
-        let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &model_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: model_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Model Bind Group"),
-        });
-
-        info!("Loading mesh: {}", path.display());
-
-        debug!("-- took {} ms", timer.elapsed().as_millis());
-
-        Mesh {
-            name,
-            submeshes,
-            model_uniform_buffer,
-            model_bind_group,
-            vmin: mesh_bbox.min,
-            vmax: mesh_bbox.max,
-        }
+impl From<std::io::Error> for ImportError {
+    fn from(e: std::io::Error) -> Self {
+        ImportError::Io(e)
     }
-} */
+}
+
+impl From<gltf::Error> for ImportError {
+    fn from(e: gltf::Error) -> Self {
+        ImportError::Gltf(e)
+    }
+}
 
 pub fn load_gltf(
     world: &mut legion::World,
@@ -378,21 +207,15 @@ pub fn load_gltf(
     gpu_manager: &GPUResourceManager,
     device: &wgpu::Device,
     path: &Path,
-) -> Option<Entity> {
+) -> Result<Vec<Entity>, ImportError> {
     let timer = std::time::Instant::now();
 
     if path.extension().unwrap_or_default() != "gltf" {
         warn!("File: {} is not a glTF", path.display());
-        return None;
+        return Err(ImportError::MeshLoadFailed);
     }
 
-    let (document, buffers, _images) = match gltf::import(path) {
-        Ok((doc, buffers, images)) => (doc, buffers, images),
-        Err(e) => {
-            warn!("Error loading Gltf {e}");
-            return None;
-        }
-    };
+    let (document, buffers, _) = gltf::import(path)?;
 
     let images: Vec<gltf::Image<'_>> = document.images().collect();
 
@@ -404,176 +227,83 @@ pub fn load_gltf(
         material_map.insert(mat.index().unwrap(), handle);
     }
 
-    let mut mesh_map = HashMap::new();
-    for mesh in document.meshes() {
-        for primitive in mesh.primitives() {
+    let mut meshe_handle_map = HashMap::new();
+    for g_mesh in document.meshes() {
+        for primitive in g_mesh.primitives() {
             let reader = primitive.reader(|b| Some(&buffers[b.index()]));
-            let indices = extract_indices(&reader);
-            let vertices = extract_vertices(&reader, &indices);
+            let indices = extract_indices(&reader)?;
+            let vertices = extract_vertices(&reader, &indices)?;
 
             let mat_index = primitive.material().index().unwrap_or(0);
             let material = material_map[&mat_index].clone();
 
             let mesh =
                 mesh_manager::create_mesh(&device, &gpu_manager, &vertices, &indices, material);
-            mesh_map.insert(mat_index, mesh);
+            let handle = mesh_manager.add_mesh(mesh);
+            meshe_handle_map.insert(g_mesh.index(), handle);
         }
     }
 
-    let mut bbox_map = HashMap::new();
-    for mesh in document.meshes() {
-        for primitive in mesh.primitives() {
-            let bounds = primitive.bounding_box();
-            let bounding_box = BoundingBox {
-                min: bounds.min,
-                max: bounds.max,
-            };
-            let index = primitive.index();
-            bbox_map.insert(index, bounding_box);
-        }
+    let initial_size = world.len();
+
+    let mut root_entities = Vec::new();
+    let mut node_entity_map = HashMap::new();
+    println!("Scene len is = {}", document.scenes().len());
+    for root_node in document.scenes().next().expect("No scene in Gltf").nodes() {
+        let entity = create_entities_recursively(
+            world,
+            &root_node,
+            None,
+            &mut meshe_handle_map,
+            &mut node_entity_map,
+        );
+        root_entities.push(entity);
     }
 
-    let node = document
-        .default_scene()
-        .expect("No scene in Gltf")
-        .nodes()
-        .next()
-        .unwrap();
+    let num_entities = world.len() - initial_size;
+    info!("Create: #{} entities", num_entities);
 
-    let (position, r, scale) = node.transform().decomposed();
-    let rotation = quat_to_euler_rad_array(Quat::new(r[3], r[0], r[1], r[2]));
+    debug!("Gltf import is {} ms", timer.elapsed().as_millis());
+    debug!("Entity for node 0: {:?}", node_entity_map.get(&0));
 
-    let tag_component = TagComponent {
-        name: node.name().unwrap().into(),
-    };
-    let transform = TransformComponent {
-        position,
-        rotation,
-        scale,
-    };
-    let hierarchy = HierarchyComponent {
-        parent: None,
-        children: Vec::new(),
-    };
-
-    let global_component = GlobalModelComponent::default();
-
-    let bounding_box = BoundingBoxComponent::new(bbox_map.remove(&0).unwrap());
-
-    debug!("Numero mesh caricate {}", mesh_map.len());
-
-    let handle = crate::MeshHandle(0);
-    mesh_manager.add_mesh(mesh_map.remove(&0).unwrap(), handle.clone());
-
-    let mesh_component = MeshComponent { handle };
-
-    Some(world.push((
-        tag_component,
-        transform,
-        global_component,
-        hierarchy,
-        bounding_box,
-        mesh_component,
-    )))
-
-    // struct Node {
-    //     parent: Option<usize>,
-    //     children: Option<usize>,
-    //     transform: Mat4,
-    //     mesh: Option<usize>,
-    // };
-
-    // let mut node_map = HashMap::new();
-    // for root_node in document.scenes().next().expect("No scene in Gltf").nodes() {
-    //     let mesh_id = root_node.mesh();
-    //     let transform = root_node.transform();
-    //     let children = root_node.children();
-    //     let node_index = root_node.index();
-
-    // }
-
-    // let mut root_entities = Vec::new();
-    // let mut node_entity_map = HashMap::new();
-
-    // let initial_size = world.len();
-
-    // for root_node in document.scenes().next().expect("No scene in Gltf").nodes() {
-    //     let entity = create_entities_recursively(
-    //         world,
-    //         &root_node,
-    //         None,
-    //         &mut indexed_meshes,
-    //         &mut node_entity_map,
-    //     );
-    //     root_entities.push(entity);
-    // }
-
-    // let num_entities = world.len() - initial_size;
-    // info!("Create: #{} entities", num_entities);
-
-    // if let Some(e) = node_entity_map.get(&0) {
-    //     debug!("Entity for node 0: {:?}", e);
-    // }
-
-    // debug!("Gltf import is {} ms", timer.elapsed().as_millis());
-    // info!("Root entities: {:?}", root_entities);
-
-    // if let Some(root) = root_entities.first() {
-    //     info!("First root entity: {:?}", root);
-    //     Some(root.clone())
-    // } else {
-    //     None
-    // }
+    Ok(root_entities)
 }
-/*
+
 fn create_entities_recursively(
     world: &mut legion::World,
     node: &gltf::Node,
     parent: Option<Entity>,
-    indexed_meshes: &mut HashMap<usize, (Mesh, BoundingBoxComponent)>,
+    meshe_handle_map: &mut HashMap<usize, usize>,
     node_entity_map: &mut HashMap<usize, Entity>,
 ) -> Entity {
-    // Crea l'entità per questo nodo
     let name = node.name().map(|s| s.into()).unwrap_or("no-name".into());
     info!("Create node {} id {}", name, node.index());
 
-    let (position, r, scale) = node.transform().decomposed();
-    let rotation = quat_to_euler_rad_array(Quat::new(r[3], r[0], r[1], r[2]));
-
-    let transform = TransformComponent {
-        position,
-        rotation,
-        scale,
-    };
-    let hierarchy = HierarchyComponent {
-        parent,
-        children: Vec::new(),
-    };
-    let parent_transform = match parent {
-        Some(parent) => {
-            let entry = world.entry(parent).unwrap();
-            entry
-                .get_component::<GlobalModelComponent>()
-                .unwrap_or(&GlobalModelComponent::default())
-                .mat
-        }
-        None => GlobalModelComponent::default().mat,
-    };
-    let global_model =
-        GlobalModelComponent::from(parent_transform * transform.compute_model_matrix());
+    let local_transform = TransformComponent::from_gltf(&node);
+    let mut parent_transform = Mat4::identity();
+    if parent.is_some() {
+        let entry = world.entry(parent.unwrap()).unwrap();
+        parent_transform = entry.get_component::<GlobalModelComponent>().unwrap().mat;
+    }
 
     let entity = world.push((
         TagComponent { name },
-        transform.clone(),
-        hierarchy,
-        global_model,
+        HierarchyComponent {
+            parent,
+            ..Default::default()
+        },
+        GlobalModelComponent {
+            mat: parent_transform * local_transform.compute_model_matrix(),
+        },
+        local_transform,
     ));
 
     if let Some(g_mesh) = node.mesh() {
         let mut entry = world.entry(entity).unwrap();
-        let (mesh, bbox_component) = indexed_meshes.remove(&g_mesh.index()).unwrap();
-        entry.add_component(MeshComponent { data: mesh });
-        entry.add_component(bbox_component);
+        let handle = meshe_handle_map.get(&g_mesh.index()).unwrap().clone();
+        let bounding_box = extract_bbox(&g_mesh);
+        entry.add_component(MeshComponent { handle });
+        entry.add_component(BoundingBoxComponent::new(bounding_box));
     }
 
     // Salva il mapping nodo → entità
@@ -586,7 +316,7 @@ fn create_entities_recursively(
             world,
             &child,
             Some(entity),
-            indexed_meshes,
+            meshe_handle_map,
             node_entity_map,
         );
         children_entities.push(child_entity);
@@ -603,9 +333,8 @@ fn create_entities_recursively(
 
     entity
 }
- */
 
-/* #[allow(dead_code)]
+#[allow(dead_code)]
 fn print_gltf_document(document: &gltf::Document) {
     fn print_mesh(mesh: gltf::Mesh) {
         println!(
@@ -658,14 +387,16 @@ mod tests {
 
         let gpu_manager = GPUResourceManager::new(&device);
         let gpu_manager = Arc::new(gpu_manager);
+        let mut mesh_manager = MeshManager::new();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
         let mut material_manager =
             MaterialManager::new(device.clone(), gpu_manager.clone(), &mut texture_manager);
 
         let mut world = legion::World::default();
 
-        load_gltf(
+        let e = load_gltf(
             &mut world,
+            &mut mesh_manager,
             &mut material_manager,
             &mut texture_manager,
             &gpu_manager,
@@ -673,8 +404,9 @@ mod tests {
             std::path::Path::new("./assets/cube/cube.gltf"),
         );
 
+        assert!(e.is_ok());
+        assert_eq!(e.ok().iter().len(), 1);
         assert_eq!(Read::<MeshComponent>::query().iter(&world).count(), 1);
         assert_eq!(world.len(), 1)
     }
 }
- */

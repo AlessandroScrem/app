@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use wgpu::util::DeviceExt as _;
 
 use crate::{
-    MeshHandle,
     assets::{material_manager::MaterialId, vertexdata::MeshVertexData},
     renderer::{GPUResourceManager, gpu_manager::LayoutKind},
 };
 
 pub struct MeshManager {
-    meshes: HashMap<MeshHandle, GpuMesh>,
+    meshes: HashMap<usize, GpuMesh>,
+    id: usize,
 }
 
 pub struct GpuMesh {
@@ -25,45 +25,49 @@ impl MeshManager {
     pub fn new() -> Self {
         Self {
             meshes: HashMap::new(),
+            id: 0,
         }
     }
 
-    pub fn add_mesh(&mut self, mesh: GpuMesh, id: MeshHandle) {
+    pub fn add_mesh(&mut self, mesh: GpuMesh)->usize {
+        let id = self.id;
         self.meshes.insert(id, mesh);
+        self.id = id + 1;
+        id
     }
 
-    pub fn get_vertexbuffer(&self, id: MeshHandle) -> &wgpu::Buffer {
+    pub fn get_vertexbuffer(&self, id: usize) -> &wgpu::Buffer {
         &self
             .meshes
             .get(&id)
             .expect("Unable to get Mesh")
             .vertexbuffer
     }
-    pub fn get_indexbuffer(&self, id: MeshHandle) -> &wgpu::Buffer {
+    pub fn get_indexbuffer(&self, id: usize) -> &wgpu::Buffer {
         &self
             .meshes
             .get(&id)
             .expect("Unable to get Mesh")
             .indexbuffer
     }
-    pub fn get_indexcount(&self, id: MeshHandle) -> u32 {
+    pub fn get_indexcount(&self, id: usize) -> u32 {
         self.meshes.get(&id).expect("Unable to get Mesh").indexcount
     }
-    pub fn get_model_bindgroup(&self, id: MeshHandle) -> &wgpu::BindGroup {
+    pub fn get_model_bindgroup(&self, id: usize) -> &wgpu::BindGroup {
         &self
             .meshes
             .get(&id)
             .expect("Unable to get Mesh")
             .model_bind_group
     }
-    pub fn get_model_uniform(&self, id: MeshHandle) -> &wgpu::Buffer {
+    pub fn get_model_uniform(&self, id: usize) -> &wgpu::Buffer {
         &self
             .meshes
             .get(&id)
             .expect("Unable to get Mesh")
             .model_uniform
     }
-    pub fn get_material(&self, id: MeshHandle) -> &MaterialId {
+    pub fn get_material(&self, id: usize) -> &MaterialId {
         &self.meshes.get(&id).expect("Unable to get Mesh").material
     }
 }

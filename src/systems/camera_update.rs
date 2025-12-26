@@ -26,10 +26,10 @@ pub fn camera_orbit(
     }
 }
 
-use legion::world::SubWorld;
-use log::info;
 use crate::entities::bounding_box::BoundingBox;
 use crate::{BoundingBoxComponent, GlobalModelComponent};
+use legion::world::SubWorld;
+use log::info;
 #[system]
 #[read_component(BoundingBoxComponent)]
 #[read_component(GlobalModelComponent)]
@@ -40,7 +40,6 @@ pub fn recenter_camera(
 ) {
     if camera.recenter_request {
         camera.recenter_request = false;
-        info!("Recenter Camera");
 
         let bbox = {
             if let Some(selected) = pick_object.selected {
@@ -49,17 +48,18 @@ pub fn recenter_camera(
                 get_bounding_box_from_world(world)
             }
         };
+        info!("Recenter Camera with box {:?}", bbox);
         crate::camera::center_camera_to_bounding_box(camera, bbox);
     }
 }
 
-fn get_bbox_from_entity(world: &mut SubWorld, entity: Entity) ->BoundingBox { 
+fn get_bbox_from_entity(world: &mut SubWorld, entity: Entity) -> BoundingBox {
     if let Ok(entry) = world.entry_mut(entity) {
-            let bounding_box = entry.get_component::<BoundingBoxComponent>().unwrap();
-            bounding_box.global_bounding_box.clone()
-        } else {
-            BoundingBox::new_empty()
-        }
+        let bounding_box = entry.get_component::<BoundingBoxComponent>().unwrap();
+        bounding_box.global_bounding_box.clone()
+    } else {
+        BoundingBox::new_empty()
+    }
 }
 
 fn get_bounding_box_from_world(world: &mut SubWorld) -> BoundingBox {
@@ -73,4 +73,3 @@ fn get_bounding_box_from_world(world: &mut SubWorld) -> BoundingBox {
 
     bbox
 }
-

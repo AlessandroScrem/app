@@ -99,11 +99,8 @@ pub struct LightComponent {
     pub data: renderer::LightUniform,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct MeshHandle(usize);
-
 pub struct MeshComponent {
-    pub handle: MeshHandle,
+    pub handle: usize,
 }
 
 // pub struct MeshComponent {
@@ -130,12 +127,6 @@ impl Default for GlobalModelComponent {
     }
 }
 
-impl From<Mat4> for GlobalModelComponent {
-    fn from(value: Mat4) -> Self {
-        Self { mat: value }
-    }
-}
-
 pub struct TagComponent {
     pub name: String,
 }
@@ -145,7 +136,7 @@ pub struct BoundingBoxComponent {
     pub bounding_box: BoundingBox,
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct HierarchyComponent {
     pub parent: Option<Entity>,
     pub children: Vec<Entity>,

@@ -19,35 +19,47 @@ pub fn create(world: &mut World, resources: &Resources) {
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
     let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
 
-    // if let Some(e) = load_gltf(
-    //     world,
-    //     &mut material_manager,
-    //     &mut texture_manager,
-    //     &gpu_resource_manager,
-    //     &device,
-    //     Path::new("./assets/Lantern/Lantern.gltf"),
-    // ) {
-    //     if let Ok(mut entry) = world.entry_mut(e) {
-    //         let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-    //         transform.position[1] += 1.0;
-    //     }
-    // }
+    match load_gltf(
+        world,
+        &mut mesh_manager,
+        &mut material_manager,
+        &mut texture_manager,
+        &gpu_resource_manager,
+        &device,
+        Path::new("./assets/Lantern/Lantern.gltf"),
+    ) {
+        Ok(roots) => {
+            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
+                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
+                transform.position[1] += 1.0;
+            }
+        }
+        Err(e) => {
+            log::error!("glTF import failed: {}", e);
+        }
+    }
 
-    // if let Some(e) = load_gltf(
-    //     world,
-    //     &mut material_manager,
-    //     &mut texture_manager,
-    //     &gpu_resource_manager,
-    //     &device,
-    //     Path::new("./assets/cube/cube.gltf"),
-    // ) {
-    //     if let Ok(mut entry) = world.entry_mut(e) {
-    //         let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-    //         transform.scale = [30.0, 1.0, 30.0];
-    //     }
-    // }
+    match load_gltf(
+        world,
+        &mut mesh_manager,
+        &mut material_manager,
+        &mut texture_manager,
+        &gpu_resource_manager,
+        &device,
+        Path::new("./assets/cube/cube.gltf"),
+    ) {
+        Ok(roots) => {
+            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
+                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
+                transform.scale = [30.0, 1.0, 30.0];
+            }
+        }
+        Err(e) => {
+            log::error!("glTF import failed: {}", e);
+        }
+    }
 
-    if let Some(e) = load_gltf(
+    match load_gltf(
         world,
         &mut mesh_manager,
         &mut material_manager,
@@ -58,10 +70,15 @@ pub fn create(world: &mut World, resources: &Resources) {
             "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
         ),
     ) {
-        if let Ok(mut entry) = world.entry_mut(e) {
-            let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-            transform.position = [15.0, 10.0, 0.0];
-            transform.scale = [20.0, 20.0, 20.0];
+        Ok(roots) => {
+            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
+                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
+                transform.position = [10.0, 10.0, 0.0];
+                transform.scale = [5.0, 5.0, 5.0];
+            }
+        }
+        Err(e) => {
+            log::error!("glTF import failed: {}", e);
         }
     }
 }

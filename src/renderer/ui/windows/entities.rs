@@ -94,6 +94,7 @@ fn draw_hierarchy_nodes(world: &mut World, ctx: &mut InspectorContext) {
         }
     });
 
+    // Add Parent to node
     if let Some(selected) = pick_object.selected {
         if is_root_node(selected, world) {
             // add Context menu if ui.group is hovered
