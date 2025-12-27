@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use cgmath::{Array, num_traits::{one, zero}};
@@ -124,8 +123,8 @@ pub struct MaterialManager {
 
 impl MaterialManager {
     pub fn new(
-        device: Arc<wgpu::Device>,
-        gpu_manager: Arc<GPUResourceManager>,
+        device: &wgpu::Device,
+        gpu_manager: &GPUResourceManager,
         texture_manager: &mut TextureManager,
     ) -> Self {
         let default = Material::create_default(&device, texture_manager, &gpu_manager);
@@ -302,15 +301,15 @@ fn create_bindgroup(
         ..Default::default()
     });
     let base_texture =
-        texture_manager.get_or_create(&material_pbr.base_texture_path, Rgba8UnormSrgb);
+        texture_manager.create_texture(&material_pbr.base_texture_path, Rgba8UnormSrgb);
     let met_rough_texture =
-        texture_manager.get_or_create(&material_pbr.met_rough_texture_path, Rgba8Unorm);
+        texture_manager.create_texture(&material_pbr.met_rough_texture_path, Rgba8Unorm);
     let normal_texture =
-        texture_manager.get_or_create(&material_pbr.normal_texture_path, Rgba8Unorm);
+        texture_manager.create_texture(&material_pbr.normal_texture_path, Rgba8Unorm);
     let emissive_texture =
-        texture_manager.get_or_create(&material_pbr.emissive_texture_path, Rgba8UnormSrgb);
+        texture_manager.create_texture(&material_pbr.emissive_texture_path, Rgba8UnormSrgb);
     let occlusion_texture =
-        texture_manager.get_or_create(&material_pbr.occlusion_texture_path, Rgba8Unorm);
+        texture_manager.create_texture(&material_pbr.occlusion_texture_path, Rgba8Unorm);
 
     let texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::Material);
 

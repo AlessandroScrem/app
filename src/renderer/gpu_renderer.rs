@@ -45,7 +45,9 @@ impl Renderer {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
-
+        
+        info!("Surface config format is {:?}", surface_config.format);
+        
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("depth_texture"),
             size: wgpu::Extent3d {
@@ -64,10 +66,10 @@ impl Renderer {
 
         debug!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let gpu_resource_manager = Arc::new(gpu_manager::GPUResourceManager::new(&device));
+        let gpu_manager = Arc::new(gpu_manager::GPUResourceManager::new(&device));
         let pipeline_manager = pipeline_manager::PipelineManager::new(
             &device,
-            &gpu_resource_manager,
+            &gpu_manager,
             surface_config.format,
         );
         debug!(
@@ -83,8 +85,8 @@ impl Renderer {
         );
 
         let material_manager = material_manager::MaterialManager::new(
-            Arc::new(device.clone()),
-            gpu_resource_manager.clone(),
+            &device,
+            &gpu_manager,
             &mut texture_manager,
         );
         debug!(
@@ -93,7 +95,7 @@ impl Renderer {
         );
 
         let light_manager = light_manager::LightManager::new(
-            &gpu_resource_manager,
+            &gpu_manager,
             Arc::new(device.clone()),
             Arc::new(queue.clone()),
         );
@@ -107,7 +109,7 @@ impl Renderer {
             hdrpath,
             &device,
             &queue,
-            &gpu_resource_manager,
+            &gpu_manager,
             &mut texture_manager,
         );
         debug!(
@@ -118,18 +120,17 @@ impl Renderer {
         let bbox_manager = bbox_manager::BBoxManager::new();
         let mesh_manager = MeshManager::new();
 
-        info!("Surface config format is {:?}", surface_config.format);
 
-        let hdr_frame = HdrFrame::new(&device, &gpu_resource_manager, size);
-        let entity_id_texture = IDTexture::new(&device, &gpu_resource_manager, size);
-
+        let hdr_frame = HdrFrame::new(&device, &gpu_manager, size);
+        let entity_id_texture = IDTexture::new(&device, &gpu_manager, size);
         let pickobject = PickObject::new(&device);
 
+        resources.insert(adapter);
         resources.insert(device);
         resources.insert(queue);
         resources.insert(surface);
         resources.insert(surface_config);
-        resources.insert(gpu_resource_manager);
+        resources.insert(gpu_manager);
         resources.insert(pipeline_manager);
         resources.insert(material_manager);
         resources.insert(mesh_manager);
@@ -140,7 +141,6 @@ impl Renderer {
         resources.insert(DepthTexture(depth_view));
         resources.insert(hdr_frame);
         resources.insert(entity_id_texture);
-        resources.insert(adapter);
         resources.insert(pickobject);
     }
 }

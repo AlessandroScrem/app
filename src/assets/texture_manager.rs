@@ -54,16 +54,16 @@ impl TextureManager {
         Arc::new(cubemap)
     }
 
-    pub fn get_or_create<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
+    pub fn create_texture<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
         let texture = match self.textures.get(filepath.as_ref()) {
             Some(texture) => texture.clone(),
-            None => self.create_texture(filepath.as_ref(), format),
+            None => self.create(filepath.as_ref(), format),
         };
         texture
     }
 
     // Aggiunge una texture
-    fn create_texture<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
+    fn create<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
         match Self::read_bytes(filepath.as_ref()) {
             Some(buffer) => {
                 let texture = Arc::new(Texture::new(&self.device, &self.queue, &buffer, format));
@@ -75,11 +75,6 @@ impl TextureManager {
             None => self.white_texture.clone(),
         }
     }
-
-    // Rimuove una texture e notifica
-    // TODO: add texture removal
-    #[allow(dead_code)]
-    fn remove_texture(&mut self) {}
 
     fn read_bytes<P: AsRef<Path>>(filepath: P) -> Option<Vec<u8>> {
         match std::fs::read(filepath) {
@@ -146,7 +141,7 @@ mod tests {
     fn should_load_hdr_texture_rgba32float() {
         let mut manager = create_manager();
 
-        let hdr = manager.get_or_create(HDR_PATH, TextureFormat::Rgba32Float);
+        let hdr = manager.create_texture(HDR_PATH, TextureFormat::Rgba32Float);
 
         assert_eq!(hdr.inner.format(), TextureFormat::Rgba32Float);
     }
@@ -156,7 +151,7 @@ mod tests {
     fn should_load_hdr_texture_rgba16float() {
         let mut manager = create_manager();
 
-        let hdr = manager.get_or_create(HDR_PATH, TextureFormat::Rgba16Float);
+        let hdr = manager.create_texture(HDR_PATH, TextureFormat::Rgba16Float);
 
         assert_eq!(hdr.inner.format(), TextureFormat::Rgba16Float);
         assert!(hdr.inner.width() > 0);

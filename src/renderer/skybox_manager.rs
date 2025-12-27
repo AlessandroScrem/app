@@ -895,7 +895,7 @@ impl SkyboxManager {
         texture_manager: &mut TextureManager,
         hdr_path: P,
     ) -> Skybox {
-        let hdr = texture_manager.get_or_create(hdr_path.as_ref(), TextureFormat::Rgba16Float);
+        let hdr = texture_manager.create_texture(hdr_path.as_ref(), TextureFormat::Rgba16Float);
         let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
         let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
@@ -989,7 +989,7 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let hdr_texture = texture_manager.get_or_create(HDR_PATH, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture = texture_manager.create_texture(HDR_PATH, wgpu::TextureFormat::Rgba16Float);
 
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
@@ -1014,7 +1014,7 @@ mod tests {
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let hdr_path = std::path::Path::new(HDR_PATH);
-        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture = texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
@@ -1039,7 +1039,7 @@ mod tests {
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let hdr_path = std::path::Path::new(HDR_PATH);
-        let hdr_texture = texture_manager.get_or_create(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture = texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);

@@ -385,18 +385,15 @@ mod tests {
     use super::*;
     use legion::query::IntoQuery;
     use legion::*;
-    use std::sync::Arc;
 
     #[test]
     fn should_load_mesh() {
         let (device, queue) = crate::test_utils::get_device_and_queue();
 
         let gpu_manager = GPUResourceManager::new(&device);
-        let gpu_manager = Arc::new(gpu_manager);
         let mut mesh_manager = MeshManager::new();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-        let mut material_manager =
-            MaterialManager::new(device.clone(), gpu_manager.clone(), &mut texture_manager);
+        let mut material_manager = MaterialManager::new(device, &gpu_manager, &mut texture_manager);
 
         let mut world = legion::World::default();
 

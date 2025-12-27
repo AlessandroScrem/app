@@ -6,6 +6,7 @@ use crate::assets::vertexdata::LinesVertexData;
 use crate::entities::bounding_box::BoundingBox;
 
 use crate::math::*;
+use crate::prelude::*;
 use crate::{BoundingBoxComponent, colors};
 
 pub struct BBoxManager {
@@ -19,7 +20,7 @@ impl BBoxManager {
         }
     }
 
-    fn create(&mut self, device: &wgpu::Device, id: Entity) {
+    fn create_buffer(&mut self, device: &wgpu::Device, id: Entity) {
         let vertexbuffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Dynamic BBox Vertex Buffer"),
             size: (std::mem::size_of::<BBoxVertexData>()) as u64,
@@ -31,7 +32,8 @@ impl BBoxManager {
 
     pub fn get_or_create(&mut self, device: &wgpu::Device, id: Entity) -> &wgpu::Buffer {
         if !self.vertexbuffers.contains_key(&id) {
-            self.create(device, id);
+            self.create_buffer(device, id);
+            debug!("Create BBOX Buffer");
         }
         self.vertexbuffers.get(&id).expect("vb not exist")
     }
