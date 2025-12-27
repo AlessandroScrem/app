@@ -221,8 +221,14 @@ pub fn load_gltf(
 
     let mut material_map = HashMap::new();
     for mat in document.materials() {
-        let handle =
-            material_manager.create_material(texture_manager, &mat, &images, path.to_path_buf());
+        let handle = material_manager.create_material(
+            device,
+            gpu_manager,
+            texture_manager,
+            &mat,
+            &images,
+            path.to_path_buf(),
+        );
 
         material_map.insert(mat.index().unwrap(), handle);
     }

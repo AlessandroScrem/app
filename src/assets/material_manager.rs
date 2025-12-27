@@ -118,8 +118,6 @@ impl Material {
 }
 
 pub struct MaterialManager {
-    device: Arc<wgpu::Device>,
-    gpu_manager: Arc<GPUResourceManager>,
     materials: HashMap<MaterialId, Material>,
     default: Material,
 }
@@ -132,8 +130,6 @@ impl MaterialManager {
     ) -> Self {
         let default = Material::create_default(&device, texture_manager, &gpu_manager);
         Self {
-            device,
-            gpu_manager,
             materials: HashMap::new(),
             default,
         }
@@ -149,6 +145,8 @@ impl MaterialManager {
 
     pub fn create_material(
         &mut self,
+        device: &wgpu::Device,
+        gpu_manager: &GPUResourceManager,
         texture_manager: &mut TextureManager,
         gltf_material: &gltf::Material,
         images: &Vec<gltf::Image<'_>>,
@@ -235,13 +233,13 @@ impl MaterialManager {
 
         let timer = std::time::Instant::now();
         // create also textures
-        let uniform_buffer = create_uniform(&self.device, &material_pbr);
+        let uniform_buffer = create_uniform(device, &material_pbr);
         let bind_group = create_bindgroup(
-            &self.device,
+            device,
             &material_pbr,
             &uniform_buffer,
             texture_manager,
-            &self.gpu_manager,
+            gpu_manager,
         );
 
         debug!(

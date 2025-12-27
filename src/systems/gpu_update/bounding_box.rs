@@ -14,11 +14,6 @@ pub fn update_bounding_box_to_gpu(
     #[resource] globals: &Globals,
     #[resource] bbox_manager: &mut bbox_manager::BBoxManager,
 ) {
-
-    // //FIXME: update bbox with globalmat
-    // bbox_component.global_bounding_box = bbox_component
-    //     .bounding_box
-    //     .transform_aabb(&global_model.mat);
     
     let vertices = {
         if globals.bbox_axis_aligned {
