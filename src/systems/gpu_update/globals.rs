@@ -6,11 +6,10 @@ use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::Globals;
 
 use legion::*;
-use std::sync::Arc;
 
 #[system]
 pub fn update_global_uniform_to_gpu(
-    #[resource] resource_manager: &Arc<GPUResourceManager>,
+    #[resource] resource_manager: &GPUResourceManager,
     #[resource] queue: &wgpu::Queue,
     #[resource] camera: &Camera,
     #[resource] globals: &Globals,

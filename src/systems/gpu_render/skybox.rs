@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
 use crate::{
     Globals,
     renderer::{
         gpu_manager::GPUResourceManager,
-        gpu_renderer::DepthTexture,
-        hdr_frame::HdrFrame,
         pipeline_manager::{PipelineKind, PipelineManager},
         skybox_manager::SkyboxManager,
     },
@@ -16,11 +12,9 @@ use legion::*;
 #[system]
 pub fn render_skybox(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
+    #[resource] gpu_manager: &GPUResourceManager,
     #[resource] pipeline_manager: &PipelineManager,
-    #[resource] depth_texture: &DepthTexture,
     #[resource] skybox_manager: &SkyboxManager,
-    #[resource] hdr_texture: &HdrFrame,
     #[resource] globals: &Globals,
 ) {
     if !globals.skybox_enable {
@@ -31,7 +25,7 @@ pub fn render_skybox(
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Skybox Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: &hdr_texture.view,
+            view: &gpu_manager.hdr_frame.view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Load,
@@ -39,7 +33,7 @@ pub fn render_skybox(
             },
         })],
         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &depth_texture.0,
+            view: &gpu_manager.depth_view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Load,
                 store: wgpu::StoreOp::Store,
@@ -54,7 +48,7 @@ pub fn render_skybox(
     let skybox_bind_group = skybox_manager.get_skybox();
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
     renderpass.set_bind_group(1, skybox_bind_group, &[]);
     renderpass.draw(0..36, 0..1);
 }

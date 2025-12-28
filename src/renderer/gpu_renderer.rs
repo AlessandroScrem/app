@@ -10,8 +10,6 @@ use crate::renderer::*;
 
 pub struct Renderer {}
 
-pub struct DepthTexture(pub wgpu::TextureView);
-
 impl Renderer {
     pub fn init(window: Arc<Window>, resources: &mut legion::Resources) {
         pollster::block_on(Self::init_async(window, resources));
@@ -47,26 +45,10 @@ impl Renderer {
         };
         
         info!("Surface config format is {:?}", surface_config.format);
-        
-        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("depth_texture"),
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-        let depth_view = depth_texture.create_view(&Default::default());
 
         debug!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let gpu_manager = Arc::new(gpu_manager::GPUResourceManager::new(&device));
+        let gpu_manager = gpu_manager::GPUResourceManager::new(&device, size.width, size.height);
         let pipeline_manager = pipeline_manager::PipelineManager::new(
             &device,
             &gpu_manager,
@@ -119,10 +101,6 @@ impl Renderer {
 
         let bbox_manager = bbox_manager::BBoxManager::new();
         let mesh_manager = MeshManager::new();
-
-
-        let hdr_frame = HdrFrame::new(&device, &gpu_manager, size);
-        let entity_id_texture = IDTexture::new(&device, &gpu_manager, size);
         let pickobject = PickObject::new(&device);
 
         resources.insert(adapter);
@@ -138,9 +116,6 @@ impl Renderer {
         resources.insert(light_manager);
         resources.insert(skybox_manager);
         resources.insert(bbox_manager);
-        resources.insert(DepthTexture(depth_view));
-        resources.insert(hdr_frame);
-        resources.insert(entity_id_texture);
         resources.insert(pickobject);
     }
 }

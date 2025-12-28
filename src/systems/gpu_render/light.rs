@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
 use crate::{
     LightComponent,
     renderer::{
         gpu_manager::GPUResourceManager,
-        gpu_renderer::DepthTexture,
-        hdr_frame::HdrFrame,
         light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
@@ -18,17 +14,15 @@ use legion::{world::SubWorld, *};
 pub fn render_light(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
+    #[resource] gpu_manager: &GPUResourceManager,
     #[resource] pipeline_manager: &PipelineManager,
-    #[resource] depth_texture: &DepthTexture,
     #[resource] light_manager: &LightManager,
-    #[resource] hdr_texture: &HdrFrame,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Light Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: &hdr_texture.view,
+            view: &gpu_manager.hdr_frame.view,
             resolve_target: None,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Load,
@@ -36,7 +30,7 @@ pub fn render_light(
             },
         })],
         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &depth_texture.0,
+            view: &gpu_manager.depth_view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Load,
                 store: wgpu::StoreOp::Store,
@@ -50,7 +44,7 @@ pub fn render_light(
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
     renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
 
     let mut query = <&LightComponent>::query();

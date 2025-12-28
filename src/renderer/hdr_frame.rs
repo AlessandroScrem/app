@@ -1,5 +1,3 @@
-use crate::renderer::*;
-
 pub struct HdrFrame {
     pub _texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -8,7 +6,7 @@ pub struct HdrFrame {
 }
 
 impl HdrFrame {
-    pub fn new(device: &wgpu::Device, gpu_resource_manager: &GPUResourceManager, size: winit::dpi::PhysicalSize<u32>) -> Self {
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
         let hdr_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("hdr_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -23,8 +21,8 @@ impl HdrFrame {
         let hdr_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("depth_texture"),
             size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -38,7 +36,7 @@ impl HdrFrame {
 
         let hdr_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Hdr_bind_group"),
-            layout: &gpu_resource_manager.get_layout(crate::renderer::gpu_manager::LayoutKind::Hdr),
+            layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -67,7 +65,7 @@ pub struct IDTexture {
     pub id_bind_group: wgpu::BindGroup,
 }
 impl IDTexture {
-    pub fn new(device: &wgpu::Device, gpu_resource_manager: &GPUResourceManager, size: winit::dpi::PhysicalSize<u32>) -> Self {
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
         let id_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("entity_id_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -82,8 +80,8 @@ impl IDTexture {
         let id_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("entity_id_texture"),
             size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -97,7 +95,7 @@ impl IDTexture {
 
         let id_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("entity_id_bind_group"),
-            layout: &gpu_resource_manager.get_layout(crate::renderer::gpu_manager::LayoutKind::EntityId),
+            layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

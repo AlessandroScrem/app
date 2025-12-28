@@ -221,7 +221,7 @@ fn draw_ui_skybox_selector(ui: &Ui, resources: &Resources) {
     let queue = resources.get::<wgpu::Queue>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
     let gpu_resource_manager = resources
-        .get::<std::sync::Arc<GPUResourceManager>>()
+        .get::<GPUResourceManager>()
         .unwrap();
 
     let mut change_skybox = false;

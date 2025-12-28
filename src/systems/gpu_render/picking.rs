@@ -1,17 +1,17 @@
-use crate::{input::Input, picking::PickObject, renderer::hdr_frame::IDTexture};
+use crate::{input::Input, picking::PickObject, renderer::GPUResourceManager};
 use legion::*;
 
 #[system]
 pub fn read_entity_id_to_buffer(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] entity_id_texture: &IDTexture,
+    #[resource] gpu_manager: &GPUResourceManager,
     #[resource] pick_object: &mut PickObject,
     #[resource] input: &Input,
 ) {
     if  input.is_cursor_moved() && pick_object.buffer.ready(){
 
         let aligned_bytes_per_row = 256; // minimo richiesto
-        let size = entity_id_texture._texture.size();
+        let size = gpu_manager.entity_id_texture._texture.size();
         let mouse_pos_x = input.mouse_position.x as u32;
         let mouse_pos_y = input.mouse_position.y as u32;
         let x = mouse_pos_x.clamp(0, size.width - 1);
@@ -19,7 +19,7 @@ pub fn read_entity_id_to_buffer(
 
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
-                texture: &entity_id_texture._texture,
+                texture: &gpu_manager.entity_id_texture._texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d { x, y, z: 0 },
                 aspect: wgpu::TextureAspect::All,

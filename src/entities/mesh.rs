@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use crate::{
     TransformComponent,
@@ -17,7 +17,7 @@ pub fn create(world: &mut World, resources: &Resources) {
     let mut mesh_manager = resources.get_mut::<MeshManager>().unwrap();
     let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
-    let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
+    let gpu_resource_manager = resources.get::<GPUResourceManager>().unwrap();
 
     match load_gltf(
         world,

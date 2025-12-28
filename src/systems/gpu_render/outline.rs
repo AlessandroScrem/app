@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use crate::{
     picking::PickObject,
     renderer::{
         gpu_manager::GPUResourceManager,
-        hdr_frame::IDTexture,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
 };
@@ -14,10 +11,9 @@ use legion::*;
 #[system]
 pub fn render_outline(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
+    #[resource] gpu_manager: &GPUResourceManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] frame_view: &wgpu::TextureView,
-    #[resource] entity_id_texture: &IDTexture,
     #[resource] pick_object: &PickObject,
 ) {
     if pick_object.selected.is_none() {
@@ -43,7 +39,7 @@ pub fn render_outline(
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Outline);
 
     renderpass.set_pipeline(&pipeline);
-    renderpass.set_bind_group(0, &entity_id_texture.id_bind_group, &[]);
-    renderpass.set_bind_group(1, &gpu_resource_manager.per_frame_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_manager.entity_id_texture.id_bind_group, &[]);
+    renderpass.set_bind_group(1, &gpu_manager.per_frame_bind_group, &[]);
     renderpass.draw(0..3, 0..1);
 }

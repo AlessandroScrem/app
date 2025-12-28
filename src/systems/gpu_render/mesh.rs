@@ -1,33 +1,26 @@
 use wgpu::IndexFormat;
 
 use crate::{
-    MeshComponent, assets::{
-        material_manager::MaterialManager,
-        mesh_manager::MeshManager,
-    }, renderer::{
+    MeshComponent,
+    assets::{material_manager::MaterialManager, mesh_manager::MeshManager},
+    renderer::{
         gpu_manager::GPUResourceManager,
-        gpu_renderer::DepthTexture,
-        hdr_frame::{HdrFrame, IDTexture},
         pipeline_manager::{PipelineKind, PipelineManager},
         skybox_manager::SkyboxManager,
-    }
+    },
 };
 
 use legion::{world::SubWorld, *};
-use std::sync::Arc;
 
 #[system]
 #[read_component(MeshComponent)]
 pub fn render_mesh(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_resource_manager: &Arc<GPUResourceManager>,
+    #[resource] gpu_manager: &GPUResourceManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] mesh_manager: &MeshManager,
     #[resource] material_manager: &MaterialManager,
-    #[resource] depth_texture: &DepthTexture,
-    #[resource] hdr_texture: &HdrFrame,
-    #[resource] entity_id_texture: &IDTexture,
     #[resource] skybox_manager: &SkyboxManager,
 ) {
     let clear_color = wgpu::Color {
@@ -41,7 +34,7 @@ pub fn render_mesh(
         label: Some("Mesh Render Pass"),
         color_attachments: &[
             Some(wgpu::RenderPassColorAttachment {
-                view: &hdr_texture.view,
+                view: &gpu_manager.hdr_frame.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(clear_color),
@@ -49,7 +42,7 @@ pub fn render_mesh(
                 },
             }),
             Some(wgpu::RenderPassColorAttachment {
-                view: &entity_id_texture.view,
+                view: &gpu_manager.entity_id_texture.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -58,7 +51,7 @@ pub fn render_mesh(
             }),
         ],
         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &depth_texture.0,
+            view: &gpu_manager.depth_view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Clear(1.0),
                 store: wgpu::StoreOp::Store,
@@ -72,7 +65,7 @@ pub fn render_mesh(
     let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);
 
     renderpass.set_pipeline(render_pipeline);
-    renderpass.set_bind_group(0, &gpu_resource_manager.per_frame_bind_group, &[]);
+    renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
     renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
     let mut mesh_query = <&MeshComponent>::query();

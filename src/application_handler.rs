@@ -1,11 +1,8 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use crate::input::Input;
 use crate::prelude::*;
 use crate::renderer::gpu_manager::GPUResourceManager;
-use crate::renderer::hdr_frame::IDTexture;
-use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -136,51 +133,12 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
 
         surface.configure(&device, &surface_config);
     }
-    // resize hdr texture
+    // resize gpu_manager
     {
-        resources.insert({
-            let device = resources.get::<wgpu::Device>().unwrap();
-            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-            HdrFrame::new(
-                &device,
-                &gpu_resource_manager,
-                winit::dpi::PhysicalSize::new(width, height),
-            )
-        });
+        let device = resources.get::<wgpu::Device>().unwrap();
+        let mut gpu_manager = resources.get_mut::<GPUResourceManager>().unwrap();
+        gpu_manager.resize_frame(&device, width, height);
+        
     }
-    // resize entity_id_texture
-    {
-        resources.insert({
-            let device = resources.get::<wgpu::Device>().unwrap();
-            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-            IDTexture::new(
-                &device,
-                &gpu_resource_manager,
-                winit::dpi::PhysicalSize::new(width, height),
-            )
-        });
-    }
-
-    // resize depth texture
-    {
-        let depth_texture = {
-            let device = resources.get::<wgpu::Device>().unwrap();
-            device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("depth_texture"),
-                size: wgpu::Extent3d {
-                    width: width,
-                    height: height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            })
-        };
-        let depth_view = depth_texture.create_view(&Default::default());
-        resources.insert(DepthTexture(depth_view));
-    }
+    
 }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     LightComponent,
     renderer::
@@ -14,7 +12,7 @@ use legion::*;
 pub fn update_light_uniform_to_gpu(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
-    #[resource] gpu_manager: &Arc<GPUResourceManager>,
+    #[resource] gpu_manager: &GPUResourceManager,
 ) {
     queue.write_buffer(
         &gpu_manager.light_uniform_buffer,
