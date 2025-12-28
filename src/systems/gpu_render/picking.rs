@@ -1,10 +1,10 @@
-use crate::{input::Input, picking::PickObject, renderer::GPUResourceManager};
+use crate::{input::Input, picking::PickObject, renderer::GpuManager};
 use legion::*;
 
 #[system]
 pub fn read_entity_id_to_buffer(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pick_object: &mut PickObject,
     #[resource] input: &Input,
 ) {

@@ -1,7 +1,7 @@
 use crate::{
     LightComponent,
     renderer::{
-        gpu_manager::GPUResourceManager,
+        gpu_manager::GpuManager,
         light_manager::LightManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
@@ -14,7 +14,7 @@ use legion::{world::SubWorld, *};
 pub fn render_light(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] light_manager: &LightManager,
 ) {

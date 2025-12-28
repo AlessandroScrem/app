@@ -8,7 +8,7 @@ use crate::{
     assets::texture_manager::TextureManager,
     camera::Camera,
     picking::PickObject,
-    renderer::{GPUResourceManager, skybox_manager::SkyboxManager},
+    renderer::{GpuManager, skybox_manager::SkyboxManager},
     text_fmt,
     timestep::Timestep,
 };
@@ -221,7 +221,7 @@ fn draw_ui_skybox_selector(ui: &Ui, resources: &Resources) {
     let queue = resources.get::<wgpu::Queue>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
     let gpu_resource_manager = resources
-        .get::<GPUResourceManager>()
+        .get::<GpuManager>()
         .unwrap();
 
     let mut change_skybox = false;

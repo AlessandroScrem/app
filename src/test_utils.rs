@@ -1,9 +1,9 @@
 use wgpu::Extent3d;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 use wgpu::RequestAdapterOptions;
 
-static DEVICE_AND_QUEUE: OnceLock<(Arc<wgpu::Device>, Arc<wgpu::Queue>)> = OnceLock::new();
-pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) {
+static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
+pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
         let adapter =
@@ -17,7 +17,7 @@ pub fn get_device_and_queue() -> &'static (Arc<wgpu::Device>, Arc<wgpu::Queue>) 
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
 
-        (Arc::new(device), Arc::new(queue))
+        (device, queue)
     })
 }
 /// Save a 2D texture to a file (png).

@@ -1,5 +1,5 @@
 use crate::renderer::{
-    gpu_manager::GPUResourceManager,
+    gpu_manager::GpuManager,
     pipeline_manager::{PipelineKind, PipelineManager},
 };
 
@@ -10,7 +10,7 @@ pub fn render_hdr_to_ldr(
     #[resource] frame_view: &wgpu::TextureView,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] pipeline_manager: &PipelineManager,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
 ) {
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

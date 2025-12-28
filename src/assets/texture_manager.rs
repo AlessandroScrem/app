@@ -15,7 +15,7 @@ pub struct TextureManager {
 }
 
 impl TextureManager {
-    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
+    pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         let buffer = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/assets/core/white.png"
@@ -28,8 +28,8 @@ impl TextureManager {
         ));
 
         Self {
-            device,
-            queue,
+            device: Arc::new(device),
+            queue: Arc::new(queue),
             textures: HashMap::new(),
             white_texture,
         }

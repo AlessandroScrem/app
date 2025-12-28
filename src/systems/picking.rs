@@ -1,5 +1,6 @@
 use crate::{input::{Input, MouseButton}, picking::PickObject};
 use legion::*;
+use winit::keyboard::{Key, NamedKey};
 
 #[system]
 pub fn picking(
@@ -12,7 +13,7 @@ pub fn picking(
         pick_object.apply();
     }
 
-    if input.is_mouse_button_pressed(MouseButton::Left) {
+    if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(Key::Named(NamedKey::Alt)) {
         pick_object.select_hovered();
     }
 }

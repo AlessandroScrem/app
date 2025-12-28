@@ -1,7 +1,7 @@
+use crate::prelude::*;
 use stb_image::image::load_from_memory_with_depth;
 use std::sync::Arc;
-use wgpu::TextureFormat;
-use crate::prelude::*;
+use wgpu::{TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 
 fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
     use half::f16;
@@ -20,18 +20,26 @@ fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
     let num_pixels = (width * height) as usize;
 
     let timer = std::time::Instant::now();
-     // Prealloca il buffer finale: 4 canali * 2 byte per pixel
+    // Prealloca il buffer finale: 4 canali * 2 byte per pixel
     let mut raw_u8 = vec![0u8; num_pixels * 4 * 2];
 
     // Parallel map diretto: pixel source -> pixel destination
     raw_u8
-        .par_chunks_mut(8)                 // 8 byte per pixel RGBA16
-        .zip(img.data.par_chunks(4))       // 4 float per pixel RGBA, passiamo un reference
+        .par_chunks_mut(8) // 8 byte per pixel RGBA16
+        .zip(img.data.par_chunks(4)) // 4 float per pixel RGBA, passiamo un reference
         .for_each(|(dst, src)| {
-            dst[0..2].copy_from_slice(&f16::from_f32(src[0].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
-            dst[2..4].copy_from_slice(&f16::from_f32(src[1].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
-            dst[4..6].copy_from_slice(&f16::from_f32(src[2].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
-            dst[6..8].copy_from_slice(&f16::from_f32(src[3].clamp(0.0, f16::MAX.to_f32())).to_le_bytes());
+            dst[0..2].copy_from_slice(
+                &f16::from_f32(src[0].clamp(0.0, f16::MAX.to_f32())).to_le_bytes(),
+            );
+            dst[2..4].copy_from_slice(
+                &f16::from_f32(src[1].clamp(0.0, f16::MAX.to_f32())).to_le_bytes(),
+            );
+            dst[4..6].copy_from_slice(
+                &f16::from_f32(src[2].clamp(0.0, f16::MAX.to_f32())).to_le_bytes(),
+            );
+            dst[6..8].copy_from_slice(
+                &f16::from_f32(src[3].clamp(0.0, f16::MAX.to_f32())).to_le_bytes(),
+            );
         });
 
     debug!(
@@ -42,7 +50,6 @@ fn decode_stb_image_par(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 }
 
 fn read_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
-
     use stb_image::image::LoadResult;
     // Caricamento LDR con stb_image
 
@@ -64,7 +71,6 @@ fn read_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
     );
     (raw_u8, width, height)
 }
-
 
 pub struct Texture {
     pub inner: Arc<wgpu::Texture>,
@@ -115,16 +121,16 @@ impl Texture {
             size: extent,
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::COPY_SRC,
             view_formats: &[],
         });
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
-                aspect: wgpu::TextureAspect::All,
+                aspect: TextureAspect::All,
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
@@ -198,18 +204,18 @@ impl CubeTexture {
             size: extent,
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::COPY_SRC,
             view_formats: &[],
         });
 
         for (i, face) in images.iter().enumerate() {
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo {
-                    aspect: wgpu::TextureAspect::All,
+                    aspect: TextureAspect::All,
                     texture: &texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d {

@@ -11,5 +11,5 @@ pub mod bbox_manager;
 pub use gpu_renderer::Renderer;
 
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform};
-pub use gpu_manager::{GPUResourceManager};
+pub use gpu_manager::{GpuManager};
 pub use hdr_frame::{HdrFrame, IDTexture};

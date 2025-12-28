@@ -14,7 +14,7 @@ use crate::{
     assets::texture_manager::TextureManager,
     math::*,
     renderer::{
-        gpu_manager::{GPUResourceManager, LayoutKind},
+        gpu_manager::{GpuManager, LayoutKind},
         uniform::MaterialUniform,
     },
 };
@@ -97,7 +97,7 @@ impl Material {
     fn create_default(
         device: &wgpu::Device,
         texture_manager: &mut TextureManager,
-        gpu_manager: &GPUResourceManager,
+        gpu_manager: &GpuManager,
     ) -> Self {
         let material_pbr = MaterialPBR::default();
         let uniform_buffer = create_uniform(device, &material_pbr);
@@ -124,7 +124,7 @@ pub struct MaterialManager {
 impl MaterialManager {
     pub fn new(
         device: &wgpu::Device,
-        gpu_manager: &GPUResourceManager,
+        gpu_manager: &GpuManager,
         texture_manager: &mut TextureManager,
     ) -> Self {
         let default = Material::create_default(&device, texture_manager, &gpu_manager);
@@ -145,7 +145,7 @@ impl MaterialManager {
     pub fn create_material(
         &mut self,
         device: &wgpu::Device,
-        gpu_manager: &GPUResourceManager,
+        gpu_manager: &GpuManager,
         texture_manager: &mut TextureManager,
         gltf_material: &gltf::Material,
         images: &Vec<gltf::Image<'_>>,
@@ -289,7 +289,7 @@ fn create_bindgroup(
     material_pbr: &MaterialPBR,
     uniform_buffer: &wgpu::Buffer,
     texture_manager: &mut TextureManager,
-    gpu_manager: &GPUResourceManager,
+    gpu_manager: &GpuManager,
 ) -> wgpu::BindGroup {
     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
         address_mode_u: wgpu::AddressMode::Repeat,

@@ -167,29 +167,31 @@ impl Camera {
 
 pub fn center_camera_to_bounding_box(
     camera: &mut Camera,
-    bbox: crate::entities::bounding_box::BoundingBox,
+    bbox: Option<crate::entities::bounding_box::BoundingBox>,
 ) {
-    use crate::math::*;
-    let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
-    let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
-    let size = max - min;
-    let fit_offset = 1.1f32;
-    
-    let fov = camera.fov;
-    let aspect = camera.get_aspect();
-    let max_size = size.magnitude();
-    let fit_height_distance = max_size / Angle::tan(fov);
-    let fit_width_distance = fit_height_distance / aspect;
-    
-    let distance = fit_offset * fit_height_distance.max(fit_width_distance);
-    let center = (min + max) * 0.5;
-    let near = distance / 100.0;
-    let far = distance * 100.0;
+    if let Some(bbox) = bbox {
+        use crate::math::*;
+        let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
+        let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
+        let size = max - min;
+        let fit_offset = 1.1f32;
 
-    camera.near = near;
-    camera.far = far;
-    camera.set_focal_point(center);
-    camera.set_distance(distance);
+        let fov = camera.fov;
+        let aspect = camera.get_aspect();
+        let max_size = size.magnitude();
+        let fit_height_distance = max_size / Angle::tan(fov);
+        let fit_width_distance = fit_height_distance / aspect;
+
+        let distance = fit_offset * fit_height_distance.max(fit_width_distance);
+        let center = (min + max) * 0.5;
+        let near = distance / 100.0;
+        let far = distance * 100.0;
+
+        camera.near = near;
+        camera.far = far;
+        camera.set_focal_point(center);
+        camera.set_distance(distance);
+    }
 }
 
 #[cfg(test)]

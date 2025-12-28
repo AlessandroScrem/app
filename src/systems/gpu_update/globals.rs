@@ -1,7 +1,7 @@
 use crate::camera::Camera;
 use crate::entities::EntityRawU64;
 use crate::picking::PickObject;
-use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::gpu_manager::GpuManager;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::Globals;
 
@@ -9,7 +9,7 @@ use legion::*;
 
 #[system]
 pub fn update_global_uniform_to_gpu(
-    #[resource] resource_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] queue: &wgpu::Queue,
     #[resource] camera: &Camera,
     #[resource] globals: &Globals,
@@ -26,8 +26,8 @@ pub fn update_global_uniform_to_gpu(
         camera,
         globals,
         queue,
-        &resource_manager.camera_uniform_buffer,
-        &resource_manager.globals_uniform_buffer,
+        &gpu_manager.camera_uniform_buffer,
+        &gpu_manager.globals_uniform_buffer,
         screen_size,
         entity_selected_id,
     );
@@ -47,7 +47,6 @@ pub fn update_globals(
         view: camera.get_view_mat().into(),
         proj: camera.get_projection_mat().into(),
         screen_size,
-
         ..Default::default()
     };
 

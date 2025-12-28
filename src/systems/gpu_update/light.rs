@@ -1,7 +1,7 @@
 use crate::{
     LightComponent,
     renderer::
-        gpu_manager::GPUResourceManager
+        gpu_manager::GpuManager
     ,
 };
 
@@ -12,7 +12,7 @@ use legion::*;
 pub fn update_light_uniform_to_gpu(
     light: &LightComponent,
     #[resource] queue: &wgpu::Queue,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
 ) {
     queue.write_buffer(
         &gpu_manager.light_uniform_buffer,

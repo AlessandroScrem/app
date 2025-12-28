@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     assets::texture_manager::TextureManager,
-    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::gpu_manager::{GpuManager, LayoutKind},
 };
 use wgpu::{TextureFormat, TextureViewDescriptor, util::DeviceExt};
 
@@ -777,7 +777,7 @@ impl SkyboxManager {
         hdr_path: P,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_resource_manager: &GPUResourceManager,
+        gpu_manager: &GpuManager,
         texture_manager: &mut TextureManager,
     ) -> Self {
         // Create BRDF LUT texture for PBR
@@ -788,14 +788,14 @@ impl SkyboxManager {
         let skybox = Self::create_skybox(
             device,
             queue,
-            gpu_resource_manager,
+            gpu_manager.get_layout(LayoutKind::Skybox),
             texture_manager,
             hdr_path,
         );
 
         let ibl_bind_group = Self::create_ibl_bind_group(
             device,
-            gpu_resource_manager,
+            gpu_manager.get_layout(LayoutKind::Ibl),
             &skybox.irradiance_view,
             &skybox.prefilter_view,
             &brdf_lut_view,
@@ -811,7 +811,7 @@ impl SkyboxManager {
 
     fn create_ibl_bind_group(
         device: &wgpu::Device,
-        gpu_resource_manager: &GPUResourceManager,
+        layout: &wgpu::BindGroupLayout,
         irradiance: &wgpu::TextureView,
         prefilter: &wgpu::TextureView,
         brdf_lut: &wgpu::TextureView,
@@ -828,7 +828,7 @@ impl SkyboxManager {
 
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Ibl Bind Group"),
-            layout: &gpu_resource_manager.get_layout(super::gpu_manager::LayoutKind::Ibl),
+            layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -865,7 +865,7 @@ impl SkyboxManager {
         hdr_path: &std::path::Path,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_resource_manager: &GPUResourceManager,
+        gpu_manager: &GpuManager,
         texture_manager: &mut TextureManager,
     ) {
         if !hdr_path.exists() {
@@ -875,13 +875,13 @@ impl SkyboxManager {
         self.skybox = Self::create_skybox(
             device,
             queue,
-            gpu_resource_manager,
+            gpu_manager.get_layout(LayoutKind::Skybox),
             texture_manager,
             hdr_path,
         );
         self.ibl_bind_group = Self::create_ibl_bind_group(
             device,
-            gpu_resource_manager,
+            gpu_manager.get_layout(LayoutKind::Ibl),
             &self.skybox.irradiance_view,
             &self.skybox.prefilter_view,
             &self.brdf_lut_view,
@@ -891,7 +891,7 @@ impl SkyboxManager {
     fn create_skybox<P: AsRef<Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_resource_manager: &GPUResourceManager,
+        layout: &wgpu::BindGroupLayout,
         texture_manager: &mut TextureManager,
         hdr_path: P,
     ) -> Skybox {
@@ -914,10 +914,8 @@ impl SkyboxManager {
             ..Default::default()
         });
 
-        let bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::Skybox);
-
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+            layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -1061,7 +1059,7 @@ mod tests {
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_manager = GPUResourceManager::new(&device, 32, 32);
+        let gpu_manager = GpuManager::new(&device, 32, 32);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let _manager = SkyboxManager::new(HDR_PATH, &device, &queue, &gpu_manager, &mut texture_manager);

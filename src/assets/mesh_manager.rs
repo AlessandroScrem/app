@@ -4,7 +4,7 @@ use wgpu::util::DeviceExt as _;
 
 use crate::{
     assets::{material_manager::MaterialId, vertexdata::MeshVertexData},
-    renderer::{GPUResourceManager, gpu_manager::LayoutKind},
+    renderer::{GpuManager, gpu_manager::LayoutKind},
 };
 
 pub struct MeshManager {
@@ -74,7 +74,7 @@ impl MeshManager {
 
 pub fn create_mesh(
     device: &wgpu::Device,
-    gpu_manager: &GPUResourceManager,
+    gpu_manager: &GpuManager,
     vertices: &Vec<MeshVertexData>,
     indices: &Vec<u32>,
     material: MaterialId,

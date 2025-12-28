@@ -6,7 +6,7 @@ use crate::{
         material_manager::MaterialManager, mesh::*, mesh_manager::MeshManager,
         texture_manager::TextureManager,
     },
-    renderer::gpu_manager::GPUResourceManager,
+    renderer::gpu_manager::GpuManager,
 };
 
 use legion::*;
@@ -17,7 +17,7 @@ pub fn create(world: &mut World, resources: &Resources) {
     let mut mesh_manager = resources.get_mut::<MeshManager>().unwrap();
     let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
-    let gpu_resource_manager = resources.get::<GPUResourceManager>().unwrap();
+    let gpu_resource_manager = resources.get::<GpuManager>().unwrap();
 
     match load_gltf(
         world,

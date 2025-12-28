@@ -53,23 +53,21 @@ pub fn recenter_camera(
     }
 }
 
-fn get_bbox_from_entity(world: &mut SubWorld, entity: Entity) -> BoundingBox {
-    if let Ok(entry) = world.entry_mut(entity) {
-        let bounding_box = entry.get_component::<BoundingBoxComponent>().unwrap();
-        bounding_box.global_bounding_box.clone()
-    } else {
-        BoundingBox::new_empty()
-    }
+fn get_bbox_from_entity(world: &SubWorld, entity: Entity) -> Option<BoundingBox> {
+    let entry = world.entry_ref(entity).ok()?;
+    entry
+        .get_component::<BoundingBoxComponent>()
+        .ok()
+        .map(|b| b.global_bounding_box.clone())
 }
 
-fn get_bounding_box_from_world(world: &mut SubWorld) -> BoundingBox {
-    let mut bbox = BoundingBox::new_empty();
-    let mut query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
-
-    // FIXME: trasform local bbox with global matrix.. needs hierarchy update
-    for (b, g) in query.iter(world) {
-        bbox.merge(&b.bounding_box.transform_aabb(&g.mat));
-    }
-
-    bbox
+fn get_bounding_box_from_world(world: &SubWorld) -> Option<BoundingBox> {
+    <&BoundingBoxComponent>::query()
+        .iter(world)
+        .map(|b| b.global_bounding_box.clone())
+        .reduce(|mut acc, b| {
+            acc.merge(&b);
+            acc
+        })
 }
+

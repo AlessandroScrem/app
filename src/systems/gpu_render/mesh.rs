@@ -4,7 +4,7 @@ use crate::{
     MeshComponent,
     assets::{material_manager::MaterialManager, mesh_manager::MeshManager},
     renderer::{
-        gpu_manager::GPUResourceManager,
+        gpu_manager::GpuManager,
         pipeline_manager::{PipelineKind, PipelineManager},
         skybox_manager::SkyboxManager,
     },
@@ -17,7 +17,7 @@ use legion::{world::SubWorld, *};
 pub fn render_mesh(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] mesh_manager: &MeshManager,
     #[resource] material_manager: &MaterialManager,

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crate::input::Input;
 use crate::prelude::*;
-use crate::renderer::gpu_manager::GPUResourceManager;
+use crate::renderer::gpu_manager::GpuManager;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -136,7 +136,7 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
     // resize gpu_manager
     {
         let device = resources.get::<wgpu::Device>().unwrap();
-        let mut gpu_manager = resources.get_mut::<GPUResourceManager>().unwrap();
+        let mut gpu_manager = resources.get_mut::<GpuManager>().unwrap();
         gpu_manager.resize_frame(&device, width, height);
         
     }

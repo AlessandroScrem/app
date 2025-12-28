@@ -103,10 +103,6 @@ pub struct MeshComponent {
     pub handle: usize,
 }
 
-// pub struct MeshComponent {
-//     data: assets::mesh::Mesh,
-// }
-
 #[derive(Clone)]
 pub struct TransformComponent {
     pub position: [f32; 3],
@@ -131,6 +127,7 @@ pub struct TagComponent {
     pub name: String,
 }
 
+#[derive(Clone)]
 pub struct BoundingBoxComponent {
     pub global_bounding_box: BoundingBox,
     pub bounding_box: BoundingBox,

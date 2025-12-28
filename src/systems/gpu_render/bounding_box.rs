@@ -2,7 +2,7 @@ use crate::{
     BoundingBoxComponent, Globals,
     renderer::{
         bbox_manager::BBoxManager,
-        gpu_manager::GPUResourceManager,
+        gpu_manager::GpuManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
 };
@@ -16,7 +16,7 @@ pub fn render_bounding_box(
     world: &mut SubWorld,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] device: &wgpu::Device,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] globals: &Globals,
     #[resource] bbox_manager: &mut BBoxManager,

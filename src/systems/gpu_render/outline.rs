@@ -1,7 +1,7 @@
 use crate::{
     picking::PickObject,
     renderer::{
-        gpu_manager::GPUResourceManager,
+        gpu_manager::GpuManager,
         pipeline_manager::{PipelineKind, PipelineManager},
     },
 };
@@ -11,7 +11,7 @@ use legion::*;
 #[system]
 pub fn render_outline(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] frame_view: &wgpu::TextureView,
     #[resource] pick_object: &PickObject,

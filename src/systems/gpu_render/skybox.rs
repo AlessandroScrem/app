@@ -1,7 +1,7 @@
 use crate::{
     Globals,
     renderer::{
-        gpu_manager::GPUResourceManager,
+        gpu_manager::GpuManager,
         pipeline_manager::{PipelineKind, PipelineManager},
         skybox_manager::SkyboxManager,
     },
@@ -12,7 +12,7 @@ use legion::*;
 #[system]
 pub fn render_skybox(
     #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GPUResourceManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] pipeline_manager: &PipelineManager,
     #[resource] skybox_manager: &SkyboxManager,
     #[resource] globals: &Globals,

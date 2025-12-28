@@ -14,7 +14,7 @@ use crate::{
     entities::bounding_box::BoundingBox,
     math::*,
     prelude::*,
-    renderer::gpu_manager::GPUResourceManager,
+    renderer::gpu_manager::GpuManager,
 };
 
 impl TransformComponent {
@@ -204,7 +204,7 @@ pub fn load_gltf(
     mesh_manager: &mut MeshManager,
     material_manager: &mut MaterialManager,
     texture_manager: &mut TextureManager,
-    gpu_manager: &GPUResourceManager,
+    gpu_manager: &GpuManager,
     device: &wgpu::Device,
     path: &Path,
 ) -> Result<Vec<Entity>, ImportError> {
@@ -390,7 +390,7 @@ mod tests {
     fn should_load_mesh() {
         let (device, queue) = crate::test_utils::get_device_and_queue();
 
-        let gpu_manager = GPUResourceManager::new(&device, 32, 32);
+        let gpu_manager = GpuManager::new(&device, 32, 32);
         let mut mesh_manager = MeshManager::new();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
         let mut material_manager = MaterialManager::new(device, &gpu_manager, &mut texture_manager);
