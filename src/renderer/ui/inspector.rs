@@ -28,7 +28,7 @@ impl ComponentDrawer for TagComponent {
             "TagComponent",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
-            ui.text(format!("Name: {}", tag.name));
+            ui.input_text("Name: ", &mut tag.name).build();
         }
     }
 }

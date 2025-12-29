@@ -1,7 +1,7 @@
 use core::f32;
 
 use super::*;
-use cgmath::{Deg, Rad, num_traits::{zero}};
+use cgmath::{Deg, Rad, num_traits::zero};
 use legion::Resources;
 
 use crate::{
@@ -139,9 +139,13 @@ fn draw_ui_toggles(ctx: &mut InspectorContext) {
                 globals.debug_code = current_item as u32;
             }
         }
-        
-        ui.slider_config("Scene Exposure", 0.001, 64.0).flags(SliderFlags::LOGARITHMIC).build(&mut globals.exposure);
-        ui.slider_config("Ibl Intensity", 0.01, 10_000.0).flags(SliderFlags::LOGARITHMIC).build(&mut globals.ibl_intensity);
+
+        ui.slider_config("Scene Exposure", 0.001, 64.0)
+            .flags(SliderFlags::LOGARITHMIC)
+            .build(&mut globals.exposure);
+        ui.slider_config("Ibl Intensity", 0.01, 10_000.0)
+            .flags(SliderFlags::LOGARITHMIC)
+            .build(&mut globals.ibl_intensity);
         ui.separator();
 
         {
@@ -220,9 +224,7 @@ fn draw_ui_skybox_selector(ui: &Ui, resources: &Resources) {
     let device = resources.get::<wgpu::Device>().unwrap();
     let queue = resources.get::<wgpu::Queue>().unwrap();
     let mut texture_manager = resources.get_mut::<TextureManager>().unwrap();
-    let gpu_resource_manager = resources
-        .get::<GpuManager>()
-        .unwrap();
+    let gpu_manager = resources.get::<GpuManager>().unwrap();
 
     let mut change_skybox = false;
     let hdr_path = skybox_manager.get_hdr_path();
@@ -238,16 +240,17 @@ fn draw_ui_skybox_selector(ui: &Ui, resources: &Resources) {
     }
     if change_skybox {
         use rfd::FileDialog;
-        let filepath = FileDialog::new().add_filter("hdr", &["hdr"]).pick_file();
-        if let Some(filepath) = filepath {
-            skybox_manager.change_skybox(
-                &filepath,
-                &device,
-                &queue,
-                &gpu_resource_manager,
-                &mut texture_manager,
-            );
-        }
+        FileDialog::new()
+            .add_filter("hdr", &["hdr"])
+            .pick_file()
+            .map(|f| {
+                skybox_manager.change_skybox(
+                    &f,
+                    &device,
+                    &queue,
+                    &gpu_manager,
+                    &mut texture_manager,
+                );
+            });
     }
 }
-
