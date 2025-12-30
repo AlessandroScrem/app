@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use crate::{
-    TransformComponent,
     assets::{
         material_manager::MaterialManager, mesh::*, mesh_manager::MeshManager,
         texture_manager::TextureManager,
@@ -12,7 +11,7 @@ use crate::{
 use legion::*;
 
 /// A function to help create a mesh entity.
-pub fn create(world: &mut World, resources: &Resources) {
+pub fn create_from_gltf<P: AsRef<Path>>(path: P, world: &mut World, resources: &Resources) {
     let device = resources.get::<wgpu::Device>().unwrap();
     let mut mesh_manager = resources.get_mut::<MeshManager>().unwrap();
     let mut material_manager = resources.get_mut::<MaterialManager>().unwrap();
@@ -26,59 +25,11 @@ pub fn create(world: &mut World, resources: &Resources) {
         &mut texture_manager,
         &gpu_resource_manager,
         &device,
-        Path::new("./assets/Lantern/Lantern.gltf"),
+        path.as_ref(),
     ) {
-        Ok(roots) => {
-            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
-                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-                transform.position[1] += 1.0;
-            }
-        }
         Err(e) => {
             log::error!("glTF import failed: {}", e);
         }
-    }
-
-    match load_gltf(
-        world,
-        &mut mesh_manager,
-        &mut material_manager,
-        &mut texture_manager,
-        &gpu_resource_manager,
-        &device,
-        Path::new("./assets/cube/cube.gltf"),
-    ) {
-        Ok(roots) => {
-            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
-                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-                transform.scale = [30.0, 1.0, 30.0];
-            }
-        }
-        Err(e) => {
-            log::error!("glTF import failed: {}", e);
-        }
-    }
-
-    match load_gltf(
-        world,
-        &mut mesh_manager,
-        &mut material_manager,
-        &mut texture_manager,
-        &gpu_resource_manager,
-        &device,
-        Path::new(
-            "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/DamagedHelmet/glTF/DamagedHelmet.gltf",
-        ),
-    ) {
-        Ok(roots) => {
-            if let Ok(mut entry) = world.entry_mut(*roots.first().unwrap()) {
-                let transform = entry.get_component_mut::<TransformComponent>().unwrap();
-                transform.position = [10.0, 10.0, 0.0];
-                transform.scale = [5.0, 5.0, 5.0];
-            }
-        }
-        Err(e) => {
-            log::error!("glTF import failed: {}", e);
-        }
+        _ => {}
     }
 }

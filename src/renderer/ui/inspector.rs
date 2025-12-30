@@ -5,15 +5,17 @@ use legion::{Entity, Resources, World};
 
 use crate::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::{material_manager::MaterialManager, mesh_manager::MeshManager}, prelude::ui::registry::ImGuiTextureRegistry,
+    assets::{material_manager::MaterialManager, mesh_manager::MeshManager}, prelude::ui::{registry::ImGuiTextureRegistry, state::UiEvent},
     text_fmt,
 };
+
 
 pub struct InspectorContext<'a> {
     pub ui: &'a imgui::Ui,
     pub resources: &'a mut Resources, // o ResourceManager
     pub selected: Option<Entity>,
     pub demo_open: &'a mut bool,
+    pub command: Option<UiEvent>
 }
 
 trait ComponentDrawer {

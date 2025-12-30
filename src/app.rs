@@ -1,4 +1,8 @@
+use crate::entities::add_parent;
+use crate::entities::mesh::create_from_gltf;
+use crate::entities::remove_from_root;
 use crate::input::Input;
+use crate::prelude::ui::state::UiEvent;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -183,7 +187,11 @@ impl App {
         self.resources.insert(Camera::default());
         self.resources.insert(Globals::default());
 
-        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
+        create_from_gltf(
+            "./assets/Lantern/Lantern.gltf",
+            &mut self.current_scene.world,
+            &self.resources,
+        );
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
@@ -232,10 +240,22 @@ impl App {
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
-    
+
         if let Some(imgui) = &mut self.imgui {
-            let mut scene_world = &mut self.current_scene.world;
-            imgui.update_ui(window, &mut scene_world, &mut self.resources);
+            let mut world = &mut self.current_scene.world;
+            if let Some(ev) = imgui.update_ui(window, &mut world, &mut self.resources) {
+                match ev {
+                    UiEvent::LoadGltf(path) => {
+                        create_from_gltf(path, world, &mut self.resources);
+                    }
+                    UiEvent::RemoveEntity(entity) => {
+                        remove_from_root(entity, world);
+                    }
+                    UiEvent::AddParent(entity) => {
+                        add_parent(entity, world);
+                    }
+                }
+            }
         }
     }
 

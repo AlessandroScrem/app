@@ -1,50 +1,8 @@
 use super::*;
 use legion::query::IntoQuery;
 use legion::{Entity, EntityStore, World, component};
-
-use crate::assets::material_manager::MaterialManager;
-use crate::assets::mesh_manager::MeshManager;
-use crate::assets::texture_manager::TextureManager;
-use crate::entities::add_parent;
-use crate::renderer::GpuManager;
+use crate::prelude::ui::state::UiEvent;
 use crate::{HierarchyComponent, TagComponent, picking::PickObject};
-
-fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
-    out.push(root);
-
-    if let Ok(entry) = world.entry_ref(root) {
-        if let Ok(h) = entry.get_component::<HierarchyComponent>() {
-            for &child in &h.children {
-                collect_subtree(world, child, out);
-            }
-        }
-    }
-}
-fn add_gltf(world: &mut World, ctx: &mut InspectorContext) {
-    let mut mesh_manager = ctx.resources.get_mut::<MeshManager>().unwrap();
-    let mut texture_manager = ctx.resources.get_mut::<TextureManager>().unwrap();
-    let mut material_manager = ctx.resources.get_mut::<MaterialManager>().unwrap();
-    let gpu_manager = ctx.resources.get::<GpuManager>().unwrap();
-    let device = ctx.resources.get::<wgpu::Device>().unwrap();
-
-    ctx.ui.menu_item("Load Gltf ..").then(|| {
-        use rfd::FileDialog;
-        FileDialog::new()
-            .add_filter("gltf", &["gltf"])
-            .pick_file()
-            .map(|f| {
-                crate::assets::mesh::load_gltf(
-                    world,
-                    &mut mesh_manager,
-                    &mut material_manager,
-                    &mut texture_manager,
-                    &gpu_manager,
-                    &device,
-                    &f,
-                )
-            });
-    });
-}
 
 pub fn draw_window_entities(world: &mut World, ctx: &mut InspectorContext) {
     let ui = ctx.ui;
@@ -64,7 +22,12 @@ pub fn draw_window_entities(world: &mut World, ctx: &mut InspectorContext) {
             }
 
             if let Some(popup) = ui.begin_popup("context") {
-                add_gltf(world, ctx);
+                ctx.ui.menu_item("Load Gltf ..").then(|| {
+                    rfd::FileDialog::new()
+                        .add_filter("gltf", &["gltf"])
+                        .pick_file()
+                        .map(|f| ctx.command = Some(UiEvent::LoadGltf(f)));
+                });
                 popup.end();
             }
 
@@ -149,16 +112,12 @@ fn draw_hierarchy_nodes(world: &mut World, ctx: &mut InspectorContext) {
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {
-                    let mut to_delete = Vec::new();
-                    collect_subtree(world, selected, &mut to_delete);
-                    for e in to_delete.into_iter().rev() {
-                        world.remove(e);
-                    }
+                    ctx.command = Some(UiEvent::RemoveEntity(selected));
                     pick_object.selected = None;
                     ctx.selected = None;
                 });
                 ui.menu_item("Add Parent ..")
-                    .then(|| add_parent(selected.clone(), world));
+                    .then(|| ctx.command = Some(UiEvent::AddParent(selected)));
                 popup.end();
             }
         }

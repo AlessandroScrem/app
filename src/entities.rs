@@ -57,6 +57,27 @@ impl EntityHash for Entity {
     }
 }
 
+
+fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
+    out.push(root);
+
+    if let Ok(entry) = world.entry_ref(root) {
+        if let Ok(h) = entry.get_component::<HierarchyComponent>() {
+            for &child in &h.children {
+                collect_subtree(world, child, out);
+            }
+        }
+    }
+}
+
+pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
+    let mut to_delete = Vec::new();
+    collect_subtree(world, entity, &mut to_delete);
+    for e in to_delete.into_iter().rev() {
+        world.remove(e);
+    }
+}
+
 pub fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if let Some(entry) = world.entry(entity) {

@@ -1,9 +1,18 @@
+use std::path::PathBuf;
+
 use super::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
+use legion::Entity;
 use winit::window::Window;
 
 use crate::{picking::PickObject, timestep::Timestep};
+
+pub enum UiEvent {
+    LoadGltf(PathBuf),
+    RemoveEntity(Entity),
+    AddParent(Entity),
+}
 
 pub struct ImguiState {
     pub context: imgui::Context,
@@ -106,7 +115,7 @@ impl ImguiState {
         window: &Window,
         world: &mut legion::World,
         resources: &mut legion::Resources,
-    ) {
+    ) -> Option<UiEvent> {
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
@@ -119,12 +128,13 @@ impl ImguiState {
         let selected = resources.get::<PickObject>().unwrap().selected;
 
         let ui = self.context.frame();
-        {
+        let command = {
             let mut ctx = InspectorContext {
                 ui,
                 resources,
                 selected,
                 demo_open: &mut self.demo_open,
+                command: None,
             };
             ui.dockspace_over_main_viewport();
 
@@ -134,7 +144,8 @@ impl ImguiState {
 
             windows::draw_demo_window(&ctx);
             windows::draw_debug_texture(&ctx);
-        }
+            ctx.command
+        };
 
         if self.last_cursor != ui.mouse_cursor() {
             self.last_cursor = ui.mouse_cursor();
@@ -146,6 +157,8 @@ impl ImguiState {
         let draw_data: &DrawData = self.context.render();
         let owned = OwnedDrawData::from(draw_data);
         resources.insert(owned);
+
+        command
     }
 }
 
