@@ -135,7 +135,7 @@ impl CenterWindow for winit::window::Window {
 }
 
 pub struct App {
-    pub(super) window: Option<Arc<winit::window::Window>>,
+    pub window: Option<Arc<winit::window::Window>>,
     pub current_scene: Scene,
     pub resources: Resources,
     pub timer: Timer,
@@ -180,7 +180,7 @@ impl App {
         Ok(())
     }
 
-    pub fn load(&mut self) {
+    pub fn init(&mut self) {
         let timer = std::time::Instant::now();
 
         self.resources.insert(Input::new());
@@ -198,36 +198,24 @@ impl App {
         self.update_schedule = crate::systems::create_update_schedule_builder();
         self.render_schedule = crate::systems::create_render_schedule_builder();
 
-        self.create_gui();
-
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
     pub fn create_and_center_window(
         &mut self,
         event_loop: &winit::event_loop::ActiveEventLoop,
-    ) -> std::sync::Arc<winit::window::Window> {
+    ) -> winit::window::Window {
         let attributes = winit::window::Window::default_attributes()
             .with_inner_size(self.size)
             .with_title("App".to_string());
 
-        let window = std::sync::Arc::new(
-            event_loop
-                .create_window(attributes)
-                .expect("Failed to crate window"),
-        );
-        let new_size = window.try_fit_center_to_monitor();
-        self.size = new_size;
+        let window = event_loop
+            .create_window(attributes)
+            .expect("Failed to crate window");
+
+        self.size = window.try_fit_center_to_monitor();
 
         window
-    }
-
-    fn create_gui(&mut self) {
-        if let Some(window) = &self.window {
-            let imgui = ui::ImguiState::create_imgui(window, &mut self.resources);
-
-            self.imgui = Some(imgui);
-        }
     }
 
     pub fn update_scene(&mut self) {

@@ -13,27 +13,18 @@ impl ApplicationHandler for App {
         let timer = std::time::Instant::now();
         debug!("App resumed after  {} ms", timer.elapsed().as_millis());
 
-        let window = self.create_and_center_window(event_loop);
-        self.window = Some(window.clone());
+        let window = std::sync::Arc::new(self.create_and_center_window(event_loop));
 
         Renderer::init(window.clone(), &mut self.resources);
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        self.load();
+        self.imgui = Some(ui::ImguiState::new(&window, &mut self.resources));
+
+        self.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
+        self.window = Some(window.clone());
         window.request_redraw();
-    }
-
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
-        //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                &window,
-                &winit::event::Event::UserEvent(event),
-            );
-        }
     }
 
     fn device_event(
@@ -80,7 +71,6 @@ impl ApplicationHandler for App {
         };
 
         let mut imgui_capture_events = false;
-
         if let Some(imgui) = &mut self.imgui {
             imgui.platform.handle_event::<()>(
                 imgui.context.io_mut(),
@@ -138,7 +128,5 @@ fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) 
         let device = resources.get::<wgpu::Device>().unwrap();
         let mut gpu_manager = resources.get_mut::<GpuManager>().unwrap();
         gpu_manager.resize_frame(&device, width, height);
-        
     }
-    
 }

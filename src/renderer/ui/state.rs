@@ -25,7 +25,7 @@ pub struct ImguiState {
 }
 
 impl ImguiState {
-    pub fn create_imgui(window: &Window, resources: &mut legion::Resources) -> Self {
+    pub fn new(window: &Window, resources: &mut legion::Resources) -> Self {
         let mut context = imgui::Context::create();
 
         let io = context.io_mut();
