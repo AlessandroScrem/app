@@ -68,6 +68,9 @@ impl Renderer {
             timer.elapsed().as_millis()
         );
 
+        let imgui = ui::ImguiState::new(&window, &device, &queue, surface_format);
+
+
         resources.insert(adapter);
         resources.insert(device);
         resources.insert(queue);
@@ -82,5 +85,6 @@ impl Renderer {
         resources.insert(bbox_manager);
         resources.insert(pickobject);
         resources.insert(skybox_manager);
+        resources.insert(imgui);
     }
 }

@@ -5,6 +5,7 @@ mod hierarchy;
 mod picking;
 mod bounding_box;
 mod registry_update;
+mod input;
 
 use legion::Schedule;
 
@@ -13,6 +14,7 @@ use legion::Schedule;
 // 2) render_schedule_builder()
 pub fn create_current_scene_schedule_builder() -> Schedule {
     Schedule::builder()
+    .add_thread_local(input::input_update_system())
     .add_system(camera_update::camera_orbit_system())
     .add_system(picking::picking_system())
     .add_system(hierarchy::update_hieararchy_system()) 
@@ -26,6 +28,8 @@ pub fn create_render_schedule_builder() -> Schedule {
     Schedule::builder()
     .add_system(gpu_update::execute_start_system()) // create frame view and encoder
     .flush()
+    .add_thread_local(gpu_update::imgui_update_system())
+    .add_system(gpu_update::apply_ui_commands_system())
     .add_system(gpu_update::update_global_uniform_to_gpu_system())
     .add_system(gpu_update::update_light_uniform_to_gpu_system())
     .add_system(gpu_update::update_bounding_box_to_gpu_system()) // require hierarchy update
@@ -51,7 +55,7 @@ pub fn create_render_schedule_builder() -> Schedule {
 // 1) update_schedule_builder (every 1 sec)
 pub fn create_update_schedule_builder() -> Schedule {
     Schedule::builder()
-        .add_system(registry_update::registry_update_system())
+        .add_thread_local(registry_update::registry_update_system())
         .build()
 }
 

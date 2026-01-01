@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::VecDeque, path::PathBuf};
 
 use super::*;
 use imgui_wgpu::{Renderer, RendererConfig};
@@ -6,7 +6,35 @@ use imgui_winit_support::WinitPlatform;
 use legion::Entity;
 use winit::window::Window;
 
-use crate::{picking::PickObject, timestep::Timestep};
+use crate::{Globals, UiComponentView, camera::Camera, timestep::Timestep};
+
+pub struct UiContext<'a, 'b> {
+    pub snapshot: &'a mut Snapshot<'b>,
+    pub registry: &'a ImGuiTextureRegistry,
+    pub command: VecDeque<UiEvent>,
+}
+
+pub struct Snapshot<'a> {
+    pub camera: &'a mut Camera,
+    pub globals: &'a mut Globals,
+    pub root_nodes: &'a RootNodes,
+    pub lights_nodes: &'a RootNodes,
+    pub comp_view: &'a mut UiComponentView,
+    pub selected: &'a mut Option<Entity>,
+    pub hovered: Option<Entity>,
+}
+
+pub struct HierarchyNode {
+    pub name: String,
+    pub parent: Option<Entity>,
+    pub entity: Entity,
+    pub children: Vec<HierarchyNode>,
+}
+
+#[derive(Default)]
+pub struct RootNodes {
+    pub nodes: Vec<HierarchyNode>,
+}
 
 pub enum UiEvent {
     LoadGltf(PathBuf),
@@ -17,15 +45,23 @@ pub enum UiEvent {
 pub struct ImguiState {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
-    pub clear_color: wgpu::Color,
-    pub demo_open: bool,
+    pub renderer: Renderer,
+    pub registry: ImGuiTextureRegistry,
     pub last_cursor: Option<MouseCursor>,
+    pub command: VecDeque<UiEvent>,
     ini_loaded: bool,
     timestep: Timestep,
 }
 
+pub static mut DEMO_OPEN: bool = false;
+
 impl ImguiState {
-    pub fn new(window: &Window, resources: &mut legion::Resources) -> Self {
+    pub fn new(
+        window: &Window,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        format: wgpu::TextureFormat,
+    ) -> Self {
         let mut context = imgui::Context::create();
 
         let io = context.io_mut();
@@ -56,41 +92,24 @@ impl ImguiState {
             }),
         }]);
 
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
+        let renderer_config = RendererConfig {
+            texture_format: format,
+            ..Default::default()
         };
-
-        let renderer = {
-            let device = resources.get::<wgpu::Device>().unwrap();
-            let queue = resources.get::<wgpu::Queue>().unwrap();
-            let format = resources
-                .get::<wgpu::SurfaceConfiguration>()
-                .unwrap()
-                .format;
-            let renderer_config = RendererConfig {
-                texture_format: format,
-                ..Default::default()
-            };
-            Renderer::new(&mut context, &device, &queue, renderer_config)
-        };
+        let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
 
         let registry = ImGuiTextureRegistry::new();
         let timestep = Timestep::new();
 
-        resources.insert(renderer);
-        resources.insert(registry);
-
         Self {
             context,
             platform,
-            clear_color,
-            demo_open: false,
+            renderer,
+            registry,
             last_cursor: None,
             ini_loaded: false,
             timestep,
+            command: VecDeque::new(),
         }
     }
 
@@ -110,12 +129,7 @@ impl ImguiState {
         self.ini_loaded = true;
     }
 
-    pub fn update_ui(
-        &mut self,
-        window: &Window,
-        world: &mut legion::World,
-        resources: &mut legion::Resources,
-    ) -> Option<UiEvent> {
+    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) {
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
@@ -125,28 +139,28 @@ impl ImguiState {
             .prepare_frame(self.context.io_mut(), &window)
             .expect("failed_to prepare frame");
 
-        let selected = resources.get::<PickObject>().unwrap().selected;
-
         let ui = self.context.frame();
         let command = {
-            let mut ctx = InspectorContext {
-                ui,
-                resources,
-                selected,
-                demo_open: &mut self.demo_open,
-                command: None,
+            let mut ctx = UiContext {
+                snapshot,
+                registry: &self.registry,
+                command: VecDeque::new(),
             };
             ui.dockspace_over_main_viewport();
 
-            windows::draw_window_settings(&self.timestep, &mut ctx);
-            windows::draw_window_entities(world, &mut ctx);
-            windows::draw_window_properties(world, &mut ctx);
+            windows::draw_window_settings(ui, &self.timestep, &mut ctx);
+            windows::draw_window_entities(ui, &mut ctx);
+            windows::draw_window_properties(ui, &mut ctx);
 
-            windows::draw_demo_window(&ctx);
-            windows::draw_debug_texture(&ctx);
+            if unsafe { DEMO_OPEN } {
+                ui.show_demo_window(&mut true);
+            }
+
+            windows::draw_debug_texture(ui, &ctx);
             ctx.command
         };
 
+        // update window cursor state (icon)
         if self.last_cursor != ui.mouse_cursor() {
             self.last_cursor = ui.mouse_cursor();
             self.platform.prepare_render(ui, window);
@@ -154,11 +168,7 @@ impl ImguiState {
 
         self.load_ini_if_needed();
 
-        let draw_data: &DrawData = self.context.render();
-        let owned = OwnedDrawData::from(draw_data);
-        resources.insert(owned);
-
-        command
+        self.command = command;
     }
 }
 

@@ -5,6 +5,7 @@ pub mod mesh;
 use legion::{Entity, EntityStore};
 use std::mem;
 
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EntityId(pub u64);
 

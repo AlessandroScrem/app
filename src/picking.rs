@@ -31,10 +31,6 @@ impl PickObject {
         self.selected = self.hovered;
         // println!("Selected is {:?}", self.selected);
     }
-    pub fn select(&mut self, select: Option<Entity>) {
-        self.selected = select;
-        // println!("Selected is {:?}", self.selected);
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

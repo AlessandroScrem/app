@@ -2,20 +2,16 @@ pub mod entities;
 pub mod properties;
 pub mod settings;
 
+
 use super::*;
-pub use settings::draw_window_settings;
 pub use entities::draw_window_entities;
 pub use properties::draw_window_properties;
+pub use settings::draw_window_settings;
 
-pub fn draw_demo_window(ctx: &InspectorContext) {
-    if *ctx.demo_open {
-        ctx.ui.show_demo_window(&mut true);
-    }
-}
 
-pub fn draw_debug_texture(ctx: &InspectorContext) {
-    let registry = ctx.resources.get::<ImGuiTextureRegistry>().unwrap();
-    let ui = ctx.ui;
+
+pub fn draw_debug_texture(ui: &imgui::Ui, ctx: &UiContext) {
+    let registry = ctx.registry;
 
     let debug_tex_path = std::path::Path::new("debug_texture");
     let name = debug_tex_path

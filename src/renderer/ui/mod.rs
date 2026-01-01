@@ -6,10 +6,9 @@ pub mod windows;
 
 pub use registry::ImGuiTextureRegistry;
 pub use state::ImguiState;
-pub use inspector::InspectorContext;
+pub use state::UiContext;
 
 pub use imgui::*;
-
 
 
 

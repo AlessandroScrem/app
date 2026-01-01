@@ -50,7 +50,7 @@ pub mod math {
     };
 }
 
-use crate::entities::bounding_box::BoundingBox;
+use crate::{assets::material_manager::MaterialPBR, entities::bounding_box::BoundingBox};
 use legion::Entity;
 use math::*;
 
@@ -63,6 +63,16 @@ pub mod colors {
     pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
     pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
     pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
+}
+#[derive(Default)]
+pub struct UiComponentView{
+    tag: Option<TagComponent>,
+    mesh: Option<MeshComponent>,
+    transform: Option<TransformComponent>,
+    bounding_box: Option<BoundingBoxComponent>,
+    material: Option<MaterialPBR>,
+    light: Option<LightComponent>,
+    dirty: bool
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -99,6 +109,7 @@ pub struct LightComponent {
     pub data: renderer::LightUniform,
 }
 
+#[derive(Default, Clone)]
 pub struct MeshComponent {
     pub handle: usize,
 }
@@ -123,6 +134,7 @@ impl Default for GlobalModelComponent {
     }
 }
 
+#[derive(Default, Clone)]
 pub struct TagComponent {
     pub name: String,
 }

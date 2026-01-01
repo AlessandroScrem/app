@@ -21,6 +21,7 @@ use crate::{
 
 pub type MaterialId = PathBuf;
 
+#[derive(Clone)]
 pub struct MaterialPBR {
     pub name: String,
 

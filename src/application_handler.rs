@@ -1,12 +1,20 @@
+use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::input::Input;
+
 use crate::prelude::*;
 use crate::renderer::gpu_manager::GpuManager;
 use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, WindowEvent};
+use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use winit::window::{Window, WindowId};
+
+pub struct WindowEventQueue {
+    pub window: Arc<Window>,
+    pub queue: VecDeque<Event<()>>,
+}
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -18,24 +26,27 @@ impl ApplicationHandler for App {
         Renderer::init(window.clone(), &mut self.resources);
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        self.imgui = Some(ui::ImguiState::new(&window, &mut self.resources));
-
         self.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
         self.window = Some(window.clone());
+        self.resources.insert(WindowEventQueue {
+            window: window.clone(),
+            queue: VecDeque::new(),
+        });
         window.request_redraw();
     }
 
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
+        device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
         {
-            let mut input = self.resources.get_mut::<Input>().unwrap();
-            input.update_device_events(&event);
+            let mut events = self.resources.get_mut::<WindowEventQueue>().unwrap();
+            let event = Event::DeviceEvent { device_id, event };
+            events.queue.push_back(event);
         }
     }
 
@@ -65,28 +76,13 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
-        };
-
-        let mut imgui_capture_events = false;
-        if let Some(imgui) = &mut self.imgui {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                window,
-                &winit::event::Event::WindowEvent {
-                    window_id,
-                    event: event.clone(),
-                },
-            );
-            imgui_capture_events =
-                imgui.context.io().want_capture_mouse || imgui.context.io().want_capture_keyboard;
-        }
-
-        if !imgui_capture_events {
-            let mut input = self.resources.get_mut::<Input>().unwrap();
-            input.update_window_events(&event);
+        {
+            let mut events = self.resources.get_mut::<WindowEventQueue>().unwrap();
+            let event = Event::WindowEvent {
+                window_id,
+                event: event.clone(),
+            };
+            events.queue.push_back(event);
         }
 
         match event {

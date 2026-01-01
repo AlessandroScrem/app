@@ -1,13 +1,14 @@
 use legion::*;
 
+use crate::prelude::ui::ImguiState;
+
 #[system]
 pub fn render_imgui(
-    #[resource] renderer: &mut imgui_wgpu::Renderer,
+    #[resource] imgui: &mut ImguiState,
     #[resource] encoder: &mut wgpu::CommandEncoder,
     #[resource] frame_view: &wgpu::TextureView,
     #[resource] device: &wgpu::Device,
     #[resource] queue: &wgpu::Queue,
-    #[resource] ownned_draw_data: &imgui::OwnedDrawData,
 ) {
     let mut pass = {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -25,8 +26,9 @@ pub fn render_imgui(
         })
     };
 
-    let draw_data = ownned_draw_data.draw_data().unwrap();
-    renderer
+    let draw_data = imgui.context.render();
+    imgui
+        .renderer
         .render(draw_data, queue, device, &mut pass)
         .unwrap();
 }

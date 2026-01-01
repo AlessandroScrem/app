@@ -1,3 +1,4 @@
+use crate::UiComponentView;
 use crate::entities::add_parent;
 use crate::entities::mesh::create_from_gltf;
 use crate::entities::remove_from_root;
@@ -142,7 +143,6 @@ pub struct App {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub update_schedule: Schedule,
     pub render_schedule: Schedule,
-    pub imgui: Option<ImguiState>,
     pub is_minimized: bool,
 }
 
@@ -159,7 +159,6 @@ impl Default for App {
             render_schedule,
             timer: Timer::new(),
             size: winit::dpi::PhysicalSize::new(1280, 1024),
-            imgui: None,
             is_minimized: false,
         }
     }
@@ -186,6 +185,7 @@ impl App {
         self.resources.insert(Input::new());
         self.resources.insert(Camera::default());
         self.resources.insert(Globals::default());
+        self.resources.insert(UiComponentView::default());
 
         create_from_gltf(
             "./assets/Lantern/Lantern.gltf",
@@ -220,28 +220,34 @@ impl App {
 
     pub fn update_scene(&mut self) {
         // scheduler di update ecs (camera, mesh, etc)
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
-        };
+        if self.window.is_none() {
+            return;
+        }
 
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
 
-        if let Some(imgui) = &mut self.imgui {
-            let mut world = &mut self.current_scene.world;
-            if let Some(ev) = imgui.update_ui(window, &mut world, &mut self.resources) {
-                match ev {
-                    UiEvent::LoadGltf(path) => {
-                        create_from_gltf(path, world, &mut self.resources);
-                    }
-                    UiEvent::RemoveEntity(entity) => {
-                        remove_from_root(entity, world);
-                    }
-                    UiEvent::AddParent(entity) => {
-                        add_parent(entity, world);
-                    }
+        let commands: Vec<UiEvent> = {
+            if let Some(mut imgui) = self.resources.get_mut::<ImguiState>() {
+                imgui.command.drain(..).collect()
+            } else {
+                Vec::new()
+            }
+        };
+
+        let world = &mut self.current_scene.world;
+
+        for cmd in commands {
+            match cmd {
+                UiEvent::LoadGltf(path) => {
+                    create_from_gltf(path, world, &mut self.resources);
+                }
+                UiEvent::RemoveEntity(entity) => {
+                    remove_from_root(entity, world);
+                }
+                UiEvent::AddParent(entity) => {
+                    add_parent(entity, world);
                 }
             }
         }
