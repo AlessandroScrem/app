@@ -5,7 +5,6 @@ pub mod mesh;
 use legion::{Entity, EntityStore};
 use std::mem;
 
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct EntityId(pub u64);
 
@@ -59,7 +58,7 @@ impl EntityHash for Entity {
 }
 
 
-fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
+fn collect_subtree(world: &legion::world::SubWorld, root: Entity, out: &mut Vec<Entity>) {
     out.push(root);
 
     if let Ok(entry) = world.entry_ref(root) {
@@ -71,17 +70,17 @@ fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
     }
 }
 
-pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
+pub fn remove_from_root(entity: Entity, world: &mut legion::world::SubWorld, cmd: &mut legion::systems::CommandBuffer) {
     let mut to_delete = Vec::new();
     collect_subtree(world, entity, &mut to_delete);
     for e in to_delete.into_iter().rev() {
-        world.remove(e);
+        cmd.remove(e);
     }
 }
 
-pub fn add_parent(entity: Entity, world: &mut legion::World) {
+pub fn add_parent(entity: Entity, world: &mut legion::world::SubWorld, cmd: &mut legion::systems::CommandBuffer) {
     // if not root node do nothing
-    if let Some(entry) = world.entry(entity) {
+    if let Ok(entry) = world.entry_mut(entity) {
         if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
             if hierarchy.parent.is_some() {
                 return;
@@ -90,7 +89,7 @@ pub fn add_parent(entity: Entity, world: &mut legion::World) {
     }
     // Add parent node and set entity as child
     let new_root = {
-        world.push((
+        cmd.push((
             crate::TagComponent {
                 name: "New Node".into(),
             },

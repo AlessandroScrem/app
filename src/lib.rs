@@ -50,6 +50,8 @@ pub mod math {
     };
 }
 
+use std::{collections::VecDeque, path::PathBuf};
+
 use crate::{assets::material_manager::MaterialPBR, entities::bounding_box::BoundingBox};
 use legion::Entity;
 use math::*;
@@ -73,6 +75,16 @@ pub struct UiComponentView{
     material: Option<MaterialPBR>,
     light: Option<LightComponent>,
     dirty: bool
+}
+
+pub enum DomainEvent {
+    RemoveEntity(Entity),
+    LoadGltf(PathBuf),
+    AddParent(Entity),
+}
+
+pub struct DomainEvents {
+    pub queue: VecDeque<DomainEvent>,
 }
 
 #[derive(Clone, Copy, Debug)]

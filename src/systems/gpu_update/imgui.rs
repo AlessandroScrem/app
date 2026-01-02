@@ -1,6 +1,7 @@
+
 use crate::{
-    BoundingBoxComponent, Globals, HierarchyComponent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, UiComponentView,
+    BoundingBoxComponent, DomainEvents, Globals, HierarchyComponent, LightComponent,
+    MeshComponent, TagComponent, TransformComponent, UiComponentView,
     application_handler::WindowEventQueue,
     assets::{material_manager::MaterialManager, mesh_manager::MeshManager},
     camera::Camera,
@@ -29,6 +30,7 @@ pub fn imgui_update(
     #[resource] comp_view: &mut UiComponentView,
     #[resource] mat_mgr: &MaterialManager,
     #[resource] mesh_mgr: &MeshManager,
+    #[resource] de: &mut DomainEvents,
 ) {
     let window = &event_queue.window;
     let selected = &mut picking.selected;
@@ -48,10 +50,11 @@ pub fn imgui_update(
         hovered,
     };
 
-    imgui.update_ui(
-        window,
-        &mut snaphot,
-    );
+    let mut events = imgui.update_ui(window, &mut snaphot);
+
+    while let Some(event) = events.pop_front() {
+        de.queue.push_back(event);
+    }
 }
 
 fn get_lights_roots(world: &SubWorld) -> RootNodes {
@@ -153,7 +156,7 @@ fn build_node(world: &SubWorld, entity: Entity, parent: Option<Entity>) -> Hiera
 #[write_component(MeshComponent)]
 #[write_component(TransformComponent)]
 #[write_component(LightComponent)]
-pub fn apply_ui_commands(
+pub fn imgui_flush_selected(
     world: &mut SubWorld,
     #[resource] picking: &mut PickObject,
     #[resource] comp_view: &mut UiComponentView,
@@ -186,3 +189,4 @@ pub fn apply_ui_commands(
         comp_view.dirty = false
     }
 }
+

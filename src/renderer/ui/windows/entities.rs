@@ -1,5 +1,5 @@
 use super::*;
-use crate::prelude::ui::state::{HierarchyNode, UiEvent};
+use crate::{DomainEvent, prelude::ui::state::HierarchyNode};
 use legion::Entity;
 
 pub fn draw_window_entities(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -22,25 +22,25 @@ pub fn draw_window_entities(ui: &imgui::Ui, ctx: &mut UiContext) {
                     rfd::FileDialog::new()
                         .add_filter("gltf", &["gltf"])
                         .pick_file()
-                        .map(|f| ctx.command.push_back(UiEvent::LoadGltf(f)));
+                        .map(|f| ctx.commands.push_back(DomainEvent::LoadGltf(f)));
                 });
                 popup.end();
             }
 
             // deselect if clicked on empty
-            if ui.is_window_hovered() && ui.is_mouse_clicked(MouseButton::Left) && !ui.is_any_item_hovered()
+            if ui.is_window_hovered()
+                && ui.is_mouse_clicked(MouseButton::Left)
+                && !ui.is_any_item_hovered()
             {
                 *ctx.snapshot.selected = None;
             }
         });
 }
 
-
 fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option<Entity>) {
     let entity = node.entity;
     let name = &node.name;
     let children = &node.children;
-
 
     let is_selected = selected.is_some_and(|e| e == entity);
     let flags = TreeNodeFlags::SPAN_AVAIL_WIDTH;
@@ -55,7 +55,9 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
         flags
     };
 
-    ui.tree_node_config(name.clone())
+
+    let label = if name.is_empty() { "##Node" } else { name };
+    ui.tree_node_config(label)
         .flags(flags)
         .default_open(true)
         .build(|| {
@@ -79,29 +81,34 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         }
     });
 
-    // // Add Parent to node
-    // if let Some(selected) = selected {
-    //     if is_root_node(*selected,) {
-    //         // add Context menu if ui.group is hovered
-    //         if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
-    //             ui.open_popup("entity_context");
-    //         }
-    //         if let Some(popup) = ui.begin_popup("entity_context") {
-    //             ui.menu_item("Remove ..").then(|| {
-    //                 ctx.command = Some(UiEvent::RemoveEntity(*selected));
-    //                 ctx.selected = None;
-    //             });
-    //             ui.menu_item("Add Parent ..")
-    //                 .then(|| ctx.command = Some(UiEvent::AddParent(*selected)));
-    //             popup.end();
-    //         }
-    //     }
-    // }
+    // Commands on selected
+    if let Some(selected) = selected.clone() {
+        if ctx
+            .snapshot
+            .root_nodes
+            .nodes
+            .iter()
+            .any(|n| n.parent == None)
+        {
+            // add Context menu if ui.group is hovered
+            if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
+                ui.open_popup("entity_context");
+            }
+            if let Some(popup) = ui.begin_popup("entity_context") {
+                ui.menu_item("Remove ..").then(|| {
+                    ctx.commands.push_back(DomainEvent::RemoveEntity(selected));
+                });
+                ui.menu_item("Add Parent ..")
+                    .then(|| ctx.commands.push_back(DomainEvent::AddParent(selected)));
+                popup.end();
+            }
+        }
+    }
 }
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     let selected = &mut ctx.snapshot.selected;
-    
+
     for node in ctx.snapshot.lights_nodes.nodes.iter() {
         let entity = node.entity;
         if ui
@@ -112,4 +119,4 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             **selected = Some(entity);
         }
     }
-} 
+}

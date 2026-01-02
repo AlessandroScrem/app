@@ -1,15 +1,13 @@
+use crate::DomainEvents;
 use crate::UiComponentView;
-use crate::entities::add_parent;
 use crate::entities::mesh::create_from_gltf;
-use crate::entities::remove_from_root;
 use crate::input::Input;
-use crate::prelude::ui::state::UiEvent;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
 use crate::Globals;
-use crate::prelude::ui::ImguiState;
 use crate::prelude::*;
 use crate::scene::Scene;
 
@@ -186,6 +184,7 @@ impl App {
         self.resources.insert(Camera::default());
         self.resources.insert(Globals::default());
         self.resources.insert(UiComponentView::default());
+        self.resources.insert(DomainEvents{queue: VecDeque::new()});
 
         create_from_gltf(
             "./assets/Lantern/Lantern.gltf",
@@ -228,29 +227,6 @@ impl App {
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
 
-        let commands: Vec<UiEvent> = {
-            if let Some(mut imgui) = self.resources.get_mut::<ImguiState>() {
-                imgui.command.drain(..).collect()
-            } else {
-                Vec::new()
-            }
-        };
-
-        let world = &mut self.current_scene.world;
-
-        for cmd in commands {
-            match cmd {
-                UiEvent::LoadGltf(path) => {
-                    create_from_gltf(path, world, &mut self.resources);
-                }
-                UiEvent::RemoveEntity(entity) => {
-                    remove_from_root(entity, world);
-                }
-                UiEvent::AddParent(entity) => {
-                    add_parent(entity, world);
-                }
-            }
-        }
     }
 
     pub fn render(&mut self) {

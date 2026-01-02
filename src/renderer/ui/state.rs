@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque};
 
 use super::*;
 use imgui_wgpu::{Renderer, RendererConfig};
@@ -6,12 +6,12 @@ use imgui_winit_support::WinitPlatform;
 use legion::Entity;
 use winit::window::Window;
 
-use crate::{Globals, UiComponentView, camera::Camera, timestep::Timestep};
+use crate::{DomainEvent, Globals, UiComponentView, camera::Camera, timestep::Timestep};
 
 pub struct UiContext<'a, 'b> {
     pub snapshot: &'a mut Snapshot<'b>,
     pub registry: &'a ImGuiTextureRegistry,
-    pub command: VecDeque<UiEvent>,
+    pub commands: VecDeque<DomainEvent>,
 }
 
 pub struct Snapshot<'a> {
@@ -36,19 +36,12 @@ pub struct RootNodes {
     pub nodes: Vec<HierarchyNode>,
 }
 
-pub enum UiEvent {
-    LoadGltf(PathBuf),
-    RemoveEntity(Entity),
-    AddParent(Entity),
-}
-
 pub struct ImguiState {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
     pub renderer: Renderer,
     pub registry: ImGuiTextureRegistry,
     pub last_cursor: Option<MouseCursor>,
-    pub command: VecDeque<UiEvent>,
     ini_loaded: bool,
     timestep: Timestep,
 }
@@ -109,7 +102,6 @@ impl ImguiState {
             last_cursor: None,
             ini_loaded: false,
             timestep,
-            command: VecDeque::new(),
         }
     }
 
@@ -129,7 +121,7 @@ impl ImguiState {
         self.ini_loaded = true;
     }
 
-    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) {
+    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) ->VecDeque<DomainEvent>{
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
@@ -140,11 +132,11 @@ impl ImguiState {
             .expect("failed_to prepare frame");
 
         let ui = self.context.frame();
-        let command = {
+        let commands = {
             let mut ctx = UiContext {
                 snapshot,
                 registry: &self.registry,
-                command: VecDeque::new(),
+                commands: VecDeque::new(),
             };
             ui.dockspace_over_main_viewport();
 
@@ -157,7 +149,7 @@ impl ImguiState {
             }
 
             windows::draw_debug_texture(ui, &ctx);
-            ctx.command
+            ctx.commands
         };
 
         // update window cursor state (icon)
@@ -168,7 +160,7 @@ impl ImguiState {
 
         self.load_ini_if_needed();
 
-        self.command = command;
+        commands
     }
 }
 
