@@ -1,6 +1,6 @@
+use crate::DomainEvent;
 use crate::DomainEvents;
 use crate::UiComponentView;
-use crate::entities::mesh::create_from_gltf;
 use crate::input::Input;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -186,11 +186,11 @@ impl App {
         self.resources.insert(UiComponentView::default());
         self.resources.insert(DomainEvents{queue: VecDeque::new()});
 
-        create_from_gltf(
-            "./assets/Lantern/Lantern.gltf",
-            &mut self.current_scene.world,
-            &self.resources,
-        );
+
+        let mut events = self.resources.get_mut::<DomainEvents>().unwrap();
+
+        events.queue.push_back(DomainEvent::LoadGltf("./assets/Lantern/Lantern.gltf".into()));
+ 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();

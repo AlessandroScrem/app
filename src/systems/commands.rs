@@ -1,9 +1,14 @@
 use legion::{systems::CommandBuffer, world::SubWorld, *};
 
 use crate::{
-    entities::*,
     DomainEvent, DomainEvents, HierarchyComponent, LightComponent, MeshComponent, TagComponent,
     TransformComponent,
+    assets::{
+        material_manager::MaterialManager, mesh_manager::MeshManager,
+        texture_manager::TextureManager,
+    },
+    entities::*,
+    renderer::GpuManager,
 };
 
 #[system]
@@ -15,6 +20,11 @@ use crate::{
 pub fn apply_commands(
     world: &mut SubWorld,
     cmd: &mut CommandBuffer,
+    #[resource] device: &wgpu::Device,
+    #[resource] mesh_manager: &mut MeshManager,
+    #[resource] mat_manager: &mut MaterialManager,
+    #[resource] texture_manager: &mut TextureManager,
+    #[resource] gpu_manager: &GpuManager,
     #[resource] events: &mut DomainEvents,
 ) {
     while let Some(event) = events.queue.pop_front() {
@@ -22,13 +32,18 @@ pub fn apply_commands(
             DomainEvent::RemoveEntity(entity) => {
                 remove_from_root(entity, world, cmd);
             }
-            DomainEvent::LoadGltf(path) => {
-                // create_from_gltf(path, world, &mut self.resources);
-            }
+            DomainEvent::LoadGltf(path) => mesh::create_from_gltf(
+                path,
+                cmd,
+                device,
+                mesh_manager,
+                mat_manager,
+                texture_manager,
+                gpu_manager,
+            ),
             DomainEvent::AddParent(entity) => {
                 add_parent(entity, world, cmd);
             }
-            _ => {}
         }
     }
 }

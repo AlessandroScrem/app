@@ -17,6 +17,7 @@ use legion::{world::SubWorld, *};
 #[system]
 #[read_component(HierarchyComponent)]
 #[read_component(TagComponent)]
+#[read_component(TransformComponent)]
 #[read_component(MeshComponent)]
 #[read_component(BoundingBoxComponent)]
 #[read_component(LightComponent)]

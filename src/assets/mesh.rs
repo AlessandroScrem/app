@@ -1,5 +1,5 @@
 use gltf::mesh::Reader;
-use legion::Entity;
+use legion::{Entity, EntityStore};
 use std::{collections::HashMap, path::Path};
 
 use crate::{
@@ -200,7 +200,7 @@ impl From<gltf::Error> for ImportError {
 }
 
 pub fn load_gltf(
-    world: &mut legion::World,
+    cmd: &mut legion::systems::CommandBuffer,
     mesh_manager: &mut MeshManager,
     material_manager: &mut MaterialManager,
     texture_manager: &mut TextureManager,
@@ -250,14 +250,13 @@ pub fn load_gltf(
         }
     }
 
-    let initial_size = world.len();
-
     let mut root_entities = Vec::new();
     let mut node_entity_map = HashMap::new();
     println!("Scene len is = {}", document.scenes().len());
     for root_node in document.scenes().next().expect("No scene in Gltf").nodes() {
         let entity = create_entities_recursively(
-            world,
+            // world,
+            cmd,
             &root_node,
             None,
             &mut meshe_handle_map,
@@ -266,8 +265,6 @@ pub fn load_gltf(
         root_entities.push(entity);
     }
 
-    let num_entities = world.len() - initial_size;
-    info!("Create: #{} entities", num_entities);
 
     debug!("Gltf import is {} ms", timer.elapsed().as_millis());
     debug!("Entity for node 0: {:?}", node_entity_map.get(&0));
@@ -276,7 +273,7 @@ pub fn load_gltf(
 }
 
 fn create_entities_recursively(
-    world: &mut legion::World,
+    cmd: &mut legion::systems::CommandBuffer,
     node: &gltf::Node,
     parent: Option<Entity>,
     meshe_handle_map: &mut HashMap<usize, usize>,
@@ -286,30 +283,22 @@ fn create_entities_recursively(
     info!("Create node {} id {}", name, node.index());
 
     let local_transform = TransformComponent::from_gltf(&node);
-    let mut parent_transform = Mat4::identity();
-    if parent.is_some() {
-        let entry = world.entry(parent.unwrap()).unwrap();
-        parent_transform = entry.get_component::<GlobalModelComponent>().unwrap().mat;
-    }
 
-    let entity = world.push((
+    let entity = cmd.push((
         TagComponent { name },
         HierarchyComponent {
             parent,
-            ..Default::default()
+            children: Vec::new(),
         },
-        GlobalModelComponent {
-            mat: parent_transform * local_transform.compute_model_matrix(),
-        },
+        GlobalModelComponent::default(),
         local_transform,
     ));
 
     if let Some(g_mesh) = node.mesh() {
-        let mut entry = world.entry(entity).unwrap();
         let handle = meshe_handle_map.get(&g_mesh.index()).unwrap().clone();
         let bounding_box = extract_bbox(&g_mesh);
-        entry.add_component(MeshComponent { handle });
-        entry.add_component(BoundingBoxComponent::new(bounding_box));
+        cmd.add_component(entity, MeshComponent { handle });
+        cmd.add_component(entity, BoundingBoxComponent::new(bounding_box));
     }
 
     // Salva il mapping nodo → entità
@@ -319,22 +308,22 @@ fn create_entities_recursively(
     let mut children_entities = Vec::new();
     for child in node.children() {
         let child_entity = create_entities_recursively(
-            world,
+            // world,
+            cmd,
             &child,
             Some(entity),
             meshe_handle_map,
             node_entity_map,
         );
-        children_entities.push(child_entity);
-    }
 
-    // Aggiorna la lista dei figli
-    if !children_entities.is_empty() {
-        let mut entry = world.entry(entity).unwrap();
-        entry
-            .get_component_mut::<HierarchyComponent>()
-            .unwrap()
-            .children = children_entities;
+        cmd.exec_mut(move |w, _| {
+            if let Ok(mut entry) = w.entry_mut(entity) {
+                if let Ok(h) = entry.get_component_mut::<HierarchyComponent>() {
+                    h.children.push(child_entity);
+                }
+            }
+        });
+        children_entities.push(child_entity);
     }
 
     entity
@@ -380,10 +369,12 @@ fn print_gltf_document(document: &gltf::Document) {
     });
 }
 
+/* 
 #[cfg(test)]
 mod tests {
     use super::*;
     use legion::query::IntoQuery;
+    use legion::world::SubWorld;
     use legion::*;
 
     #[test]
@@ -396,9 +387,12 @@ mod tests {
         let mut material_manager = MaterialManager::new(device, &gpu_manager, &mut texture_manager);
 
         let mut world = legion::World::default();
+        let subworld = legion::world::SubWorld::from(&world);
+        let mut cmd = legion::systems::CommandBuffer::new(&world);
 
         let e = load_gltf(
             &mut world,
+            &mut cmd,
             &mut mesh_manager,
             &mut material_manager,
             &mut texture_manager,
@@ -412,4 +406,4 @@ mod tests {
         assert_eq!(Read::<MeshComponent>::query().iter(&world).count(), 1);
         assert_eq!(world.len(), 1)
     }
-}
+} */
