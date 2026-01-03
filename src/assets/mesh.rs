@@ -1,4 +1,4 @@
-use gltf::mesh::Reader;
+use gltf::{buffer, mesh::Reader};
 use legion::{Entity, EntityStore};
 use std::{collections::HashMap, path::Path};
 
@@ -6,8 +6,8 @@ use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::{
-        material_manager::MaterialManager,
-        mesh_manager::{self, MeshManager},
+        material_manager::{MaterialId, MaterialManager, MaterialPBR},
+        mesh_manager::{self, MeshManager, create_gpu_mesh},
         texture_manager::TextureManager,
         vertexdata::MeshVertexData,
     },
@@ -16,6 +16,27 @@ use crate::{
     prelude::*,
     renderer::gpu_manager::GpuManager,
 };
+
+pub struct LoadedScene {
+    pub meshes: Vec<MeshData>,
+    pub materials: Vec<MaterialPBR>,
+    pub nodes: Vec<NodeData>,
+    pub roots: Vec<usize>, // indici dei nodi root
+}
+
+pub struct NodeData {
+    pub name: String,
+    pub local_transform: TransformComponent,
+    pub mesh: Option<usize>,  // index in meshes
+    pub children: Vec<usize>, // index in nodes
+}
+
+pub struct MeshData {
+    pub vertices: Vec<MeshVertexData>,
+    pub indices: Vec<u32>,
+    pub material: Option<usize>,
+    pub bbox: BoundingBox,
+}
 
 impl TransformComponent {
     fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
@@ -233,7 +254,7 @@ pub fn load_gltf(
         material_map.insert(mat.index().unwrap(), handle);
     }
 
-    let mut meshe_handle_map = HashMap::new();
+    let mut mesh_handle_map = HashMap::new();
     for g_mesh in document.meshes() {
         for primitive in g_mesh.primitives() {
             let reader = primitive.reader(|b| Some(&buffers[b.index()]));
@@ -241,12 +262,10 @@ pub fn load_gltf(
             let vertices = extract_vertices(&reader, &indices)?;
 
             let mat_index = primitive.material().index().unwrap_or(0);
-            let material = material_map[&mat_index].clone();
-
-            let mesh =
-                mesh_manager::create_mesh(&device, &gpu_manager, &vertices, &indices, material);
+            let material_id = material_map[&mat_index].clone();
+            let mesh = mesh_manager::create_gpu_mesh(&device, &gpu_manager, &vertices, &indices);
             let handle = mesh_manager.add_mesh(mesh);
-            meshe_handle_map.insert(g_mesh.index(), handle);
+            mesh_handle_map.insert(g_mesh.index(), (handle, material_id));
         }
     }
 
@@ -259,12 +278,11 @@ pub fn load_gltf(
             cmd,
             &root_node,
             None,
-            &mut meshe_handle_map,
+            &mut mesh_handle_map,
             &mut node_entity_map,
         );
         root_entities.push(entity);
     }
-
 
     debug!("Gltf import is {} ms", timer.elapsed().as_millis());
     debug!("Entity for node 0: {:?}", node_entity_map.get(&0));
@@ -276,7 +294,7 @@ fn create_entities_recursively(
     cmd: &mut legion::systems::CommandBuffer,
     node: &gltf::Node,
     parent: Option<Entity>,
-    meshe_handle_map: &mut HashMap<usize, usize>,
+    mesh_handle_map: &mut HashMap<usize, (usize, MaterialId)>,
     node_entity_map: &mut HashMap<usize, Entity>,
 ) -> Entity {
     let name = node.name().map(|s| s.into()).unwrap_or("no-name".into());
@@ -295,9 +313,10 @@ fn create_entities_recursively(
     ));
 
     if let Some(g_mesh) = node.mesh() {
-        let handle = meshe_handle_map.get(&g_mesh.index()).unwrap().clone();
+        let (handle, mat_handle) = mesh_handle_map.get(&g_mesh.index()).unwrap().clone();
         let bounding_box = extract_bbox(&g_mesh);
-        cmd.add_component(entity, MeshComponent { handle });
+
+        cmd.add_component(entity, MeshComponent { handle, mat_handle });
         cmd.add_component(entity, BoundingBoxComponent::new(bounding_box));
     }
 
@@ -312,7 +331,7 @@ fn create_entities_recursively(
             cmd,
             &child,
             Some(entity),
-            meshe_handle_map,
+            mesh_handle_map,
             node_entity_map,
         );
 
@@ -369,7 +388,7 @@ fn print_gltf_document(document: &gltf::Document) {
     });
 }
 
-/* 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -407,3 +426,288 @@ mod tests {
         assert_eq!(world.len(), 1)
     }
 } */
+
+
+// step per load gltf
+//     (LoadedScene) 
+//          |
+//          Y
+//   create MaterialPBR
+//          |
+//          Y
+//  upload_scene_to_gpu
+//          |
+//          Y
+//   spawn_scene ECS
+
+
+
+pub fn load<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
+    if path.as_ref().extension().unwrap() != "gltf" {
+        error!("File: {} is not a glTF", path.as_ref().display());
+        return Err(ImportError::MeshLoadFailed);
+    }
+
+    let (gltf, buffers, _) = gltf::import(path.as_ref())?;
+
+    let images: Vec<gltf::Image<'_>> = gltf.images().collect();
+
+    let mut materials = Vec::new();
+    for g_mat in gltf.materials() {
+        materials.push(create_material(&g_mat, &images, &path));
+    }
+
+    let mut meshes = Vec::new();
+    for g_mesh in gltf.meshes() {
+        for primitive in g_mesh.primitives() {
+            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
+            let indices = extract_indices(&reader)?;
+            let vertices = extract_vertices(&reader, &indices)?;
+
+            let material = primitive.material().index();
+            meshes.push(MeshData {
+                vertices,
+                indices,
+                material,
+                bbox: extract_bbox(&g_mesh),
+            });
+        }
+    }
+
+    let mut nodes = Vec::new();
+    for node in gltf.nodes() {
+        let children = node.children().map(|c| c.index()).collect();
+
+        nodes.push(NodeData {
+            name: node.name().unwrap_or("no-name").to_string(),
+            local_transform: TransformComponent::from_gltf(&node),
+            mesh: node.mesh().map(|m| m.index()),
+            children,
+        });
+    }
+
+    let mut has_parent = vec![false; nodes.len()];
+
+    for node in gltf.nodes() {
+        for child in node.children() {
+            has_parent[child.index()] = true;
+        }
+    }
+
+    let roots: Vec<usize> = has_parent
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| !**p)
+        .map(|(i, _)| i)
+        .collect();
+
+    let scene = LoadedScene {
+        materials,
+        meshes,
+        nodes,
+        roots,
+    };
+
+    Ok(scene)
+}
+
+fn create_material<P: AsRef<Path>>(
+    gltf_material: &gltf::Material,
+    images: &Vec<gltf::Image<'_>>,
+    path: P,
+) -> MaterialPBR {
+    let name = gltf_material.name().unwrap_or("material_no_name");
+    let parent_path = path.as_ref().parent().expect("Unable to find parent path");
+
+    fn get_texture_url(
+        info: Option<gltf::texture::Info<'_>>,
+        path: &Path,
+        images: &[gltf::Image<'_>],
+    ) -> Option<std::path::PathBuf> {
+        let info = info?;
+        let image = images.get(info.texture().index())?;
+
+        if let gltf::image::Source::Uri { uri, .. } = image.source() {
+            return Path::new(uri).file_name().map(|u| path.join(u));
+        }
+
+        None
+    }
+
+    // pbr materials
+    let pbr = gltf_material.pbr_metallic_roughness();
+    let color_factor = pbr.base_color_factor();
+    let roughness_factor = pbr.roughness_factor();
+    let metallic_factor = pbr.metallic_factor();
+    let emissive_factor = gltf_material.emissive_factor();
+
+    let use_color_texture = pbr.base_color_texture().is_some();
+    let use_metal_roughness_texture = pbr.base_color_texture().is_some();
+    let use_normal_texture = gltf_material.normal_texture().is_some();
+    let use_emissive_texture = gltf_material.emissive_texture().is_some();
+    let use_occlusion_texture = gltf_material.occlusion_texture().is_some();
+
+    let base_texture_path = get_texture_url(pbr.base_color_texture(), parent_path, &images);
+    let met_rough_texture = get_texture_url(pbr.metallic_roughness_texture(), parent_path, &images);
+    let emissive_texture_path =
+        get_texture_url(gltf_material.emissive_texture(), parent_path, &images);
+
+    let normal_texture_path = gltf_material
+        .normal_texture()
+        .map(|nt| nt.texture().source().source())
+        .and_then(|s| {
+            if let gltf::image::Source::Uri { uri, .. } = s {
+                Some(parent_path.join(uri))
+            } else {
+                None
+            }
+        });
+
+    let normal_scale = gltf_material
+        .normal_texture()
+        .map(|nt| nt.scale())
+        .unwrap_or(1.0);
+
+    let occlusion_texture_path = gltf_material
+        .occlusion_texture()
+        .map(|ot| ot.texture().source().source())
+        .and_then(|s| {
+            if let gltf::image::Source::Uri { uri, .. } = s {
+                Some(parent_path.join(uri))
+            } else {
+                None
+            }
+        });
+
+    let occlusion_strength = gltf_material
+        .occlusion_texture()
+        .map(|ot| ot.strength())
+        .unwrap_or(1.0);
+
+    MaterialPBR {
+        name: name.into(),
+        base_color_factor: color_factor.into(),
+        emissive_factor: Vec3::from(emissive_factor).extend(1.0),
+        base_texture_path: base_texture_path.unwrap_or_default(),
+        normal_texture_path: normal_texture_path.unwrap_or_default(),
+        met_rough_texture_path: met_rough_texture.unwrap_or_default(),
+        emissive_texture_path: emissive_texture_path.unwrap_or_default(),
+        occlusion_texture_path: occlusion_texture_path.unwrap_or_default(),
+        roughness_factor,
+        metallic_factor,
+        normal_scale,
+        occlusion_strength,
+        use_color_texture,
+        use_metal_roughness_texture,
+        use_normal_texture,
+        use_emissive_texture,
+        use_occlusion_texture,
+    }
+}
+
+pub struct GpuDevice<'a> {
+    pub gpu_mgr: &'a GpuManager,
+    pub mat_mgr: &'a mut MaterialManager,
+    pub mesh_mgr: &'a mut MeshManager,
+    pub tex_mgr: &'a mut TextureManager,
+    pub device: &'a wgpu::Device,
+}
+
+pub struct GpuScene {
+    pub mesh_handles: Vec<usize>,
+    pub material_handles: Vec<std::path::PathBuf>,
+}
+
+pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScene {
+    let material_handles = loaded
+        .materials
+        .iter()
+        .map(|m| gpu.mat_mgr.create(gpu.device, gpu.gpu_mgr, gpu.tex_mgr, m))
+        .collect();
+
+    let mesh_handles = loaded
+        .meshes
+        .iter()
+        .map(|m| {
+            let gpu_mesh = create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
+            gpu.mesh_mgr.add_mesh(gpu_mesh)
+        })
+        .collect();
+
+    GpuScene {
+        mesh_handles,
+        material_handles,
+    }
+}
+
+pub fn spawn_scene(
+    commands: &mut legion::systems::CommandBuffer,
+    loaded: &LoadedScene,
+    gpu: &GpuScene,
+) {
+    let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
+
+    // 1️⃣ crea tutte le entity
+    for node in &loaded.nodes {
+        let name = node.name.clone();
+        let entity = commands.push((
+            TagComponent { name },
+            TransformComponent::from(node.local_transform.clone()),
+            HierarchyComponent::default(),
+            GlobalModelComponent::default(),
+        ));
+        node_to_entity.push(entity);
+    }
+
+    // 2️⃣ assegna mesh + material
+    for (i, node) in loaded.nodes.iter().enumerate() {
+        if let Some(mesh_idx) = node.mesh {
+            let mesh = &loaded.meshes[mesh_idx];
+
+            commands.add_component(
+                node_to_entity[i],
+                MeshComponent {
+                    handle: gpu.mesh_handles[mesh_idx],
+                    mat_handle: mesh
+                        .material
+                        .map(|m| gpu.material_handles[m].clone())
+                        .unwrap(),
+                },
+            );
+            let bbox = &loaded.meshes[mesh_idx].bbox;
+            commands.add_component(
+                node_to_entity[i],
+                BoundingBoxComponent {
+                    bounding_box: bbox.clone(),
+                    global_bounding_box: bbox.clone(),
+                },
+            );
+        }
+    }
+
+    // 3️⃣ collega la gerarchia
+    for (i, node) in loaded.nodes.iter().enumerate() {
+        let parent = node_to_entity[i];
+
+        for &child_idx in &node.children {
+            let child = node_to_entity[child_idx];
+
+            commands.exec_mut(move |world, _| {
+                world
+                    .entry_mut(parent)
+                    .unwrap()
+                    .get_component_mut::<HierarchyComponent>()
+                    .unwrap()
+                    .children
+                    .push(child);
+
+                world
+                    .entry_mut(child)
+                    .unwrap()
+                    .get_component_mut::<HierarchyComponent>()
+                    .unwrap()
+                    .parent = Some(parent);
+            });
+        }
+    }
+}

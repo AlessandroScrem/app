@@ -118,8 +118,7 @@ fn get_comp_view(
         }
         if let Ok(entry) = world.entry_ref(selected) {
             if let Ok(mesh) = entry.get_component::<MeshComponent>() {
-                let material_handle = mesh_mgr.get_material(mesh.handle);
-                let material = mat_mgr.get(material_handle).material_pbr.clone();
+                let material = mat_mgr.get(&mesh.mat_handle).material_pbr.clone();
                 comp_view.mesh = Some(mesh.clone());
                 comp_view.material = Some(material);
             }
@@ -181,8 +180,7 @@ pub fn imgui_flush_selected(
 
             if let Some(updated_material) = comp_view.material.clone() {
                 if let Ok(mesh) = entry.get_component_mut::<MeshComponent>() {
-                    let material_handle = mesh_manager.get_material(mesh.handle);
-                    let material = &mut material_manager.get_mut(material_handle).material_pbr;
+                    let material = &mut material_manager.get_mut(&mesh.mat_handle).material_pbr;
                     *material = updated_material;
                 }
             }

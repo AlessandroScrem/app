@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use wgpu::util::DeviceExt as _;
 
 use crate::{
-    assets::{material_manager::MaterialId, vertexdata::MeshVertexData},
+    assets::vertexdata::MeshVertexData,
     renderer::{GpuManager, gpu_manager::LayoutKind},
 };
 
@@ -16,7 +16,6 @@ pub struct GpuMesh {
     vertexbuffer: wgpu::Buffer,
     indexbuffer: wgpu::Buffer,
     indexcount: u32,
-    material: MaterialId,
     model_bind_group: wgpu::BindGroup,
     model_uniform: wgpu::Buffer,
 }
@@ -67,17 +66,14 @@ impl MeshManager {
             .expect("Unable to get Mesh")
             .model_uniform
     }
-    pub fn get_material(&self, id: usize) -> &MaterialId {
-        &self.meshes.get(&id).expect("Unable to get Mesh").material
-    }
+    
 }
 
-pub fn create_mesh(
+pub fn create_gpu_mesh(
     device: &wgpu::Device,
     gpu_manager: &GpuManager,
     vertices: &Vec<MeshVertexData>,
     indices: &Vec<u32>,
-    material: MaterialId,
 ) -> GpuMesh {
     let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Mesh Vertex Buffer"),
@@ -111,9 +107,10 @@ pub fn create_mesh(
     GpuMesh {
         vertexbuffer,
         indexbuffer,
-        material,
         model_uniform,
         model_bind_group,
         indexcount,
     }
 }
+
+

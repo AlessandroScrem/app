@@ -356,3 +356,36 @@ fn create_bindgroup(
     });
     bind_group
 }
+
+impl MaterialManager {
+pub fn create(
+        &mut self,
+        device: &wgpu::Device,
+        gpu_manager: &GpuManager,
+        texture_manager: &mut TextureManager,
+        material_pbr: &MaterialPBR,
+    ) -> MaterialId {
+
+        // create also textures
+        let uniform_buffer = create_uniform(device, &material_pbr);
+        let bind_group = create_bindgroup(
+            device,
+            &material_pbr,
+            &uniform_buffer,
+            texture_manager,
+            gpu_manager,
+        );
+
+        let material = Material {
+            material_pbr: material_pbr.clone(),
+            bind_group,
+            uniform_buffer,
+        };
+
+        let material_id = PathBuf::from(material_pbr.name.clone());
+
+        self.materials.insert(material_id.clone(), material);
+        
+        material_id
+    }
+}

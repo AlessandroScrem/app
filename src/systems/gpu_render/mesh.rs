@@ -76,7 +76,7 @@ pub fn render_mesh(
         let vertex_buffer = mesh_manager.get_vertexbuffer(mesh.handle);
         let index_buffer = mesh_manager.get_indexbuffer(mesh.handle);
         let index_count = mesh_manager.get_indexcount(mesh.handle);
-        let material = material_manager.get(mesh_manager.get_material(mesh.handle));
+        let material = material_manager.get(&mesh.mat_handle);
 
         renderpass.set_bind_group(1, &material.bind_group, &[]);
 

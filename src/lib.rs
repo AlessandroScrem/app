@@ -52,7 +52,7 @@ pub mod math {
 
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::{assets::material_manager::MaterialPBR, entities::bounding_box::BoundingBox};
+use crate::{assets::material_manager::{MaterialId, MaterialPBR}, entities::bounding_box::BoundingBox};
 use legion::Entity;
 use math::*;
 
@@ -124,6 +124,7 @@ pub struct LightComponent {
 #[derive(Default, Clone)]
 pub struct MeshComponent {
     pub handle: usize,
+    pub mat_handle: MaterialId,
 }
 
 #[derive(Clone)]
