@@ -22,12 +22,21 @@ pub struct GpuView<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
+    pub mat_mgr: &'a MaterialManager,
+    pub mesh_mgr: &'a MeshManager,
+    pub light_mgr: &'a LightManager,
+    pub bbox_mgr: &'a BBoxManager,
+    pub texture_mgr: &'a TextureManager,
+}
+
+pub struct GpuDevice<'a> {
+    pub device: &'a wgpu::Device,
+    pub gpu_mgr: &'a GpuManager,
     pub mat_mgr: &'a mut MaterialManager,
     pub mesh_mgr: &'a mut MeshManager,
-    pub light_mgr: &'a mut LightManager,
-    pub bbox_mgr: &'a mut BBoxManager,
-    pub texture_mgr: &'a mut TextureManager,
+    pub texure_mgr: &'a mut TextureManager,
 }
+
 pub struct GpuMeshFrame {
     pub mesh_handle: usize,
     pub material_id: MaterialId,
@@ -50,9 +59,9 @@ pub struct RenderFrame {
 pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
-    adapter: Adapter,
     pub surface: Surface<'static>,
     pub surface_config: SurfaceConfiguration,
+    _adapter: Adapter,
     gpu_mgr: GpuManager,
     texture_mgr: TextureManager,
     pipeline_mgr: PipelineManager,
@@ -62,7 +71,7 @@ pub struct Renderer {
     skybox_mgr: SkyboxManager,
     bbox_mgr: BBoxManager,
 
-    pub pickobject: PickObject,
+    pickobject: PickObject,
 }
 
 impl Renderer {
@@ -117,7 +126,7 @@ impl Renderer {
         info!("Renderer Created: Surface config format is {:?}", surface_config.format);
 
         Self {
-            adapter,
+            _adapter: adapter,
             device,
             queue,
             surface,
@@ -132,6 +141,10 @@ impl Renderer {
             bbox_mgr,
             pickobject,
         }
+    }
+
+    pub fn get_pickobject(&mut self) ->&mut PickObject {
+        &mut self.pickobject
     }
 
     pub fn get_encoder(&self) -> wgpu::CommandEncoder {
@@ -152,11 +165,21 @@ impl Renderer {
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
+            mat_mgr: &self.mat_mgr,
+            mesh_mgr: &self.mesh_mgr,
+            light_mgr: &self.light_mgr,
+            bbox_mgr: &self.bbox_mgr,
+            texture_mgr: &self.texture_mgr,
+        }
+    }
+
+    pub fn get_gpu_mut(&mut self) -> GpuDevice<'_> {
+        GpuDevice {
+            device: &self.device,
+            gpu_mgr: &self.gpu_mgr,
             mat_mgr: &mut self.mat_mgr,
             mesh_mgr: &mut self.mesh_mgr,
-            light_mgr: &mut self.light_mgr,
-            bbox_mgr: &mut self.bbox_mgr,
-            texture_mgr: &mut self.texture_mgr,
+            texure_mgr: &mut self.texture_mgr,
         }
     }
 

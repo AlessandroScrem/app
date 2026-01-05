@@ -5,9 +5,8 @@ use std::time::Duration;
 use crate::app::AppTimer;
 use crate::input::Input;
 
-use crate::picking::PickObject;
 use crate::prelude::ui::ImguiLayer;
-use crate::{DomainEvent, prelude::*, renderer};
+use crate::{DomainEvent, prelude::*, };
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -73,29 +72,25 @@ impl MyApplication {
 }
 
 fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
-    let world = &mut app.current_scene.world;
-    let gpu_view = &mut runtime.renderer.get_gpu_view();
-    let mut gpu = crate::assets::mesh::GpuDevice {
-        device: gpu_view.device,
-        gpu_mgr: gpu_view.gpu_mgr,
-        mat_mgr: gpu_view.mat_mgr,
-        mesh_mgr: gpu_view.mesh_mgr,
-        tex_mgr: gpu_view.texture_mgr,
-    };
-
     while let Some(event) = app.domain_events.queue.pop_front() {
         match event {
             DomainEvent::RemoveEntity(entity) => {
-                crate::entities::remove_from_root(entity, world);
+                crate::entities::remove_from_root(entity, &mut app.current_scene.world);
+                app.selected = None;
             }
             DomainEvent::LoadGltf(path) => {
                 println!("Fired load gltf");
+                let gpu = &mut runtime.renderer.get_gpu_mut();
                 let loaded = crate::assets::mesh::load(path).unwrap();
-                let gpu_scene = crate::assets::mesh::upload_scene_to_gpu(&loaded, &mut gpu);
-                crate::assets::mesh::spawn_scene(world, &loaded, &gpu_scene);
+                let gpu_scene = crate::assets::mesh::upload_scene_to_gpu(&loaded, gpu);
+                crate::assets::mesh::spawn_scene(&mut app.current_scene.world, &loaded, &gpu_scene);
+                app.recenter_camera();
             }
             DomainEvent::AddParent(entity) => {
-                crate::entities::add_parent(entity, world);
+                crate::entities::add_parent(entity, &mut app.current_scene.world);
+            }
+            DomainEvent::RecenterCamera => {
+                app.recenter_camera();
             }
         }
     }
@@ -119,19 +114,6 @@ fn update_camera(input: &mut Input, camera: &mut Camera) {
     }
 }
 
-fn update_selcted(input: &Input, pickobject: &mut PickObject) {
-    // update hovered entity_id from buffer
-    use crate::input::MouseButton;
-    use winit::keyboard::{Key, NamedKey};
-    if input.is_cursor_moved() {
-        pickobject.apply();
-    }
-    if input.is_mouse_button_pressed(MouseButton::Left)
-        && input.is_key_down(Key::Named(NamedKey::Alt))
-    {
-        pickobject.select_hovered();
-    }
-}
 
 pub trait CenterWindow {
     fn try_fit_center_to_monitor(self) -> Self;
@@ -284,14 +266,11 @@ impl ApplicationHandler for MyApplication {
                 // Update
                 runtime.input_update();
                 update_camera(&mut runtime.input, &mut self.app.camera);
-                update_selcted(&runtime.input, &mut runtime.renderer.pickobject);
+                self.app.update_selected(&runtime.input, &mut runtime.renderer.get_pickobject());
 
                 self.app.update_scene();
-                self.app.imgui_update(
-                    &mut runtime.imgui,
-                    &runtime.window,
-                    &runtime.renderer,
-                );
+                self.app
+                    .imgui_update(&mut runtime.imgui, &runtime.window, &runtime.renderer);
 
                 // Render
                 self.app

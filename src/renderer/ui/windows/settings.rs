@@ -3,7 +3,10 @@ use core::f32;
 use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
 
-use crate::{Globals, camera::Camera, prelude::ui::state::DEMO_OPEN, text_fmt, timestep::Timestep};
+use crate::{
+    DomainEvent, Globals, camera::Camera, prelude::ui::state::DEMO_OPEN, text_fmt,
+    timestep::Timestep,
+};
 
 pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
     let camera = &mut ctx.snapshot.camera;
@@ -47,7 +50,6 @@ pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiCon
             });
 
             if ui.collapsing_header("Toggles", TreeNodeFlags::empty()) {
-
                 unsafe {
                     let mut d_o = DEMO_OPEN;
                     if ui.checkbox("Show demo window", &mut d_o) {
@@ -56,12 +58,16 @@ pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiCon
                 }
                 globals.draw_ui(ui);
             }
-            camera.draw_ui(ui);
+            if let Some(command) = camera.draw_ui(ui) {
+                ctx.commands.push_back(command)
+            }
         });
 }
 
 impl Globals {
-    fn draw_ui(&mut self, ui: &Ui) {
+    fn draw_ui(&mut self, ui: &Ui) -> Option<DomainEvent> {
+        let mut command: Option<DomainEvent> = None;
+
         const TONEMAP_FILTERS: [&str; 8] = [
             "ACES",
             "Filmic",
@@ -131,11 +137,14 @@ impl Globals {
             ui.separator();
             // draw_ui_skybox_selector(&ctx);
         }
+        command
     }
 }
 
 impl Camera {
-    fn draw_ui(&mut self, ui: &Ui) {
+    fn draw_ui(&mut self, ui: &Ui) -> Option<DomainEvent> {
+        let mut command: Option<DomainEvent> = None;
+
         ui.text(format!("Position: {:?}", self.get_position()));
         ui.text(format!("FocalPoint: {:?}", self.get_focal_point()));
         ui.text(format!(
@@ -145,7 +154,7 @@ impl Camera {
         ));
 
         if ui.button("Recenter self") {
-            self.recenter_request = true;
+            command = Some(DomainEvent::RecenterCamera);
         }
 
         ui.separator();
@@ -179,6 +188,8 @@ impl Camera {
             self.near = near;
             self.far = far;
         }
+
+        command
     }
 }
 

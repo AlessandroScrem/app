@@ -5,7 +5,6 @@ use legion::Entity;
 use crate::entities::EntityRawU64;
 
 pub struct PickObject {
-    pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
     pub buffer: PickBuffer,
 }
@@ -13,23 +12,20 @@ pub struct PickObject {
 impl PickObject {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
-            selected: None,
             hovered: None,
             buffer: PickBuffer::new(device),
         }
     }
 
-    pub fn apply(&mut self) {
+    pub fn get_hovered(&mut self) ->Option<Entity>{
         self.buffer.read_id();
+
         if let Some(id) = self.buffer.get_id_if_ready() {
             self.hovered = Some(Entity::from_raw_u64(id));
-            // println!("Hovered is {:?}", self.hovered);
+            self.hovered
+        } else  {
+            self.hovered
         }
-    }
-
-    pub fn select_hovered(&mut self) {
-        self.selected = self.hovered;
-        // println!("Selected is {:?}", self.selected);
     }
 }
 

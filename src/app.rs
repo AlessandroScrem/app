@@ -18,7 +18,6 @@ use crate::prelude::ui::state::RootSnapshot;
 use crate::prelude::ui::state::Snapshot;
 use crate::renderer::gpu_renderer::GpuBoxFrame;
 use crate::renderer::gpu_renderer::GpuMeshFrame;
-use crate::renderer::gpu_renderer::GpuView;
 use crate::renderer::gpu_renderer::RenderFrame;
 use crate::renderer::renderpass::axis::AxisRenderPass;
 use crate::renderer::renderpass::bbox::BboxRenderPass;
@@ -131,36 +130,20 @@ impl AppTimer {
         }
     }
 }
-
+#[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
     pub resources: Resources,
     pub globals: Globals,
     pub camera: Camera,
     pub domain_events: DomainEvents,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        let globals = Globals::default();
-        let camera = Camera::default();
-
-        Self {
-            current_scene: Scene::default(),
-            resources: Resources::default(),
-            globals,
-            camera,
-            domain_events: DomainEvents::default(),
-        }
-    }
+    pub selected: Option<Entity>,
+    pub hovered: Option<Entity>,
 }
 
 impl App {
     pub fn init(&mut self) {
         let timer = std::time::Instant::now();
-        self.resources.insert::<Option<Entity>>(None);
-        self.resources.insert(UiComponentView::default());
-        self.resources.insert(ui::state::RootSnapshot::default());
 
         self.domain_events.queue.push_back(DomainEvent::LoadGltf(
             "./assets/Lantern/Lantern.gltf".into(),
@@ -173,6 +156,21 @@ impl App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
+    pub fn update_selected(&mut self, input: &Input,  pickobject: &mut crate::picking::PickObject) {
+        // update hovered entity_id from buffer
+        use crate::input::MouseButton;
+        use winit::keyboard::{Key, NamedKey};
+        if input.is_cursor_moved() {
+            self.hovered = pickobject.get_hovered();
+        }
+
+        if input.is_mouse_button_pressed(MouseButton::Left)
+            && input.is_key_down(Key::Named(NamedKey::Alt))
+        {
+            self.selected = self.hovered;
+        } 
+    }
+
     pub fn update_scene(&mut self) {
         self.current_scene
             .schedule
@@ -180,13 +178,11 @@ impl App {
     }
 
     pub fn render(&mut self, renderer: &mut Renderer, imgui: &mut ImguiLayer, input: &Input) {
-
         // read hovered entity_id from buffer
-        let selected = renderer.pickobject.selected;
-        self.resources.insert::<Option<Entity>>(selected);
-        
+        // self.hovered = renderer.pickobject.hovered;
+
         // update gpu data (uniform,  buffers)
-        let render_frame = self.extract_render_data(selected);
+        let render_frame = self.extract_render_data(self.selected);
         renderer.prepare(&render_frame);
 
         let frame = renderer.get_frame();
@@ -208,7 +204,7 @@ impl App {
         LinerizeRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
 
         // Ldr pass
-        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
+        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, self.selected.is_some());
         PickObjectRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&input);
         ImguiRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, imgui);
 
@@ -288,15 +284,13 @@ impl App {
         window: &winit::window::Window,
         renderer: &Renderer,
     ) {
-        let mat_mgr = renderer.get_mat_mgr();
-        let selected = renderer.pickobject.selected;
-        let hovered = renderer.pickobject.hovered;
         let mut events = {
-            let comp_view = &mut get_comp_view(selected, &self.current_scene.world, &mat_mgr);
+            let comp_view = &mut get_comp_view(
+                self.selected,
+                &self.current_scene.world,
+                &renderer.get_mat_mgr(),
+            );
             let root_snapshot = create_root_snapshot(&self.current_scene.world);
-
-            // dummy
-            let mut selected = selected.clone();
 
             let mut snapshot = Snapshot {
                 camera: &mut self.camera,
@@ -304,8 +298,8 @@ impl App {
                 root_nodes: &root_snapshot.root_nodes,
                 lights_nodes: &root_snapshot.lights_nodes,
                 comp_view,
-                selected: &mut selected,
-                hovered,
+                selected: &mut self.selected,
+                hovered: self.hovered,
             };
 
             imgui.update_ui(window, &mut snapshot)
@@ -313,6 +307,70 @@ impl App {
 
         while let Some(event) = events.pop_front() {
             self.domain_events.queue.push_back(event);
+        }
+    }
+
+    pub fn recenter_camera(&mut self) {
+        let camera = &mut self.camera;
+        let world = &self.current_scene.world;
+        let selected = self.selected;
+
+        let bbox = {
+            if let Some(selected) = selected {
+                get_bbox_from_entity(world, selected)
+            } else {
+                get_bounding_box_from_world(world)
+            }
+        };
+
+        center_camera_to_bounding_box(camera, bbox);
+
+        fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
+            let entry = world.entry_ref(entity).ok()?;
+            entry
+                .get_component::<BoundingBoxComponent>()
+                .ok()
+                .map(|b| b.global_bounding_box.clone())
+        }
+
+        fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
+            <&BoundingBoxComponent>::query()
+                .iter(world)
+                .map(|b| b.global_bounding_box.clone())
+                .reduce(|mut acc, b| {
+                    acc.merge(&b);
+                    acc
+                })
+        }
+
+        fn center_camera_to_bounding_box(
+            camera: &mut Camera,
+            bbox: Option<crate::entities::bounding_box::BoundingBox>,
+        ) {
+            if let Some(bbox) = bbox {
+                println!("Recenter Camera {:?}", bbox);
+                use crate::math::*;
+                let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
+                let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
+                let size = max - min;
+                let fit_offset = 1.1f32;
+
+                let fov = camera.fov;
+                let aspect = camera.get_aspect();
+                let max_size = size.magnitude();
+                let fit_height_distance = max_size / Angle::tan(fov);
+                let fit_width_distance = fit_height_distance / aspect;
+
+                let distance = fit_offset * fit_height_distance.max(fit_width_distance);
+                let center = (min + max) * 0.5;
+                let near = distance / 100.0;
+                let far = distance * 100.0;
+
+                camera.near = near;
+                camera.far = far;
+                camera.set_focal_point(center);
+                camera.set_distance(distance);
+            }
         }
     }
 }
@@ -349,52 +407,14 @@ pub fn imgui_flush_selected(
     }
 }
 
-pub fn recenter_camera(
-    camera: &mut crate::camera::Camera,
-    selected: Option<Entity>,
-    world: &legion::World,
-) {
-    if camera.recenter_request {
-        camera.recenter_request = false;
-
-        let bbox = {
-            if let Some(selected) = selected {
-                get_bbox_from_entity(world, selected)
-            } else {
-                get_bounding_box_from_world(world)
-            }
-        };
-        info!("Recenter Camera with box {:?}", bbox);
-        crate::camera::center_camera_to_bounding_box(camera, bbox);
-    }
-    
-    fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
-        let entry = world.entry_ref(entity).ok()?;
-        entry
-            .get_component::<BoundingBoxComponent>()
-            .ok()
-            .map(|b| b.global_bounding_box.clone())
-    }
-    
-    fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
-        <&BoundingBoxComponent>::query()
-            .iter(world)
-            .map(|b| b.global_bounding_box.clone())
-            .reduce(|mut acc, b| {
-                acc.merge(&b);
-                acc
-            })
-    }
-}
-
-
-
-
-fn create_root_snapshot(world: &legion::World)->RootSnapshot {
+fn create_root_snapshot(world: &legion::World) -> RootSnapshot {
     let root_nodes = get_hierarchy_roots(world);
     let lights_nodes = get_lights_roots(world);
 
-    RootSnapshot { root_nodes, lights_nodes  }
+    RootSnapshot {
+        root_nodes,
+        lights_nodes,
+    }
 }
 
 use legion::query::IntoQuery;
@@ -419,19 +439,47 @@ fn get_lights_roots(world: &legion::World) -> RootNodes {
 fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
     let mut query = <(Entity, &HierarchyComponent)>::query();
     let mut roots = RootNodes::default();
+
     for (entity, hierarchy) in query.iter(world) {
         if hierarchy.parent.is_none() {
             let node = build_node(world, *entity, None);
             roots.nodes.push(node);
         }
     }
+
+    fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> HierarchyNode {
+        let entry = world
+            .entry_ref(entity)
+            .expect(format!("entity {:?} not found", entity).as_str());
+
+        let name = entry
+            .get_component::<TagComponent>()
+            .map(|n| n.name.clone())
+            .unwrap_or("<unnamed>".to_string());
+
+        let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
+
+        let children = hierarchy
+            .children
+            .iter()
+            .map(|&child| build_node(world, child, Some(entity)))
+            .collect();
+
+        HierarchyNode {
+            name,
+            parent,
+            entity,
+            children,
+        }
+    }
+
     roots
 }
 
 fn get_comp_view(
     selected: Option<Entity>,
     world: &legion::World,
-    mat_mgr: &MaterialManager
+    mat_mgr: &MaterialManager,
 ) -> UiComponentView {
     let mut comp_view = UiComponentView::default();
 
@@ -464,28 +512,4 @@ fn get_comp_view(
         }
     }
     comp_view
-}
-
-fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> HierarchyNode {
-    let entry = world.entry_ref(entity).unwrap();
-
-    let name = entry
-        .get_component::<TagComponent>()
-        .map(|n| n.name.clone())
-        .unwrap_or("<unnamed>".to_string());
-
-    let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
-
-    let children = hierarchy
-        .children
-        .iter()
-        .map(|&child| build_node(world, child, Some(entity)))
-        .collect();
-
-    HierarchyNode {
-        name,
-        parent,
-        entity,
-        children,
-    }
 }

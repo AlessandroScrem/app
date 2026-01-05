@@ -10,13 +10,13 @@ impl<'a> OutlineRenderPass<'a> {
         Self { gpu, encoder }
     }
 
-    pub fn render(self, frame_view: &wgpu::TextureView) {
-        let pick_object = self.gpu.pickobject;
+    pub fn render(self, frame_view: &wgpu::TextureView, enable: bool) {
+        // let pick_object = self.gpu.pickobject;
 
-        if pick_object.selected.is_none() {
+        if !enable {
             return;
         }
-        
+
         let gpu_manager = self.gpu.gpu_mgr;
         let pipeline_manager = self.gpu.pip_mgr;
         let encoder = self.encoder;

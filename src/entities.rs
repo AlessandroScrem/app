@@ -3,6 +3,7 @@ pub mod light;
 pub mod mesh;
 
 use legion::{Entity, EntityStore};
+use log::warn;
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -43,7 +44,7 @@ impl From<EntityId> for Entity {
 
 use std::hash::{Hash, Hasher};
 
-use crate::HierarchyComponent;
+use crate::{HierarchyComponent};
 pub trait EntityHash {
     /// Restituisce un hash `u64` deterministico
     fn entity_hash(&self) -> u64;
@@ -58,35 +59,51 @@ impl EntityHash for Entity {
 }
 
 
-fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
-    out.push(root);
-
-    if let Ok(entry) = world.entry_ref(root) {
-        if let Ok(h) = entry.get_component::<HierarchyComponent>() {
-            for &child in &h.children {
-                collect_subtree(world, child, out);
-            }
-        }
-    }
-}
-
 pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
+    if !is_root(entity, world) {
+        warn!("{:?} Not Root: Remove abort", entity);
+        return;
+    }
+    
     let mut to_delete = Vec::new();
     collect_subtree(world, entity, &mut to_delete);
     for e in to_delete.into_iter().rev() {
         world.remove(e);
     }
+    
+    fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
+        out.push(root);
+    
+        if let Ok(entry) = world.entry_ref(root) {
+            if let Ok(h) = entry.get_component::<HierarchyComponent>() {
+                for &child in &h.children {
+                    collect_subtree(world, child, out);
+                }
+            }
+        }
+    }
+}
+
+
+fn is_root(entity: Entity, world: &legion::World) -> bool {
+    let Ok(entry) = world.entry_ref(entity) else {
+        return false;
+    };
+
+    let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() else {
+        return false;
+    };
+
+    hierarchy.parent.is_none()
 }
 
 pub fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
-    if let Ok(entry) = world.entry_mut(entity) {
-        if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
-            if hierarchy.parent.is_some() {
-                return;
-            }
-        }
+    if !is_root(entity, world) {
+        warn!("{:?} Not Root: Add Parent abort", entity);
+        return;
     }
+
     // Add parent node and set entity as child
     let new_root = {
         world.push((

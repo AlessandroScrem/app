@@ -21,7 +21,6 @@ impl<'a> BboxRenderPass<'a> {
         let gpu_manager = self.gpu.gpu_mgr;
         let pipeline_manager = self.gpu.pip_mgr;
         let bbox_mgr = self.gpu.bbox_mgr;
-        let device = self.gpu.device;
         let encoder = self.encoder;
 
         // Render pass
@@ -48,7 +47,7 @@ impl<'a> BboxRenderPass<'a> {
 
         for b in queue.iter() {
             let entity = b.entity;
-            let vertexbuffer = &bbox_mgr.get_or_create(device, entity);
+            let vertexbuffer = &bbox_mgr.get(entity);
             renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
             renderpass.draw(0..24, 0..1);
         }

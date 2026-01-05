@@ -23,12 +23,14 @@ pub struct Camera {
     pub recenter_request: bool,
 }
 
-impl Camera {
-    pub fn default() -> Self {
+impl Default for Camera {
+    fn default() -> Self {
         const FOV: Deg<f32> = Deg::<f32>(30.0);
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
+}
 
+impl Camera {
     pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(
         fov: F,
         aspect: f32,
@@ -162,35 +164,6 @@ impl Camera {
 
     fn calculate_position(&self) -> Vec3 {
         self.focal_point - self.get_forward_direction() * self.distance
-    }
-}
-
-pub fn center_camera_to_bounding_box(
-    camera: &mut Camera,
-    bbox: Option<crate::entities::bounding_box::BoundingBox>,
-) {
-    if let Some(bbox) = bbox {
-        use crate::math::*;
-        let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
-        let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
-        let size = max - min;
-        let fit_offset = 1.1f32;
-
-        let fov = camera.fov;
-        let aspect = camera.get_aspect();
-        let max_size = size.magnitude();
-        let fit_height_distance = max_size / Angle::tan(fov);
-        let fit_width_distance = fit_height_distance / aspect;
-
-        let distance = fit_offset * fit_height_distance.max(fit_width_distance);
-        let center = (min + max) * 0.5;
-        let near = distance / 100.0;
-        let far = distance * 100.0;
-
-        camera.near = near;
-        camera.far = far;
-        camera.set_focal_point(center);
-        camera.set_distance(distance);
     }
 }
 

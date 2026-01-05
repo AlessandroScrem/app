@@ -15,7 +15,7 @@ mod transform;
 pub mod prelude {
     pub use super::app::App;
     pub use super::application_handler::MyApplication;
-    pub use crate::camera::{Camera, center_camera_to_bounding_box};
+    pub use crate::camera::Camera;
     pub use crate::renderer::Renderer;
     pub use crate::renderer::ui;
     pub use crate::timestep;
@@ -85,6 +85,7 @@ pub enum DomainEvent {
     RemoveEntity(Entity),
     LoadGltf(PathBuf),
     AddParent(Entity),
+    RecenterCamera,
 }
 
 #[derive(Default)]

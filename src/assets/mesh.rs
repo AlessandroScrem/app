@@ -14,7 +14,7 @@ use crate::{
     entities::bounding_box::BoundingBox,
     math::*,
     prelude::*,
-    renderer::gpu_manager::GpuManager,
+    renderer::{gpu_manager::GpuManager, gpu_renderer::GpuDevice},
 };
 
 pub struct LoadedScene {
@@ -602,14 +602,6 @@ fn create_material<P: AsRef<Path>>(
     }
 }
 
-pub struct GpuDevice<'a> {
-    pub device: &'a wgpu::Device,
-    pub gpu_mgr: &'a GpuManager,
-    pub mat_mgr: &'a mut MaterialManager,
-    pub mesh_mgr: &'a mut MeshManager,
-    pub tex_mgr: &'a mut TextureManager,
-}
-
 pub struct GpuScene {
     pub mesh_handles: Vec<usize>,
     pub material_handles: Vec<std::path::PathBuf>,
@@ -619,7 +611,7 @@ pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScen
     let material_handles = loaded
         .materials
         .iter()
-        .map(|m| gpu.mat_mgr.create(gpu.device, gpu.gpu_mgr, gpu.tex_mgr, m))
+        .map(|m| gpu.mat_mgr.create(gpu.device, gpu.gpu_mgr, gpu.texure_mgr, m))
         .collect();
 
     let mesh_handles = loaded

@@ -37,6 +37,10 @@ impl BBoxManager {
         }
         self.vertexbuffers.get(&id).expect("vb not exist")
     }
+
+    pub fn get(&self, id: Entity) -> &wgpu::Buffer {
+        self.vertexbuffers.get(&id).expect("vb not exist")
+    }
 }
 
 const VERTICES: usize = 24;
