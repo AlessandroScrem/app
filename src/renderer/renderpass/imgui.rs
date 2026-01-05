@@ -1,4 +1,4 @@
-use crate::{prelude::ui::ImguiLayer, renderer::{gpu_renderer::GpuView, pipeline_manager::PipelineKind}};
+use crate::{prelude::ui::ImguiLayer, renderer::gpu_renderer::GpuView};
 
 pub struct ImguiRenderPass<'a> {
     gpu: GpuView<'a>,

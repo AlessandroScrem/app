@@ -1,4 +1,4 @@
-use crate::renderer::{LightUniform, gpu_renderer::GpuView, pipeline_manager::PipelineKind};
+use crate::renderer::{gpu_renderer::GpuView, pipeline_manager::PipelineKind};
 
 pub struct SkyboxRenderPass<'a> {
     gpu: GpuView<'a>,

@@ -270,7 +270,7 @@ impl ApplicationHandler for MyApplication {
 
                 self.app.update_scene();
                 self.app
-                    .imgui_update(&mut runtime.imgui, &runtime.window, &runtime.renderer);
+                    .imgui_update(&mut runtime.imgui, &runtime.window, &mut runtime.renderer);
 
                 // Render
                 self.app

@@ -66,7 +66,7 @@ pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiCon
 
 impl Globals {
     fn draw_ui(&mut self, ui: &Ui) -> Option<DomainEvent> {
-        let mut command: Option<DomainEvent> = None;
+        let command: Option<DomainEvent> = None;
 
         const TONEMAP_FILTERS: [&str; 8] = [
             "ACES",

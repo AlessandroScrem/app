@@ -156,7 +156,7 @@ impl App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
-    pub fn update_selected(&mut self, input: &Input,  pickobject: &mut crate::picking::PickObject) {
+    pub fn update_selected(&mut self, input: &Input, pickobject: &mut crate::picking::PickObject) {
         // update hovered entity_id from buffer
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};
@@ -168,7 +168,7 @@ impl App {
             && input.is_key_down(Key::Named(NamedKey::Alt))
         {
             self.selected = self.hovered;
-        } 
+        }
     }
 
     pub fn update_scene(&mut self) {
@@ -204,7 +204,8 @@ impl App {
         LinerizeRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
 
         // Ldr pass
-        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, self.selected.is_some());
+        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder)
+            .render(&view, self.selected.is_some());
         PickObjectRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&input);
         ImguiRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, imgui);
 
@@ -282,31 +283,66 @@ impl App {
         &mut self,
         imgui: &mut ImguiLayer,
         window: &winit::window::Window,
-        renderer: &Renderer,
+        renderer: &mut Renderer,
     ) {
-        let mut events = {
-            let comp_view = &mut get_comp_view(
-                self.selected,
-                &self.current_scene.world,
-                &renderer.get_mat_mgr(),
-            );
-            let root_snapshot = create_root_snapshot(&self.current_scene.world);
+        let root_snapshot = create_root_snapshot(&self.current_scene.world);
+        let comp_view = &mut get_comp_view(
+            self.selected,
+            &self.current_scene.world,
+            &renderer.get_mat_mgr(),
+        );
 
-            let mut snapshot = Snapshot {
-                camera: &mut self.camera,
-                globals: &mut self.globals,
-                root_nodes: &root_snapshot.root_nodes,
-                lights_nodes: &root_snapshot.lights_nodes,
-                comp_view,
-                selected: &mut self.selected,
-                hovered: self.hovered,
-            };
+        let mut snapshot = Snapshot {
+            camera: &mut self.camera,
+            globals: &mut self.globals,
+            root_nodes: &root_snapshot.root_nodes,
+            lights_nodes: &root_snapshot.lights_nodes,
+            comp_view,
+            selected: &mut self.selected,
+            hovered: self.hovered,
+        };
+
+        let mut events = {
 
             imgui.update_ui(window, &mut snapshot)
         };
 
         while let Some(event) = events.pop_front() {
             self.domain_events.queue.push_back(event);
+        }
+
+        flush_selected(&mut self.current_scene.world, self.selected, comp_view, renderer.get_mat_mgr_mut());
+
+        fn flush_selected(
+            world: &mut legion::World,
+            selected: Option<Entity>,
+            comp_view: &mut UiComponentView,
+            mat_mgr: &mut MaterialManager,
+        ) {
+            if let Some(entity) = selected
+                && comp_view.dirty
+            {
+                println!("Dirty");
+                if let Ok(mut entry) = world.entry_mut(entity) {
+                    if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
+                        comp_view.tag.as_ref().map(|t| *tag = t.clone());
+                    }
+                    if let Ok(transform) = entry.get_component_mut::<TransformComponent>() {
+                        comp_view.transform.as_ref().map(|t| *transform = t.clone());
+                    }
+                    if let Ok(light) = entry.get_component_mut::<LightComponent>() {
+                        comp_view.light.as_ref().map(|t| *light = t.clone());
+                    }
+
+                    if let Some(updated_material) = comp_view.material.clone() {
+                        if let Ok(mesh) = entry.get_component_mut::<MeshComponent>() {
+                            let material = &mut mat_mgr.get_mut(&mesh.mat_handle).material_pbr;
+                            *material = updated_material;
+                        }
+                    }
+                }
+                comp_view.dirty = false
+            }
         }
     }
 
@@ -375,38 +411,6 @@ impl App {
     }
 }
 
-pub fn imgui_flush_selected(
-    world: &mut legion::World,
-    selected: Option<Entity>,
-    comp_view: &mut UiComponentView,
-    mat_mgr: &mut MaterialManager,
-) {
-    if let Some(entity) = selected
-        && comp_view.dirty
-    {
-        println!("Dirty");
-        if let Ok(mut entry) = world.entry_mut(entity) {
-            if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
-                comp_view.tag.as_ref().map(|t| *tag = t.clone());
-            }
-            if let Ok(transform) = entry.get_component_mut::<TransformComponent>() {
-                comp_view.transform.as_ref().map(|t| *transform = t.clone());
-            }
-            if let Ok(light) = entry.get_component_mut::<LightComponent>() {
-                comp_view.light.as_ref().map(|t| *light = t.clone());
-            }
-
-            if let Some(updated_material) = comp_view.material.clone() {
-                if let Ok(mesh) = entry.get_component_mut::<MeshComponent>() {
-                    let material = &mut mat_mgr.get_mut(&mesh.mat_handle).material_pbr;
-                    *material = updated_material;
-                }
-            }
-        }
-        comp_view.dirty = false
-    }
-}
-
 fn create_root_snapshot(world: &legion::World) -> RootSnapshot {
     let root_nodes = get_hierarchy_roots(world);
     let lights_nodes = get_lights_roots(world);
@@ -418,7 +422,6 @@ fn create_root_snapshot(world: &legion::World) -> RootSnapshot {
 }
 
 use legion::query::IntoQuery;
-
 fn get_lights_roots(world: &legion::World) -> RootNodes {
     let mut roots = RootNodes::default();
     let mut query = <(Entity, &LightComponent, &TagComponent)>::query();

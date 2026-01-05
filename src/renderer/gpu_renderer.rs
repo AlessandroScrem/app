@@ -187,6 +187,10 @@ impl Renderer {
         &self.mat_mgr
     }
 
+    pub fn get_mat_mgr_mut(&mut self) ->&mut MaterialManager {
+        &mut self.mat_mgr
+    }
+
     pub fn prepare(&mut self, render_frmae: &RenderFrame) {
         self.update_globals(render_frmae);
         self.update_lights(render_frmae);

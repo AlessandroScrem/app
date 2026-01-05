@@ -1,13 +1,8 @@
 use wgpu::IndexFormat;
 
-use crate::{
-    assets::{material_manager::MaterialManager, mesh_manager::MeshManager},
-    renderer::{
-        gpu_manager::GpuManager,
-        gpu_renderer::{GpuMeshFrame, GpuView},
-        pipeline_manager::{PipelineKind, PipelineManager},
-        skybox_manager::SkyboxManager,
-    },
+use crate::renderer::{
+    gpu_renderer::{GpuMeshFrame, GpuView},
+    pipeline_manager::PipelineKind,
 };
 
 pub struct MeshRenderPass<'a> {
