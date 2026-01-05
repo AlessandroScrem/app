@@ -134,6 +134,7 @@ impl GpuManager {
     }
 
     pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        println!("Resize Gpu {} {}",width, height);
         self.hdr_frame = HdrFrame::new(&device, self.get_layout(LayoutKind::Hdr), width, height);
         self.entity_id_texture = IDTexture::new(
             &device,

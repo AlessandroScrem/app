@@ -36,7 +36,13 @@ pub struct RootNodes {
     pub nodes: Vec<HierarchyNode>,
 }
 
-pub struct ImguiState {
+#[derive(Default)]
+pub struct RootSnapshot {
+    pub  root_nodes: RootNodes,
+    pub lights_nodes: RootNodes,
+}
+
+pub struct ImguiLayer {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
     pub renderer: Renderer,
@@ -48,7 +54,7 @@ pub struct ImguiState {
 
 pub static mut DEMO_OPEN: bool = false;
 
-impl ImguiState {
+impl ImguiLayer {
     pub fn new(
         window: &Window,
         device: &wgpu::Device,

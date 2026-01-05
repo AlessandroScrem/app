@@ -58,7 +58,7 @@ impl EntityHash for Entity {
 }
 
 
-fn collect_subtree(world: &legion::world::SubWorld, root: Entity, out: &mut Vec<Entity>) {
+fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
     out.push(root);
 
     if let Ok(entry) = world.entry_ref(root) {
@@ -70,15 +70,15 @@ fn collect_subtree(world: &legion::world::SubWorld, root: Entity, out: &mut Vec<
     }
 }
 
-pub fn remove_from_root(entity: Entity, world: &mut legion::world::SubWorld, cmd: &mut legion::systems::CommandBuffer) {
+pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
     let mut to_delete = Vec::new();
     collect_subtree(world, entity, &mut to_delete);
     for e in to_delete.into_iter().rev() {
-        cmd.remove(e);
+        world.remove(e);
     }
 }
 
-pub fn add_parent(entity: Entity, world: &mut legion::world::SubWorld, cmd: &mut legion::systems::CommandBuffer) {
+pub fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if let Ok(entry) = world.entry_mut(entity) {
         if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
@@ -89,7 +89,7 @@ pub fn add_parent(entity: Entity, world: &mut legion::world::SubWorld, cmd: &mut
     }
     // Add parent node and set entity as child
     let new_root = {
-        cmd.push((
+        world.push((
             crate::TagComponent {
                 name: "New Node".into(),
             },

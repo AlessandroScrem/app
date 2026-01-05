@@ -7,6 +7,7 @@ pub mod gpu_manager;
 pub mod light_manager;
 pub mod skybox_manager;
 pub mod bbox_manager;
+pub mod renderpass;
 
 pub use gpu_renderer::Renderer;
 

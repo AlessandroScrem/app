@@ -20,7 +20,7 @@ impl ImGuiTextureRegistry {
 // Sync texture with TextureManager textures
 // TODO: maybe use an event handler for avoid to sync each frame
 // bub sync when add or removing textures from texture_manager
-impl ImguiState {
+impl ImguiLayer {
     pub fn sync_with_registry(&mut self, device: &wgpu::Device, manager: &TextureManager) {
         let registry = &mut self.registry;
         let renderer = &mut self.renderer;

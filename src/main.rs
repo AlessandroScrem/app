@@ -1,4 +1,4 @@
-use app_wgpu::prelude::App;
+use app_wgpu::prelude::MyApplication;
 
 use clap::crate_version;
 use clap::{AppSettings, Arg};
@@ -98,5 +98,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     init_logger(args.occurrences_of("verbose"));
 
-    App::new_with_size(width, height).run()
+    MyApplication::new_with_size(width, height).run()
 }

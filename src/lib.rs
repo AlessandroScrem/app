@@ -14,6 +14,7 @@ mod transform;
 
 pub mod prelude {
     pub use super::app::App;
+    pub use super::application_handler::MyApplication;
     pub use crate::camera::{Camera, center_camera_to_bounding_box};
     pub use crate::renderer::Renderer;
     pub use crate::renderer::ui;
@@ -52,7 +53,10 @@ pub mod math {
 
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::{assets::material_manager::{MaterialId, MaterialPBR}, entities::bounding_box::BoundingBox};
+use crate::{
+    assets::material_manager::{MaterialId, MaterialPBR},
+    entities::bounding_box::BoundingBox,
+};
 use legion::Entity;
 use math::*;
 
@@ -67,14 +71,14 @@ pub mod colors {
     pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 #[derive(Default)]
-pub struct UiComponentView{
+pub struct UiComponentView {
     tag: Option<TagComponent>,
     mesh: Option<MeshComponent>,
     transform: Option<TransformComponent>,
     bounding_box: Option<BoundingBoxComponent>,
     material: Option<MaterialPBR>,
     light: Option<LightComponent>,
-    dirty: bool
+    dirty: bool,
 }
 
 pub enum DomainEvent {
@@ -83,6 +87,7 @@ pub enum DomainEvent {
     AddParent(Entity),
 }
 
+#[derive(Default)]
 pub struct DomainEvents {
     pub queue: VecDeque<DomainEvent>,
 }

@@ -1,9 +1,35 @@
+use crate::BoundingBoxComponent;
 use crate::DomainEvent;
 use crate::DomainEvents;
+use crate::GlobalModelComponent;
+use crate::HierarchyComponent;
+use crate::LightComponent;
+use crate::MeshComponent;
+use crate::TagComponent;
+use crate::TransformComponent;
 use crate::UiComponentView;
+use crate::assets::material_manager::MaterialManager;
+use crate::entities::bounding_box::BoundingBox;
 use crate::input::Input;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use crate::prelude::ui::ImguiLayer;
+use crate::prelude::ui::state::HierarchyNode;
+use crate::prelude::ui::state::RootNodes;
+use crate::prelude::ui::state::RootSnapshot;
+use crate::prelude::ui::state::Snapshot;
+use crate::renderer::gpu_renderer::GpuBoxFrame;
+use crate::renderer::gpu_renderer::GpuMeshFrame;
+use crate::renderer::gpu_renderer::GpuView;
+use crate::renderer::gpu_renderer::RenderFrame;
+use crate::renderer::renderpass::axis::AxisRenderPass;
+use crate::renderer::renderpass::bbox::BboxRenderPass;
+use crate::renderer::renderpass::imgui::ImguiRenderPass;
+use crate::renderer::renderpass::light::LightRenderPass;
+use crate::renderer::renderpass::linearize::LinerizeRenderPass;
+use crate::renderer::renderpass::mesh::MeshRenderPass;
+use crate::renderer::renderpass::outline::OutlineRenderPass;
+use crate::renderer::renderpass::pickobject::PickObjectRenderPass;
+use crate::renderer::renderpass::skybox::SkyboxRenderPass;
+use crate::renderer::uniform::ModelUniform;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -11,11 +37,11 @@ use crate::Globals;
 use crate::prelude::*;
 use crate::scene::Scene;
 
+use legion::Entity;
+use legion::EntityStore;
 use legion::Resources;
-use legion::Schedule;
-use legion::systems::Builder;
 
-pub struct Timer {
+pub struct AppTimer {
     pub clock: Instant,    // timer since application start
     pub delta_time: f32,   //time since last frame
     pub elapsed_time: f32, //timer since last update
@@ -23,7 +49,7 @@ pub struct Timer {
     last_trigger: Instant, // last time the every() callback was triggered
 }
 
-impl Timer {
+impl AppTimer {
     pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; //minimum timestep (to avoid leg)
     pub fn new() -> Self {
         Self {
@@ -106,136 +132,360 @@ impl Timer {
     }
 }
 
-pub trait CenterWindow {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32>;
-}
-
-impl CenterWindow for winit::window::Window {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32> {
-        let mut size = self.inner_size();
-        if let Some(monitor) = self.current_monitor() {
-            let screen_size = monitor.size();
-            let window_size = self.inner_size();
-            let safe_width = screen_size.width.min(window_size.width);
-            let safe_height = screen_size.height.min(window_size.height);
-
-            if let Some(new_size) =
-                self.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
-            {
-                size = new_size;
-            }
-
-            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
-            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
-            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
-        }
-        size
-    }
-}
-
 pub struct App {
-    pub window: Option<Arc<winit::window::Window>>,
     pub current_scene: Scene,
     pub resources: Resources,
-    pub timer: Timer,
-    pub size: winit::dpi::PhysicalSize<u32>,
-    pub update_schedule: Schedule,
-    pub render_schedule: Schedule,
-    pub is_minimized: bool,
+    pub globals: Globals,
+    pub camera: Camera,
+    pub domain_events: DomainEvents,
 }
 
 impl Default for App {
     fn default() -> Self {
-        let update_schedule = Builder::default().build();
-        let render_schedule = Builder::default().build();
+        let globals = Globals::default();
+        let camera = Camera::default();
 
         Self {
-            window: None,
             current_scene: Scene::default(),
             resources: Resources::default(),
-            update_schedule,
-            render_schedule,
-            timer: Timer::new(),
-            size: winit::dpi::PhysicalSize::new(1280, 1024),
-            is_minimized: false,
+            globals,
+            camera,
+            domain_events: DomainEvents::default(),
         }
     }
 }
 
 impl App {
-    pub fn new_with_size(width: u32, height: u32) -> Self {
-        Self {
-            size: winit::dpi::PhysicalSize::new(width, height),
-            ..Default::default()
-        }
-    }
-
-    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let event_loop = winit::event_loop::EventLoop::new().unwrap();
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
-        event_loop.run_app(&mut self)?;
-        Ok(())
-    }
-
     pub fn init(&mut self) {
         let timer = std::time::Instant::now();
-
-        self.resources.insert(Input::new());
-        self.resources.insert(Camera::default());
-        self.resources.insert(Globals::default());
+        self.resources.insert::<Option<Entity>>(None);
         self.resources.insert(UiComponentView::default());
-        self.resources.insert(DomainEvents{queue: VecDeque::new()});
+        self.resources.insert(ui::state::RootSnapshot::default());
 
+        self.domain_events.queue.push_back(DomainEvent::LoadGltf(
+            "./assets/Lantern/Lantern.gltf".into(),
+        ));
 
-        let mut events = self.resources.get_mut::<DomainEvents>().unwrap();
-
-        events.queue.push_back(DomainEvent::LoadGltf("./assets/Lantern/Lantern.gltf".into()));
- 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
-        self.update_schedule = crate::systems::create_update_schedule_builder();
-        self.render_schedule = crate::systems::create_render_schedule_builder();
 
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
-    pub fn create_and_center_window(
-        &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-    ) -> winit::window::Window {
-        let attributes = winit::window::Window::default_attributes()
-            .with_inner_size(self.size)
-            .with_title("App".to_string());
-
-        let window = event_loop
-            .create_window(attributes)
-            .expect("Failed to crate window");
-
-        self.size = window.try_fit_center_to_monitor();
-
-        window
-    }
-
     pub fn update_scene(&mut self) {
-        // scheduler di update ecs (camera, mesh, etc)
-        if self.window.is_none() {
-            return;
-        }
-
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
-
     }
 
-    pub fn render(&mut self) {
-        if self.is_minimized {
-            return;
+    pub fn render(&mut self, renderer: &mut Renderer, imgui: &mut ImguiLayer, input: &Input) {
+
+        // read hovered entity_id from buffer
+        let selected = renderer.pickobject.selected;
+        self.resources.insert::<Option<Entity>>(selected);
+        
+        // update gpu data (uniform,  buffers)
+        let render_frame = self.extract_render_data(selected);
+        renderer.prepare(&render_frame);
+
+        let frame = renderer.get_frame();
+        let view = frame.texture.create_view(&Default::default());
+
+        // Begin Pass
+        let mut encoder = renderer.get_encoder();
+
+        // HDR pass
+        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&render_frame.meshes);
+        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&render_frame.lights);
+        SkyboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
+            .render(self.globals.skybox_enable);
+        AxisRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(self.globals.axis_enable);
+        BboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
+            .render(&render_frame.bboxes, self.globals.bbox_enable);
+
+        // Hdr to Linear
+        LinerizeRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
+
+        // Ldr pass
+        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
+        PickObjectRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&input);
+        ImguiRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, imgui);
+
+        // End pass
+        renderer.queue.submit([encoder.finish()]);
+        frame.present();
+    }
+
+    fn extract_render_data(&self, selected: Option<Entity>) -> RenderFrame {
+        let world = &self.current_scene.world;
+        use crate::entities::EntityRawU64;
+        use legion::query::IntoQuery;
+
+        let entity_selected_id = match selected {
+            Some(id) => (&id).as_raw_u64(),
+            None => 0,
+        };
+
+        let mut frame = RenderFrame {
+            meshes: Vec::new(),
+            lights: Vec::new(),
+            bboxes: Vec::new(),
+            globals: self.globals,
+            camera: self.camera.clone(),
+            entity_id: entity_selected_id,
+        };
+
+        {
+            // -------- Mesh --------
+            let mut mesh_query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
+
+            for (entity, mesh, global) in mesh_query.iter(world) {
+                let mut model = ModelUniform::new(global.mat);
+                model.entity_id = entity.as_raw_u64();
+                frame.meshes.push(GpuMeshFrame {
+                    mesh_handle: mesh.handle,
+                    model,
+                    material_id: mesh.mat_handle.clone(),
+                });
+            }
         }
 
-        // scheduler di rendering (mesh, gui)
-        self.render_schedule
-            .execute(&mut self.current_scene.world, &mut self.resources);
+        {
+            // -------- Lights --------
+            let mut light_query = <&LightComponent>::query();
+
+            for light in light_query.iter(world) {
+                frame.lights.push(light.data);
+            }
+        }
+
+        {
+            // -------- BoundingBox --------
+            let mut bbox_query = <(Entity, &BoundingBoxComponent, &GlobalModelComponent)>::query();
+
+            for (entity, bbox, global_model) in bbox_query.iter(world) {
+                let vertices = {
+                    if self.globals.bbox_axis_aligned {
+                        bbox.gen_aabb_vertices()
+                    } else {
+                        bbox.gen_obb_vertices(&global_model.mat)
+                    }
+                };
+                frame.bboxes.push(GpuBoxFrame {
+                    vertices,
+                    entity: *entity,
+                });
+            }
+        }
+
+        frame
+    }
+
+    pub fn imgui_update(
+        &mut self,
+        imgui: &mut ImguiLayer,
+        window: &winit::window::Window,
+        renderer: &Renderer,
+    ) {
+        let mat_mgr = renderer.get_mat_mgr();
+        let selected = renderer.pickobject.selected;
+        let hovered = renderer.pickobject.hovered;
+        let mut events = {
+            let comp_view = &mut get_comp_view(selected, &self.current_scene.world, &mat_mgr);
+            let root_snapshot = create_root_snapshot(&self.current_scene.world);
+
+            // dummy
+            let mut selected = selected.clone();
+
+            let mut snapshot = Snapshot {
+                camera: &mut self.camera,
+                globals: &mut self.globals,
+                root_nodes: &root_snapshot.root_nodes,
+                lights_nodes: &root_snapshot.lights_nodes,
+                comp_view,
+                selected: &mut selected,
+                hovered,
+            };
+
+            imgui.update_ui(window, &mut snapshot)
+        };
+
+        while let Some(event) = events.pop_front() {
+            self.domain_events.queue.push_back(event);
+        }
+    }
+}
+
+pub fn imgui_flush_selected(
+    world: &mut legion::World,
+    selected: Option<Entity>,
+    comp_view: &mut UiComponentView,
+    mat_mgr: &mut MaterialManager,
+) {
+    if let Some(entity) = selected
+        && comp_view.dirty
+    {
+        println!("Dirty");
+        if let Ok(mut entry) = world.entry_mut(entity) {
+            if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
+                comp_view.tag.as_ref().map(|t| *tag = t.clone());
+            }
+            if let Ok(transform) = entry.get_component_mut::<TransformComponent>() {
+                comp_view.transform.as_ref().map(|t| *transform = t.clone());
+            }
+            if let Ok(light) = entry.get_component_mut::<LightComponent>() {
+                comp_view.light.as_ref().map(|t| *light = t.clone());
+            }
+
+            if let Some(updated_material) = comp_view.material.clone() {
+                if let Ok(mesh) = entry.get_component_mut::<MeshComponent>() {
+                    let material = &mut mat_mgr.get_mut(&mesh.mat_handle).material_pbr;
+                    *material = updated_material;
+                }
+            }
+        }
+        comp_view.dirty = false
+    }
+}
+
+pub fn recenter_camera(
+    camera: &mut crate::camera::Camera,
+    selected: Option<Entity>,
+    world: &legion::World,
+) {
+    if camera.recenter_request {
+        camera.recenter_request = false;
+
+        let bbox = {
+            if let Some(selected) = selected {
+                get_bbox_from_entity(world, selected)
+            } else {
+                get_bounding_box_from_world(world)
+            }
+        };
+        info!("Recenter Camera with box {:?}", bbox);
+        crate::camera::center_camera_to_bounding_box(camera, bbox);
+    }
+    
+    fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
+        let entry = world.entry_ref(entity).ok()?;
+        entry
+            .get_component::<BoundingBoxComponent>()
+            .ok()
+            .map(|b| b.global_bounding_box.clone())
+    }
+    
+    fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
+        <&BoundingBoxComponent>::query()
+            .iter(world)
+            .map(|b| b.global_bounding_box.clone())
+            .reduce(|mut acc, b| {
+                acc.merge(&b);
+                acc
+            })
+    }
+}
+
+
+
+
+fn create_root_snapshot(world: &legion::World)->RootSnapshot {
+    let root_nodes = get_hierarchy_roots(world);
+    let lights_nodes = get_lights_roots(world);
+
+    RootSnapshot { root_nodes, lights_nodes  }
+}
+
+use legion::query::IntoQuery;
+
+fn get_lights_roots(world: &legion::World) -> RootNodes {
+    let mut roots = RootNodes::default();
+    let mut query = <(Entity, &LightComponent, &TagComponent)>::query();
+    for (entity, _light, tag) in query.iter(world) {
+        let name = tag.name.clone();
+        let node = HierarchyNode {
+            name,
+            parent: None,
+            entity: entity.clone(),
+            children: Vec::new(),
+        };
+
+        roots.nodes.push(node);
+    }
+    roots
+}
+
+fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
+    let mut query = <(Entity, &HierarchyComponent)>::query();
+    let mut roots = RootNodes::default();
+    for (entity, hierarchy) in query.iter(world) {
+        if hierarchy.parent.is_none() {
+            let node = build_node(world, *entity, None);
+            roots.nodes.push(node);
+        }
+    }
+    roots
+}
+
+fn get_comp_view(
+    selected: Option<Entity>,
+    world: &legion::World,
+    mat_mgr: &MaterialManager
+) -> UiComponentView {
+    let mut comp_view = UiComponentView::default();
+
+    if let Some(selected) = selected {
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(light) = entry.get_component::<LightComponent>() {
+                comp_view.light = Some(light.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(tag) = entry.get_component::<TagComponent>() {
+                comp_view.tag = Some(tag.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(transform) = entry.get_component::<TransformComponent>() {
+                comp_view.transform = Some(transform.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(bbox) = entry.get_component::<BoundingBoxComponent>() {
+                comp_view.bounding_box = Some(bbox.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(mesh) = entry.get_component::<MeshComponent>() {
+                comp_view.mesh = Some(mesh.clone());
+                comp_view.material = Some(mat_mgr.get(&mesh.mat_handle).material_pbr.clone());
+            }
+        }
+    }
+    comp_view
+}
+
+fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> HierarchyNode {
+    let entry = world.entry_ref(entity).unwrap();
+
+    let name = entry
+        .get_component::<TagComponent>()
+        .map(|n| n.name.clone())
+        .unwrap_or("<unnamed>".to_string());
+
+    let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
+
+    let children = hierarchy
+        .children
+        .iter()
+        .map(|&child| build_node(world, child, Some(entity)))
+        .collect();
+
+    HierarchyNode {
+        name,
+        parent,
+        entity,
+        children,
     }
 }

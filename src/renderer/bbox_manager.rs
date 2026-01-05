@@ -41,7 +41,8 @@ impl BBoxManager {
 
 const VERTICES: usize = 24;
 const CORNERS: usize = VERTICES / 3;
-type BBoxVertexData = [LinesVertexData; VERTICES];
+
+pub type BBoxVertexData = [LinesVertexData; VERTICES];
 type BBoxCornerData = [Vec3; CORNERS];
 
 impl BoundingBox {

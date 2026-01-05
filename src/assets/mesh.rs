@@ -427,9 +427,8 @@ mod tests {
     }
 } */
 
-
 // step per load gltf
-//     (LoadedScene) 
+//     (LoadedScene)
 //          |
 //          Y
 //   create MaterialPBR
@@ -439,8 +438,6 @@ mod tests {
 //          |
 //          Y
 //   spawn_scene ECS
-
-
 
 pub fn load<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
     if path.as_ref().extension().unwrap() != "gltf" {
@@ -606,11 +603,11 @@ fn create_material<P: AsRef<Path>>(
 }
 
 pub struct GpuDevice<'a> {
+    pub device: &'a wgpu::Device,
     pub gpu_mgr: &'a GpuManager,
     pub mat_mgr: &'a mut MaterialManager,
     pub mesh_mgr: &'a mut MeshManager,
     pub tex_mgr: &'a mut TextureManager,
-    pub device: &'a wgpu::Device,
 }
 
 pub struct GpuScene {
@@ -640,17 +637,13 @@ pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScen
     }
 }
 
-pub fn spawn_scene(
-    commands: &mut legion::systems::CommandBuffer,
-    loaded: &LoadedScene,
-    gpu: &GpuScene,
-) {
+pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, gpu: &GpuScene) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
 
     // 1️⃣ crea tutte le entity
     for node in &loaded.nodes {
         let name = node.name.clone();
-        let entity = commands.push((
+        let entity = world.push((
             TagComponent { name },
             TransformComponent::from(node.local_transform.clone()),
             HierarchyComponent::default(),
@@ -662,26 +655,25 @@ pub fn spawn_scene(
     // 2️⃣ assegna mesh + material
     for (i, node) in loaded.nodes.iter().enumerate() {
         if let Some(mesh_idx) = node.mesh {
+            let entity = node_to_entity[i];
             let mesh = &loaded.meshes[mesh_idx];
+            let mut entry = world.entry(entity).unwrap();
 
-            commands.add_component(
-                node_to_entity[i],
-                MeshComponent {
-                    handle: gpu.mesh_handles[mesh_idx],
-                    mat_handle: mesh
-                        .material
-                        .map(|m| gpu.material_handles[m].clone())
-                        .unwrap(),
-                },
-            );
-            let bbox = &loaded.meshes[mesh_idx].bbox;
-            commands.add_component(
-                node_to_entity[i],
-                BoundingBoxComponent {
-                    bounding_box: bbox.clone(),
-                    global_bounding_box: bbox.clone(),
-                },
-            );
+            // MeshComponent
+            entry.add_component(MeshComponent {
+                handle: gpu.mesh_handles[mesh_idx],
+                mat_handle: mesh
+                    .material
+                    .map(|m| gpu.material_handles[m].clone())
+                    .unwrap(),
+            });
+
+            // BoundingBoxComponent
+            let bbox = &mesh.bbox;
+            entry.add_component(BoundingBoxComponent {
+                bounding_box: bbox.clone(),
+                global_bounding_box: bbox.clone(),
+            });
         }
     }
 
@@ -692,22 +684,20 @@ pub fn spawn_scene(
         for &child_idx in &node.children {
             let child = node_to_entity[child_idx];
 
-            commands.exec_mut(move |world, _| {
-                world
-                    .entry_mut(parent)
-                    .unwrap()
-                    .get_component_mut::<HierarchyComponent>()
-                    .unwrap()
-                    .children
-                    .push(child);
+            world
+                .entry_mut(parent)
+                .unwrap()
+                .get_component_mut::<HierarchyComponent>()
+                .unwrap()
+                .children
+                .push(child);
 
-                world
-                    .entry_mut(child)
-                    .unwrap()
-                    .get_component_mut::<HierarchyComponent>()
-                    .unwrap()
-                    .parent = Some(parent);
-            });
+            world
+                .entry_mut(child)
+                .unwrap()
+                .get_component_mut::<HierarchyComponent>()
+                .unwrap()
+                .parent = Some(parent);
         }
     }
 }

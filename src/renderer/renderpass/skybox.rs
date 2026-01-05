@@ -1,26 +1,27 @@
-use crate::{
-    LightComponent,
-    renderer::{
-        gpu_manager::GpuManager,
-        light_manager::LightManager,
-        pipeline_manager::{PipelineKind, PipelineManager},
-    },
-};
+use crate::renderer::{LightUniform, gpu_renderer::GpuView, pipeline_manager::PipelineKind};
 
-use legion::{world::SubWorld, *};
+pub struct SkyboxRenderPass<'a> {
+    gpu: GpuView<'a>,
+    encoder: &'a mut wgpu::CommandEncoder,
+}
 
-#[system]
-#[read_component(LightComponent)]
-pub fn render_light(
-    world: &mut SubWorld,
-    #[resource] encoder: &mut wgpu::CommandEncoder,
-    #[resource] gpu_manager: &GpuManager,
-    #[resource] pipeline_manager: &PipelineManager,
-    #[resource] light_manager: &LightManager,
-) {
+impl<'a> SkyboxRenderPass<'a> {
+    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
+        Self { gpu, encoder }
+    }
+    pub fn render(self, enable: bool) {
+        if !enable {
+            return;
+        }
+        
+        let gpu_manager = self.gpu.gpu_mgr;
+        let pipeline_manager = self.gpu.pip_mgr;
+        let skybox_manager = self.gpu.skb_mgr;
+        let encoder = self.encoder;
+
     // Render pass
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Light Render Pass"),
+        label: Some("Skybox Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
             view: &gpu_manager.hdr_frame.view,
             resolve_target: None,
@@ -41,14 +42,12 @@ pub fn render_light(
         occlusion_query_set: None,
     });
 
-    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
+    let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
+    let skybox_bind_group = skybox_manager.get_skybox();
 
     renderpass.set_pipeline(&pipeline);
     renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
-    renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
-
-    let mut query = <&LightComponent>::query();
-    for _light in query.iter(world) {
-        renderpass.draw(0..6, 0..1);
+    renderpass.set_bind_group(1, skybox_bind_group, &[]);
+    renderpass.draw(0..36, 0..1);
     }
 }
