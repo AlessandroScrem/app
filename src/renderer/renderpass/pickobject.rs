@@ -15,7 +15,7 @@ impl<'a> PickObjectRenderPass<'a> {
         let gpu_manager = self.gpu.gpu_mgr;
         let encoder = self.encoder;
 
-        if input.is_cursor_moved() && pickobject.buffer.ready() {
+        if input.is_cursor_moved() && !pickobject.pending {
             let aligned_bytes_per_row = 256; // minimo richiesto
             let size = gpu_manager.entity_id_texture._texture.size();
             let mouse_pos_x = input.mouse_position.x as u32;
@@ -31,7 +31,7 @@ impl<'a> PickObjectRenderPass<'a> {
                     aspect: wgpu::TextureAspect::All,
                 },
                 wgpu::TexelCopyBufferInfo {
-                    buffer: &pickobject.buffer.buffer,
+                    buffer: &pickobject.buffer,
                     layout: wgpu::TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(aligned_bytes_per_row),

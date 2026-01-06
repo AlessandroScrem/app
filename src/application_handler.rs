@@ -266,7 +266,7 @@ impl ApplicationHandler for MyApplication {
                 // Update
                 runtime.input_update();
                 update_camera(&mut runtime.input, &mut self.app.camera);
-                self.app.update_selected(&runtime.input, &mut runtime.renderer.get_pickobject());
+                self.app.update_selected(&runtime.input, &mut runtime.renderer);
 
                 self.app.update_scene();
                 self.app

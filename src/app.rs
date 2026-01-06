@@ -156,12 +156,12 @@ impl App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
-    pub fn update_selected(&mut self, input: &Input, pickobject: &mut crate::picking::PickObject) {
+    pub fn update_selected(&mut self, input: &Input, renderer: &mut Renderer) {
         // update hovered entity_id from buffer
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};
         if input.is_cursor_moved() {
-            self.hovered = pickobject.get_hovered();
+            self.hovered = renderer.get_hovered();
         }
 
         if input.is_mouse_button_pressed(MouseButton::Left)
@@ -178,9 +178,6 @@ impl App {
     }
 
     pub fn render(&mut self, renderer: &mut Renderer, imgui: &mut ImguiLayer, input: &Input) {
-        // read hovered entity_id from buffer
-        // self.hovered = renderer.pickobject.hovered;
-
         // update gpu data (uniform,  buffers)
         let render_frame = self.extract_render_data(self.selected);
         renderer.prepare(&render_frame);
@@ -211,6 +208,7 @@ impl App {
 
         // End pass
         renderer.queue.submit([encoder.finish()]);
+
         frame.present();
     }
 
@@ -302,16 +300,18 @@ impl App {
             hovered: self.hovered,
         };
 
-        let mut events = {
-
-            imgui.update_ui(window, &mut snapshot)
-        };
+        let mut events = { imgui.update_ui(window, &mut snapshot) };
 
         while let Some(event) = events.pop_front() {
             self.domain_events.queue.push_back(event);
         }
 
-        flush_selected(&mut self.current_scene.world, self.selected, comp_view, renderer.get_mat_mgr_mut());
+        flush_selected(
+            &mut self.current_scene.world,
+            self.selected,
+            comp_view,
+            renderer.get_mat_mgr_mut(),
+        );
 
         fn flush_selected(
             world: &mut legion::World,

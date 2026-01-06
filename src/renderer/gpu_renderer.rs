@@ -110,7 +110,6 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        
         let mut texture_mgr = TextureManager::new(device.clone(), queue.clone());
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
@@ -122,8 +121,11 @@ impl Renderer {
 
         let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
         let skybox_mgr = SkyboxManager::new(hdrpath, &device, &queue, &gpu_mgr, &mut texture_mgr);
-        
-        info!("Renderer Created: Surface config format is {:?}", surface_config.format);
+
+        info!(
+            "Renderer Created: Surface config format is {:?}",
+            surface_config.format
+        );
 
         Self {
             _adapter: adapter,
@@ -143,8 +145,8 @@ impl Renderer {
         }
     }
 
-    pub fn get_pickobject(&mut self) ->&mut PickObject {
-        &mut self.pickobject
+    pub fn get_hovered(&mut self) -> Option<Entity> {
+        self.pickobject.poll_readback(&self.device)
     }
 
     pub fn get_encoder(&self) -> wgpu::CommandEncoder {
@@ -183,11 +185,11 @@ impl Renderer {
         }
     }
 
-    pub fn get_mat_mgr(&self) ->&MaterialManager {
+    pub fn get_mat_mgr(&self) -> &MaterialManager {
         &self.mat_mgr
     }
 
-    pub fn get_mat_mgr_mut(&mut self) ->&mut MaterialManager {
+    pub fn get_mat_mgr_mut(&mut self) -> &mut MaterialManager {
         &mut self.mat_mgr
     }
 
