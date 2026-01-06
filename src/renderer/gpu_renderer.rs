@@ -49,6 +49,7 @@ pub struct GpuBoxFrame {
     pub vertices: BBoxVertexData,
     pub entity: Entity,
 }
+#[derive(Default)]
 pub struct RenderFrame {
     pub meshes: Vec<GpuMeshFrame>,
     pub lights: Vec<LightUniform>,

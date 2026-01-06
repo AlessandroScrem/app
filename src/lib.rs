@@ -79,7 +79,6 @@ pub struct UiComponentView {
     bounding_box: Option<BoundingBoxComponent>,
     material: Option<MaterialPBR>,
     light: Option<LightComponent>,
-    dirty: bool,
 }
 
 pub enum DomainEvent {
@@ -88,7 +87,10 @@ pub enum DomainEvent {
     AddParent(Entity),
     RecenterCamera,
     ChangeSkybox(PathBuf),
-
+    UpdateTag(Entity, TagComponent),
+    UpdateTransform(Entity, TransformComponent),
+    UpdateMaterial(Entity, MaterialPBR),
+    UpdateLight(Entity, LightComponent),
 }
 
 #[derive(Default)]
@@ -96,7 +98,7 @@ pub struct DomainEvents {
     pub queue: VecDeque<DomainEvent>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Globals {
     pub ibl_enable: bool,
     pub skybox_enable: bool,

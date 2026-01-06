@@ -47,6 +47,7 @@ pub struct App {
     pub domain_events: DomainEvents,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
+    render_frame: RenderFrame, 
 }
 
 impl App {
@@ -110,9 +111,11 @@ impl App {
         let input = &runtime.input;
         let imgui = &mut runtime.imgui;
 
+        // Collect data from globals and world to render_frame
+        self.extract_render_frame(self.selected);
+
         // update gpu data (uniform,  buffers)
-        let render_frame = self.extract_render_data(self.selected);
-        renderer.prepare(&render_frame);
+        renderer.prepare(&self.render_frame);
 
         let frame = renderer.get_frame();
         let view = frame.texture.create_view(&Default::default());
@@ -121,13 +124,13 @@ impl App {
         let mut encoder = renderer.get_encoder();
 
         // HDR pass
-        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&render_frame.meshes);
-        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&render_frame.lights);
+        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&self.render_frame.meshes);
+        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&self.render_frame.lights);
         SkyboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
             .render(self.globals.skybox_enable);
         AxisRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(self.globals.axis_enable);
         BboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(&render_frame.bboxes, self.globals.bbox_enable);
+            .render(&self.render_frame.bboxes, self.globals.bbox_enable);
 
         // Hdr to Linear
         LinerizeRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
@@ -142,26 +145,28 @@ impl App {
         renderer.queue.submit([encoder.finish()]);
 
         frame.present();
+
     }
 
-    fn extract_render_data(&self, selected: Option<Entity>) -> RenderFrame {
-        let world = &self.current_scene.world;
+    fn extract_render_frame(&mut self, selected: Option<Entity>) {
         use crate::entities::EntityRawU64;
         use legion::query::IntoQuery;
+
+        let world = &self.current_scene.world;
+        let frame = &mut self.render_frame;
 
         let entity_selected_id = match selected {
             Some(id) => (&id).as_raw_u64(),
             None => 0,
         };
 
-        let mut frame = RenderFrame {
-            meshes: Vec::new(),
-            lights: Vec::new(),
-            bboxes: Vec::new(),
-            globals: self.globals,
-            camera: self.camera.clone(),
-            entity_id: entity_selected_id,
-        };
+        frame.meshes.clear();
+        frame.lights.clear();
+        frame.bboxes.clear();
+        frame.globals = self.globals.clone();
+        frame.camera = self.camera.clone();
+        frame.entity_id = entity_selected_id;
+
 
         {
             // -------- Mesh --------
@@ -205,8 +210,6 @@ impl App {
                 });
             }
         }
-
-        frame
     }
 
     pub fn imgui_update(&mut self, runtime: &mut RunningApp) {
@@ -234,50 +237,9 @@ impl App {
         };
 
         // Main operation: update_ui
-        let mut events = { imgui.update_ui(window, &mut snapshot) };
+        let mut events = imgui.update_ui(window, &mut snapshot);
+        self.domain_events.queue.append(&mut events);
 
-        while let Some(event) = events.pop_front() {
-            self.domain_events.queue.push_back(event);
-        }
-
-        flush_selected(
-            &mut self.current_scene.world,
-            self.selected,
-            comp_view,
-            renderer.get_mat_mgr_mut(),
-        );
-
-        fn flush_selected(
-            world: &mut legion::World,
-            selected: Option<Entity>,
-            comp_view: &mut UiComponentView,
-            mat_mgr: &mut MaterialManager,
-        ) {
-            if let Some(entity) = selected
-                && comp_view.dirty
-            {
-                println!("Dirty");
-                if let Ok(mut entry) = world.entry_mut(entity) {
-                    if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
-                        comp_view.tag.as_ref().map(|t| *tag = t.clone());
-                    }
-                    if let Ok(transform) = entry.get_component_mut::<TransformComponent>() {
-                        comp_view.transform.as_ref().map(|t| *transform = t.clone());
-                    }
-                    if let Ok(light) = entry.get_component_mut::<LightComponent>() {
-                        comp_view.light.as_ref().map(|t| *light = t.clone());
-                    }
-
-                    if let Some(updated_material) = comp_view.material.clone() {
-                        if let Ok(mesh) = entry.get_component_mut::<MeshComponent>() {
-                            let material = &mut mat_mgr.get_mut(&mesh.mat_handle).material_pbr;
-                            *material = updated_material;
-                        }
-                    }
-                }
-                comp_view.dirty = false
-            }
-        }
     }
 
     pub fn recenter_camera(&mut self) {

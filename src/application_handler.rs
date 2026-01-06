@@ -6,7 +6,10 @@ use crate::input::Input;
 use crate::timer::Timer;
 
 use crate::prelude::ui::ImguiLayer;
-use crate::{DomainEvent, prelude::*};
+use crate::{
+    DomainEvent, LightComponent, MeshComponent, TagComponent, TransformComponent, prelude::*,
+};
+use legion::EntityStore;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -101,6 +104,36 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                     &gpu.gpu_mgr,
                     &mut gpu.texure_mgr,
                 );
+            }
+            DomainEvent::UpdateTag(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(t) = e.get_component_mut::<TagComponent>() {
+                        *t = c;
+                    }
+                }
+            }
+            DomainEvent::UpdateTransform(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(t) = e.get_component_mut::<TransformComponent>() {
+                        *t = c;
+                    }
+                }
+            }
+            DomainEvent::UpdateMaterial(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(t) = e.get_component_mut::<MeshComponent>() {
+                        let mat_mgr = &mut runtime.renderer.get_gpu_mut().mat_mgr;
+                        let mat = &mut mat_mgr.get_mut(&t.mat_handle).material_pbr;
+                        *mat = c;
+                    }
+                }
+            }
+            DomainEvent::UpdateLight(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(light) = e.get_component_mut::<LightComponent>() {
+                        *light = c;
+                    }
+                }
             }
         }
     }

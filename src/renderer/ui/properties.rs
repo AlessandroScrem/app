@@ -3,10 +3,10 @@ use std::path::PathBuf;
 
 use imgui::{Drag, TreeNodeFlags};
 
-
 use crate::{
-    BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
-    assets::material_manager::MaterialPBR, prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
+    BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
+    TransformComponent, assets::material_manager::MaterialPBR,
+    prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
 };
 
 pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -18,40 +18,48 @@ pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
 }
 
 pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
-    if ctx.snapshot.selected.is_none() {
+    let Some(selected) = ctx.snapshot.selected else {
         return;
-    }
+    };
 
     let cv = &mut ctx.snapshot.comp_view;
-    let mut dirty = false;
 
     if let Some(f) = &mut cv.tag {
-        dirty |= f.draw_ui(ui);
+        if f.draw_ui(ui) {
+            ctx.commands
+                .push_back(DomainEvent::UpdateTag(selected.clone(), f.clone()));
+        }
     }
 
     if let Some(f) = &mut cv.transform {
-        dirty |= f.draw_ui(ui);
+        if f.draw_ui(ui) {
+            ctx.commands
+                .push_back(DomainEvent::UpdateTransform(selected.clone(), f.clone()));
+        }
     }
 
     if let Some(f) = &mut cv.bounding_box {
-        dirty |= f.draw_ui(ui);
+        f.draw_ui(ui);
     }
 
     if let Some(f) = &mut cv.mesh {
-        dirty |= f.draw_ui(ui);
+        f.draw_ui(ui);
     }
 
     if let Some(f) = &mut cv.material {
-        dirty |= f.draw_ui(ui, ctx.registry);
+        if f.draw_ui(ui, ctx.registry) {
+            ctx.commands
+                .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
+        }
     }
 
     if let Some(f) = &mut cv.light {
-        dirty |= f.draw_ui(ui);
+        if f.draw_ui(ui) {
+            ctx.commands
+                .push_back(DomainEvent::UpdateLight(selected.clone(), f.clone()));
+        }
     }
-
-    cv.dirty = dirty;
 }
-
 
 impl TagComponent {
     fn draw_ui(&mut self, ui: &Ui) -> bool {
@@ -229,7 +237,7 @@ impl LightComponent {
             dirty |= Drag::new("Position")
                 .speed(0.1)
                 .build_array(ui, &mut data.position);
-            ui.color_edit3("Color", &mut data.color);
+            dirty |= ui.color_edit3("Color", &mut data.color);
             {
                 let mut directional = data.directional != 0;
                 if ui.checkbox("Directional", &mut directional) {
@@ -249,7 +257,6 @@ impl LightComponent {
         dirty
     }
 }
-
 
 fn draw_ui_texture_icon(ui: &imgui::Ui, registry: &ImGuiTextureRegistry, name: &PathBuf) {
     if let Some(id) = registry.ids.get(name) {
