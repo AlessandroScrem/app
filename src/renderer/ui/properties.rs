@@ -1,12 +1,57 @@
+use super::*;
 use std::path::PathBuf;
 
 use imgui::{Drag, TreeNodeFlags};
 
-use super::*;
+
 use crate::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
     assets::material_manager::MaterialPBR, prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
 };
+
+pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
+    ui.window("Properties")
+        .size([300.0, 300.0], Condition::FirstUseEver)
+        .build(|| {
+            draw_entity_inspector(ui, ctx);
+        });
+}
+
+pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
+    if ctx.snapshot.selected.is_none() {
+        return;
+    }
+
+    let cv = &mut ctx.snapshot.comp_view;
+    let mut dirty = false;
+
+    if let Some(f) = &mut cv.tag {
+        dirty |= f.draw_ui(ui);
+    }
+
+    if let Some(f) = &mut cv.transform {
+        dirty |= f.draw_ui(ui);
+    }
+
+    if let Some(f) = &mut cv.bounding_box {
+        dirty |= f.draw_ui(ui);
+    }
+
+    if let Some(f) = &mut cv.mesh {
+        dirty |= f.draw_ui(ui);
+    }
+
+    if let Some(f) = &mut cv.material {
+        dirty |= f.draw_ui(ui, ctx.registry);
+    }
+
+    if let Some(f) = &mut cv.light {
+        dirty |= f.draw_ui(ui);
+    }
+
+    cv.dirty = dirty;
+}
+
 
 impl TagComponent {
     fn draw_ui(&mut self, ui: &Ui) -> bool {
@@ -205,40 +250,6 @@ impl LightComponent {
     }
 }
 
-pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
-    if ctx.snapshot.selected.is_none() {
-        return;
-    }
-
-    let cv = &mut ctx.snapshot.comp_view;
-    let mut dirty = false;
-
-    if let Some(f) = &mut cv.tag {
-        dirty |= f.draw_ui(ui);
-    }
-
-    if let Some(f) = &mut cv.transform {
-        dirty |= f.draw_ui(ui);
-    }
-
-    if let Some(f) = &mut cv.bounding_box {
-        dirty |= f.draw_ui(ui);
-    }
-
-    if let Some(f) = &mut cv.mesh {
-        dirty |= f.draw_ui(ui);
-    }
-
-    if let Some(f) = &mut cv.material {
-        dirty |= f.draw_ui(ui, ctx.registry);
-    }
-
-    if let Some(f) = &mut cv.light {
-        dirty |= f.draw_ui(ui);
-    }
-
-    cv.dirty = dirty;
-}
 
 fn draw_ui_texture_icon(ui: &imgui::Ui, registry: &ImGuiTextureRegistry, name: &PathBuf) {
     if let Some(id) = registry.ids.get(name) {

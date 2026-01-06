@@ -4,15 +4,18 @@ use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
 
 use crate::{
-    DomainEvent, Globals, camera::Camera, prelude::ui::state::DEMO_OPEN, text_fmt,
+    DomainEvent, Globals, camera::Camera, prelude::ui::imgui_layer::DEMO_OPEN, text_fmt,
     timestep::Timestep,
 };
 
-pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
+pub fn ui_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
     let camera = &mut ctx.snapshot.camera;
     let globals = &mut ctx.snapshot.globals;
     let hovered_entity = ctx.snapshot.hovered;
     let selected_entity = &ctx.snapshot.selected;
+    let adapter_name = &ctx.snapshot.adapter_string;
+    let hdrpath = &ctx.snapshot.hdrpath;
+    let registry = &ctx.registry;
 
     ui.window("Settings")
         .size([300.0, 300.0], Condition::FirstUseEver)
@@ -37,8 +40,6 @@ pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiCon
                 });
             }
             if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
-                let adapter_name = "Adapter Name";
-
                 text_fmt!(ui, "FPS           : {:?}", timestep.average_fps());
                 text_fmt!(ui, "Frametime     : {:?}", timestep.average());
                 ui.separator();
@@ -55,9 +56,20 @@ pub fn draw_window_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiCon
                     if ui.checkbox("Show demo window", &mut d_o) {
                         DEMO_OPEN = d_o;
                     }
+
+                    if d_o  {
+                        ui.show_demo_window(&mut d_o);
+                        DEMO_OPEN = d_o;
+                    }
                 }
                 globals.draw_ui(ui);
+
+                ui.separator();
+                if let Some(command) = draw_ui_skybox_selector(&ui, hdrpath, registry) {
+                    ctx.commands.push_back(command);
+                }
             }
+
             if let Some(command) = camera.draw_ui(ui) {
                 ctx.commands.push_back(command)
             }
@@ -132,11 +144,6 @@ impl Globals {
                 self.tonemap_filter = current_item as u32;
             }
         }
-
-        {
-            ui.separator();
-            // draw_ui_skybox_selector(&ctx);
-        }
         command
     }
 }
@@ -193,20 +200,16 @@ impl Camera {
     }
 }
 
-/*
-fn draw_ui_skybox_selector(ctx: &InspectorContext) {
-    let ui = ctx.ui;
-    let registry = ctx.registry;
-    let mut skybox_manager = ctx.resources.get_mut::<SkyboxManager>().unwrap();
-    let device = ctx.resources.get::<wgpu::Device>().unwrap();
-    let queue = ctx.resources.get::<wgpu::Queue>().unwrap();
-    let mut texture_manager = ctx.resources.get_mut::<TextureManager>().unwrap();
-    let gpu_manager = ctx.resources.get::<GpuManager>().unwrap();
+fn draw_ui_skybox_selector(
+    ui: &Ui,
+    hdrpath: &std::path::Path,
+    registry: &ImGuiTextureRegistry,
+) -> Option<DomainEvent> {
+    let mut command: Option<_> = None;
 
     let mut change_skybox = false;
-    let hdr_path = skybox_manager.get_hdr_path();
-    if let Some(id) = registry.ids.get(hdr_path) {
-        let name = hdr_path
+    if let Some(id) = registry.ids.get(hdrpath) {
+        let name = hdrpath
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("no name");
@@ -220,15 +223,7 @@ fn draw_ui_skybox_selector(ctx: &InspectorContext) {
         FileDialog::new()
             .add_filter("hdr", &["hdr"])
             .pick_file()
-            .map(|f| {
-                skybox_manager.change_skybox(
-                    &f,
-                    &device,
-                    &queue,
-                    &gpu_manager,
-                    &mut texture_manager,
-                );
-            });
+            .map(|f| command = Some(DomainEvent::ChangeSkybox(f)));
     }
+    command
 }
- */

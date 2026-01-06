@@ -6,7 +6,7 @@
 
 #![allow(dead_code)]
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::{
     assets::texture_manager::TextureManager,
@@ -856,7 +856,7 @@ impl SkyboxManager {
     pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
         &self.ibl_bind_group
     }
-    pub fn get_hdr_path(&self) -> &PathBuf {
+    pub fn get_hdr_path(&self) -> &Path {
         &self.skybox.hdr_path
     }
 
@@ -987,7 +987,8 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let hdr_texture = texture_manager.create_texture(HDR_PATH, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture =
+            texture_manager.create_texture(HDR_PATH, wgpu::TextureFormat::Rgba16Float);
 
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
@@ -1012,7 +1013,8 @@ mod tests {
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let hdr_path = std::path::Path::new(HDR_PATH);
-        let hdr_texture = texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture =
+            texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
@@ -1037,7 +1039,8 @@ mod tests {
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
         let hdr_path = std::path::Path::new(HDR_PATH);
-        let hdr_texture = texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
+        let hdr_texture =
+            texture_manager.create_texture(hdr_path, wgpu::TextureFormat::Rgba16Float);
         let cubemap = EquirectangularToCubemap::build(&hdr_texture, &device, &queue, CUBEMAP_SIZE);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
@@ -1062,7 +1065,13 @@ mod tests {
         let gpu_manager = GpuManager::new(&device, 32, 32);
         let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
 
-        let _manager = SkyboxManager::new(HDR_PATH, &device, &queue, &gpu_manager, &mut texture_manager);
+        let _manager = SkyboxManager::new(
+            HDR_PATH,
+            &device,
+            &queue,
+            &gpu_manager,
+            &mut texture_manager,
+        );
     }
 
     /// Utils

@@ -11,6 +11,7 @@ mod systems;
 pub mod test_utils;
 pub mod timestep;
 mod transform;
+mod timer;
 
 pub mod prelude {
     pub use super::app::App;
@@ -86,6 +87,8 @@ pub enum DomainEvent {
     LoadGltf(PathBuf),
     AddParent(Entity),
     RecenterCamera,
+    ChangeSkybox(PathBuf),
+
 }
 
 #[derive(Default)]

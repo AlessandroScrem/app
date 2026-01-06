@@ -2,11 +2,11 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::app::AppTimer;
 use crate::input::Input;
+use crate::timer::Timer;
 
 use crate::prelude::ui::ImguiLayer;
-use crate::{DomainEvent, prelude::*, };
+use crate::{DomainEvent, prelude::*};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -21,7 +21,7 @@ pub struct RunningApp {
     pub renderer: Renderer,
     pub imgui: ui::ImguiLayer,
     pub is_minimized: bool,
-    pub timer: AppTimer,
+    pub timer: Timer,
     pub event_queue: EventQueue,
     pub input: Input,
 }
@@ -92,28 +92,19 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
             DomainEvent::RecenterCamera => {
                 app.recenter_camera();
             }
+            DomainEvent::ChangeSkybox(path) => {
+                let gpu = &mut runtime.renderer.get_gpu_mut();
+                gpu.skb_mgr.change_skybox(
+                    &path,
+                    &gpu.device,
+                    &gpu.queue,
+                    &gpu.gpu_mgr,
+                    &mut gpu.texure_mgr,
+                );
+            }
         }
     }
 }
-
-fn update_camera(input: &mut Input, camera: &mut Camera) {
-    // move away from here
-
-    if input.is_mouse_button_down(crate::input::MouseButton::Left) {
-        let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-        camera.orbit(delta);
-    }
-
-    if input.is_mouse_button_down(crate::input::MouseButton::Middle) {
-        let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-        camera.pan(delta);
-    }
-
-    if let Some(delta) = input.mouse_wheel_movement {
-        camera.zoom(delta.y);
-    }
-}
-
 
 pub trait CenterWindow {
     fn try_fit_center_to_monitor(self) -> Self;
@@ -181,7 +172,7 @@ impl ApplicationHandler for MyApplication {
             renderer,
             imgui,
             is_minimized: false,
-            timer: AppTimer::new(),
+            timer: Timer::new(),
         });
 
         window.request_redraw();
@@ -265,16 +256,13 @@ impl ApplicationHandler for MyApplication {
 
                 // Update
                 runtime.input_update();
-                update_camera(&mut runtime.input, &mut self.app.camera);
-                self.app.update_selected(&runtime.input, &mut runtime.renderer);
-
+                self.app.update_camera(&runtime.input);
+                self.app.update_selected(runtime);
                 self.app.update_scene();
-                self.app
-                    .imgui_update(&mut runtime.imgui, &runtime.window, &mut runtime.renderer);
+                self.app.imgui_update(runtime);
 
                 // Render
-                self.app
-                    .render(&mut runtime.renderer, &mut runtime.imgui, &runtime.input)
+                self.app.render(runtime)
             }
             _ => (),
         }

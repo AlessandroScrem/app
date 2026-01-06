@@ -1,4 +1,4 @@
-use gltf::{buffer, mesh::Reader};
+use gltf::mesh::Reader;
 use legion::{Entity, EntityStore};
 use std::{collections::HashMap, path::Path};
 

@@ -31,10 +31,12 @@ pub struct GpuView<'a> {
 
 pub struct GpuDevice<'a> {
     pub device: &'a wgpu::Device,
+    pub queue: &'a Queue,
     pub gpu_mgr: &'a GpuManager,
     pub mat_mgr: &'a mut MaterialManager,
     pub mesh_mgr: &'a mut MeshManager,
     pub texure_mgr: &'a mut TextureManager,
+    pub skb_mgr: &'a mut SkyboxManager,
 }
 
 pub struct GpuMeshFrame {
@@ -145,6 +147,16 @@ impl Renderer {
         }
     }
 
+    pub fn get_adapter_string(&self) ->String {
+        self._adapter
+            .get_info()
+            .name
+    }
+
+    pub fn get_hdrpath(&self)-> &std::path::Path {
+        &self.skybox_mgr.get_hdr_path()
+    }
+
     pub fn get_hovered(&mut self) -> Option<Entity> {
         self.pickobject.poll_readback(&self.device)
     }
@@ -178,10 +190,12 @@ impl Renderer {
     pub fn get_gpu_mut(&mut self) -> GpuDevice<'_> {
         GpuDevice {
             device: &self.device,
+            queue: &self.queue,
             gpu_mgr: &self.gpu_mgr,
             mat_mgr: &mut self.mat_mgr,
             mesh_mgr: &mut self.mesh_mgr,
             texure_mgr: &mut self.texture_mgr,
+            skb_mgr: &mut  self.skybox_mgr,
         }
     }
 

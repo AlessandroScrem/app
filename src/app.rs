@@ -8,14 +8,14 @@ use crate::MeshComponent;
 use crate::TagComponent;
 use crate::TransformComponent;
 use crate::UiComponentView;
+use crate::application_handler::RunningApp;
 use crate::assets::material_manager::MaterialManager;
 use crate::entities::bounding_box::BoundingBox;
 use crate::input::Input;
-use crate::prelude::ui::ImguiLayer;
-use crate::prelude::ui::state::HierarchyNode;
-use crate::prelude::ui::state::RootNodes;
-use crate::prelude::ui::state::RootSnapshot;
-use crate::prelude::ui::state::Snapshot;
+use crate::prelude::ui::imgui_layer::HierarchyNode;
+use crate::prelude::ui::imgui_layer::RootNodes;
+use crate::prelude::ui::imgui_layer::RootSnapshot;
+use crate::prelude::ui::imgui_layer::Snapshot;
 use crate::renderer::gpu_renderer::GpuBoxFrame;
 use crate::renderer::gpu_renderer::GpuMeshFrame;
 use crate::renderer::gpu_renderer::RenderFrame;
@@ -29,8 +29,6 @@ use crate::renderer::renderpass::outline::OutlineRenderPass;
 use crate::renderer::renderpass::pickobject::PickObjectRenderPass;
 use crate::renderer::renderpass::skybox::SkyboxRenderPass;
 use crate::renderer::uniform::ModelUniform;
-use std::time::Duration;
-use std::time::Instant;
 
 use crate::Globals;
 use crate::prelude::*;
@@ -40,96 +38,6 @@ use legion::Entity;
 use legion::EntityStore;
 use legion::Resources;
 
-pub struct AppTimer {
-    pub clock: Instant,    // timer since application start
-    pub delta_time: f32,   //time since last frame
-    pub elapsed_time: f32, //timer since last update
-    pub frame_time: f32,   //time taken to render last frame
-    last_trigger: Instant, // last time the every() callback was triggered
-}
-
-impl AppTimer {
-    pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; //minimum timestep (to avoid leg)
-    pub fn new() -> Self {
-        Self {
-            clock: Instant::now(),
-            delta_time: 0.0,
-            elapsed_time: 0.0,
-            frame_time: 0.0,
-            last_trigger: Instant::now(),
-        }
-    }
-
-    /// Returns the time in seconds since the last call to frametime() and updates the internal timer.
-    pub fn frametime(&mut self) -> f32 {
-        let frametime = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
-        self.frame_time = frametime * 1000.0;
-        frametime
-    }
-
-    /// Update the timer with the given frametime.
-    /// Clamps the delta_time to FIXED_TIMESTEP to avoid large timesteps.
-    pub fn tick(&mut self, frametime: f32) -> f32 {
-        self.delta_time = f32::min(frametime, Self::FIXED_TIMESTEP);
-        self.elapsed_time += self.delta_time;
-        self.delta_time
-    }
-
-    /// Iterator that yields fixed timestep steps until the current frametime is covered.
-    /// This can be used to run fixed timestep updates in a variable timestep environment.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let mut timer = super::Timer::new();
-    /// let frametime = timer.frametime();
-    /// for dt in timer.tick_step_iter() {
-    ///     // Run fixed timestep update with dt
-    /// }
-    /// ```
-    pub fn tick_step_iter(&mut self) -> impl Iterator<Item = f32> + '_ {
-        let mut remaining = self.frametime();
-        std::iter::from_fn(move || {
-            if remaining > 0.0 {
-                let dt = remaining.min(Self::FIXED_TIMESTEP);
-                remaining -= dt;
-                Some(self.tick(dt))
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Trigger a callback every `interval` duration.
-    /// The callback is called once for each interval that has passed since the last trigger.
-    /// This function should be called every frame, typically in the main loop.
-    /// # Example
-    /// ```ignore
-    /// use std::time::Duration;
-    /// let mut timer = Timer::new();
-    /// loop {
-    ///   timer.trigger_every(Duration::from_secs(1), || {
-    ///     println!("This prints every second");
-    /// });
-    /// }
-    /// ```
-    ///  
-    pub fn trigger_every<F>(&mut self, interval: Duration, mut callback: F)
-    where
-        F: FnMut(),
-    {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_trigger);
-
-        if elapsed >= interval {
-            // Calcola quanti intervalli completi sono passati
-            let steps = elapsed.as_nanos() / interval.as_nanos();
-            self.last_trigger += interval * steps as u32;
-
-            // Esegui la callback
-            callback();
-        }
-    }
-}
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
@@ -156,7 +64,9 @@ impl App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
-    pub fn update_selected(&mut self, input: &Input, renderer: &mut Renderer) {
+    pub fn update_selected(&mut self, runtime: &mut RunningApp) {
+        let input = &runtime.input;
+        let renderer = &mut runtime.renderer;
         // update hovered entity_id from buffer
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};
@@ -177,7 +87,29 @@ impl App {
             .execute(&mut self.current_scene.world, &mut self.resources);
     }
 
-    pub fn render(&mut self, renderer: &mut Renderer, imgui: &mut ImguiLayer, input: &Input) {
+    pub fn update_camera(&mut self, input: &Input) {
+        // move away from here
+
+        if input.is_mouse_button_down(crate::input::MouseButton::Left) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            self.camera.orbit(delta);
+        }
+
+        if input.is_mouse_button_down(crate::input::MouseButton::Middle) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            self.camera.pan(delta);
+        }
+
+        if let Some(delta) = input.mouse_wheel_movement {
+            self.camera.zoom(delta.y);
+        }
+    }
+
+    pub fn render(&mut self, runtime: &mut RunningApp) {
+        let renderer = &mut runtime.renderer;
+        let input = &runtime.input;
+        let imgui = &mut runtime.imgui;
+
         // update gpu data (uniform,  buffers)
         let render_frame = self.extract_render_data(self.selected);
         renderer.prepare(&render_frame);
@@ -277,12 +209,11 @@ impl App {
         frame
     }
 
-    pub fn imgui_update(
-        &mut self,
-        imgui: &mut ImguiLayer,
-        window: &winit::window::Window,
-        renderer: &mut Renderer,
-    ) {
+    pub fn imgui_update(&mut self, runtime: &mut RunningApp) {
+        let imgui = &mut runtime.imgui;
+        let renderer = &mut runtime.renderer;
+        let window = &runtime.window;
+
         let root_snapshot = create_root_snapshot(&self.current_scene.world);
         let comp_view = &mut get_comp_view(
             self.selected,
@@ -298,8 +229,11 @@ impl App {
             comp_view,
             selected: &mut self.selected,
             hovered: self.hovered,
+            hdrpath: renderer.get_hdrpath(),
+            adapter_string: renderer.get_adapter_string(),
         };
 
+        // Main operation: update_ui
         let mut events = { imgui.update_ui(window, &mut snapshot) };
 
         while let Some(event) = events.pop_front() {

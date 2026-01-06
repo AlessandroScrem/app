@@ -22,6 +22,8 @@ pub struct Snapshot<'a> {
     pub comp_view: &'a mut UiComponentView,
     pub selected: &'a mut Option<Entity>,
     pub hovered: Option<Entity>,
+    pub hdrpath: &'a std::path::Path,
+    pub adapter_string: String,
 }
 
 pub struct HierarchyNode {
@@ -146,15 +148,11 @@ impl ImguiLayer {
             };
             ui.dockspace_over_main_viewport();
 
-            windows::draw_window_settings(ui, &self.timestep, &mut ctx);
-            windows::draw_window_entities(ui, &mut ctx);
-            windows::draw_window_properties(ui, &mut ctx);
+            ui_settings(ui, &self.timestep, &mut ctx);
+            ui_entity_lister(ui, &mut ctx);
+            ui_properties(ui, &mut ctx);
 
-            if unsafe { DEMO_OPEN } {
-                ui.show_demo_window(&mut true);
-            }
-
-            windows::draw_debug_texture(ui, &ctx);
+            draw_debug_texture(ui, &ctx);
             ctx.commands
         };
 

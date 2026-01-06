@@ -1,8 +1,8 @@
 use super::*;
-use crate::{DomainEvent, prelude::ui::state::HierarchyNode};
+use crate::{DomainEvent, prelude::ui::imgui_layer::HierarchyNode};
 use legion::Entity;
 
-pub fn draw_window_entities(ui: &imgui::Ui, ctx: &mut UiContext) {
+pub fn ui_entity_lister(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.window("Entities")
         .size([300.0, 100.0], Condition::FirstUseEver)
         .build(|| {
@@ -42,18 +42,13 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
     let name = &node.name;
     let children = &node.children;
 
-    let is_selected = selected.is_some_and(|e| e == entity);
-    let flags = TreeNodeFlags::SPAN_AVAIL_WIDTH;
-    let flags = if children.is_empty() {
-        flags | TreeNodeFlags::LEAF
-    } else {
-        flags
+    let mut flags = TreeNodeFlags::SPAN_AVAIL_WIDTH;
+    if children.is_empty() {
+        flags |= TreeNodeFlags::LEAF;
     };
-    let flags = if is_selected {
-        flags | TreeNodeFlags::SELECTED
-    } else {
-        flags
-    };
+    if selected.is_some_and(|e| e == entity) {
+        flags |= TreeNodeFlags::SELECTED;
+    }
 
 
     let label = if name.is_empty() { "##Node" } else { name };
