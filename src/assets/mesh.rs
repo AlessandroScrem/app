@@ -1,20 +1,17 @@
 use gltf::mesh::Reader;
-use legion::{Entity, EntityStore};
-use std::{collections::HashMap, path::Path};
+use legion::EntityStore;
+use std::path::Path;
 
 use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::{
-        material_manager::{MaterialId, MaterialManager, MaterialPBR},
-        mesh_manager::{self, MeshManager, create_gpu_mesh},
-        texture_manager::TextureManager,
+        material_manager::MaterialPBR,
         vertexdata::MeshVertexData,
     },
-    entities::bounding_box::BoundingBox,
     math::*,
     prelude::*,
-    renderer::{gpu_manager::GpuManager, gpu_renderer::GpuDevice},
+    renderer::*,
 };
 
 pub struct LoadedScene {
@@ -220,133 +217,6 @@ impl From<gltf::Error> for ImportError {
     }
 }
 
-pub fn load_gltf(
-    cmd: &mut legion::systems::CommandBuffer,
-    mesh_manager: &mut MeshManager,
-    material_manager: &mut MaterialManager,
-    texture_manager: &mut TextureManager,
-    gpu_manager: &GpuManager,
-    device: &wgpu::Device,
-    path: &Path,
-) -> Result<Vec<Entity>, ImportError> {
-    let timer = std::time::Instant::now();
-
-    if path.extension().unwrap_or_default() != "gltf" {
-        warn!("File: {} is not a glTF", path.display());
-        return Err(ImportError::MeshLoadFailed);
-    }
-
-    let (document, buffers, _) = gltf::import(path)?;
-
-    let images: Vec<gltf::Image<'_>> = document.images().collect();
-
-    let mut material_map = HashMap::new();
-    for mat in document.materials() {
-        let handle = material_manager.create_material(
-            device,
-            gpu_manager,
-            texture_manager,
-            &mat,
-            &images,
-            path.to_path_buf(),
-        );
-
-        material_map.insert(mat.index().unwrap(), handle);
-    }
-
-    let mut mesh_handle_map = HashMap::new();
-    for g_mesh in document.meshes() {
-        for primitive in g_mesh.primitives() {
-            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
-            let indices = extract_indices(&reader)?;
-            let vertices = extract_vertices(&reader, &indices)?;
-
-            let mat_index = primitive.material().index().unwrap_or(0);
-            let material_id = material_map[&mat_index].clone();
-            let mesh = mesh_manager::create_gpu_mesh(&device, &gpu_manager, &vertices, &indices);
-            let handle = mesh_manager.add_mesh(mesh);
-            mesh_handle_map.insert(g_mesh.index(), (handle, material_id));
-        }
-    }
-
-    let mut root_entities = Vec::new();
-    let mut node_entity_map = HashMap::new();
-    println!("Scene len is = {}", document.scenes().len());
-    for root_node in document.scenes().next().expect("No scene in Gltf").nodes() {
-        let entity = create_entities_recursively(
-            // world,
-            cmd,
-            &root_node,
-            None,
-            &mut mesh_handle_map,
-            &mut node_entity_map,
-        );
-        root_entities.push(entity);
-    }
-
-    debug!("Gltf import is {} ms", timer.elapsed().as_millis());
-    debug!("Entity for node 0: {:?}", node_entity_map.get(&0));
-
-    Ok(root_entities)
-}
-
-fn create_entities_recursively(
-    cmd: &mut legion::systems::CommandBuffer,
-    node: &gltf::Node,
-    parent: Option<Entity>,
-    mesh_handle_map: &mut HashMap<usize, (usize, MaterialId)>,
-    node_entity_map: &mut HashMap<usize, Entity>,
-) -> Entity {
-    let name = node.name().map(|s| s.into()).unwrap_or("no-name".into());
-    info!("Create node {} id {}", name, node.index());
-
-    let local_transform = TransformComponent::from_gltf(&node);
-
-    let entity = cmd.push((
-        TagComponent { name },
-        HierarchyComponent {
-            parent,
-            children: Vec::new(),
-        },
-        GlobalModelComponent::default(),
-        local_transform,
-    ));
-
-    if let Some(g_mesh) = node.mesh() {
-        let (handle, mat_handle) = mesh_handle_map.get(&g_mesh.index()).unwrap().clone();
-        let bounding_box = extract_bbox(&g_mesh);
-
-        cmd.add_component(entity, MeshComponent { handle, mat_handle });
-        cmd.add_component(entity, BoundingBoxComponent::new(bounding_box));
-    }
-
-    // Salva il mapping nodo → entità
-    node_entity_map.insert(node.index(), entity);
-
-    // Per ogni figlio: crealo e aggiungilo alla lista children
-    let mut children_entities = Vec::new();
-    for child in node.children() {
-        let child_entity = create_entities_recursively(
-            // world,
-            cmd,
-            &child,
-            Some(entity),
-            mesh_handle_map,
-            node_entity_map,
-        );
-
-        cmd.exec_mut(move |w, _| {
-            if let Ok(mut entry) = w.entry_mut(entity) {
-                if let Ok(h) = entry.get_component_mut::<HierarchyComponent>() {
-                    h.children.push(child_entity);
-                }
-            }
-        });
-        children_entities.push(child_entity);
-    }
-
-    entity
-}
 
 #[allow(dead_code)]
 fn print_gltf_document(document: &gltf::Document) {
@@ -618,7 +488,7 @@ pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScen
         .meshes
         .iter()
         .map(|m| {
-            let gpu_mesh = create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
+            let gpu_mesh = mesh_manager::create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
             gpu.mesh_mgr.add_mesh(gpu_mesh)
         })
         .collect();

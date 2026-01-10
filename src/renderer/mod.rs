@@ -8,9 +8,12 @@ pub mod light_manager;
 pub mod skybox_manager;
 pub mod bbox_manager;
 pub mod renderpass;
+pub mod mesh_manager;
 
 pub use gpu_renderer::Renderer;
 
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform};
 pub use gpu_manager::{GpuManager};
 pub use hdr_frame::{HdrFrame, IDTexture};
+pub use mesh_manager::MeshManager;
+pub use gpu_renderer::GpuDevice;

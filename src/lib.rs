@@ -1,6 +1,7 @@
 mod app;
 mod application_handler;
 pub mod assets;
+pub mod bounding_box;
 mod camera;
 pub mod entities;
 pub mod input;
@@ -9,19 +10,24 @@ pub mod renderer;
 mod scene;
 mod systems;
 pub mod test_utils;
+mod timer;
 pub mod timestep;
 mod transform;
-mod timer;
 
 pub mod prelude {
     pub use super::app::App;
     pub use super::application_handler::MyApplication;
+    pub use crate::assets::material_manager;
+    pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
+    pub use crate::entities::components::*;
     pub use crate::renderer::Renderer;
     pub use crate::renderer::ui;
+    pub use crate::renderer::uniform;
     pub use crate::timestep;
     pub use log::{debug, error, info, trace, warn};
 }
+pub use prelude::*;
 
 pub mod math {
     pub fn vec3_min(a: &Vec3, b: &Vec3) -> Vec3 {
@@ -54,12 +60,8 @@ pub mod math {
 
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::{
-    assets::material_manager::{MaterialId, MaterialPBR},
-    entities::bounding_box::BoundingBox,
-};
+use material_manager::MaterialPBR;
 use legion::Entity;
-use math::*;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -124,53 +126,4 @@ impl Default for Globals {
             debug_code: 0,
         }
     }
-}
-
-// Ecs Components
-#[derive(Default, Clone)]
-pub struct LightComponent {
-    pub data: renderer::LightUniform,
-}
-
-#[derive(Default, Clone)]
-pub struct MeshComponent {
-    pub handle: usize,
-    pub mat_handle: MaterialId,
-}
-
-#[derive(Clone)]
-pub struct TransformComponent {
-    pub position: [f32; 3],
-    pub rotation: [f32; 3],
-    pub scale: [f32; 3],
-}
-
-#[derive(Clone)]
-pub struct GlobalModelComponent {
-    pub mat: Mat4,
-}
-
-impl Default for GlobalModelComponent {
-    fn default() -> Self {
-        Self {
-            mat: Mat4::identity(),
-        }
-    }
-}
-
-#[derive(Default, Clone)]
-pub struct TagComponent {
-    pub name: String,
-}
-
-#[derive(Clone)]
-pub struct BoundingBoxComponent {
-    pub global_bounding_box: BoundingBox,
-    pub bounding_box: BoundingBox,
-}
-
-#[derive(Default, Clone)]
-pub struct HierarchyComponent {
-    pub parent: Option<Entity>,
-    pub children: Vec<Entity>,
 }

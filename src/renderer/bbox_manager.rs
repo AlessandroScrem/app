@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use legion::Entity;
 
 use crate::assets::vertexdata::LinesVertexData;
-use crate::entities::bounding_box::BoundingBox;
-
 use crate::math::*;
 use crate::prelude::*;
 use crate::{BoundingBoxComponent, colors};

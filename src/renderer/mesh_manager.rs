@@ -28,7 +28,7 @@ impl MeshManager {
         }
     }
 
-    pub fn add_mesh(&mut self, mesh: GpuMesh)->usize {
+    pub fn add_mesh(&mut self, mesh: GpuMesh) -> usize {
         let id = self.id;
         self.meshes.insert(id, mesh);
         self.id = id + 1;
@@ -66,7 +66,6 @@ impl MeshManager {
             .expect("Unable to get Mesh")
             .model_uniform
     }
-    
 }
 
 pub fn create_gpu_mesh(
@@ -112,5 +111,3 @@ pub fn create_gpu_mesh(
         indexcount,
     }
 }
-
-

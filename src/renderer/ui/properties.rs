@@ -6,7 +6,7 @@ use imgui::{Drag, TreeNodeFlags};
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent, assets::material_manager::MaterialPBR,
-    prelude::ui::registry::ImGuiTextureRegistry, text_fmt,
+    prelude::ui::registry::ImGuiTextureRegistry,
 };
 
 pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -232,7 +232,6 @@ impl LightComponent {
 
         let light = self;
         if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
-            text_fmt!(ui, "Entity ID: {}", light.data.entity_id);
             let data = &mut light.data;
             dirty |= Drag::new("Position")
                 .speed(0.1)

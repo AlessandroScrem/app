@@ -1,4 +1,4 @@
-pub mod entities;
+pub mod hierarchy;
 pub mod registry;
 pub mod settings;
 pub mod imgui_layer;
@@ -11,7 +11,7 @@ pub use imgui_layer::UiContext;
 
 pub use imgui::*;
 
-pub use entities::*;
+pub use hierarchy::*;
 pub use settings::*;
 pub use properties::*;
 

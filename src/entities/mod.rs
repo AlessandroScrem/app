@@ -1,6 +1,7 @@
-pub mod bounding_box;
 pub mod light;
-pub mod mesh;
+pub mod components;
+
+pub use components::*;
 
 use legion::{Entity, EntityStore};
 use log::warn;
@@ -42,9 +43,8 @@ impl From<EntityId> for Entity {
     }
 }
 
-use std::hash::{Hash, Hasher};
 
-use crate::{HierarchyComponent};
+use std::hash::{Hash, Hasher};
 pub trait EntityHash {
     /// Restituisce un hash `u64` deterministico
     fn entity_hash(&self) -> u64;

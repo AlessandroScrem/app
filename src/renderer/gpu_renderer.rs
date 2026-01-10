@@ -3,16 +3,16 @@ use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
 
+
 use crate::assets::material_manager::{MaterialId, MaterialManager};
-use crate::assets::mesh_manager::MeshManager;
 use crate::assets::texture_manager::TextureManager;
 use crate::picking::PickObject;
-use crate::renderer::bbox_manager::{BBoxManager, BBoxVertexData};
-use crate::renderer::light_manager::LightManager;
-use crate::renderer::pipeline_manager::PipelineManager;
-use crate::renderer::skybox_manager::SkyboxManager;
-use crate::renderer::uniform::{MaterialUniform, ModelUniform};
-use crate::renderer::*;
+use super::bbox_manager::{BBoxManager, BBoxVertexData};
+use super::pipeline_manager::PipelineManager;
+use super::skybox_manager::SkyboxManager;
+use super::light_manager::LightManager;
+use super::uniform::{MaterialUniform, ModelUniform};
+use super::*;
 use crate::{Globals, prelude::*};
 
 pub struct GpuView<'a> {

@@ -10,7 +10,6 @@ use crate::TransformComponent;
 use crate::UiComponentView;
 use crate::application_handler::RunningApp;
 use crate::assets::material_manager::MaterialManager;
-use crate::entities::bounding_box::BoundingBox;
 use crate::input::Input;
 use crate::prelude::ui::imgui_layer::HierarchyNode;
 use crate::prelude::ui::imgui_layer::RootNodes;
@@ -33,6 +32,7 @@ use crate::renderer::uniform::ModelUniform;
 use crate::Globals;
 use crate::prelude::*;
 use crate::scene::Scene;
+use crate::uniform::LightUniform;
 
 use legion::Entity;
 use legion::EntityStore;
@@ -185,10 +185,11 @@ impl App {
 
         {
             // -------- Lights --------
-            let mut light_query = <&LightComponent>::query();
+            let mut light_query = <(Entity, &LightComponent)>::query();
 
-            for light in light_query.iter(world) {
-                frame.lights.push(light.data);
+            for (entity, light) in light_query.iter(world) {
+                let data = LightUniform{entity_id: entity.as_raw_u64(), ..light.data};
+                frame.lights.push(data);
             }
         }
 
@@ -277,7 +278,7 @@ impl App {
 
         fn center_camera_to_bounding_box(
             camera: &mut Camera,
-            bbox: Option<crate::entities::bounding_box::BoundingBox>,
+            bbox: Option<BoundingBox>,
         ) {
             if let Some(bbox) = bbox {
                 println!("Recenter Camera {:?}", bbox);
