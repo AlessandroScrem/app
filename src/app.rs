@@ -195,19 +195,19 @@ impl App {
 
         {
             // -------- BoundingBox --------
-            let mut bbox_query = <(Entity, &BoundingBoxComponent, &GlobalModelComponent)>::query();
+            let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
 
-            for (entity, bbox, global_model) in bbox_query.iter(world) {
-                let vertices = {
-                    if self.globals.bbox_axis_aligned {
-                        bbox.gen_aabb_vertices()
-                    } else {
-                        bbox.gen_obb_vertices(&global_model.mat)
-                    }
-                };
+            for (boundingbox, global_model) in bbox_query.iter(world) {
+                // let vertices = {
+                //     if self.globals.bbox_axis_aligned {
+                //         bbox.gen_aabb_vertices()
+                //     } else {
+                //         bbox.gen_obb_vertices(&global_model.mat)
+                //     }
+                // };
                 frame.bboxes.push(GpuBoxFrame {
-                    vertices,
-                    entity: *entity,
+                    boundingbox: boundingbox.clone(),
+                    matrix: global_model.mat,
                 });
             }
         }

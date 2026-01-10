@@ -13,7 +13,7 @@ impl<'a> BboxRenderPass<'a> {
         Self { gpu, encoder }
     }
 
-    pub fn render(self, queue: &Vec<GpuBoxFrame>, enable: bool) {
+    pub fn render(self, _queue: &Vec<GpuBoxFrame>, enable: bool) {
         if !enable {
             return;
         }
@@ -44,12 +44,9 @@ impl<'a> BboxRenderPass<'a> {
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, &gpu_manager.camera_bind_group, &[]);
 
-
-        for b in queue.iter() {
-            let entity = b.entity;
-            let vertexbuffer = &bbox_mgr.get(entity);
-            renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
-            renderpass.draw(0..24, 0..1);
-        }
+        let vertexbuffer = &bbox_mgr.get_vertexbuffer();
+        let count = bbox_mgr.get_count();
+        renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
+        renderpass.draw(0..count, 0..1);
     }
 }

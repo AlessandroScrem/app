@@ -1,18 +1,18 @@
+use crate::math::*;
 use legion::Entity;
 use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
 
-
+use super::bbox_manager::BBoxManager;
+use super::light_manager::LightManager;
+use super::pipeline_manager::PipelineManager;
+use super::skybox_manager::SkyboxManager;
+use super::uniform::{MaterialUniform, ModelUniform};
+use super::*;
 use crate::assets::material_manager::{MaterialId, MaterialManager};
 use crate::assets::texture_manager::TextureManager;
 use crate::picking::PickObject;
-use super::bbox_manager::{BBoxManager, BBoxVertexData};
-use super::pipeline_manager::PipelineManager;
-use super::skybox_manager::SkyboxManager;
-use super::light_manager::LightManager;
-use super::uniform::{MaterialUniform, ModelUniform};
-use super::*;
 use crate::{Globals, prelude::*};
 
 pub struct GpuView<'a> {
@@ -46,8 +46,8 @@ pub struct GpuMeshFrame {
 }
 
 pub struct GpuBoxFrame {
-    pub vertices: BBoxVertexData,
-    pub entity: Entity,
+    pub boundingbox: BoundingBoxComponent,
+    pub matrix: Mat4,
 }
 #[derive(Default)]
 pub struct RenderFrame {
@@ -148,13 +148,11 @@ impl Renderer {
         }
     }
 
-    pub fn get_adapter_string(&self) ->String {
-        self._adapter
-            .get_info()
-            .name
+    pub fn get_adapter_string(&self) -> String {
+        self._adapter.get_info().name
     }
 
-    pub fn get_hdrpath(&self)-> &std::path::Path {
+    pub fn get_hdrpath(&self) -> &std::path::Path {
         &self.skybox_mgr.get_hdr_path()
     }
 
@@ -196,7 +194,7 @@ impl Renderer {
             mat_mgr: &mut self.mat_mgr,
             mesh_mgr: &mut self.mesh_mgr,
             texure_mgr: &mut self.texture_mgr,
-            skb_mgr: &mut  self.skybox_mgr,
+            skb_mgr: &mut self.skybox_mgr,
         }
     }
 
@@ -208,15 +206,15 @@ impl Renderer {
         &mut self.mat_mgr
     }
 
-    pub fn prepare(&mut self, render_frmae: &RenderFrame) {
-        self.update_globals(render_frmae);
-        self.update_lights(render_frmae);
-        self.update_meshes(render_frmae);
-        self.update_bbox(render_frmae);
+    pub fn prepare(&mut self, render_frame: &RenderFrame) {
+        self.update_globals(render_frame);
+        self.update_lights(render_frame);
+        self.update_meshes(render_frame);
+        self.update_bbox(render_frame);
     }
 
-    fn update_lights(&self, render_frmae: &RenderFrame) {
-        for light in render_frmae.lights.iter() {
+    fn update_lights(&self, render_frame: &RenderFrame) {
+        for light in render_frame.lights.iter() {
             self.queue.write_buffer(
                 &self.gpu_mgr.light_uniform_buffer,
                 0,
@@ -225,18 +223,27 @@ impl Renderer {
         }
     }
 
-    fn update_bbox(&mut self, render_frmae: &RenderFrame) {
-        for bbox in render_frmae.bboxes.iter() {
-            self.queue.write_buffer(
-                &self.bbox_mgr.get_or_create(&self.device, bbox.entity),
-                0,
-                bytemuck::cast_slice(&bbox.vertices.as_slice()),
-            );
-        }
+    fn update_bbox(&mut self, render_frame: &RenderFrame) {
+        // recreate vertices every frame
+        if render_frame.globals.skybox_enable {
+            let vertices = render_frame
+                .bboxes
+                .iter()
+                .map(|b| {
+                    if render_frame.globals.bbox_axis_aligned {
+                        b.boundingbox.gen_aabb_vertices()
+                    } else {
+                        b.boundingbox.gen_obb_vertices(&b.matrix)
+                    }
+                })
+                .collect::<Vec<bbox_manager::BBoxVertexData>>();
+            self.bbox_mgr.create_buffer(&self.device, &vertices);
+
+        };
     }
 
-    fn update_meshes(&self, render_frmae: &RenderFrame) {
-        for mesh in render_frmae.meshes.iter() {
+    fn update_meshes(&self, render_frame: &RenderFrame) {
+        for mesh in render_frame.meshes.iter() {
             // Material Uniform
             let material = self.mat_mgr.get(&mesh.material_id);
             let updated_uniforms = MaterialUniform::from(&material.material_pbr);
@@ -255,10 +262,10 @@ impl Renderer {
         }
     }
 
-    fn update_globals(&self, render_frmae: &RenderFrame) {
-        let camera = &render_frmae.camera;
-        let globals = &render_frmae.globals;
-        let entity_id = render_frmae.entity_id;
+    fn update_globals(&self, render_frame: &RenderFrame) {
+        let camera = &render_frame.camera;
+        let globals = &render_frame.globals;
+        let entity_id = render_frame.entity_id;
 
         let screen_size = [
             self.surface_config.width as f32,
