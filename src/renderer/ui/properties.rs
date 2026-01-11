@@ -1,12 +1,10 @@
 use super::*;
-use std::path::PathBuf;
-
 use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent, assets::material_manager::MaterialPBR,
-    prelude::ui::registry::ImGuiTextureRegistry,
+    material_manager::MaterialTextureSlot, prelude::ui::registry::ImGuiTextureRegistry,
 };
 
 pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -84,18 +82,15 @@ impl MaterialPBR {
             "Material",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
-            let main = &material.base_texture_path;
-            let normal = &material.normal_texture_path;
-            let roughness = &material.met_rough_texture_path;
-            let emissive = &material.emissive_texture_path;
-            let occlusion = &material.occlusion_texture_path;
             let name = format!("Material: {} ", material.name);
 
             if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
                 ui.text("Color");
                 dirty |= ui.checkbox("Use##_ct", &mut material.use_color_texture);
-                ui.same_line();
-                draw_ui_texture_icon(ui, registry, main);
+                if let Some(path) = material.get_path(MaterialTextureSlot::BaseColor) {
+                    ui.same_line();
+                    draw_ui_texture_icon(ui, registry, path);
+                }
                 ui.same_line();
                 ui.disabled(material.use_color_texture, || {
                     let mut color: [f32; 4] = material.base_color_factor.into();
@@ -108,8 +103,11 @@ impl MaterialPBR {
 
                 ui.text("Emissive");
                 dirty |= ui.checkbox("Use##_em", &mut material.use_emissive_texture);
-                ui.same_line();
-                draw_ui_texture_icon(ui, registry, emissive);
+
+                if let Some(path) = material.get_path(MaterialTextureSlot::Emissive) {
+                    ui.same_line();
+                    draw_ui_texture_icon(ui, registry, path);
+                }
                 ui.same_line();
                 ui.disabled(material.use_emissive_texture, || {
                     let mut color: [f32; 4] = material.emissive_factor.into();
@@ -122,8 +120,10 @@ impl MaterialPBR {
 
                 ui.text("Occlusion");
                 dirty |= ui.checkbox("Use##_occ", &mut material.use_occlusion_texture);
-                ui.same_line();
-                draw_ui_texture_icon(ui, registry, occlusion);
+                if let Some(path) = material.get_path(MaterialTextureSlot::Occlusion) {
+                    ui.same_line();
+                    draw_ui_texture_icon(ui, registry, path);
+                }
                 ui.same_line();
                 ui.disabled(material.use_occlusion_texture, || {
                     dirty |= Drag::new("##Occlusion")
@@ -135,8 +135,10 @@ impl MaterialPBR {
 
                 ui.text("Metallic Roughness");
                 dirty |= ui.checkbox("Use##_mr", &mut material.use_metal_roughness_texture);
-                ui.same_line();
-                draw_ui_texture_icon(ui, registry, roughness);
+                if let Some(path) = material.get_path(MaterialTextureSlot::MetallicRoughness) {
+                    ui.same_line();
+                    draw_ui_texture_icon(ui, registry, path);
+                }
                 ui.disabled(material.use_metal_roughness_texture, || {
                     dirty |= Drag::new("Met")
                         .speed(0.01)
@@ -151,8 +153,10 @@ impl MaterialPBR {
 
                 ui.text("Normal");
                 dirty |= ui.checkbox("Use##_normal_texture", &mut material.use_normal_texture);
-                ui.same_line();
-                draw_ui_texture_icon(ui, registry, normal);
+                if let Some(path) = material.get_path(MaterialTextureSlot::Normal) {
+                    ui.same_line();
+                    draw_ui_texture_icon(ui, registry, path);
+                }
             }
         }
         dirty
@@ -257,8 +261,12 @@ impl LightComponent {
     }
 }
 
-fn draw_ui_texture_icon(ui: &imgui::Ui, registry: &ImGuiTextureRegistry, name: &PathBuf) {
-    if let Some(id) = registry.ids.get(name) {
-        ui.image_button(name.to_str().unwrap(), *id, [25.0, 25.0]);
+fn draw_ui_texture_icon<P: AsRef<std::path::Path>>(
+    ui: &imgui::Ui,
+    registry: &ImGuiTextureRegistry,
+    name: P,
+) {
+    if let Some(id) = registry.ids.get(name.as_ref()) {
+        ui.image_button(name.as_ref().to_str().unwrap(), *id, [25.0, 25.0]);
     }
 }

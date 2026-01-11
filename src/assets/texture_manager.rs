@@ -54,7 +54,18 @@ impl TextureManager {
         Arc::new(cubemap)
     }
 
-    pub fn create_texture<P: AsRef<Path>>(&mut self, filepath: P, format: TextureFormat) -> Arc<Texture> {
+    pub fn get_texture<P: AsRef<Path>>(&self, filepath: P) -> Arc<Texture> {
+        match self.textures.get(filepath.as_ref()) {
+            Some(texture) => texture.clone(),
+            None => self.white_texture.clone(),
+        }
+    }
+
+    pub fn create_texture<P: AsRef<Path>>(
+        &mut self,
+        filepath: P,
+        format: TextureFormat,
+    ) -> Arc<Texture> {
         let texture = match self.textures.get(filepath.as_ref()) {
             Some(texture) => texture.clone(),
             None => self.create(filepath.as_ref(), format),

@@ -27,8 +27,6 @@ impl BBoxManager {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        println!("len is {}", vertices.len());
-
         self.count = (vertices.len() * VERTICES) as u32;
         self.vertexbuffer = Some(vertexbuffer);
     }

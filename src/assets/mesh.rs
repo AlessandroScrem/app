@@ -5,10 +5,7 @@ use std::path::Path;
 use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
     TransformComponent,
-    assets::{
-        material_manager::MaterialPBR,
-        vertexdata::MeshVertexData,
-    },
+    assets::{material_manager::MaterialPBR, vertexdata::MeshVertexData},
     math::*,
     prelude::*,
     renderer::*,
@@ -217,7 +214,6 @@ impl From<gltf::Error> for ImportError {
     }
 }
 
-
 #[allow(dead_code)]
 fn print_gltf_document(document: &gltf::Document) {
     fn print_mesh(mesh: gltf::Mesh) {
@@ -378,98 +374,90 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
     Ok(scene)
 }
 
+fn resolve_image_uri(uri: &str, base_dir: &Path) -> Option<std::path::PathBuf> {
+    Some(base_dir.join(uri))
+}
+
+fn path_from_ginfo(
+    info: gltf::texture::Info<'_>,
+    base_dir: &Path,
+    images: &[gltf::Image<'_>],
+) -> Option<std::path::PathBuf> {
+    let image = images.get(info.texture().index())?;
+
+    match image.source() {
+        gltf::image::Source::Uri { uri, .. } => resolve_image_uri(uri, base_dir),
+        _ => None,
+    }
+}
+
+fn path_from_gtexture(
+    texture: gltf::texture::Texture<'_>,
+    base_dir: &Path,
+) -> Option<std::path::PathBuf> {
+    match texture.source().source() {
+        gltf::image::Source::Uri { uri, .. } => resolve_image_uri(uri, base_dir),
+        _ => None,
+    }
+}
+
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     images: &Vec<gltf::Image<'_>>,
     path: P,
 ) -> MaterialPBR {
+    use material_manager::MaterialTextureSlot::*;
+
     let name = gltf_material.name().unwrap_or("material_no_name");
-    let parent_path = path.as_ref().parent().expect("Unable to find parent path");
+    let parent_path = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
 
-    fn get_texture_url(
-        info: Option<gltf::texture::Info<'_>>,
-        path: &Path,
-        images: &[gltf::Image<'_>],
-    ) -> Option<std::path::PathBuf> {
-        let info = info?;
-        let image = images.get(info.texture().index())?;
-
-        if let gltf::image::Source::Uri { uri, .. } = image.source() {
-            return Path::new(uri).file_name().map(|u| path.join(u));
-        }
-
-        None
-    }
-
-    // pbr materials
+    // gltf pbr material
     let pbr = gltf_material.pbr_metallic_roughness();
-    let color_factor = pbr.base_color_factor();
-    let roughness_factor = pbr.roughness_factor();
-    let metallic_factor = pbr.metallic_factor();
-    let emissive_factor = gltf_material.emissive_factor();
 
-    let use_color_texture = pbr.base_color_texture().is_some();
-    let use_metal_roughness_texture = pbr.base_color_texture().is_some();
-    let use_normal_texture = gltf_material.normal_texture().is_some();
-    let use_emissive_texture = gltf_material.emissive_texture().is_some();
-    let use_occlusion_texture = gltf_material.occlusion_texture().is_some();
+    let mut material_pbr = MaterialPBR::default();
 
-    let base_texture_path = get_texture_url(pbr.base_color_texture(), parent_path, &images);
-    let met_rough_texture = get_texture_url(pbr.metallic_roughness_texture(), parent_path, &images);
-    let emissive_texture_path =
-        get_texture_url(gltf_material.emissive_texture(), parent_path, &images);
+    material_pbr.name = name.into();
+    material_pbr.base_color_factor = pbr.base_color_factor().into();
+    material_pbr.roughness_factor = pbr.roughness_factor();
+    material_pbr.metallic_factor = pbr.metallic_factor();
+    material_pbr.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(1.0);
 
-    let normal_texture_path = gltf_material
-        .normal_texture()
-        .map(|nt| nt.texture().source().source())
-        .and_then(|s| {
-            if let gltf::image::Source::Uri { uri, .. } = s {
-                Some(parent_path.join(uri))
-            } else {
-                None
-            }
-        });
-
-    let normal_scale = gltf_material
-        .normal_texture()
-        .map(|nt| nt.scale())
-        .unwrap_or(1.0);
-
-    let occlusion_texture_path = gltf_material
-        .occlusion_texture()
-        .map(|ot| ot.texture().source().source())
-        .and_then(|s| {
-            if let gltf::image::Source::Uri { uri, .. } = s {
-                Some(parent_path.join(uri))
-            } else {
-                None
-            }
-        });
-
-    let occlusion_strength = gltf_material
-        .occlusion_texture()
-        .map(|ot| ot.strength())
-        .unwrap_or(1.0);
-
-    MaterialPBR {
-        name: name.into(),
-        base_color_factor: color_factor.into(),
-        emissive_factor: Vec3::from(emissive_factor).extend(1.0),
-        base_texture_path: base_texture_path.unwrap_or_default(),
-        normal_texture_path: normal_texture_path.unwrap_or_default(),
-        met_rough_texture_path: met_rough_texture.unwrap_or_default(),
-        emissive_texture_path: emissive_texture_path.unwrap_or_default(),
-        occlusion_texture_path: occlusion_texture_path.unwrap_or_default(),
-        roughness_factor,
-        metallic_factor,
-        normal_scale,
-        occlusion_strength,
-        use_color_texture,
-        use_metal_roughness_texture,
-        use_normal_texture,
-        use_emissive_texture,
-        use_occlusion_texture,
+    if let Some(normal_tex) = gltf_material.normal_texture() {
+        material_pbr.use_normal_texture = true;
+        material_pbr.normal_scale = normal_tex.scale();
+        material_pbr.set_path(
+            Normal,
+            path_from_gtexture(normal_tex.texture(), parent_path),
+        );
     }
+    if let Some(occl_tex) = gltf_material.occlusion_texture() {
+        material_pbr.use_occlusion_texture = true;
+        material_pbr.occlusion_strength = occl_tex.strength().clamp(0.0, 1.0);
+        material_pbr.set_path(
+            Occlusion,
+            path_from_gtexture(occl_tex.texture(), parent_path),
+        )
+    }
+    if let Some(color_info) = pbr.base_color_texture() {
+        material_pbr.use_color_texture = true;
+        material_pbr.set_path(BaseColor, path_from_ginfo(color_info, parent_path, &images));
+    }
+    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
+        material_pbr.use_metal_roughness_texture = true;
+        material_pbr.set_path(
+            MetallicRoughness,
+            path_from_ginfo(met_rough_info, parent_path, &images),
+        );
+    }
+    if let Some(emissive_info) = gltf_material.emissive_texture() {
+        material_pbr.use_emissive_texture = true;
+        material_pbr.set_path(
+            Emissive,
+            path_from_ginfo(emissive_info, parent_path, &images),
+        );
+    }
+
+    material_pbr
 }
 
 pub struct GpuScene {
@@ -481,14 +469,18 @@ pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScen
     let material_handles = loaded
         .materials
         .iter()
-        .map(|m| gpu.mat_mgr.create(gpu.device, gpu.gpu_mgr, gpu.texure_mgr, m))
+        .map(|m| {
+            gpu.mat_mgr
+                .create(gpu.device, gpu.gpu_mgr, gpu.texure_mgr, m)
+        })
         .collect();
 
     let mesh_handles = loaded
         .meshes
         .iter()
         .map(|m| {
-            let gpu_mesh = mesh_manager::create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
+            let gpu_mesh =
+                mesh_manager::create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
             gpu.mesh_mgr.add_mesh(gpu_mesh)
         })
         .collect();
