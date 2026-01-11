@@ -86,76 +86,117 @@ impl MaterialPBR {
 
             if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
                 ui.text("Color");
-                dirty |= ui.checkbox("Use##_ct", &mut material.use_color_texture);
-                if let Some(path) = material.get_path(MaterialTextureSlot::BaseColor) {
-                    ui.same_line();
-                    draw_ui_texture_icon(ui, registry, path);
-                }
-                ui.same_line();
-                ui.disabled(material.use_color_texture, || {
-                    let mut color: [f32; 4] = material.base_color_factor.into();
-                    if ui.color_edit4("##Base Color", &mut color) {
-                        material.base_color_factor = color.into();
-                        dirty = true;
+                {
+                    let mut use_texture =
+                        material.get_used_texture_slot(MaterialTextureSlot::BaseColor);
+                    if let Some(path) = material.get_path(MaterialTextureSlot::BaseColor) {
+                        dirty |= ui.checkbox("Use##_ct", &mut use_texture);
+                        ui.same_line();
+                        if use_texture {
+                            draw_ui_texture_icon(ui, registry, path);
+                            ui.same_line();
+                        }
+                        material.set_used_texture_slot(MaterialTextureSlot::BaseColor, use_texture);
                     }
-                });
-                ui.separator();
-
-                ui.text("Emissive");
-                dirty |= ui.checkbox("Use##_em", &mut material.use_emissive_texture);
-
-                if let Some(path) = material.get_path(MaterialTextureSlot::Emissive) {
-                    ui.same_line();
-                    draw_ui_texture_icon(ui, registry, path);
+                    ui.disabled(use_texture, || {
+                        let mut color: [f32; 4] = material.base_color_factor.into();
+                        if ui.color_edit4("##Base Color", &mut color) {
+                            material.base_color_factor = color.into();
+                            dirty = true;
+                        }
+                    });
+                    ui.separator();
                 }
-                ui.same_line();
-                ui.disabled(material.use_emissive_texture, || {
-                    let mut color: [f32; 4] = material.emissive_factor.into();
-                    if ui.color_edit4("##Emissive", &mut color) {
-                        material.emissive_factor = color.into();
-                        dirty = true;
+
+                {
+                    ui.text("Emissive");
+                    let mut use_texture =
+                        material.get_used_texture_slot(MaterialTextureSlot::Emissive);
+                    if let Some(path) = material.get_path(MaterialTextureSlot::Emissive) {
+                        dirty |= ui.checkbox("Use##_em", &mut use_texture);
+                        ui.same_line();
+                        if use_texture {
+                            draw_ui_texture_icon(ui, registry, path);
+                            ui.same_line();
+                        }
+                        material.set_used_texture_slot(MaterialTextureSlot::Emissive, use_texture);
                     }
-                });
-                ui.separator();
-
-                ui.text("Occlusion");
-                dirty |= ui.checkbox("Use##_occ", &mut material.use_occlusion_texture);
-                if let Some(path) = material.get_path(MaterialTextureSlot::Occlusion) {
-                    ui.same_line();
-                    draw_ui_texture_icon(ui, registry, path);
+                    ui.disabled(use_texture, || {
+                        let mut color: [f32; 4] = material.emissive_factor.into();
+                        if ui.color_edit4("##Emissive", &mut color) {
+                            material.emissive_factor = color.into();
+                            dirty = true;
+                        }
+                    });
+                    ui.separator();
                 }
-                ui.same_line();
-                ui.disabled(material.use_occlusion_texture, || {
-                    dirty |= Drag::new("##Occlusion")
-                        .speed(0.01)
-                        .range(0.0, 1.0)
-                        .build(ui, &mut material.occlusion_strength);
-                });
-                ui.separator();
 
-                ui.text("Metallic Roughness");
-                dirty |= ui.checkbox("Use##_mr", &mut material.use_metal_roughness_texture);
-                if let Some(path) = material.get_path(MaterialTextureSlot::MetallicRoughness) {
-                    ui.same_line();
-                    draw_ui_texture_icon(ui, registry, path);
+                {
+                    ui.text("Occlusion");
+                    let mut use_texture =
+                        material.get_used_texture_slot(MaterialTextureSlot::Occlusion);
+                    if let Some(path) = material.get_path(MaterialTextureSlot::Occlusion) {
+                        dirty |= ui.checkbox("Use##_occ", &mut use_texture);
+                        ui.same_line();
+
+                        if use_texture {
+                            draw_ui_texture_icon(ui, registry, path);
+                            ui.same_line();
+                        }
+                        material.set_used_texture_slot(MaterialTextureSlot::Occlusion, use_texture);
+                    }
+                    ui.disabled(use_texture, || {
+                        dirty |= Drag::new("##Occlusion")
+                            .speed(0.01)
+                            .range(0.0, 1.0)
+                            .build(ui, &mut material.occlusion_strength);
+                    });
+                    ui.separator();
                 }
-                ui.disabled(material.use_metal_roughness_texture, || {
-                    dirty |= Drag::new("Met")
-                        .speed(0.01)
-                        .range(0.01, 1.0)
-                        .build(ui, &mut material.metallic_factor);
-                    dirty |= Drag::new("Rough")
-                        .speed(0.01)
-                        .range(0.01, 1.0)
-                        .build(ui, &mut material.roughness_factor);
-                });
-                ui.separator();
 
-                ui.text("Normal");
-                dirty |= ui.checkbox("Use##_normal_texture", &mut material.use_normal_texture);
-                if let Some(path) = material.get_path(MaterialTextureSlot::Normal) {
-                    ui.same_line();
-                    draw_ui_texture_icon(ui, registry, path);
+                {
+                    ui.text("Metallic Roughness");
+                    let mut use_texture =
+                        material.get_used_texture_slot(MaterialTextureSlot::MetallicRoughness);
+                    if let Some(path) = material.get_path(MaterialTextureSlot::MetallicRoughness) {
+                        dirty |= ui.checkbox("Use##_mr", &mut use_texture);
+                        ui.same_line();
+                        if use_texture {
+                            draw_ui_texture_icon(ui, registry, path);
+                            ui.same_line();
+                        }
+
+                        material.set_used_texture_slot(
+                            MaterialTextureSlot::MetallicRoughness,
+                            use_texture,
+                        );
+                    }
+                    ui.disabled(use_texture, || {
+                        dirty |= Drag::new("Met")
+                            .speed(0.01)
+                            .range(0.01, 1.0)
+                            .build(ui, &mut material.metallic_factor);
+                        dirty |= Drag::new("Rough")
+                            .speed(0.01)
+                            .range(0.01, 1.0)
+                            .build(ui, &mut material.roughness_factor);
+                    });
+                    ui.separator();
+                }
+
+                {
+                    ui.text("Normal");
+                    let mut use_texture =
+                        material.get_used_texture_slot(MaterialTextureSlot::Normal);
+                    if let Some(path) = material.get_path(MaterialTextureSlot::Normal) {
+                        dirty |= ui.checkbox("Use##_normal_texture", &mut use_texture);
+                        ui.same_line();
+                        if use_texture {
+                            ui.same_line();
+                            draw_ui_texture_icon(ui, registry, path);
+                        }
+                        material.set_used_texture_slot(MaterialTextureSlot::Normal, use_texture);
+                    }
                 }
             }
         }

@@ -84,7 +84,7 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
             DomainEvent::LoadGltf(path) => {
                 println!("Fired load gltf");
                 let gpu = &mut runtime.renderer.get_gpu_mut();
-                let loaded = crate::assets::mesh::load(path).unwrap();
+                let loaded = crate::assets::mesh::load_gltf(path).unwrap();
                 let gpu_scene = crate::assets::mesh::upload_scene_to_gpu(&loaded, gpu);
                 crate::assets::mesh::spawn_scene(&mut app.current_scene.world, &loaded, &gpu_scene);
                 app.recenter_camera();

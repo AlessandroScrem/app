@@ -254,45 +254,6 @@ fn print_gltf_document(document: &gltf::Document) {
     });
 }
 
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use legion::query::IntoQuery;
-    use legion::world::SubWorld;
-    use legion::*;
-
-    #[test]
-    fn should_load_mesh() {
-        let (device, queue) = crate::test_utils::get_device_and_queue();
-
-        let gpu_manager = GpuManager::new(&device, 32, 32);
-        let mut mesh_manager = MeshManager::new();
-        let mut texture_manager = TextureManager::new(device.clone(), queue.clone());
-        let mut material_manager = MaterialManager::new(device, &gpu_manager, &mut texture_manager);
-
-        let mut world = legion::World::default();
-        let subworld = legion::world::SubWorld::from(&world);
-        let mut cmd = legion::systems::CommandBuffer::new(&world);
-
-        let e = load_gltf(
-            &mut world,
-            &mut cmd,
-            &mut mesh_manager,
-            &mut material_manager,
-            &mut texture_manager,
-            &gpu_manager,
-            &device,
-            std::path::Path::new("./assets/cube/cube.gltf"),
-        );
-
-        assert!(e.is_ok());
-        assert_eq!(e.ok().iter().len(), 1);
-        assert_eq!(Read::<MeshComponent>::query().iter(&world).count(), 1);
-        assert_eq!(world.len(), 1)
-    }
-} */
-
 // step per load gltf
 //     (LoadedScene)
 //          |
@@ -305,7 +266,7 @@ mod tests {
 //          Y
 //   spawn_scene ECS
 
-pub fn load<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
+pub fn load_gltf<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
     if path.as_ref().extension().unwrap() != "gltf" {
         error!("File: {} is not a glTF", path.as_ref().display());
         return Err(ImportError::MeshLoadFailed);
@@ -420,10 +381,9 @@ fn create_material<P: AsRef<Path>>(
     material_pbr.base_color_factor = pbr.base_color_factor().into();
     material_pbr.roughness_factor = pbr.roughness_factor();
     material_pbr.metallic_factor = pbr.metallic_factor();
-    material_pbr.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(1.0);
+    material_pbr.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
 
     if let Some(normal_tex) = gltf_material.normal_texture() {
-        material_pbr.use_normal_texture = true;
         material_pbr.normal_scale = normal_tex.scale();
         material_pbr.set_path(
             Normal,
@@ -431,7 +391,6 @@ fn create_material<P: AsRef<Path>>(
         );
     }
     if let Some(occl_tex) = gltf_material.occlusion_texture() {
-        material_pbr.use_occlusion_texture = true;
         material_pbr.occlusion_strength = occl_tex.strength().clamp(0.0, 1.0);
         material_pbr.set_path(
             Occlusion,
@@ -439,18 +398,15 @@ fn create_material<P: AsRef<Path>>(
         )
     }
     if let Some(color_info) = pbr.base_color_texture() {
-        material_pbr.use_color_texture = true;
         material_pbr.set_path(BaseColor, path_from_ginfo(color_info, parent_path, &images));
     }
     if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
-        material_pbr.use_metal_roughness_texture = true;
         material_pbr.set_path(
             MetallicRoughness,
             path_from_ginfo(met_rough_info, parent_path, &images),
         );
     }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
-        material_pbr.use_emissive_texture = true;
         material_pbr.set_path(
             Emissive,
             path_from_ginfo(emissive_info, parent_path, &images),
@@ -553,5 +509,41 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, gpu: &GpuSce
                 .unwrap()
                 .parent = Some(parent);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_load_scene() {
+        let path = "./assets/cube/cube.gltf";
+
+        let e = load_gltf(path);
+
+        assert!(e.is_ok());
+        assert_eq!(e.ok().iter().len(), 1);
+    }
+
+    #[test]
+    fn should_create_material() {
+        use material_manager::MaterialTextureSlot::*;
+
+        let path = "./assets/cube/cube.gltf";
+        let base_path = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
+        let color_path = base_path.join("Cube_BaseColor.png");
+        let normal_path = base_path.join("Cube_normal.png");
+        let mut mat_pbr = MaterialPBR::default();
+        mat_pbr.name = "Cube".into();
+        mat_pbr.set_path(BaseColor, Some(color_path));
+        mat_pbr.set_path(Normal, Some(normal_path));
+        mat_pbr.metallic_factor = 0.0;
+        mat_pbr.roughness_factor = 1.0;
+
+        let e = load_gltf(path).unwrap();
+
+        assert_eq!(e.materials.len(), 1);
+        assert_eq!(e.materials[0], mat_pbr);
     }
 }

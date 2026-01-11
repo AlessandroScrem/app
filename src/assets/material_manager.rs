@@ -5,11 +5,10 @@ use std::{
 
 use cgmath::{
     Array,
-    num_traits::{one},
+    num_traits::{one, zero},
 };
 use wgpu::{
-    TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb},
-    util::DeviceExt,
+    TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb}, util::DeviceExt
 };
 
 use crate::{
@@ -54,11 +53,12 @@ impl MaterialTextureSlot {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MaterialPBR {
     pub name: String,
 
     texture_slot: [Option<PathBuf>; MATERIAL_TEXTURE_COUNT],
+    use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
 
     pub base_color_factor: Vec4,
     pub emissive_factor: Vec4,
@@ -66,11 +66,6 @@ pub struct MaterialPBR {
     pub metallic_factor: f32,
     pub normal_scale: f32,
     pub occlusion_strength: f32,
-    pub use_color_texture: bool,
-    pub use_metal_roughness_texture: bool,
-    pub use_normal_texture: bool,
-    pub use_emissive_texture: bool,
-    pub use_occlusion_texture: bool,
 }
 impl Default for MaterialPBR {
     fn default() -> Self {
@@ -78,25 +73,37 @@ impl Default for MaterialPBR {
             name: "Default".into(),
 
             texture_slot: [const { None }; MATERIAL_TEXTURE_COUNT],
+            use_texture_slot: [const {false}; MATERIAL_TEXTURE_COUNT],
 
             base_color_factor: Vec4::from_value(one()),
-            emissive_factor: Vec4::from_value(one()),
+            emissive_factor: Vec4::from_value(zero()),
             roughness_factor: one(),
             metallic_factor: one(),
             normal_scale: one(),
             occlusion_strength: one(),
-            use_color_texture: false,
-            use_metal_roughness_texture: false,
-            use_normal_texture: false,
-            use_emissive_texture: false,
-            use_occlusion_texture: false,
         }
+    }
+}
+
+impl PartialEq for MaterialPBR {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name &&
+
+        self.texture_slot == other.texture_slot &&
+        self.use_texture_slot == other.use_texture_slot &&
+        self.base_color_factor == other.base_color_factor &&
+        self.emissive_factor == other.emissive_factor &&
+        self.roughness_factor == other.roughness_factor &&
+        self.metallic_factor == other.metallic_factor &&
+        self.normal_scale == other.normal_scale &&
+        self.occlusion_strength == other.occlusion_strength 
     }
 }
 
 impl MaterialPBR {
     pub fn set_path(&mut self, slot: MaterialTextureSlot, path: Option<PathBuf>) {
         self.texture_slot[slot as usize] = path;
+        self.use_texture_slot[slot as usize] = true;
     }
     pub fn some_or_fallback(&self, slot: MaterialTextureSlot) -> &Path {
         self.texture_slot[slot as usize]
@@ -106,6 +113,12 @@ impl MaterialPBR {
 
     pub fn get_path(&self, slot: MaterialTextureSlot) -> Option<&Path> {
         self.texture_slot[slot as usize].as_deref()
+    }
+    pub fn get_used_texture_slot(&self, slot: MaterialTextureSlot) ->bool {
+        self.use_texture_slot[slot as usize]
+    }
+    pub fn set_used_texture_slot(&mut self, slot: MaterialTextureSlot, flag: bool ) {
+        self.use_texture_slot[slot as usize] = flag
     }
 }
 
@@ -118,11 +131,11 @@ impl From<&MaterialPBR> for MaterialUniform {
             roughness_factor: value.roughness_factor,
             normal_scale: value.normal_scale,
             occlusion_strength: value.occlusion_strength,
-            use_color_texture: value.use_color_texture as u32,
-            use_metal_roughness_texture: value.use_metal_roughness_texture as u32,
-            use_normal_texture: value.use_normal_texture as u32,
-            use_emissive_texture: value.use_emissive_texture as u32,
-            use_occlusion_texture: value.use_occlusion_texture as u32,
+            use_color_texture: value.use_texture_slot[MaterialTextureSlot::BaseColor as usize] as u32,
+            use_normal_texture: value.use_texture_slot[MaterialTextureSlot::Normal as usize] as u32,
+            use_metal_roughness_texture: value.use_texture_slot[MaterialTextureSlot::MetallicRoughness as usize] as u32,
+            use_emissive_texture: value.use_texture_slot[MaterialTextureSlot::Emissive as usize] as u32,
+            use_occlusion_texture: value.use_texture_slot[MaterialTextureSlot::Occlusion as usize] as u32,
             ..Default::default()
         }
     }
