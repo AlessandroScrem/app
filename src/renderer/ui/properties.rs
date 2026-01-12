@@ -196,6 +196,12 @@ impl MaterialPBR {
                             draw_ui_texture_icon(ui, registry, path);
                         }
                         material.set_used_texture_slot(MaterialTextureSlot::Normal, use_texture);
+                        ui.disabled(use_texture, || {
+                            dirty |= Drag::new("##Normal")
+                                .speed(0.01)
+                                .range(0.0, 1.0)
+                                .build(ui, &mut material.normal_scale);
+                        });
                     }
                 }
             }

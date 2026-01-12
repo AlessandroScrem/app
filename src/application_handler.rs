@@ -75,6 +75,9 @@ impl MyApplication {
 }
 
 fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
+    // event needs world update, will be executed next frame.
+    let mut next_queue = VecDeque::<DomainEvent>::new();
+
     while let Some(event) = app.domain_events.queue.pop_front() {
         match event {
             DomainEvent::RemoveEntity(entity) => {
@@ -82,12 +85,11 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                 app.selected = None;
             }
             DomainEvent::LoadGltf(path) => {
-                println!("Fired load gltf");
                 let gpu = &mut runtime.renderer.get_gpu_mut();
                 let loaded = crate::assets::mesh::load_gltf(path).unwrap();
                 let gpu_scene = crate::assets::mesh::upload_scene_to_gpu(&loaded, gpu);
                 crate::assets::mesh::spawn_scene(&mut app.current_scene.world, &loaded, &gpu_scene);
-                app.recenter_camera();
+                next_queue.push_back(DomainEvent::RecenterCamera);
             }
             DomainEvent::AddParent(entity) => {
                 crate::entities::add_parent(entity, &mut app.current_scene.world);
@@ -137,6 +139,8 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
             }
         }
     }
+
+    app.domain_events.queue.append(&mut next_queue);
 }
 
 pub trait CenterWindow {

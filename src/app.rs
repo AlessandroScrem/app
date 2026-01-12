@@ -47,7 +47,7 @@ pub struct App {
     pub domain_events: DomainEvents,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    render_frame: RenderFrame, 
+    render_frame: RenderFrame,
 }
 
 impl App {
@@ -124,8 +124,10 @@ impl App {
         let mut encoder = renderer.get_encoder();
 
         // HDR pass
-        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&self.render_frame.meshes);
-        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&self.render_frame.lights);
+        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder)
+            .render(&self.render_frame.meshes);
+        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder)
+            .render(&self.render_frame.lights);
         SkyboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
             .render(self.globals.skybox_enable);
         AxisRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(self.globals.axis_enable);
@@ -145,7 +147,6 @@ impl App {
         renderer.queue.submit([encoder.finish()]);
 
         frame.present();
-
     }
 
     fn extract_render_frame(&mut self, selected: Option<Entity>) {
@@ -167,7 +168,6 @@ impl App {
         frame.camera = self.camera.clone();
         frame.entity_id = entity_selected_id;
 
-
         {
             // -------- Mesh --------
             let mut mesh_query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
@@ -188,7 +188,10 @@ impl App {
             let mut light_query = <(Entity, &LightComponent)>::query();
 
             for (entity, light) in light_query.iter(world) {
-                let data = LightUniform{entity_id: entity.as_raw_u64(), ..light.data};
+                let data = LightUniform {
+                    entity_id: entity.as_raw_u64(),
+                    ..light.data
+                };
                 frame.lights.push(data);
             }
         }
@@ -198,13 +201,6 @@ impl App {
             let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
 
             for (boundingbox, global_model) in bbox_query.iter(world) {
-                // let vertices = {
-                //     if self.globals.bbox_axis_aligned {
-                //         bbox.gen_aabb_vertices()
-                //     } else {
-                //         bbox.gen_obb_vertices(&global_model.mat)
-                //     }
-                // };
                 frame.bboxes.push(GpuBoxFrame {
                     boundingbox: boundingbox.clone(),
                     matrix: global_model.mat,
@@ -240,7 +236,6 @@ impl App {
         // Main operation: update_ui
         let mut events = imgui.update_ui(window, &mut snapshot);
         self.domain_events.queue.append(&mut events);
-
     }
 
     pub fn recenter_camera(&mut self) {
@@ -256,7 +251,7 @@ impl App {
             }
         };
 
-        center_camera_to_bounding_box(camera, bbox);
+        center_camera_to_bounding_box(camera, bbox.clone());
 
         fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
             let entry = world.entry_ref(entity).ok()?;
@@ -276,12 +271,9 @@ impl App {
                 })
         }
 
-        fn center_camera_to_bounding_box(
-            camera: &mut Camera,
-            bbox: Option<BoundingBox>,
-        ) {
+        fn center_camera_to_bounding_box(camera: &mut Camera, bbox: Option<BoundingBox>) {
             if let Some(bbox) = bbox {
-                println!("Recenter Camera {:?}", bbox);
+                debug!("Recenter Camera {:?}", bbox);
                 use crate::math::*;
                 let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
                 let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
