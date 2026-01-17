@@ -1,19 +1,33 @@
-use crate::math::*;
-use legion::Entity;
+use crate::entities::EntityRawU64;
+use crate::input::Input;
+use crate::ui::ImguiLayer;
+use legion::{Entity, Resources, World};
 use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
 
-use super::bbox_manager::BBoxManager;
-use super::light_manager::LightManager;
-use super::pipeline_manager::PipelineManager;
-use super::skybox_manager::SkyboxManager;
-use super::uniform::{MaterialUniform, ModelUniform};
 use super::*;
-use crate::assets::material_manager::{MaterialId, MaterialManager};
+use crate::assets::material_manager::MaterialManager;
 use crate::assets::texture_manager::TextureManager;
 use crate::picking::PickObject;
+use crate::renderer::renderpass::*;
+
 use crate::{Globals, prelude::*};
+
+pub struct RenderContext<'a> {
+    pub device: &'a Device,
+    pub queue: &'a Queue,
+    pub gpu_mgr: &'a GpuManager,
+    pub pip_mgr: &'a PipelineManager,
+    pub skb_mgr: &'a SkyboxManager,
+    pub mat_mgr: &'a MaterialManager,
+    pub mesh_mgr: &'a MeshManager,
+    pub light_mgr: &'a LightManager,
+    pub bbox_mgr: &'a mut BBoxManager,
+    pub pickobject: &'a PickObject,
+    pub target: wgpu::TextureView,
+    pub imgui: &'a mut ImguiLayer,
+}
 
 pub struct GpuView<'a> {
     pub device: &'a Device,
@@ -39,26 +53,6 @@ pub struct GpuDevice<'a> {
     pub skb_mgr: &'a mut SkyboxManager,
 }
 
-pub struct GpuMeshFrame {
-    pub mesh_handle: usize,
-    pub material_id: MaterialId,
-    pub model: ModelUniform,
-}
-
-pub struct GpuBoxFrame {
-    pub boundingbox: BoundingBoxComponent,
-    pub matrix: Mat4,
-}
-#[derive(Default)]
-pub struct RenderFrame {
-    pub meshes: Vec<GpuMeshFrame>,
-    pub lights: Vec<LightUniform>,
-    pub bboxes: Vec<GpuBoxFrame>,
-    pub globals: Globals,
-    pub camera: Camera,
-    pub entity_id: u64,
-}
-
 pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
@@ -75,6 +69,7 @@ pub struct Renderer {
     bbox_mgr: BBoxManager,
 
     pickobject: PickObject,
+    passes: Vec<RenderPassEnum>,
 }
 
 impl Renderer {
@@ -130,6 +125,18 @@ impl Renderer {
             surface_config.format
         );
 
+        let passes = vec![
+            RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Skybox(SkyboxPass::new()),
+            RenderPassEnum::Axis(AxisPass::new()),
+            RenderPassEnum::BBox(BBoxPass::new()),
+            RenderPassEnum::Linearize(LinearizePass::new()),
+            RenderPassEnum::Outline(OutlinePass::new()),
+            RenderPassEnum::PickObject(PickObjectPass::new()),
+            RenderPassEnum::Imgui(ImguiPass::new()),
+        ];
+
         Self {
             _adapter: adapter,
             device,
@@ -145,6 +152,7 @@ impl Renderer {
             mat_mgr,
             bbox_mgr,
             pickobject,
+            passes,
         }
     }
 
@@ -206,66 +214,63 @@ impl Renderer {
         &mut self.mat_mgr
     }
 
-    pub fn prepare(&mut self, render_frame: &RenderFrame) {
-        self.update_globals(render_frame);
-        self.update_lights(render_frame);
-        self.update_meshes(render_frame);
-        self.update_bbox(render_frame);
-    }
+    pub fn render(
+        &mut self,
+        world: &World,
+        resources: &Resources,
+        camera: &Camera,
+        globals: &Globals,
+        selected: Option<Entity>,
+        input: &Input,
+        imgui: &mut ImguiLayer,
+    ) {
+        // update global data (uniform) to GPU
+        self.update_render_globals_to_gpu(camera, globals, selected);
 
-    fn update_lights(&self, render_frame: &RenderFrame) {
-        for light in render_frame.lights.iter() {
-            self.queue.write_buffer(
-                &self.gpu_mgr.light_uniform_buffer,
-                0,
-                bytemuck::bytes_of(light),
-            );
-        }
-    }
+        let frame = self.get_frame();
 
-    fn update_bbox(&mut self, render_frame: &RenderFrame) {
-        // recreate vertices every frame
-        if render_frame.globals.skybox_enable {
-            let vertices = render_frame
-                .bboxes
-                .iter()
-                .map(|b| {
-                    if render_frame.globals.bbox_axis_aligned {
-                        b.boundingbox.gen_aabb_vertices()
-                    } else {
-                        b.boundingbox.gen_obb_vertices(&b.matrix)
-                    }
-                })
-                .collect::<Vec<bbox_manager::BBoxVertexData>>();
-            self.bbox_mgr.create_buffer(&self.device, &vertices);
-
+        let target = frame.texture.create_view(&Default::default());
+        let mut ctx = RenderContext {
+            device: &self.device,
+            queue: &self.queue,
+            gpu_mgr: &self.gpu_mgr,
+            pip_mgr: &self.pipeline_mgr,
+            skb_mgr: &self.skybox_mgr,
+            mesh_mgr: &self.mesh_mgr,
+            mat_mgr: &self.mat_mgr,
+            light_mgr: &self.light_mgr,
+            bbox_mgr: &mut self.bbox_mgr,
+            pickobject: &self.pickobject,
+            target,
+            imgui,
         };
-    }
 
-    fn update_meshes(&self, render_frame: &RenderFrame) {
-        for mesh in render_frame.meshes.iter() {
-            // Material Uniform
-            let material = self.mat_mgr.get(&mesh.material_id);
-            let updated_uniforms = MaterialUniform::from(&material.material_pbr);
-            self.queue.write_buffer(
-                &material.uniform_buffer,
-                0,
-                bytemuck::bytes_of(&updated_uniforms),
-            );
-
-            // Model Uniform
-            self.queue.write_buffer(
-                &self.mesh_mgr.get_model_uniform(mesh.mesh_handle),
-                0,
-                bytemuck::bytes_of(&mesh.model),
-            );
+        // Update world buffer data to gpu
+        for pass in &mut self.passes {
+            pass.prepare(world, resources, camera, globals, selected, input, &mut ctx);
         }
+
+        // Render phase
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+
+        for pass in &mut self.passes {
+            pass.execute(&mut encoder, &mut ctx);
+        }
+
+        self.queue.submit([encoder.finish()]);
+        frame.present();
     }
 
-    fn update_globals(&self, render_frame: &RenderFrame) {
-        let camera = &render_frame.camera;
-        let globals = &render_frame.globals;
-        let entity_id = render_frame.entity_id;
+    fn update_render_globals_to_gpu(
+        &self,
+        camera: &Camera,
+        globals: &Globals,
+        selected: Option<Entity>,
+    ) {
+        let entity_id = match selected {
+            Some(id) => (&id).as_raw_u64(),
+            None => 0,
+        };
 
         let screen_size = [
             self.surface_config.width as f32,

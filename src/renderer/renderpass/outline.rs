@@ -1,31 +1,50 @@
-use crate::renderer::{gpu_renderer::GpuView, pipeline_manager::PipelineKind};
+pub use super::*;
 
-pub struct OutlineRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct OutlinePass {
+    enable: bool,
+}
+impl OutlinePass {
+    pub fn new()->Self{
+        Self::default()
+    }
 }
 
-impl<'a> OutlineRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl RenderPass for OutlinePass {
+    fn name(&self) -> &'static str {
+        "OutlinePass"
     }
 
-    pub fn render(self, frame_view: &wgpu::TextureView, enable: bool) {
+    fn prepare(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        selected: Option<Entity>,
+        _input: &Input,
+        _ctx: &mut RenderContext,
+    ) {
+        self.enable = selected.is_some();
+    }
+
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
         // let pick_object = self.gpu.pickobject;
+        let enable = self.enable;
+        let frame_view = &ctx.target;
 
         if !enable {
             return;
         }
 
-        let gpu_manager = self.gpu.gpu_mgr;
-        let pipeline_manager = self.gpu.pip_mgr;
-        let encoder = self.encoder;
+        let gpu_manager = ctx.gpu_mgr;
+        let pipeline_manager = ctx.pip_mgr;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Outline Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &frame_view,
+                view: frame_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,

@@ -1,25 +1,47 @@
-use crate::{input::Input, renderer::gpu_renderer::GpuView};
+pub use super::*;
 
-pub struct PickObjectRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct PickObjectPass {
+    enable: bool,
+    mouse_pos_x: u32,
+    mouse_pos_y: u32,
 }
 
-impl<'a> PickObjectRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl PickObjectPass {
+    pub fn new()->Self{
+        Self::default()
+    }
+}
+
+impl RenderPass for PickObjectPass {
+    fn name(&self) -> &'static str {
+        "PickObjectPass"
     }
 
-    pub fn render(self, input: &Input) {
-        let pickobject = self.gpu.pickobject;
-        let gpu_manager = self.gpu.gpu_mgr;
-        let encoder = self.encoder;
+    fn prepare(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        input: &Input,
+        ctx: &mut RenderContext,
+    ) {
+        self.enable = input.is_cursor_moved() && !ctx.pickobject.pending;
+        self.mouse_pos_x = input.mouse_position.x as u32;
+        self.mouse_pos_y = input.mouse_position.y as u32;
+    }
 
-        if input.is_cursor_moved() && !pickobject.pending {
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let pickobject = ctx.pickobject;
+        let gpu_manager = ctx.gpu_mgr;
+
+        if self.enable {
             let aligned_bytes_per_row = 256; // minimo richiesto
             let size = gpu_manager.entity_id_texture._texture.size();
-            let mouse_pos_x = input.mouse_position.x as u32;
-            let mouse_pos_y = input.mouse_position.y as u32;
+            let mouse_pos_x = self.mouse_pos_x;
+            let mouse_pos_y = self.mouse_pos_y;
             let x = mouse_pos_x.clamp(0, size.width - 1);
             let y = mouse_pos_y.clamp(0, size.height - 1);
 

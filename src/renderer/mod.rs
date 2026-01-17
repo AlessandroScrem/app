@@ -13,7 +13,11 @@ pub mod mesh_manager;
 pub use gpu_renderer::Renderer;
 
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform};
-pub use gpu_manager::{GpuManager};
+pub use gpu_manager::GpuManager;
+pub use bbox_manager::BBoxManager;
 pub use hdr_frame::{HdrFrame, IDTexture};
 pub use mesh_manager::MeshManager;
+pub use light_manager::LightManager;
+pub use pipeline_manager::PipelineManager;
+pub use skybox_manager::SkyboxManager;
 pub use gpu_renderer::GpuDevice;

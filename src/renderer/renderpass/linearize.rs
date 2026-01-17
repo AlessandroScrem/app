@@ -1,19 +1,34 @@
-use crate::renderer::{gpu_renderer::GpuView, pipeline_manager::PipelineKind};
+pub use super::*;
 
-pub struct LinerizeRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct LinearizePass {}
+
+impl LinearizePass {
+    pub fn new()->Self{
+        Self::default()
+    }
 }
 
-impl<'a> LinerizeRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl RenderPass for LinearizePass {
+    fn name(&self) -> &'static str {
+        "LinearizePass"
+    }
+    fn prepare(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        _ctx: &mut RenderContext,
+    ) {
     }
 
-    pub fn render(self, frame_view: &wgpu::TextureView) {
-        let gpu_manager = self.gpu.gpu_mgr;
-        let pipeline_manager = self.gpu.pip_mgr;
-        let encoder = self.encoder;
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let gpu_manager = ctx.gpu_mgr;
+        let pipeline_manager = ctx.pip_mgr;
+        let frame_view = &ctx.target;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -39,3 +54,4 @@ impl<'a> LinerizeRenderPass<'a> {
         renderpass.draw(0..3, 0..1);
     }
 }
+

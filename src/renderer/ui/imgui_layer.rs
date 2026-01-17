@@ -1,9 +1,10 @@
-use std::{collections::VecDeque};
+use std::collections::VecDeque;
 
 use super::*;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 use legion::Entity;
+use wgpu::{Device, Queue, TextureView};
 use winit::window::Window;
 
 use crate::{DomainEvent, Globals, UiComponentView, camera::Camera, timestep::Timestep};
@@ -40,7 +41,7 @@ pub struct RootNodes {
 
 #[derive(Default)]
 pub struct RootSnapshot {
-    pub  root_nodes: RootNodes,
+    pub root_nodes: RootNodes,
     pub lights_nodes: RootNodes,
 }
 
@@ -129,7 +130,7 @@ impl ImguiLayer {
         self.ini_loaded = true;
     }
 
-    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) ->VecDeque<DomainEvent>{
+    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
@@ -165,6 +166,33 @@ impl ImguiLayer {
         self.load_ini_if_needed();
 
         commands
+    }
+
+    pub fn render(&mut self, encoder: &mut wgpu::CommandEncoder, target: &TextureView,  device: &Device, queue: &Queue) {
+        let frame_view = target;
+
+        // Render pass
+        let mut pass = {
+            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ImGui Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: frame_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load, // non cancellare la scena
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                ..Default::default()
+            })
+        };
+
+        let draw_data = self.context.render();
+        self
+            .renderer
+            .render(draw_data, queue, device, &mut pass)
+            .unwrap();
     }
 }
 

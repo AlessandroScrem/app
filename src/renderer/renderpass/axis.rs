@@ -1,23 +1,42 @@
-use crate::renderer::{gpu_renderer::GpuView, pipeline_manager::PipelineKind};
+pub use super::*;
 
-pub struct AxisRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct AxisPass {
+    enable: bool,
 }
 
-impl<'a> AxisRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl AxisPass {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl RenderPass for AxisPass {
+    fn name(&self) -> &'static str {
+        "AxisPass"
     }
 
-    pub fn render(self, enable: bool) {
+    fn prepare(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        _ctx: &mut RenderContext,
+    ) {
+        self.enable = globals.axis_enable;
+    }
+
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let enable = self.enable;
         if !enable {
             return;
         }
 
-        let gpu_manager = self.gpu.gpu_mgr;
-        let pipeline_manager = self.gpu.pip_mgr;
-        let encoder = self.encoder;
+        let gpu_manager = ctx.gpu_mgr;
+        let pipeline_manager = ctx.pip_mgr;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -43,3 +62,5 @@ impl<'a> AxisRenderPass<'a> {
         renderpass.draw(0..6, 0..1);
     }
 }
+
+

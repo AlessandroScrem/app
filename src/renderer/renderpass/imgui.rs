@@ -1,20 +1,35 @@
-use crate::{prelude::ui::ImguiLayer, renderer::gpu_renderer::GpuView};
+use super::*;
 
-pub struct ImguiRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct ImguiPass {}
+
+impl ImguiPass {
+    pub fn new()->Self{
+        Self {  }
+    }
 }
 
-impl<'a> ImguiRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl RenderPass for ImguiPass {
+    fn name(&self) -> &'static str {
+        "ImguiPass"
+    }
+    fn prepare(
+        &mut self,
+        _world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        _ctx: &mut RenderContext,
+    ) {
     }
 
-    pub fn render(self, frame_view: &wgpu::TextureView, imgui: &mut ImguiLayer) {
-
-        let device = self.gpu.device;
-        let queue = self.gpu.queue;
-        let encoder = self.encoder;
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let imgui = &mut ctx.imgui;
+        let device = ctx.device;
+        let queue = ctx.queue;
+        let frame_view = &ctx.target;
 
         // Render pass
         let mut pass = {
@@ -24,7 +39,7 @@ impl<'a> ImguiRenderPass<'a> {
                     view: frame_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load, // non cancellare la scena
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 })],

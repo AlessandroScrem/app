@@ -1,19 +1,62 @@
-use crate::renderer::{LightUniform, gpu_renderer::GpuView, pipeline_manager::PipelineKind};
+pub use super::*;
 
-pub struct LightRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+#[derive(Default)]
+pub struct LightPass {
+    pub lights: Vec<LightUniform>,
 }
 
-impl<'a> LightRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+impl LightPass {
+    pub fn new() -> Self {
+        Self::default()
     }
-    pub fn render(self, queue: &Vec<LightUniform>) {
-        let gpu_manager = self.gpu.gpu_mgr;
-        let pipeline_manager = self.gpu.pip_mgr;
-        let light_manager = self.gpu.light_mgr;
-        let encoder = self.encoder;
+}
+
+impl LightPass {
+    fn update_to_gpu(&mut self, ctx: &mut RenderContext) {
+        let queue = ctx.queue;
+        let gpu_mgr = ctx.gpu_mgr;
+
+        for light in self.lights.iter() {
+            queue.write_buffer(&gpu_mgr.light_uniform_buffer, 0, bytemuck::bytes_of(light));
+        }
+    }
+}
+
+impl RenderPass for LightPass {
+    fn name(&self) -> &'static str {
+        "LightPass"
+    }
+    fn prepare(
+        &mut self,
+        world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        ctx: &mut RenderContext,
+    ) {
+        self.lights.clear();
+
+        // -------- Lights --------
+        let mut light_query = <(Entity, &LightComponent)>::query();
+
+        for (entity, light) in light_query.iter(world) {
+            let data = LightUniform {
+                entity_id: entity.as_raw_u64(),
+                ..light.data
+            };
+            self.lights.push(data);
+        }
+
+        self.update_to_gpu(ctx);
+    }
+
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let gpu_manager = ctx.gpu_mgr;
+        let pipeline_manager = ctx.pip_mgr;
+        let light_manager = ctx.light_mgr;
+        let lights = &self.lights;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -44,7 +87,7 @@ impl<'a> LightRenderPass<'a> {
         renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
         renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
 
-        for _light in queue.iter() {
+        for _light in lights.iter() {
             renderpass.draw(0..6, 0..1);
         }
     }

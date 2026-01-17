@@ -1,7 +1,6 @@
 use crate::BoundingBoxComponent;
 use crate::DomainEvent;
 use crate::DomainEvents;
-use crate::GlobalModelComponent;
 use crate::HierarchyComponent;
 use crate::LightComponent;
 use crate::MeshComponent;
@@ -15,24 +14,10 @@ use crate::prelude::ui::imgui_layer::HierarchyNode;
 use crate::prelude::ui::imgui_layer::RootNodes;
 use crate::prelude::ui::imgui_layer::RootSnapshot;
 use crate::prelude::ui::imgui_layer::Snapshot;
-use crate::renderer::gpu_renderer::GpuBoxFrame;
-use crate::renderer::gpu_renderer::GpuMeshFrame;
-use crate::renderer::gpu_renderer::RenderFrame;
-use crate::renderer::renderpass::axis::AxisRenderPass;
-use crate::renderer::renderpass::bbox::BboxRenderPass;
-use crate::renderer::renderpass::imgui::ImguiRenderPass;
-use crate::renderer::renderpass::light::LightRenderPass;
-use crate::renderer::renderpass::linearize::LinerizeRenderPass;
-use crate::renderer::renderpass::mesh::MeshRenderPass;
-use crate::renderer::renderpass::outline::OutlineRenderPass;
-use crate::renderer::renderpass::pickobject::PickObjectRenderPass;
-use crate::renderer::renderpass::skybox::SkyboxRenderPass;
-use crate::renderer::uniform::ModelUniform;
 
 use crate::Globals;
 use crate::prelude::*;
 use crate::scene::Scene;
-use crate::uniform::LightUniform;
 
 use legion::Entity;
 use legion::EntityStore;
@@ -47,7 +32,6 @@ pub struct App {
     pub domain_events: DomainEvents,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    render_frame: RenderFrame,
 }
 
 impl App {
@@ -107,106 +91,15 @@ impl App {
     }
 
     pub fn render(&mut self, runtime: &mut RunningApp) {
-        let renderer = &mut runtime.renderer;
-        let input = &runtime.input;
-        let imgui = &mut runtime.imgui;
-
-        // Collect data from globals and world to render_frame
-        self.extract_render_frame(self.selected);
-
-        // update gpu data (uniform,  buffers)
-        renderer.prepare(&self.render_frame);
-
-        let frame = renderer.get_frame();
-        let view = frame.texture.create_view(&Default::default());
-
-        // Begin Pass
-        let mut encoder = renderer.get_encoder();
-
-        // HDR pass
-        MeshRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(&self.render_frame.meshes);
-        LightRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(&self.render_frame.lights);
-        SkyboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(self.globals.skybox_enable);
-        AxisRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(self.globals.axis_enable);
-        BboxRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(&self.render_frame.bboxes, self.globals.bbox_enable);
-
-        // Hdr to Linear
-        LinerizeRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view);
-
-        // Ldr pass
-        OutlineRenderPass::new(renderer.get_gpu_view(), &mut encoder)
-            .render(&view, self.selected.is_some());
-        PickObjectRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&input);
-        ImguiRenderPass::new(renderer.get_gpu_view(), &mut encoder).render(&view, imgui);
-
-        // End pass
-        renderer.queue.submit([encoder.finish()]);
-
-        frame.present();
-    }
-
-    fn extract_render_frame(&mut self, selected: Option<Entity>) {
-        use crate::entities::EntityRawU64;
-        use legion::query::IntoQuery;
-
-        let world = &self.current_scene.world;
-        let frame = &mut self.render_frame;
-
-        let entity_selected_id = match selected {
-            Some(id) => (&id).as_raw_u64(),
-            None => 0,
-        };
-
-        frame.meshes.clear();
-        frame.lights.clear();
-        frame.bboxes.clear();
-        frame.globals = self.globals.clone();
-        frame.camera = self.camera.clone();
-        frame.entity_id = entity_selected_id;
-
-        {
-            // -------- Mesh --------
-            let mut mesh_query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
-
-            for (entity, mesh, global) in mesh_query.iter(world) {
-                let mut model = ModelUniform::new(global.mat);
-                model.entity_id = entity.as_raw_u64();
-                frame.meshes.push(GpuMeshFrame {
-                    mesh_handle: mesh.handle,
-                    model,
-                    material_id: mesh.mat_handle.clone(),
-                });
-            }
-        }
-
-        {
-            // -------- Lights --------
-            let mut light_query = <(Entity, &LightComponent)>::query();
-
-            for (entity, light) in light_query.iter(world) {
-                let data = LightUniform {
-                    entity_id: entity.as_raw_u64(),
-                    ..light.data
-                };
-                frame.lights.push(data);
-            }
-        }
-
-        {
-            // -------- BoundingBox --------
-            let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
-
-            for (boundingbox, global_model) in bbox_query.iter(world) {
-                frame.bboxes.push(GpuBoxFrame {
-                    boundingbox: boundingbox.clone(),
-                    matrix: global_model.mat,
-                });
-            }
-        }
+        runtime.renderer.render(
+            &self.current_scene.world,
+            &mut self.resources,
+            &self.camera,
+            &self.globals,
+            self.selected,
+            &runtime.input,
+            &mut runtime.imgui,
+        );
     }
 
     pub fn imgui_update(&mut self, runtime: &mut RunningApp) {

@@ -1,26 +1,89 @@
-use wgpu::IndexFormat;
+use crate::material_manager::MaterialId;
+pub use super::*;
 
-use crate::renderer::{
-    gpu_renderer::{GpuMeshFrame, GpuView},
-    pipeline_manager::PipelineKind,
-};
-
-pub struct MeshRenderPass<'a> {
-    gpu: GpuView<'a>,
-    encoder: &'a mut wgpu::CommandEncoder,
+struct GpuMeshFrame {
+    pub mesh_handle: usize,
+    pub material_id: MaterialId,
+    pub model: ModelUniform,
 }
 
-impl<'a> MeshRenderPass<'a> {
-    pub fn new(gpu: GpuView<'a>, encoder: &'a mut wgpu::CommandEncoder) -> Self {
-        Self { gpu, encoder }
+#[derive(Default)]
+pub struct MeshPass {
+    meshes: Vec<GpuMeshFrame>,
+}
+
+impl MeshPass {
+    pub fn new() -> Self {
+        Self::default()
     }
-    pub fn render(self, queue: &Vec<GpuMeshFrame>) {
-        let gpu_manager = self.gpu.gpu_mgr;
-        let pipeline_manager = self.gpu.pip_mgr;
-        let skybox_manager = self.gpu.skb_mgr;
-        let material_manager = self.gpu.mat_mgr;
-        let mesh_manager = self.gpu.mesh_mgr;
-        let encoder = self.encoder;
+}
+
+impl MeshPass {
+    fn update_to_gpu(&mut self, ctx: &mut RenderContext) {
+        let mesh_mgr = ctx.mesh_mgr;
+        let mat_mgr = ctx.mat_mgr;
+        let queue = ctx.queue;
+
+        for mesh in self.meshes.iter() {
+            // Material Uniform
+            let material = mat_mgr.get(&mesh.material_id);
+            let updated_uniforms = MaterialUniform::from(&material.material_pbr);
+            queue.write_buffer(
+                &material.uniform_buffer,
+                0,
+                bytemuck::bytes_of(&updated_uniforms),
+            );
+
+            // Model Uniform
+            queue.write_buffer(
+                mesh_mgr.get_model_uniform(mesh.mesh_handle),
+                0,
+                bytemuck::bytes_of(&mesh.model),
+            );
+        }
+    }
+}
+
+impl RenderPass for MeshPass {
+    fn name(&self) -> &'static str {
+        "MeshPass"
+    }
+
+    fn prepare(
+        &mut self,
+        world: &World,
+        _resources: &Resources,
+        _camera: &Camera,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        ctx: &mut RenderContext,
+    ) {
+        self.meshes.clear();
+
+        // -------- Mesh --------
+        let mut mesh_query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
+
+        for (entity, mesh, global) in mesh_query.iter(world) {
+            let mut model = ModelUniform::new(global.mat);
+            model.entity_id = entity.as_raw_u64();
+            self.meshes.push(GpuMeshFrame {
+                mesh_handle: mesh.handle,
+                model,
+                material_id: mesh.mat_handle.clone(),
+            });
+        }
+
+        self.update_to_gpu(ctx);
+    }
+
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+        let gpu_manager = ctx.gpu_mgr;
+        let pipeline_manager = ctx.pip_mgr;
+        let skybox_manager = ctx.skb_mgr;
+        let material_manager = ctx.mat_mgr;
+        let mesh_manager = ctx.mesh_mgr;
+        let meshes = &self.meshes;
 
         let clear_color = wgpu::Color {
             r: 0.1,
@@ -67,7 +130,7 @@ impl<'a> MeshRenderPass<'a> {
         renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
         renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
-        for mesh in queue.iter() {
+        for mesh in meshes.iter() {
             let uniform_bind_group = mesh_manager.get_model_bindgroup(mesh.mesh_handle);
             renderpass.set_bind_group(2, uniform_bind_group, &[]);
 
