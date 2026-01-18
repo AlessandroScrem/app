@@ -3,76 +3,74 @@ use core::f32;
 use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
 
-use crate::{
-    DomainEvent, Globals, camera::Camera, prelude::ui::ui_layer::DEMO_OPEN, text_fmt,
-    timestep::Timestep,
-};
+use crate::{DomainEvent, Globals, camera::Camera, text_fmt};
 
-pub fn ui_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
-    let camera = &mut ctx.snapshot.camera;
-    let globals = &mut ctx.snapshot.globals;
-    let hovered_entity = ctx.snapshot.hovered;
-    let selected_entity = &ctx.snapshot.selected;
-    let adapter_name = &ctx.snapshot.adapter_string;
-    let hdr_texture_id = &ctx.snapshot.hdr_texture_id;
+#[derive(Default)]
+pub struct SettimgsUi {
+    demo_open: bool,
+}
+impl Layer for SettimgsUi {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
+        let camera = &mut ctx.snapshot.camera;
+        let globals = &mut ctx.snapshot.globals;
+        let hovered_entity = ctx.snapshot.hovered;
+        let selected_entity = &ctx.snapshot.selected;
+        let adapter_name = &ctx.snapshot.adapter_string;
+        let hdr_texture_id = &ctx.snapshot.hdr_texture_id;
+        let timestep = &ctx.timestep;
 
-    ui.window("Settings")
-        .size([300.0, 300.0], Condition::FirstUseEver)
-        .build(|| {
-            if ui.collapsing_header("Parameters", TreeNodeFlags::empty()) {
-                let mouse_pos = ui.io().mouse_pos;
-                ui.text(format!(
-                    "Mouse position: ({:.1},{:.1})",
-                    mouse_pos[0], mouse_pos[1]
-                ));
-                text_fmt!(ui, "ResultGetPixel  : {} ", 0);
-                text_fmt!(ui, "Hovered Entity ID: {:?}", hovered_entity,);
-                text_fmt!(ui, "Selected Entity ID: {:?}", selected_entity,);
-                ui.separator();
+        ui.window("Settings")
+            .size([300.0, 300.0], Condition::FirstUseEver)
+            .build(|| {
+                if ui.collapsing_header("Parameters", TreeNodeFlags::empty()) {
+                    let mouse_pos = ui.io().mouse_pos;
+                    ui.text(format!(
+                        "Mouse position: ({:.1},{:.1})",
+                        mouse_pos[0], mouse_pos[1]
+                    ));
+                    text_fmt!(ui, "ResultGetPixel  : {} ", 0);
+                    text_fmt!(ui, "Hovered Entity ID: {:?}", hovered_entity,);
+                    text_fmt!(ui, "Selected Entity ID: {:?}", selected_entity,);
+                    ui.separator();
+                    tools::disabled(ui, || {
+                        text_fmt!(ui, "NumShaders         : {}", 0);
+                        text_fmt!(ui, "NumTextures        : {}", 0);
+                        text_fmt!(ui, "NumUniqueTextures  : {}", 0);
+                        text_fmt!(ui, "Texture Memory Size: {}", 0);
+                        text_fmt!(ui, "Memory Allocations : {}", 0);
+                        text_fmt!(ui, "Memory Size        : {}", 0);
+                    });
+                }
+                if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
+                    text_fmt!(ui, "FPS           : {:?}", timestep.average_fps());
+                    text_fmt!(ui, "Frametime     : {:?}", timestep.average());
+                    ui.separator();
+                    text_fmt!(ui, "Gpu info\n  Adapter:  {}\n  Version:  ", adapter_name);
+                }
+
                 tools::disabled(ui, || {
-                    text_fmt!(ui, "NumShaders         : {}", 0);
-                    text_fmt!(ui, "NumTextures        : {}", 0);
-                    text_fmt!(ui, "NumUniqueTextures  : {}", 0);
-                    text_fmt!(ui, "Texture Memory Size: {}", 0);
-                    text_fmt!(ui, "Memory Allocations : {}", 0);
-                    text_fmt!(ui, "Memory Size        : {}", 0);
+                    if ui.collapsing_header("SSAO", TreeNodeFlags::empty()) {}
                 });
-            }
-            if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
-                text_fmt!(ui, "FPS           : {:?}", timestep.average_fps());
-                text_fmt!(ui, "Frametime     : {:?}", timestep.average());
-                ui.separator();
-                text_fmt!(ui, "Gpu info\n  Adapter:  {}\n  Version:  ", adapter_name);
-            }
 
-            tools::disabled(ui, || {
-                if ui.collapsing_header("SSAO", TreeNodeFlags::empty()) {}
+                if ui.collapsing_header("Toggles", TreeNodeFlags::empty()) {
+                    ui.checkbox("Show demo window", &mut self.demo_open);
+                    if self.demo_open {
+                        ui.show_demo_window(&mut self.demo_open);
+                    }
+
+                    globals.draw_ui(ui);
+
+                    ui.separator();
+                    if let Some(command) = draw_ui_skybox_selector(&ui, *hdr_texture_id) {
+                        ctx.commands.push_back(command);
+                    }
+                }
+
+                if let Some(command) = camera.draw_ui(ui) {
+                    ctx.commands.push_back(command)
+                }
             });
-
-            if ui.collapsing_header("Toggles", TreeNodeFlags::empty()) {
-                unsafe {
-                    let mut d_o = DEMO_OPEN;
-                    if ui.checkbox("Show demo window", &mut d_o) {
-                        DEMO_OPEN = d_o;
-                    }
-
-                    if d_o  {
-                        ui.show_demo_window(&mut d_o);
-                        DEMO_OPEN = d_o;
-                    }
-                }
-                globals.draw_ui(ui);
-
-                ui.separator();
-                if let Some(command) = draw_ui_skybox_selector(&ui, *hdr_texture_id) {
-                    ctx.commands.push_back(command);
-                }
-            }
-
-            if let Some(command) = camera.draw_ui(ui) {
-                ctx.commands.push_back(command)
-            }
-        });
+    }
 }
 
 impl Globals {
@@ -199,10 +197,7 @@ impl Camera {
     }
 }
 
-fn draw_ui_skybox_selector(
-    ui: &Ui,
-    hdr_texture_id: Option<&TextureId>,
-) -> Option<DomainEvent> {
+fn draw_ui_skybox_selector(ui: &Ui, hdr_texture_id: Option<&TextureId>) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
 
     let mut change_skybox = false;

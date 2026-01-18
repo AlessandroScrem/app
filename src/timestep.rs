@@ -1,4 +1,5 @@
 use std::time::{Duration, Instant};
+#[derive(Clone)]
 pub struct Timestep {
     time: Duration,     // durata frame corrente (smoothed)
     last: Instant,      // istante ultimo frame

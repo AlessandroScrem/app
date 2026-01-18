@@ -10,6 +10,7 @@ use crate::{DomainEvent, Globals, UiComponentView, camera::Camera, timestep::Tim
 pub struct UiContext<'a, 'b> {
     pub snapshot: &'a mut Snapshot<'b>,
     pub commands: VecDeque<DomainEvent>,
+    pub timestep: Timestep,
 }
 
 pub struct Snapshot<'a> {
@@ -44,14 +45,37 @@ pub struct RootSnapshot {
 }
 
 pub struct UiLayer {
-    pub context: imgui::Context,
+    context: imgui::Context,
     pub platform: WinitPlatform,
-    pub last_cursor: Option<MouseCursor>,
     ini_loaded: bool,
     timestep: Timestep,
+    stack: UiStack,
 }
 
-pub static mut DEMO_OPEN: bool = false;
+struct UiStack {
+    layers: Vec<Box<dyn Layer>>,
+}
+impl UiStack {
+    pub fn new() -> Self {
+        Self { layers: Vec::new() }
+    }
+
+    pub fn push<L: Layer + 'static>(&mut self, layer: L) {
+        self.layers.push(Box::new(layer));
+    }
+}
+
+pub trait Layer {
+    fn build(&mut self, ui: &Ui, ui_context: &mut UiContext);
+}
+
+impl Layer for UiStack {
+    fn build(&mut self, ui: &Ui, ui_context: &mut UiContext) {
+        for layer in self.layers.iter_mut() {
+            layer.build(ui, ui_context);
+        }
+    }
+}
 
 impl UiLayer {
     pub fn new(window: &Window) -> Self {
@@ -87,12 +111,18 @@ impl UiLayer {
 
         let timestep = Timestep::new();
 
+        let mut ui = UiStack::new();
+        ui.push(SettimgsUi::default());
+        ui.push(EntityListUi {});
+        ui.push(PropertyUi {});
+        ui.push(DebugUi {});
+
         Self {
             context,
             platform,
-            last_cursor: None,
             ini_loaded: false,
             timestep,
+            stack: ui,
         }
     }
 
@@ -119,46 +149,56 @@ impl UiLayer {
         &self.context
     }
 
-    pub fn get_draw_data(&mut self) -> &imgui::DrawData {
-        self.context.render()
-
+    pub fn want_capture_mouse(&self) -> bool {
+        self.context.io().want_capture_mouse
     }
 
-    pub fn build(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
+    pub fn handle_event(&mut self, window: &Window, event: &winit::event::Event<()>) {
+        self.platform
+            .handle_event::<()>(self.context.io_mut(), window, &event);
+    }
+
+    pub fn get_draw_data(&mut self) -> &imgui::DrawData {
+        self.context.render()
+    }
+
+    fn begin_frame(&mut self, window: &Window) {
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
-        self.context.io_mut().update_delta_time(delta_s);
+        let io = self.context.io_mut();
+        io.update_delta_time(delta_s);
 
         self.platform
             .prepare_frame(self.context.io_mut(), &window)
             .expect("failed_to prepare frame");
+    }
 
-        let ui = self.context.frame();
-        let commands = {
-            let mut ctx = UiContext {
-                snapshot,
-                commands: VecDeque::new(),
-            };
-            ui.dockspace_over_main_viewport();
+    fn end_frame(&mut self) {
+        self.load_ini_if_needed();
+    }
 
-            ui_settings(ui, &self.timestep, &mut ctx);
-            ui_entity_lister(ui, &mut ctx);
-            ui_properties(ui, &mut ctx);
-
-            // draw_debug_texture(ui, &ctx);
-            ctx.commands
+    pub fn build(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
+        let mut ctx = UiContext {
+            snapshot,
+            commands: VecDeque::new(),
+            timestep: self.timestep.clone(),
         };
 
-        // update window cursor state (icon)
-        if self.last_cursor != ui.mouse_cursor() {
-            self.last_cursor = ui.mouse_cursor();
+        self.begin_frame(window);
+
+        {
+            let ui = self.context.frame();
+            ui.dockspace_over_main_viewport();
+
+            self.stack.build(ui, &mut ctx);
+
             self.platform.prepare_render(ui, window);
         };
 
-        self.load_ini_if_needed();
+        self.end_frame();
 
-        commands
+        ctx.commands
     }
 }
 

@@ -16,10 +16,10 @@ use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowAttributes, WindowId};
 
+#[derive(Default)]
 pub struct EventQueue {
     pub queue: VecDeque<Event<()>>,
 }
-
 
 pub struct RunningApp {
     pub window: Arc<Window>,
@@ -32,19 +32,13 @@ pub struct RunningApp {
 }
 
 impl RunningApp {
-    pub fn input_update(&mut self) {
+    pub fn update_input(&mut self) {
         while let Some(event) = self.event_queue.queue.pop_front() {
-            self.uilayer.platform.handle_event::<()>(
-                self.uilayer.context.io_mut(),
-                &self.window,
-                &event,
-            );
-
-            let io = self.uilayer.context.io();
+            self.uilayer.handle_event(&self.window, &event);
 
             match &event {
                 Event::DeviceEvent { .. } | Event::WindowEvent { .. } => {
-                    if !io.want_capture_mouse {
+                    if !self.uilayer.want_capture_mouse() {
                         self.input.update_events(&event);
                     }
                 }
@@ -194,21 +188,12 @@ impl ApplicationHandler for MyApplication {
         let renderer = Renderer::new(window.clone(), uilayer.get_context_mut());
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        // let imgui = ImguiLayer::new(
-        //     &window,
-        //     &renderer.device,
-        //     &renderer.queue,
-        //     renderer.surface_config.format,
-        // );
-
         self.app.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
-            event_queue: EventQueue {
-                queue: VecDeque::new(),
-            },
+            event_queue: EventQueue::default(),
             input: Input::new(),
             renderer,
             uilayer,
@@ -281,7 +266,8 @@ impl ApplicationHandler for MyApplication {
                 if size.width > 0 && size.height > 0 {
                     let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
                     runtime.is_minimized = false;
-                    runtime.renderer.resize_resources(size.width, size.height);
+                    
+                    runtime.renderer.resize_frame(size.width, size.height);
                     self.app.camera.set_aspect(aspect);
                 } else {
                     runtime.is_minimized = true;
@@ -293,11 +279,11 @@ impl ApplicationHandler for MyApplication {
                 }
 
                 // Update
-                runtime.input_update();
+                runtime.update_input();
                 self.app.update_camera(&runtime.input);
                 self.app.update_selected(runtime);
                 self.app.update_scene();
-                self.app.imgui_update(runtime);
+                self.app.update_uilayer(runtime);
 
                 // Render
                 self.app.render(runtime)

@@ -106,7 +106,7 @@ impl App {
         );
     }
 
-    pub fn imgui_update(&mut self, runtime: &mut RunningApp) {
+    pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
         let uilayer = &mut runtime.uilayer;
         let renderer = &mut runtime.renderer;
         let window = &runtime.window;

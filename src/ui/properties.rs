@@ -6,15 +6,19 @@ use imgui::{Drag, TreeNodeFlags};
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent, assets::material_manager::MaterialPBR,
-    material_manager::MaterialTextureSlot
+    material_manager::MaterialTextureSlot,
 };
 
-pub fn ui_properties(ui: &imgui::Ui, ctx: &mut UiContext) {
-    ui.window("Properties")
-        .size([300.0, 300.0], Condition::FirstUseEver)
-        .build(|| {
-            draw_entity_inspector(ui, ctx);
-        });
+pub struct PropertyUi {}
+
+impl Layer for PropertyUi {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
+        ui.window("Properties")
+            .size([300.0, 300.0], Condition::FirstUseEver)
+            .build(|| {
+                draw_entity_inspector(ui, ctx);
+            });
+    }
 }
 
 pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -74,7 +78,7 @@ impl TagComponent {
         }
         dirty
     }
-}  
+}
 
 impl MaterialPBR {
     fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<PathBuf, TextureId>) -> bool {

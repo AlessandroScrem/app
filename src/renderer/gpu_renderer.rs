@@ -207,6 +207,8 @@ impl Renderer {
             // RenderPassEnum::Imgui(ImguiPass::new()),
         ];
 
+
+
         Self {
             _adapter: adapter,
             device,
@@ -442,7 +444,7 @@ impl Renderer {
         );
     }
 
-    pub fn resize_resources(&mut self, width: u32, height: u32) {
+    pub fn resize_frame(&mut self, width: u32, height: u32) {
         self.surface_config.width = width;
         self.surface_config.height = height;
 

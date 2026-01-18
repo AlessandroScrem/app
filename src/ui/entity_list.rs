@@ -2,39 +2,43 @@ use super::*;
 use crate::{DomainEvent, prelude::ui::ui_layer::HierarchyNode};
 use legion::Entity;
 
-pub fn ui_entity_lister(ui: &imgui::Ui, ctx: &mut UiContext) {
-    ui.window("Entities")
-        .size([300.0, 100.0], Condition::FirstUseEver)
-        .build(|| {
-            draw_hierarchy_nodes(ui, ctx);
-            ui.separator();
-            draw_lights_nodes(ui, ctx);
+pub struct EntityListUi {}
 
-            if ui.is_window_hovered()
-                && !ui.is_any_item_hovered()
-                && ui.is_mouse_clicked(imgui::MouseButton::Right)
-            {
-                ui.open_popup("context");
-            }
+impl Layer for EntityListUi {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
+        ui.window("Entities")
+            .size([300.0, 100.0], Condition::FirstUseEver)
+            .build(|| {
+                draw_hierarchy_nodes(ui, ctx);
+                ui.separator();
+                draw_lights_nodes(ui, ctx);
 
-            if let Some(popup) = ui.begin_popup("context") {
-                ui.menu_item("Load Gltf ..").then(|| {
-                    rfd::FileDialog::new()
-                        .add_filter("gltf", &["gltf"])
-                        .pick_file()
-                        .map(|f| ctx.commands.push_back(DomainEvent::LoadGltf(f)));
-                });
-                popup.end();
-            }
+                if ui.is_window_hovered()
+                    && !ui.is_any_item_hovered()
+                    && ui.is_mouse_clicked(imgui::MouseButton::Right)
+                {
+                    ui.open_popup("context");
+                }
 
-            // deselect if clicked on empty
-            if ui.is_window_hovered()
-                && ui.is_mouse_clicked(MouseButton::Left)
-                && !ui.is_any_item_hovered()
-            {
-                *ctx.snapshot.selected = None;
-            }
-        });
+                if let Some(popup) = ui.begin_popup("context") {
+                    ui.menu_item("Load Gltf ..").then(|| {
+                        rfd::FileDialog::new()
+                            .add_filter("gltf", &["gltf"])
+                            .pick_file()
+                            .map(|f| ctx.commands.push_back(DomainEvent::LoadGltf(f)));
+                    });
+                    popup.end();
+                }
+
+                // deselect if clicked on empty
+                if ui.is_window_hovered()
+                    && ui.is_mouse_clicked(MouseButton::Left)
+                    && !ui.is_any_item_hovered()
+                {
+                    *ctx.snapshot.selected = None;
+                }
+            });
+    }
 }
 
 fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option<Entity>) {
@@ -49,7 +53,6 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
     if selected.is_some_and(|e| e == entity) {
         flags |= TreeNodeFlags::SELECTED;
     }
-
 
     let label = if name.is_empty() { "##Node" } else { name };
     ui.tree_node_config(label)
