@@ -1,3 +1,5 @@
+use std::{collections::HashMap, path::PathBuf};
+
 use super::*;
 use imgui::{Drag, TreeNodeFlags};
 
@@ -19,6 +21,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     let Some(selected) = ctx.snapshot.selected else {
         return;
     };
+    let ids = &ctx.snapshot.comp_view.texture_id_map.clone();
 
     let cv = &mut ctx.snapshot.comp_view;
 
@@ -45,7 +48,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(f) = &mut cv.material {
-        if f.draw_ui(ui) {
+        if f.draw_ui(ui, &ids) {
             ctx.commands
                 .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
         }
@@ -71,10 +74,10 @@ impl TagComponent {
         }
         dirty
     }
-}
+}  
 
 impl MaterialPBR {
-    fn draw_ui(&mut self, ui: &Ui) -> bool {
+    fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<PathBuf, TextureId>) -> bool {
         let material = self;
         let mut dirty = false;
 
@@ -92,10 +95,10 @@ impl MaterialPBR {
                     if let Some(path) = material.get_path(MaterialTextureSlot::BaseColor) {
                         dirty |= ui.checkbox("Use##_ct", &mut use_texture);
                         ui.same_line();
-                        // if use_texture {
-                        //     draw_ui_texture_icon(ui, registry, path);
-                        //     ui.same_line();
-                        // }
+                        if use_texture {
+                            draw_ui_texture_icon(ui, id_map, path);
+                            ui.same_line();
+                        }
                         material.set_used_texture_slot(MaterialTextureSlot::BaseColor, use_texture);
                     }
                     ui.disabled(use_texture, || {
@@ -115,10 +118,10 @@ impl MaterialPBR {
                     if let Some(path) = material.get_path(MaterialTextureSlot::Emissive) {
                         dirty |= ui.checkbox("Use##_em", &mut use_texture);
                         ui.same_line();
-                        // if use_texture {
-                        //     draw_ui_texture_icon(ui, registry, path);
-                        //     ui.same_line();
-                        // }
+                        if use_texture {
+                            draw_ui_texture_icon(ui, id_map, path);
+                            ui.same_line();
+                        }
                         material.set_used_texture_slot(MaterialTextureSlot::Emissive, use_texture);
                     }
                     ui.disabled(use_texture, || {
@@ -139,10 +142,10 @@ impl MaterialPBR {
                         dirty |= ui.checkbox("Use##_occ", &mut use_texture);
                         ui.same_line();
 
-                        // if use_texture {
-                        //     draw_ui_texture_icon(ui, registry, path);
-                        //     ui.same_line();
-                        // }
+                        if use_texture {
+                            draw_ui_texture_icon(ui, id_map, path);
+                            ui.same_line();
+                        }
                         material.set_used_texture_slot(MaterialTextureSlot::Occlusion, use_texture);
                     }
                     ui.disabled(use_texture, || {
@@ -161,10 +164,10 @@ impl MaterialPBR {
                     if let Some(path) = material.get_path(MaterialTextureSlot::MetallicRoughness) {
                         dirty |= ui.checkbox("Use##_mr", &mut use_texture);
                         ui.same_line();
-                        // if use_texture {
-                        //     draw_ui_texture_icon(ui, registry, path);
-                        //     ui.same_line();
-                        // }
+                        if use_texture {
+                            draw_ui_texture_icon(ui, id_map, path);
+                            ui.same_line();
+                        }
 
                         material.set_used_texture_slot(
                             MaterialTextureSlot::MetallicRoughness,
@@ -191,10 +194,10 @@ impl MaterialPBR {
                     if let Some(path) = material.get_path(MaterialTextureSlot::Normal) {
                         dirty |= ui.checkbox("Use##_normal_texture", &mut use_texture);
                         ui.same_line();
-                        // if use_texture {
-                        //     ui.same_line();
-                        //     draw_ui_texture_icon(ui, registry, path);
-                        // }
+                        if use_texture {
+                            ui.same_line();
+                            draw_ui_texture_icon(ui, id_map, path);
+                        }
                         material.set_used_texture_slot(MaterialTextureSlot::Normal, use_texture);
                         ui.disabled(use_texture, || {
                             dirty |= Drag::new("##Normal")
@@ -308,12 +311,12 @@ impl LightComponent {
     }
 }
 
-// fn draw_ui_texture_icon<P: AsRef<std::path::Path>>(
-//     ui: &imgui::Ui,
-//     registry: &ImGuiTextureRegistry,
-//     name: P,
-// ) {
-//     if let Some(id) = registry.ids.get(name.as_ref()) {
-//         ui.image_button(name.as_ref().to_str().unwrap(), *id, [25.0, 25.0]);
-//     }
-// }
+fn draw_ui_texture_icon<P: AsRef<std::path::Path>>(
+    ui: &imgui::Ui,
+    ids: &HashMap<PathBuf, TextureId>,
+    name: P,
+) {
+    if let Some(id) = ids.get(name.as_ref()) {
+        ui.image_button(name.as_ref().to_str().unwrap(), *id, [25.0, 25.0]);
+    }
+}

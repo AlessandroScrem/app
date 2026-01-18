@@ -20,8 +20,9 @@ pub struct Snapshot<'a> {
     pub comp_view: &'a mut UiComponentView,
     pub selected: &'a mut Option<Entity>,
     pub hovered: Option<Entity>,
-    pub hdrpath: &'a std::path::Path,
     pub adapter_string: String,
+    pub hdr_texture_id: Option<&'a TextureId>,
+    pub debug_texture_id: Option<&'a imgui::TextureId>,
 }
 
 pub struct HierarchyNode {
@@ -48,7 +49,6 @@ pub struct UiLayer {
     pub last_cursor: Option<MouseCursor>,
     ini_loaded: bool,
     timestep: Timestep,
-    draw_data: Option<imgui::DrawData>,
 }
 
 pub static mut DEMO_OPEN: bool = false;
@@ -93,7 +93,6 @@ impl UiLayer {
             last_cursor: None,
             ini_loaded: false,
             timestep,
-            draw_data: None,
         }
     }
 

@@ -62,13 +62,13 @@ pub mod math {
     };
 }
 
-use math::*;
-use std::{collections::VecDeque, path::PathBuf};
+use std::{
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+};
 
 use legion::Entity;
 use material_manager::MaterialPBR;
-
-use crate::assets::material_manager::MATERIAL_TEXTURE_COUNT;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -81,38 +81,6 @@ pub mod colors {
     pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 
-#[derive(Clone, Debug)]
-pub struct UiMaterialPBR {
-    pub name: String,
-
-    texture_slot: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
-    use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
-
-    pub base_color_factor: Vec4,
-    pub emissive_factor: Vec4,
-    pub roughness_factor: f32,
-    pub metallic_factor: f32,
-    pub normal_scale: f32,
-    pub occlusion_strength: f32,
-}
-impl Default for UiMaterialPBR {
-    fn default() -> Self {
-        Self {
-            name: "Default".into(),
-
-            texture_slot: [const { None }; MATERIAL_TEXTURE_COUNT],
-            use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
-
-            base_color_factor: Vec4::from_value(one()),
-            emissive_factor: Vec4::from_value(zero()),
-            roughness_factor: one(),
-            metallic_factor: one(),
-            normal_scale: one(),
-            occlusion_strength: one(),
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct UiComponentView {
     tag: Option<TagComponent>,
@@ -120,6 +88,7 @@ pub struct UiComponentView {
     transform: Option<TransformComponent>,
     bounding_box: Option<BoundingBoxComponent>,
     material: Option<MaterialPBR>,
+    texture_id_map: HashMap<PathBuf, TextureId>,
     light: Option<LightComponent>,
 }
 

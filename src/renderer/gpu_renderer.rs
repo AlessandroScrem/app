@@ -235,6 +235,12 @@ impl Renderer {
         &self.skybox_mgr.get_hdr_path()
     }
 
+    pub fn get_hdr_id(&self) -> Option<&imgui::TextureId> {
+        let path = self.get_hdrpath();
+        let registry = self.get_texture_registry();
+        registry.ids.get(path)
+    }
+
     pub fn get_hovered(&mut self) -> Option<Entity> {
         self.pickobject.poll_readback(&self.device)
     }

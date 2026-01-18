@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use crate::BoundingBoxComponent;
 use crate::DomainEvent;
 use crate::DomainEvents;
@@ -124,8 +127,9 @@ impl App {
             comp_view,
             selected: &mut self.selected,
             hovered: self.hovered,
-            hdrpath: renderer.get_hdrpath(),
             adapter_string: renderer.get_adapter_string(),
+            hdr_texture_id: renderer.get_hdr_id(),
+            debug_texture_id: None,
         };
 
         // Main operation: update_ui
@@ -267,7 +271,7 @@ fn get_comp_view(
     selected: Option<Entity>,
     world: &legion::World,
     mat_mgr: &MaterialManager,
-    tex_registry:  &renderer::ImGuiTextureRegistry
+    tex_registry: &renderer::ImGuiTextureRegistry,
 ) -> UiComponentView {
     let mut comp_view = UiComponentView::default();
 
@@ -296,6 +300,16 @@ fn get_comp_view(
             if let Ok(mesh) = entry.get_component::<MeshComponent>() {
                 comp_view.mesh = Some(mesh.clone());
                 comp_view.material = Some(mat_mgr.get(&mesh.mat_handle).material_pbr.clone());
+                let material = &mat_mgr.get(&mesh.mat_handle).material_pbr;
+                let mut ids = HashMap::new();
+                for slot in material_manager::MATERIAL_TEXTURE_SLOTS {
+                    if let Some(path) = material.get_path(slot) {
+                        if let Some(id) = tex_registry.ids.get(path) {
+                            ids.insert(PathBuf::from(path), id.clone());
+                        }
+                    }
+                }
+                comp_view.texture_id_map = ids;
             }
         }
     }
