@@ -4,7 +4,7 @@ use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
 
 use crate::{
-    DomainEvent, Globals, camera::Camera, prelude::ui::imgui_layer::DEMO_OPEN, text_fmt,
+    DomainEvent, Globals, camera::Camera, prelude::ui::ui_layer::DEMO_OPEN, text_fmt,
     timestep::Timestep,
 };
 
@@ -14,8 +14,8 @@ pub fn ui_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
     let hovered_entity = ctx.snapshot.hovered;
     let selected_entity = &ctx.snapshot.selected;
     let adapter_name = &ctx.snapshot.adapter_string;
-    let hdrpath = &ctx.snapshot.hdrpath;
-    let registry = &ctx.registry;
+    // let hdrpath = &ctx.snapshot.hdrpath;
+    // let registry = &ctx.registry;
 
     ui.window("Settings")
         .size([300.0, 300.0], Condition::FirstUseEver)
@@ -65,9 +65,9 @@ pub fn ui_settings(ui: &imgui::Ui, timestep: &Timestep, ctx: &mut UiContext) {
                 globals.draw_ui(ui);
 
                 ui.separator();
-                if let Some(command) = draw_ui_skybox_selector(&ui, hdrpath, registry) {
-                    ctx.commands.push_back(command);
-                }
+                // if let Some(command) = draw_ui_skybox_selector(&ui, hdrpath, registry) {
+                //     ctx.commands.push_back(command);
+                // }
             }
 
             if let Some(command) = camera.draw_ui(ui) {
@@ -200,30 +200,30 @@ impl Camera {
     }
 }
 
-fn draw_ui_skybox_selector(
-    ui: &Ui,
-    hdrpath: &std::path::Path,
-    registry: &ImGuiTextureRegistry,
-) -> Option<DomainEvent> {
-    let mut command: Option<_> = None;
+// fn draw_ui_skybox_selector(
+//     ui: &Ui,
+//     hdrpath: &std::path::Path,
+//     registry: &ImGuiTextureRegistry,
+// ) -> Option<DomainEvent> {
+//     let mut command: Option<_> = None;
 
-    let mut change_skybox = false;
-    if let Some(id) = registry.ids.get(hdrpath) {
-        let name = hdrpath
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("no name");
-        change_skybox = ui.image_button(name, *id, [60.0, 60.0]);
-        ui.same_line();
-        ui.text(name);
-        ui.separator();
-    }
-    if change_skybox {
-        use rfd::FileDialog;
-        FileDialog::new()
-            .add_filter("hdr", &["hdr"])
-            .pick_file()
-            .map(|f| command = Some(DomainEvent::ChangeSkybox(f)));
-    }
-    command
-}
+//     let mut change_skybox = false;
+//     if let Some(id) = registry.ids.get(hdrpath) {
+//         let name = hdrpath
+//             .file_stem()
+//             .and_then(|s| s.to_str())
+//             .unwrap_or("no name");
+//         change_skybox = ui.image_button(name, *id, [60.0, 60.0]);
+//         ui.same_line();
+//         ui.text(name);
+//         ui.separator();
+//     }
+//     if change_skybox {
+//         use rfd::FileDialog;
+//         FileDialog::new()
+//             .add_filter("hdr", &["hdr"])
+//             .pick_file()
+//             .map(|f| command = Some(DomainEvent::ChangeSkybox(f)));
+//     }
+//     command
+// }

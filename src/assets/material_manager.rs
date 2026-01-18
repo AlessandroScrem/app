@@ -3,10 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use cgmath::{
-    Array,
-    num_traits::{one, zero},
-};
 use wgpu::{
     TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb}, util::DeviceExt
 };

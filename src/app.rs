@@ -10,13 +10,14 @@ use crate::UiComponentView;
 use crate::application_handler::RunningApp;
 use crate::assets::material_manager::MaterialManager;
 use crate::input::Input;
-use crate::prelude::ui::imgui_layer::HierarchyNode;
-use crate::prelude::ui::imgui_layer::RootNodes;
-use crate::prelude::ui::imgui_layer::RootSnapshot;
-use crate::prelude::ui::imgui_layer::Snapshot;
+use crate::prelude::ui::ui_layer::HierarchyNode;
+use crate::prelude::ui::ui_layer::RootNodes;
+use crate::prelude::ui::ui_layer::RootSnapshot;
+use crate::prelude::ui::ui_layer::Snapshot;
 
 use crate::Globals;
 use crate::prelude::*;
+use crate::renderer;
 use crate::scene::Scene;
 
 use legion::Entity;
@@ -98,12 +99,12 @@ impl App {
             &self.globals,
             self.selected,
             &runtime.input,
-            &mut runtime.imgui,
+            runtime.uilayer.get_draw_data(),
         );
     }
 
     pub fn imgui_update(&mut self, runtime: &mut RunningApp) {
-        let imgui = &mut runtime.imgui;
+        let uilayer = &mut runtime.uilayer;
         let renderer = &mut runtime.renderer;
         let window = &runtime.window;
 
@@ -112,6 +113,7 @@ impl App {
             self.selected,
             &self.current_scene.world,
             &renderer.get_mat_mgr(),
+            &renderer.get_texture_registry(),
         );
 
         let mut snapshot = Snapshot {
@@ -127,7 +129,7 @@ impl App {
         };
 
         // Main operation: update_ui
-        let mut events = imgui.update_ui(window, &mut snapshot);
+        let mut events = uilayer.build(window, &mut snapshot);
         self.domain_events.queue.append(&mut events);
     }
 
@@ -265,6 +267,7 @@ fn get_comp_view(
     selected: Option<Entity>,
     world: &legion::World,
     mat_mgr: &MaterialManager,
+    tex_registry:  &renderer::ImGuiTextureRegistry
 ) -> UiComponentView {
     let mut comp_view = UiComponentView::default();
 

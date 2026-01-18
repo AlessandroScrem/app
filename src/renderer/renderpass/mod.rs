@@ -6,7 +6,7 @@ pub mod mesh;
 pub mod outline;
 pub mod pickobject;
 pub mod skybox;
-pub mod imgui;
+pub mod imguipass;
 
 pub use axis::AxisPass;
 pub use bbox::BBoxPass;
@@ -16,7 +16,7 @@ pub use mesh::MeshPass;
 pub use outline::OutlinePass;
 pub use pickobject::PickObjectPass;
 pub use skybox::SkyboxPass;
-pub use imgui::ImguiPass;
+pub use imguipass::ImguiPass;
 
 use crate::entities::EntityRawU64;
 use crate::input::Input;

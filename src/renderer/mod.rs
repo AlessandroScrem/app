@@ -1,4 +1,3 @@
-pub mod ui;
 pub mod pipeline_manager;
 pub mod uniform;
 pub mod hdr_frame;
@@ -20,4 +19,4 @@ pub use mesh_manager::MeshManager;
 pub use light_manager::LightManager;
 pub use pipeline_manager::PipelineManager;
 pub use skybox_manager::SkyboxManager;
-pub use gpu_renderer::GpuDevice;
+pub use gpu_renderer::{GpuDevice, ImGuiTextureRegistry};

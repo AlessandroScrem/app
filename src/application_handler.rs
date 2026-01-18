@@ -5,10 +5,11 @@ use std::time::Duration;
 use crate::input::Input;
 use crate::timer::Timer;
 
-use crate::prelude::ui::ImguiLayer;
+use crate::prelude::ui::ui_layer::UiLayer;
 use crate::{
     DomainEvent, LightComponent, MeshComponent, TagComponent, TransformComponent, prelude::*,
 };
+
 use legion::EntityStore;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, Event, WindowEvent};
@@ -19,10 +20,11 @@ pub struct EventQueue {
     pub queue: VecDeque<Event<()>>,
 }
 
+
 pub struct RunningApp {
     pub window: Arc<Window>,
     pub renderer: Renderer,
-    pub imgui: ui::ImguiLayer,
+    pub uilayer: UiLayer,
     pub is_minimized: bool,
     pub timer: Timer,
     pub event_queue: EventQueue,
@@ -32,13 +34,13 @@ pub struct RunningApp {
 impl RunningApp {
     pub fn input_update(&mut self) {
         while let Some(event) = self.event_queue.queue.pop_front() {
-            self.imgui.platform.handle_event::<()>(
-                self.imgui.context.io_mut(),
+            self.uilayer.platform.handle_event::<()>(
+                self.uilayer.context.io_mut(),
                 &self.window,
                 &event,
             );
 
-            let io = self.imgui.context.io();
+            let io = self.uilayer.context.io();
 
             match &event {
                 Event::DeviceEvent { .. } | Event::WindowEvent { .. } => {
@@ -187,15 +189,17 @@ impl ApplicationHandler for MyApplication {
             Arc::new(wnd)
         };
 
-        let renderer = Renderer::new(window.clone());
+        let mut uilayer = UiLayer::new(&window);
+
+        let renderer = Renderer::new(window.clone(), uilayer.get_context_mut());
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        let imgui = ImguiLayer::new(
-            &window,
-            &renderer.device,
-            &renderer.queue,
-            renderer.surface_config.format,
-        );
+        // let imgui = ImguiLayer::new(
+        //     &window,
+        //     &renderer.device,
+        //     &renderer.queue,
+        //     renderer.surface_config.format,
+        // );
 
         self.app.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
@@ -207,7 +211,7 @@ impl ApplicationHandler for MyApplication {
             },
             input: Input::new(),
             renderer,
-            imgui,
+            uilayer,
             is_minimized: false,
             timer: Timer::new(),
         });
@@ -243,10 +247,7 @@ impl ApplicationHandler for MyApplication {
 
         // Esegue `callback` ogni secondo , in base al clock interno.
         runtime.timer.trigger_every(Duration::from_secs(1), || {
-            let gpu = runtime.renderer.get_gpu_view();
-            runtime
-                .imgui
-                .sync_with_registry(&gpu.device, gpu.texture_mgr);
+            runtime.renderer.sync_imgui_texture();
             debug!("Sync_with_registry: ");
         });
 

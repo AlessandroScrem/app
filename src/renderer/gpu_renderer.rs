@@ -1,7 +1,9 @@
 use crate::entities::EntityRawU64;
 use crate::input::Input;
-use crate::ui::ImguiLayer;
+use imgui_wgpu::RendererConfig;
 use legion::{Entity, Resources, World};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
@@ -25,8 +27,7 @@ pub struct RenderContext<'a> {
     pub light_mgr: &'a LightManager,
     pub bbox_mgr: &'a mut BBoxManager,
     pub pickobject: &'a PickObject,
-    pub target: wgpu::TextureView,
-    pub imgui: &'a mut ImguiLayer,
+    pub target: &'a wgpu::TextureView,
 }
 
 pub struct GpuView<'a> {
@@ -53,6 +54,72 @@ pub struct GpuDevice<'a> {
     pub skb_mgr: &'a mut SkyboxManager,
 }
 
+// registro imgui separato
+pub struct ImGuiTextureRegistry {
+    pub ids: HashMap<PathBuf, imgui::TextureId>,
+}
+
+impl ImGuiTextureRegistry {
+    pub fn new() -> Self {
+        Self {
+            ids: HashMap::new(),
+        }
+    }
+}
+pub struct ImguiRender {
+    renderer: imgui_wgpu::Renderer,
+    registry: ImGuiTextureRegistry,
+}
+
+impl ImguiRender {
+    fn new(
+        device: &Device,
+        queue: &Queue,
+        context: &mut imgui::Context,
+        texture_format: wgpu::TextureFormat,
+    ) -> Self {
+        let renderer_config = RendererConfig {
+            texture_format,
+            ..Default::default()
+        };
+        let renderer = imgui_wgpu::Renderer::new(context, &device, &queue, renderer_config);
+        let registry = ImGuiTextureRegistry::new();
+
+        Self { renderer, registry }
+    }
+    pub fn render(
+        &mut self,
+        draw_data: &imgui::DrawData,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        device: &Device,
+        queue: &Queue,
+    ) {
+        let frame_view = target;
+
+        // Render pass
+        let mut pass = {
+            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ImGui Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: frame_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load, // non cancellare la scena
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                ..Default::default()
+            })
+        };
+
+        self.renderer
+            .render(draw_data, queue, device, &mut pass)
+            .unwrap();
+    }
+}
+
 pub struct Renderer {
     pub device: Device,
     pub queue: Queue,
@@ -67,17 +134,18 @@ pub struct Renderer {
     mat_mgr: MaterialManager,
     skybox_mgr: SkyboxManager,
     bbox_mgr: BBoxManager,
+    imgui_render: ImguiRender,
 
     pickobject: PickObject,
     passes: Vec<RenderPassEnum>,
 }
 
 impl Renderer {
-    pub fn new(window: Arc<Window>) -> Self {
-        pollster::block_on(Self::create_async(window))
+    pub fn new(window: Arc<Window>, imgui_ctx: &mut imgui::Context) -> Self {
+        pollster::block_on(Self::create_async(window, imgui_ctx))
     }
 
-    async fn create_async(window: Arc<Window>) -> Self {
+    async fn create_async(window: Arc<Window>, imgui_ctx: &mut imgui::Context) -> Self {
         let timer = std::time::Instant::now();
         info!("Initializing renderer...");
         let size = window.inner_size();
@@ -120,6 +188,8 @@ impl Renderer {
         let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
         let skybox_mgr = SkyboxManager::new(hdrpath, &device, &queue, &gpu_mgr, &mut texture_mgr);
 
+        let imgui_render = ImguiRender::new(&device, &queue, imgui_ctx, surface_config.format);
+
         info!(
             "Renderer Created: Surface config format is {:?}",
             surface_config.format
@@ -134,7 +204,7 @@ impl Renderer {
             RenderPassEnum::Linearize(LinearizePass::new()),
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),
-            RenderPassEnum::Imgui(ImguiPass::new()),
+            // RenderPassEnum::Imgui(ImguiPass::new()),
         ];
 
         Self {
@@ -152,6 +222,7 @@ impl Renderer {
             mat_mgr,
             bbox_mgr,
             pickobject,
+            imgui_render,
             passes,
         }
     }
@@ -214,6 +285,61 @@ impl Renderer {
         &mut self.mat_mgr
     }
 
+    pub fn get_texture_registry(&self)->&ImGuiTextureRegistry{
+        &self.imgui_render.registry
+    }
+
+    pub fn sync_imgui_texture(&mut self) {
+        let registry = &mut self.imgui_render.registry;
+        let renderer = &mut self.imgui_render.renderer;
+        let manager = &self.texture_mgr;
+        let device = &self.device;
+
+        // record new textures
+        use imgui_wgpu::RawTextureConfig;
+        for (path, tex) in &manager.textures {
+            if !registry.ids.contains_key(path) {
+                let texture_config = RawTextureConfig {
+                    label: None,
+                    sampler_desc: wgpu::SamplerDescriptor {
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::FilterMode::Linear,
+                        ..Default::default()
+                    },
+                };
+                let id = renderer
+                    .textures
+                    .insert(imgui_wgpu::Texture::from_raw_parts(
+                        device,
+                        renderer,
+                        tex.inner.clone(),
+                        tex.view.clone(),
+                        None,
+                        Some(&texture_config),
+                        tex.extent,
+                    ));
+                registry.ids.insert(path.clone(), id);
+                debug!("add to registry {} with id {}", path.display(), id.id());
+            }
+        }
+
+        // rimuove quelle che non esistono più nel texture manager
+        registry.ids.retain(|path, id| {
+            if !manager.textures.contains_key(path) {
+                renderer.textures.remove(*id);
+                debug!(
+                    "remove from registry {} with id {}",
+                    path.display(),
+                    id.id()
+                );
+                false
+            } else {
+                true
+            }
+        });
+    }
+
     pub fn render(
         &mut self,
         world: &World,
@@ -222,7 +348,7 @@ impl Renderer {
         globals: &Globals,
         selected: Option<Entity>,
         input: &Input,
-        imgui: &mut ImguiLayer,
+        draw_data: &imgui::DrawData,
     ) {
         // update global data (uniform) to GPU
         self.update_render_globals_to_gpu(camera, globals, selected);
@@ -241,8 +367,7 @@ impl Renderer {
             light_mgr: &self.light_mgr,
             bbox_mgr: &mut self.bbox_mgr,
             pickobject: &self.pickobject,
-            target,
-            imgui,
+            target: &target,
         };
 
         // Update world buffer data to gpu
@@ -256,6 +381,10 @@ impl Renderer {
         for pass in &mut self.passes {
             pass.execute(&mut encoder, &mut ctx);
         }
+
+        // Render Imgui Pass
+        self.imgui_render
+            .render(draw_data, &mut encoder, &target, &self.device, &self.queue);
 
         self.queue.submit([encoder.finish()]);
         frame.present();

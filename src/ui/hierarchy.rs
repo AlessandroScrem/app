@@ -1,5 +1,5 @@
 use super::*;
-use crate::{DomainEvent, prelude::ui::imgui_layer::HierarchyNode};
+use crate::{DomainEvent, prelude::ui::ui_layer::HierarchyNode};
 use legion::Entity;
 
 pub fn ui_entity_lister(ui: &imgui::Ui, ctx: &mut UiContext) {

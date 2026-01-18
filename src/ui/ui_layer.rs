@@ -1,17 +1,14 @@
 use std::collections::VecDeque;
 
 use super::*;
-use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 use legion::Entity;
-use wgpu::{Device, Queue, TextureView};
 use winit::window::Window;
 
 use crate::{DomainEvent, Globals, UiComponentView, camera::Camera, timestep::Timestep};
 
 pub struct UiContext<'a, 'b> {
     pub snapshot: &'a mut Snapshot<'b>,
-    pub registry: &'a ImGuiTextureRegistry,
     pub commands: VecDeque<DomainEvent>,
 }
 
@@ -45,25 +42,19 @@ pub struct RootSnapshot {
     pub lights_nodes: RootNodes,
 }
 
-pub struct ImguiLayer {
+pub struct UiLayer {
     pub context: imgui::Context,
     pub platform: WinitPlatform,
-    pub renderer: Renderer,
-    pub registry: ImGuiTextureRegistry,
     pub last_cursor: Option<MouseCursor>,
     ini_loaded: bool,
     timestep: Timestep,
+    draw_data: Option<imgui::DrawData>,
 }
 
 pub static mut DEMO_OPEN: bool = false;
 
-impl ImguiLayer {
-    pub fn new(
-        window: &Window,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
-    ) -> Self {
+impl UiLayer {
+    pub fn new(window: &Window) -> Self {
         let mut context = imgui::Context::create();
 
         let io = context.io_mut();
@@ -94,23 +85,15 @@ impl ImguiLayer {
             }),
         }]);
 
-        let renderer_config = RendererConfig {
-            texture_format: format,
-            ..Default::default()
-        };
-        let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
-
-        let registry = ImGuiTextureRegistry::new();
         let timestep = Timestep::new();
 
         Self {
             context,
             platform,
-            renderer,
-            registry,
             last_cursor: None,
             ini_loaded: false,
             timestep,
+            draw_data: None,
         }
     }
 
@@ -130,7 +113,19 @@ impl ImguiLayer {
         self.ini_loaded = true;
     }
 
-    pub fn update_ui(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
+    pub fn get_context_mut(&mut self) -> &mut imgui::Context {
+        &mut self.context
+    }
+    pub fn get_context(&self) -> &imgui::Context {
+        &self.context
+    }
+
+    pub fn get_draw_data(&mut self) -> &imgui::DrawData {
+        self.context.render()
+
+    }
+
+    pub fn build(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
         self.timestep.update();
         let delta_s = self.timestep.delta();
 
@@ -144,7 +139,6 @@ impl ImguiLayer {
         let commands = {
             let mut ctx = UiContext {
                 snapshot,
-                registry: &self.registry,
                 commands: VecDeque::new(),
             };
             ui.dockspace_over_main_viewport();
@@ -153,7 +147,7 @@ impl ImguiLayer {
             ui_entity_lister(ui, &mut ctx);
             ui_properties(ui, &mut ctx);
 
-            draw_debug_texture(ui, &ctx);
+            // draw_debug_texture(ui, &ctx);
             ctx.commands
         };
 
@@ -166,33 +160,6 @@ impl ImguiLayer {
         self.load_ini_if_needed();
 
         commands
-    }
-
-    pub fn render(&mut self, encoder: &mut wgpu::CommandEncoder, target: &TextureView,  device: &Device, queue: &Queue) {
-        let frame_view = target;
-
-        // Render pass
-        let mut pass = {
-            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ImGui Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: frame_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load, // non cancellare la scena
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                ..Default::default()
-            })
-        };
-
-        let draw_data = self.context.render();
-        self
-            .renderer
-            .render(draw_data, queue, device, &mut pass)
-            .unwrap();
     }
 }
 

@@ -13,6 +13,7 @@ pub mod test_utils;
 mod timer;
 pub mod timestep;
 mod transform;
+pub mod ui;
 
 pub mod prelude {
     pub use super::app::App;
@@ -22,11 +23,12 @@ pub mod prelude {
     pub use crate::camera::Camera;
     pub use crate::entities::components::*;
     pub use crate::renderer::Renderer;
-    pub use crate::renderer::ui;
     pub use crate::renderer::uniform;
     pub use crate::timestep;
+    pub use crate::ui;
     pub use log::{debug, error, info, trace, warn};
 }
+use imgui::TextureId;
 pub use prelude::*;
 
 pub mod math {
@@ -52,16 +54,21 @@ pub mod math {
     pub type Vec4 = Vector4<f32>;
     pub type Point3f = Point3<f32>;
     pub type Quat = Quaternion<f32>;
-    pub use cgmath::{Angle, Deg, Euler, Rad, Zero, perspective, vec3, vec4};
     pub use cgmath::{
-        EuclideanSpace, InnerSpace as _, Matrix as _, Rotation3 as _, SquareMatrix as _,
+        Angle, Array, Deg, EuclideanSpace, Euler, InnerSpace as _, Matrix as _, Rad,
+        Rotation3 as _, SquareMatrix as _, Zero,
+        num_traits::{one, zero},
+        perspective, vec3, vec4,
     };
 }
 
+use math::*;
 use std::{collections::VecDeque, path::PathBuf};
 
-use material_manager::MaterialPBR;
 use legion::Entity;
+use material_manager::MaterialPBR;
+
+use crate::assets::material_manager::MATERIAL_TEXTURE_COUNT;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -73,6 +80,39 @@ pub mod colors {
     pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
     pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
+
+#[derive(Clone, Debug)]
+pub struct UiMaterialPBR {
+    pub name: String,
+
+    texture_slot: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
+    use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
+
+    pub base_color_factor: Vec4,
+    pub emissive_factor: Vec4,
+    pub roughness_factor: f32,
+    pub metallic_factor: f32,
+    pub normal_scale: f32,
+    pub occlusion_strength: f32,
+}
+impl Default for UiMaterialPBR {
+    fn default() -> Self {
+        Self {
+            name: "Default".into(),
+
+            texture_slot: [const { None }; MATERIAL_TEXTURE_COUNT],
+            use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
+
+            base_color_factor: Vec4::from_value(one()),
+            emissive_factor: Vec4::from_value(zero()),
+            roughness_factor: one(),
+            metallic_factor: one(),
+            normal_scale: one(),
+            occlusion_strength: one(),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct UiComponentView {
     tag: Option<TagComponent>,
