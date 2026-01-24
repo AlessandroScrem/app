@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+
 pub struct TextureManager {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
