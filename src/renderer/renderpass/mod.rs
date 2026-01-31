@@ -18,6 +18,7 @@ pub use pickobject::PickObjectPass;
 pub use skybox::SkyboxPass;
 pub use imguipass::ImguiPass;
 
+use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
 use crate::input::Input;
 use crate::renderer::pipeline_manager::PipelineKind;
@@ -61,6 +62,7 @@ impl RenderPass for RenderPassEnum {
 
     fn prepare(
         &mut self,
+        asset_mgr: &AssetManager,
         world: &World,
         res: &Resources,
         camera: &Camera,
@@ -70,26 +72,26 @@ impl RenderPass for RenderPassEnum {
         ctx: &mut RenderContext,
     ) {
         match self {
-            RenderPassEnum::Mesh(p) => p.prepare(world, res, camera, globals, selected, input, ctx),
+            RenderPassEnum::Mesh(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
             RenderPassEnum::Light(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
             RenderPassEnum::Skybox(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
-            RenderPassEnum::Axis(p) => p.prepare(world, res, camera, globals, selected, input, ctx),
-            RenderPassEnum::BBox(p) => p.prepare(world, res, camera, globals, selected, input, ctx),
+            RenderPassEnum::Axis(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
+            RenderPassEnum::BBox(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
             RenderPassEnum::Linearize(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
             RenderPassEnum::Outline(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
             RenderPassEnum::PickObject(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
             RenderPassEnum::Imgui(p) => {
-                p.prepare(world, res, camera, globals, selected, input, ctx)
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
         }
     }
@@ -114,6 +116,7 @@ pub trait RenderPass {
 
     fn prepare(
         &mut self,
+        asset_mgr: &AssetManager,
         world: &World,
         resources: &Resources,
         camera: &Camera,

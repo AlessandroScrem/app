@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
 use wgpu::util::DeviceExt as _;
 
@@ -7,66 +7,66 @@ use crate::{
     renderer::{GpuManager, gpu_manager::LayoutKind},
 };
 
-pub struct MeshManager {
-    meshes: HashMap<usize, GpuMesh>,
-    id: usize,
-}
+// pub struct MeshManager {
+//     meshes: HashMap<usize, GpuMesh>,
+//     id: usize,
+// }
 
 pub struct GpuMesh {
-    vertexbuffer: wgpu::Buffer,
-    indexbuffer: wgpu::Buffer,
-    indexcount: u32,
-    model_bind_group: wgpu::BindGroup,
-    model_uniform: wgpu::Buffer,
+    pub vertexbuffer: wgpu::Buffer,
+    pub indexbuffer: wgpu::Buffer,
+    pub indexcount: u32,
+    pub model_bind_group: wgpu::BindGroup,
+    pub model_uniform: wgpu::Buffer,
 }
 
-impl MeshManager {
-    pub fn new() -> Self {
-        Self {
-            meshes: HashMap::new(),
-            id: 0,
-        }
-    }
+// impl MeshManager {
+//     pub fn new() -> Self {
+//         Self {
+//             meshes: HashMap::new(),
+//             id: 0,
+//         }
+//     }
 
-    pub fn add_mesh(&mut self, mesh: GpuMesh) -> usize {
-        let id = self.id;
-        self.meshes.insert(id, mesh);
-        self.id = id + 1;
-        id
-    }
+//     pub fn add_mesh(&mut self, mesh: GpuMesh) -> usize {
+//         let id = self.id;
+//         self.meshes.insert(id, mesh);
+//         self.id = id + 1;
+//         id
+//     }
 
-    pub fn get_vertexbuffer(&self, id: usize) -> &wgpu::Buffer {
-        &self
-            .meshes
-            .get(&id)
-            .expect("Unable to get Mesh")
-            .vertexbuffer
-    }
-    pub fn get_indexbuffer(&self, id: usize) -> &wgpu::Buffer {
-        &self
-            .meshes
-            .get(&id)
-            .expect("Unable to get Mesh")
-            .indexbuffer
-    }
-    pub fn get_indexcount(&self, id: usize) -> u32 {
-        self.meshes.get(&id).expect("Unable to get Mesh").indexcount
-    }
-    pub fn get_model_bindgroup(&self, id: usize) -> &wgpu::BindGroup {
-        &self
-            .meshes
-            .get(&id)
-            .expect("Unable to get Mesh")
-            .model_bind_group
-    }
-    pub fn get_model_uniform(&self, id: usize) -> &wgpu::Buffer {
-        &self
-            .meshes
-            .get(&id)
-            .expect("Unable to get Mesh")
-            .model_uniform
-    }
-}
+//     pub fn get_vertexbuffer(&self, id: usize) -> &wgpu::Buffer {
+//         &self
+//             .meshes
+//             .get(&id)
+//             .expect("Unable to get Mesh")
+//             .vertexbuffer
+//     }
+//     pub fn get_indexbuffer(&self, id: usize) -> &wgpu::Buffer {
+//         &self
+//             .meshes
+//             .get(&id)
+//             .expect("Unable to get Mesh")
+//             .indexbuffer
+//     }
+//     pub fn get_indexcount(&self, id: usize) -> u32 {
+//         self.meshes.get(&id).expect("Unable to get Mesh").indexcount
+//     }
+//     pub fn get_model_bindgroup(&self, id: usize) -> &wgpu::BindGroup {
+//         &self
+//             .meshes
+//             .get(&id)
+//             .expect("Unable to get Mesh")
+//             .model_bind_group
+//     }
+//     pub fn get_model_uniform(&self, id: usize) -> &wgpu::Buffer {
+//         &self
+//             .meshes
+//             .get(&id)
+//             .expect("Unable to get Mesh")
+//             .model_uniform
+//     }
+// }
 
 pub fn create_gpu_mesh(
     device: &wgpu::Device,

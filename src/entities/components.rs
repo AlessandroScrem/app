@@ -2,16 +2,23 @@ use crate::math::*;
 use crate::prelude::*;
 use legion::Entity;
 
+use crate::assets::{MaterialId, MeshId};
+
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {
     pub data: uniform::LightUniform,
 }
 
+// #[derive(Default, Clone)]
+// pub struct MeshComponent {
+//     pub handle: usize,
+//     pub mat_handle: material_manager::MaterialId,
+// }
+
 #[derive(Default, Clone)]
 pub struct MeshComponent {
-    pub handle: usize,
-    pub mat_handle: material_manager::MaterialId,
+    pub handle: MeshId,
 }
 
 #[derive(Clone)]
@@ -19,6 +26,20 @@ pub struct TransformComponent {
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3],
+}
+
+impl TransformComponent {
+    pub fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
+        let (position, r, scale) = g_node.transform().decomposed();
+        let quat = Quat::new(r[3], r[0], r[1], r[2]);
+        let euler = Euler::from(quat);
+        let rotation = [euler.x.0, euler.y.0, euler.z.0];
+        Self {
+            position,
+            rotation,
+            scale,
+        }
+    }
 }
 
 #[derive(Clone)]

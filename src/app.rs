@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use crate::BoundingBoxComponent;
 use crate::DomainEvent;
@@ -11,7 +10,7 @@ use crate::TagComponent;
 use crate::TransformComponent;
 use crate::UiComponentView;
 use crate::application_handler::RunningApp;
-use crate::assets::material_manager::MaterialManager;
+use crate::assets::asset_manager::AssetManager;
 use crate::input::Input;
 use crate::prelude::ui::ui_layer::HierarchyNode;
 use crate::prelude::ui::ui_layer::RootNodes;
@@ -30,6 +29,7 @@ use legion::Resources;
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
+    pub asset_mgr: AssetManager,
     pub resources: Resources,
     pub globals: Globals,
     pub camera: Camera,
@@ -96,6 +96,7 @@ impl App {
 
     pub fn render(&mut self, runtime: &mut RunningApp) {
         runtime.renderer.render(
+            &self.asset_mgr,
             &self.current_scene.world,
             &mut self.resources,
             &self.camera,
@@ -115,7 +116,7 @@ impl App {
         let comp_view = &mut get_comp_view(
             self.selected,
             &self.current_scene.world,
-            &renderer.get_mat_mgr(),
+            &self.asset_mgr,
             &renderer.get_texture_registry(),
         );
 
@@ -128,7 +129,7 @@ impl App {
             selected: &mut self.selected,
             hovered: self.hovered,
             adapter_string: renderer.get_adapter_string(),
-            hdr_texture_id: renderer.get_hdr_id(),
+            hdr_texture_id: renderer.get_hdr_imgui_id(),
             debug_texture_id: None,
         };
 
@@ -270,7 +271,7 @@ fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
 fn get_comp_view(
     selected: Option<Entity>,
     world: &legion::World,
-    mat_mgr: &MaterialManager,
+    asset_mgr: &AssetManager,
     tex_registry: &renderer::ImGuiTextureRegistry,
 ) -> UiComponentView {
     let mut comp_view = UiComponentView::default();
@@ -299,13 +300,18 @@ fn get_comp_view(
         if let Ok(entry) = world.entry_ref(selected) {
             if let Ok(mesh) = entry.get_component::<MeshComponent>() {
                 comp_view.mesh = Some(mesh.clone());
-                comp_view.material = Some(mat_mgr.get(&mesh.mat_handle).material_pbr.clone());
-                let material = &mat_mgr.get(&mesh.mat_handle).material_pbr;
+
                 let mut ids = HashMap::new();
-                for slot in material_manager::MATERIAL_TEXTURE_SLOTS {
-                    if let Some(path) = material.get_path(slot) {
-                        if let Some(id) = tex_registry.ids.get(path) {
-                            ids.insert(PathBuf::from(path), id.clone());
+                if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
+                    for submesh in mesh_desc.submeshes.iter() {
+                        if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
+                            for slot in material_manager::MATERIAL_TEXTURE_SLOTS {
+                                if let Some(id) = mat_desc.get_texture_slot(slot) {
+                                    if let Some(reg_id) = tex_registry.ids.get(&id) {
+                                        ids.insert(id.clone(), reg_id.clone());
+                                    } 
+                                }
+                            }
                         }
                     }
                 }

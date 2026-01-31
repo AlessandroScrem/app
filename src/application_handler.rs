@@ -81,10 +81,8 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                 app.selected = None;
             }
             DomainEvent::LoadGltf(path) => {
-                let gpu = &mut runtime.renderer.get_gpu_mut();
-                let loaded = crate::assets::mesh::load_gltf(path).unwrap();
-                let gpu_scene = crate::assets::mesh::upload_scene_to_gpu(&loaded, gpu);
-                crate::assets::mesh::spawn_scene(&mut app.current_scene.world, &loaded, &gpu_scene);
+                let loaded = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr).unwrap();
+                crate::assets::gltf_loader::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
                 next_queue.push_back(DomainEvent::RecenterCamera);
             }
             DomainEvent::AddParent(entity) => {
@@ -95,13 +93,13 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
             }
             DomainEvent::ChangeSkybox(path) => {
                 let gpu = &mut runtime.renderer.get_gpu_mut();
-                gpu.skb_mgr.change_skybox(
-                    &path,
-                    &gpu.device,
-                    &gpu.queue,
-                    &gpu.gpu_mgr,
-                    &mut gpu.texure_mgr,
-                );
+                // gpu.skb_mgr.change_skybox(
+                //     &path,
+                //     &gpu.device,
+                //     &gpu.queue,
+                //     &gpu.gpu_mgr,
+                //     &mut gpu.texure_mgr,
+                // );
             }
             DomainEvent::UpdateTag(entity, c) => {
                 if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
@@ -118,13 +116,13 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                 }
             }
             DomainEvent::UpdateMaterial(entity, c) => {
-                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                    if let Ok(t) = e.get_component_mut::<MeshComponent>() {
-                        let mat_mgr = &mut runtime.renderer.get_gpu_mut().mat_mgr;
-                        let mat = &mut mat_mgr.get_mut(&t.mat_handle).material_pbr;
-                        *mat = c;
-                    }
-                }
+                // if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                //     if let Ok(t) = e.get_component_mut::<MeshComponent>() {
+                //         let mat_mgr = &mut runtime.renderer.get_gpu_mut().mat_mgr;
+                //         let mat = &mut mat_mgr.get_mut(&t.mat_handle).material_pbr;
+                //         *mat = c;
+                //     }
+                // }
             }
             DomainEvent::UpdateLight(entity, c) => {
                 if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
@@ -185,7 +183,7 @@ impl ApplicationHandler for MyApplication {
 
         let mut uilayer = UiLayer::new(&window);
 
-        let renderer = Renderer::new(window.clone(), uilayer.get_context_mut());
+        let renderer = Renderer::new(window.clone(), uilayer.get_context_mut(), &mut self.app.asset_mgr);
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         self.app.init();

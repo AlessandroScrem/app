@@ -17,6 +17,7 @@ impl RenderPass for SkyboxPass {
     }
     fn prepare(
         &mut self,
+        _asset_mgr: &AssetManager,
         _world: &World,
         _resources: &Resources,
         _camera: &Camera,

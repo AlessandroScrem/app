@@ -28,6 +28,7 @@ impl RenderPass for LightPass {
     }
     fn prepare(
         &mut self,
+        _asset_mgr: &AssetManager,
         world: &World,
         _resources: &Resources,
         _camera: &Camera,

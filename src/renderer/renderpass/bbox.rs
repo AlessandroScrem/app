@@ -50,6 +50,7 @@ impl RenderPass for BBoxPass {
 
     fn prepare(
         &mut self,
+        _asset_mgr: &AssetManager,
         world: &World,
         _resources: &Resources,
         _camera: &Camera,

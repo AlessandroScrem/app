@@ -1,4 +1,4 @@
-use wgpu::TextureFormat;
+/* use wgpu::TextureFormat;
 
 use crate::assets::texture::{CubeTexture, Texture};
 use std::{
@@ -6,16 +6,16 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+ */
 
+// pub struct TextureManager {
+//     device: Arc<wgpu::Device>,
+//     queue: Arc<wgpu::Queue>,
+//     white_texture: Arc<Texture>,
+//     pub textures: HashMap<PathBuf, Arc<Texture>>,
+// }
 
-pub struct TextureManager {
-    device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
-    white_texture: Arc<Texture>,
-    pub textures: HashMap<PathBuf, Arc<Texture>>,
-}
-
-impl TextureManager {
+/* impl TextureManager {
     pub fn new(device: wgpu::Device, queue: wgpu::Queue) -> Self {
         let buffer = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -104,8 +104,8 @@ impl TextureManager {
             }
         }
     }
-}
-
+} */
+/* 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,3 +179,4 @@ mod tests {
         }
     }
 }
+ */

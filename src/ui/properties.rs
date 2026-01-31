@@ -52,10 +52,10 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(f) = &mut cv.material {
-        if f.draw_ui(ui, &ids) {
-            ctx.commands
-                .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
-        }
+        // if f.draw_ui(ui, &ids) {
+        //     ctx.commands
+        //         .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
+        // }
     }
 
     if let Some(f) = &mut cv.light {

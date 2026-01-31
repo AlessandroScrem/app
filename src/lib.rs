@@ -88,7 +88,7 @@ pub struct UiComponentView {
     transform: Option<TransformComponent>,
     bounding_box: Option<BoundingBoxComponent>,
     material: Option<MaterialPBR>,
-    texture_id_map: HashMap<PathBuf, TextureId>,
+    texture_id_map: HashMap<assets::TextureId, imgui::TextureId>,
     light: Option<LightComponent>,
 }
 

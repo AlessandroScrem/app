@@ -1,16 +1,16 @@
+use crate::assets::asset_manager::AssetManager;
+use crate::assets::{MaterialId, MeshAssets, MeshId};
 use crate::entities::EntityRawU64;
 use crate::input::Input;
+use crate::uniform::{MaterialUniform, ModelUniform};
 use imgui_wgpu::RendererConfig;
 use legion::{Entity, Resources, World};
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
 
 use super::*;
-use crate::assets::material_manager::MaterialManager;
-use crate::assets::texture_manager::TextureManager;
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
@@ -19,11 +19,13 @@ use crate::{Globals, prelude::*};
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub queue: &'a Queue,
+    pub gpu_cache: &'a GpuCache,
+
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
-    pub mat_mgr: &'a MaterialManager,
-    pub mesh_mgr: &'a MeshManager,
+    // pub mat_mgr: &'a MaterialManager,
+    // pub mesh_mgr: &'a MeshManager,
     pub light_mgr: &'a LightManager,
     pub bbox_mgr: &'a mut BBoxManager,
     pub pickobject: &'a PickObject,
@@ -37,26 +39,119 @@ pub struct GpuView<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
-    pub mat_mgr: &'a MaterialManager,
-    pub mesh_mgr: &'a MeshManager,
+    // pub mat_mgr: &'a MaterialManager,
+    // pub mesh_mgr: &'a MeshManager,
+    // pub texture_mgr: &'a TextureManager,
     pub light_mgr: &'a LightManager,
     pub bbox_mgr: &'a BBoxManager,
-    pub texture_mgr: &'a TextureManager,
 }
 
 pub struct GpuDevice<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a Queue,
     pub gpu_mgr: &'a GpuManager,
-    pub mat_mgr: &'a mut MaterialManager,
-    pub mesh_mgr: &'a mut MeshManager,
-    pub texure_mgr: &'a mut TextureManager,
+    // pub mat_mgr: &'a mut MaterialManager,
+    // pub mesh_mgr: &'a mut MeshManager,
+    // pub texure_mgr: &'a mut TextureManager,
     pub skb_mgr: &'a mut SkyboxManager,
+}
+
+#[derive(Default)]
+pub struct GpuMeshCache {
+    map: HashMap<MeshId, mesh_manager::GpuMesh>,
+}
+
+impl GpuMeshCache {
+    fn ensure(
+        &mut self,
+        id: MeshId,
+        assets: &MeshAssets,
+        gpu_mgr: &GpuManager,
+        device: &wgpu::Device,
+    ) {
+        self.map
+            .entry(id)
+            .or_insert_with(|| Self::create_gpu_mesh(id, assets, gpu_mgr, device));
+    }
+
+    fn create_gpu_mesh(
+        id: MeshId,
+        asset: &MeshAssets,
+        gpu_manager: &GpuManager,
+        device: &wgpu::Device,
+    ) -> mesh_manager::GpuMesh {
+        let mesh = asset.get(id).unwrap();
+        let vertices = &mesh.vertices;
+        let indices = &mesh.indices;
+        mesh_manager::create_gpu_mesh(device, gpu_manager, vertices, indices)
+    }
+
+    pub fn update(&self, id: &MeshId, queue: &wgpu::Queue, uniform: &ModelUniform) {
+        if let Some(mesh) = self.map.get(id) {
+            let buffer = &mesh.model_uniform;
+            queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
+        }
+    }
+
+    pub fn get(&self, id: &MeshId) -> Option<&mesh_manager::GpuMesh> {
+        self.map.get(id)
+    }
+}
+
+#[derive(Default)]
+pub struct GpuMaterialCache {
+    map: HashMap<MaterialId, material_manager::GpuMaterial>,
+}
+
+impl GpuMaterialCache {
+    fn ensure(
+        &mut self,
+        id: MaterialId,
+        gpu_texture_cache: &mut GpuTextureCache,
+        assets: &AssetManager,
+        gpu_mgr: &GpuManager,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        self.map.entry(id).or_insert_with(|| {
+            Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device, queue)
+        });
+    }
+
+    fn create_gpu_material(
+        id: MaterialId,
+        gpu_texture_cache: &mut GpuTextureCache,
+        asset: &AssetManager,
+        gpu_manager: &GpuManager,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> material_manager::GpuMaterial {
+        material_manager::create_gpu_material(
+            device,
+            queue,
+            gpu_texture_cache,
+            id,
+            asset,
+            gpu_manager,
+        )
+    }
+
+    pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
+        if let Some(material) = self.map.get(id) {
+            if let Some(buffer) = &material.uniform_buffer {
+                queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
+            }
+        }
+    }
+
+    pub fn get(&self, id: &MaterialId) -> Option<&material_manager::GpuMaterial> {
+        self.map.get(id)
+    }
 }
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
-    pub ids: HashMap<PathBuf, imgui::TextureId>,
+    pub ids: HashMap<TextureId, imgui::TextureId>,
 }
 
 impl ImGuiTextureRegistry {
@@ -119,6 +214,12 @@ impl ImguiRender {
             .unwrap();
     }
 }
+#[derive(Default)]
+pub struct GpuCache {
+    pub mesh: GpuMeshCache,
+    pub material: GpuMaterialCache,
+    pub textures: GpuTextureCache,
+}
 
 pub struct Renderer {
     pub device: Device,
@@ -127,25 +228,35 @@ pub struct Renderer {
     pub surface_config: SurfaceConfiguration,
     _adapter: Adapter,
     gpu_mgr: GpuManager,
-    texture_mgr: TextureManager,
     pipeline_mgr: PipelineManager,
     light_mgr: LightManager,
-    mesh_mgr: MeshManager,
-    mat_mgr: MaterialManager,
+    // texture_mgr: TextureManager,
+    // mesh_mgr: MeshManager,
+    // mat_mgr: MaterialManager,
     skybox_mgr: SkyboxManager,
     bbox_mgr: BBoxManager,
     imgui_render: ImguiRender,
 
     pickobject: PickObject,
     passes: Vec<RenderPassEnum>,
+
+    gpu_cache: GpuCache,
 }
 
 impl Renderer {
-    pub fn new(window: Arc<Window>, imgui_ctx: &mut imgui::Context) -> Self {
-        pollster::block_on(Self::create_async(window, imgui_ctx))
+    pub fn new(
+        window: Arc<Window>,
+        imgui_ctx: &mut imgui::Context,
+        asset_mgr: &mut AssetManager,
+    ) -> Self {
+        pollster::block_on(Self::create_async(window, imgui_ctx, asset_mgr))
     }
 
-    async fn create_async(window: Arc<Window>, imgui_ctx: &mut imgui::Context) -> Self {
+    async fn create_async(
+        window: Arc<Window>,
+        imgui_ctx: &mut imgui::Context,
+        asset_mgr: &mut AssetManager,
+    ) -> Self {
         let timer = std::time::Instant::now();
         info!("Initializing renderer...");
         let size = window.inner_size();
@@ -176,17 +287,25 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        let mut texture_mgr = TextureManager::new(device.clone(), queue.clone());
+        // let mut texture_mgr = TextureManager::new(device.clone(), queue.clone());
+        // let mat_mgr = MaterialManager::new(&device, &gpu_mgr, &mut texture_mgr);
+        // let mesh_mgr = MeshManager::new();
+
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
-        let mat_mgr = MaterialManager::new(&device, &gpu_mgr, &mut texture_mgr);
         let light_mgr = LightManager::new(&gpu_mgr, &device, &queue);
-        let mesh_mgr = MeshManager::new();
         let bbox_mgr = BBoxManager::new();
         let pickobject = PickObject::new(&device);
 
+        // Skybox initialization
+        let mut texture_cache = GpuTextureCache::default();
         let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-        let skybox_mgr = SkyboxManager::new(hdrpath, &device, &queue, &gpu_mgr, &mut texture_mgr);
+        let hdr_id = asset_mgr
+            .textures
+            .from_file(hdrpath, crate::assets::TextureUsage::HDR16);
+        let hdr = texture_cache.get_or_create(hdr_id, &asset_mgr.textures, &device, &queue);
+        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
+        // -----
 
         let imgui_render = ImguiRender::new(&device, &queue, imgui_ctx, surface_config.format);
 
@@ -207,7 +326,10 @@ impl Renderer {
             // RenderPassEnum::Imgui(ImguiPass::new()),
         ];
 
-
+        let gpu_cache = GpuCache {
+            textures: texture_cache,
+            ..Default::default()
+        };
 
         Self {
             _adapter: adapter,
@@ -216,16 +338,17 @@ impl Renderer {
             surface,
             surface_config,
             gpu_mgr,
-            texture_mgr,
             pipeline_mgr,
             light_mgr,
-            mesh_mgr,
+            // texture_mgr,
+            // mesh_mgr,
+            // mat_mgr,
             skybox_mgr,
-            mat_mgr,
             bbox_mgr,
             pickobject,
             imgui_render,
             passes,
+            gpu_cache,
         }
     }
 
@@ -233,14 +356,14 @@ impl Renderer {
         self._adapter.get_info().name
     }
 
-    pub fn get_hdrpath(&self) -> &std::path::Path {
-        &self.skybox_mgr.get_hdr_path()
+    pub fn get_hdr_id(&self) -> &TextureId {
+        &self.skybox_mgr.get_hdr_id()
     }
 
-    pub fn get_hdr_id(&self) -> Option<&imgui::TextureId> {
-        let path = self.get_hdrpath();
+    pub fn get_hdr_imgui_id(&self) -> Option<&imgui::TextureId> {
+        let hdr_id = self.get_hdr_id();
         let registry = self.get_texture_registry();
-        registry.ids.get(path)
+        registry.ids.get(hdr_id)
     }
 
     pub fn get_hovered(&mut self) -> Option<Entity> {
@@ -265,11 +388,11 @@ impl Renderer {
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
-            mat_mgr: &self.mat_mgr,
-            mesh_mgr: &self.mesh_mgr,
+            // mat_mgr: &self.mat_mgr,
+            // mesh_mgr: &self.mesh_mgr,
             light_mgr: &self.light_mgr,
             bbox_mgr: &self.bbox_mgr,
-            texture_mgr: &self.texture_mgr,
+            // texture_mgr: &self.texture_mgr,
         }
     }
 
@@ -278,35 +401,35 @@ impl Renderer {
             device: &self.device,
             queue: &self.queue,
             gpu_mgr: &self.gpu_mgr,
-            mat_mgr: &mut self.mat_mgr,
-            mesh_mgr: &mut self.mesh_mgr,
-            texure_mgr: &mut self.texture_mgr,
+            // mat_mgr: &mut self.mat_mgr,
+            // mesh_mgr: &mut self.mesh_mgr,
+            // texure_mgr: &mut self.texture_mgr,
             skb_mgr: &mut self.skybox_mgr,
         }
     }
 
-    pub fn get_mat_mgr(&self) -> &MaterialManager {
-        &self.mat_mgr
-    }
+    // pub fn get_mat_mgr(&self) -> &MaterialManager {
+    //     &self.mat_mgr
+    // }
 
-    pub fn get_mat_mgr_mut(&mut self) -> &mut MaterialManager {
-        &mut self.mat_mgr
-    }
+    // pub fn get_mat_mgr_mut(&mut self) -> &mut MaterialManager {
+    //     &mut self.mat_mgr
+    // }
 
-    pub fn get_texture_registry(&self)->&ImGuiTextureRegistry{
+    pub fn get_texture_registry(&self) -> &ImGuiTextureRegistry {
         &self.imgui_render.registry
     }
 
     pub fn sync_imgui_texture(&mut self) {
         let registry = &mut self.imgui_render.registry;
         let renderer = &mut self.imgui_render.renderer;
-        let manager = &self.texture_mgr;
+        let texture_cache = &self.gpu_cache.textures;
         let device = &self.device;
 
         // record new textures
         use imgui_wgpu::RawTextureConfig;
-        for (path, tex) in &manager.textures {
-            if !registry.ids.contains_key(path) {
+        for (gpu_id, tex) in texture_cache.iter() {
+            if !registry.ids.contains_key(gpu_id) {
                 let texture_config = RawTextureConfig {
                     label: None,
                     sampler_desc: wgpu::SamplerDescriptor {
@@ -321,26 +444,22 @@ impl Renderer {
                     .insert(imgui_wgpu::Texture::from_raw_parts(
                         device,
                         renderer,
-                        tex.inner.clone(),
-                        tex.view.clone(),
+                        tex.texture.inner.clone(),
+                        tex.texture.view.clone(),
                         None,
                         Some(&texture_config),
-                        tex.extent,
+                        tex.texture.extent,
                     ));
-                registry.ids.insert(path.clone(), id);
-                debug!("add to registry {} with id {}", path.display(), id.id());
+                registry.ids.insert(gpu_id.clone(), id);
+                debug!("add to registry texture [no name] with id {}", id.id());
             }
         }
 
         // rimuove quelle che non esistono più nel texture manager
-        registry.ids.retain(|path, id| {
-            if !manager.textures.contains_key(path) {
+        registry.ids.retain(|gpu_id, id| {
+            if !texture_cache.contains_key(gpu_id) {
                 renderer.textures.remove(*id);
-                debug!(
-                    "remove from registry {} with id {}",
-                    path.display(),
-                    id.id()
-                );
+                debug!("remove from registry [no mame] with id {}", id.id());
                 false
             } else {
                 true
@@ -348,8 +467,36 @@ impl Renderer {
         });
     }
 
+    pub fn prepare(&mut self, asset_mgr: &AssetManager) {
+        // meshes
+        let mesh_cache = &mut self.gpu_cache.mesh;
+        for (id, _desc) in asset_mgr.meshes.iter() {
+            mesh_cache.ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
+        }
+
+        // materials
+        let material_cache = &mut self.gpu_cache.material;
+        for (id, _desc) in asset_mgr.materials.iter() {
+            material_cache.ensure(
+                id,
+                &mut self.gpu_cache.textures,
+                &asset_mgr,
+                &self.gpu_mgr,
+                &self.device,
+                &self.queue,
+            );
+        }
+
+        //textures
+        let texture_cache = &mut self.gpu_cache.textures;
+        for (id, _desc) in asset_mgr.textures.iter() {
+            texture_cache.ensure(id, &asset_mgr.textures, &self.device, &self.queue);
+        }
+    }
+
     pub fn render(
         &mut self,
+        asset_mgr: &AssetManager,
         world: &World,
         resources: &Resources,
         camera: &Camera,
@@ -358,6 +505,8 @@ impl Renderer {
         input: &Input,
         draw_data: &imgui::DrawData,
     ) {
+        self.prepare(asset_mgr);
+
         // update global data (uniform) to GPU
         self.update_render_globals_to_gpu(camera, globals, selected);
 
@@ -367,11 +516,13 @@ impl Renderer {
         let mut ctx = RenderContext {
             device: &self.device,
             queue: &self.queue,
+            gpu_cache: &self.gpu_cache,
+
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
-            mesh_mgr: &self.mesh_mgr,
-            mat_mgr: &self.mat_mgr,
+            // mesh_mgr: &self.mesh_mgr,
+            // mat_mgr: &self.mat_mgr,
             light_mgr: &self.light_mgr,
             bbox_mgr: &mut self.bbox_mgr,
             pickobject: &self.pickobject,
@@ -380,7 +531,9 @@ impl Renderer {
 
         // Update world buffer data to gpu
         for pass in &mut self.passes {
-            pass.prepare(world, resources, camera, globals, selected, input, &mut ctx);
+            pass.prepare(
+                asset_mgr, world, resources, camera, globals, selected, input, &mut ctx,
+            );
         }
 
         // Render phase

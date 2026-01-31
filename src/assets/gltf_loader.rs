@@ -1,19 +1,21 @@
-/* use gltf::mesh::Reader;
+use gltf::mesh::{Mode, Reader};
 use legion::EntityStore;
 use std::path::Path;
 
 use crate::{
-    BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, MeshComponent, TagComponent,
+    BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, TagComponent,
     TransformComponent,
-    assets::{material_manager::MaterialPBR, vertexdata::MeshVertexData},
+    assets::{
+        MaterialDesc, MaterialId, MaterialKey, MeshDesc, MeshId, MeshKey, SubMesh, TextureKey,
+        asset_manager::AssetManager, material_manager::MaterialPBR, vertexdata::MeshVertexData,
+    },
     math::*,
     prelude::*,
-    renderer::*,
 };
 
 pub struct LoadedScene {
-    pub meshes: Vec<MeshData>,
-    pub materials: Vec<MaterialPBR>,
+    pub meshes: Vec<MeshId>,
+    pub materials: Vec<MaterialId>,
     pub nodes: Vec<NodeData>,
     pub roots: Vec<usize>, // indici dei nodi root
 }
@@ -25,26 +27,19 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-pub struct MeshData {
-    pub vertices: Vec<MeshVertexData>,
-    pub indices: Vec<u32>,
-    pub material: Option<usize>,
-    pub bbox: BoundingBox,
-}
-
-impl TransformComponent {
-    pub fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
-        let (position, r, scale) = g_node.transform().decomposed();
-        let quat = Quat::new(r[3], r[0], r[1], r[2]);
-        let euler = Euler::from(quat);
-        let rotation = [euler.x.0, euler.y.0, euler.z.0];
-        Self {
-            position,
-            rotation,
-            scale,
-        }
-    }
-}
+// impl TransformComponent {
+//     fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
+//         let (position, r, scale) = g_node.transform().decomposed();
+//         let quat = Quat::new(r[3], r[0], r[1], r[2]);
+//         let euler = Euler::from(quat);
+//         let rotation = [euler.x.0, euler.y.0, euler.z.0];
+//         Self {
+//             position,
+//             rotation,
+//             scale,
+//         }
+//     }
+// }
 
 pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
@@ -100,38 +95,43 @@ pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[
     generate_tangents(&mut geom);
 }
 
-fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>) -> Result<Vec<u32>, ImportError>
+fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>, indices: &mut Vec<u32>)
 where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
-    let indices = reader
-        .read_indices()
-        .ok_or(ImportError::MissingIndices)?
-        .into_u32()
-        .collect::<Vec<u32>>();
-
-    Ok(indices)
+    let base_vertex = indices.len() as u32;
+    if let Some(read_indices) = reader.read_indices() {
+        for i in read_indices.into_u32() {
+            indices.push(base_vertex + i)
+        }
+    } else {
+        // non indexed primitive
+        let count = reader.read_positions().expect("position missing").len() as u32;
+        indices.extend(base_vertex..base_vertex + count);
+    }
 }
 
 fn extract_vertices<'a, F>(
     reader: &Reader<'a, 'a, F>,
     indices: &Vec<u32>,
-) -> Result<Vec<MeshVertexData>, ImportError>
-where
+    vertices: &mut Vec<MeshVertexData>,
+) where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
-    let positions = reader
-        .read_positions()
-        .ok_or(ImportError::MissingPositions)?;
+    let positions = reader.read_positions().expect("Missing positions");
 
-    let mut vertices: Vec<MeshVertexData> = positions
-        .map(|position| MeshVertexData {
+    for position in positions {
+        let normal = [0.0, 1.0, 0.0];
+        let uv = [0.0, 0.0];
+        let tangent = [0.0, 0.0, 0.0, 0.0];
+
+        vertices.push(MeshVertexData {
             position,
-            normal: [0.0, 1.0, 0.0],
-            uv: [0.0, 0.0],
-            tangent: [0.0, 0.0, 0.0, 0.0],
-        })
-        .collect();
+            normal,
+            tangent,
+            uv,
+        });
+    }
 
     if let Some(normals) = reader.read_normals() {
         normals.enumerate().for_each(|(i, normal)| {
@@ -154,10 +154,8 @@ where
             vertices[i].tangent = t;
         });
     } else {
-        generate_mikktspace_tangents(&mut vertices, &indices);
+        generate_mikktspace_tangents(vertices, &indices);
     }
-
-    Ok(vertices)
 }
 
 fn extract_bbox(mesh: &gltf::Mesh) -> BoundingBox {
@@ -258,15 +256,18 @@ fn print_gltf_document(document: &gltf::Document) {
 //     (LoadedScene)
 //          |
 //          Y
-//   create MaterialPBR
+//   create Materialid
 //          |
 //          Y
-//  upload_scene_to_gpu
+//   crate Meshid
 //          |
 //          Y
 //   spawn_scene ECS
 
-pub fn load_gltf<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
+pub fn load_gltf<P: AsRef<Path>>(
+    path: P,
+    asset_mgr: &mut AssetManager,
+) -> Result<LoadedScene, ImportError> {
     if path.as_ref().extension().unwrap() != "gltf" {
         error!("File: {} is not a glTF", path.as_ref().display());
         return Err(ImportError::MeshLoadFailed);
@@ -276,26 +277,49 @@ pub fn load_gltf<P: AsRef<Path>>(path: P) -> Result<LoadedScene, ImportError> {
 
     let images: Vec<gltf::Image<'_>> = gltf.images().collect();
 
-    let mut materials = Vec::new();
-    for g_mat in gltf.materials() {
-        materials.push(create_material(&g_mat, &images, &path));
-    }
-
     let mut meshes = Vec::new();
+    let mut materials = Vec::new();
     for g_mesh in gltf.meshes() {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut submeshes = Vec::new();
         for primitive in g_mesh.primitives() {
-            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
-            let indices = extract_indices(&reader)?;
-            let vertices = extract_vertices(&reader, &indices)?;
+            assert_eq!(primitive.mode(), Mode::Triangles);
 
-            let material = primitive.material().index();
-            meshes.push(MeshData {
-                vertices,
-                indices,
-                material,
-                bbox: extract_bbox(&g_mesh),
+            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
+            let base_vertex = vertices.len() as u32;
+            let index_start = indices.len() as u32;
+
+            extract_indices(&reader, &mut indices);
+            extract_vertices(&reader, &indices, &mut vertices);
+
+            let index_end = indices.len() as u32;
+
+            let mat_pbr = create_material(&primitive.material(), &images, &path);
+            let material_id = mat_pbr_to_id(asset_mgr, &mat_pbr);
+            materials.push(material_id);
+
+            submeshes.push(SubMesh {
+                index_range: index_start..index_end,
+                base_vertex,
+                material: material_id,
             });
         }
+
+        let mesh_key = MeshKey {
+            source: crate::assets::MeshSource::File {
+                path: path.as_ref().into(),
+                index: g_mesh.index(),
+            },
+        };
+
+        let mesh_id = asset_mgr.meshes.get_or_create(mesh_key, || MeshDesc {
+            vertices,
+            indices,
+            submeshes,
+            bounds: extract_bbox(&g_mesh),
+        });
+        meshes.push(mesh_id);
     }
 
     let mut nodes = Vec::new();
@@ -416,38 +440,43 @@ fn create_material<P: AsRef<Path>>(
     material_pbr
 }
 
-pub struct GpuScene {
-    pub mesh_handles: Vec<usize>,
-    pub material_handles: Vec<std::path::PathBuf>,
-}
+fn mat_pbr_to_id(asset_mgr: &mut AssetManager, mat_pbr: &MaterialPBR) -> MaterialId {
+    let mut mat_key = MaterialKey::default();
 
-pub fn upload_scene_to_gpu(loaded: &LoadedScene, gpu: &mut GpuDevice) -> GpuScene {
-    let material_handles = loaded
-        .materials
-        .iter()
-        .map(|m| {
-            gpu.mat_mgr
-                .create(gpu.device, gpu.gpu_mgr, gpu.texure_mgr, m)
-        })
-        .collect();
-
-    let mesh_handles = loaded
-        .meshes
-        .iter()
-        .map(|m| {
-            let gpu_mesh =
-                mesh_manager::create_gpu_mesh(gpu.device, gpu.gpu_mgr, &m.vertices, &m.indices);
-            gpu.mesh_mgr.add_mesh(gpu_mesh)
-        })
-        .collect();
-
-    GpuScene {
-        mesh_handles,
-        material_handles,
+    for slot in material_manager::MaterialTextureSlot::ALL {
+        if let Some(path) = mat_pbr.get_path(slot) {
+            let key = TextureKey::File {
+                color_space: slot.color_space().into(),
+                path: path.into(),
+                usage: slot.into(),
+            };
+            let desc = super::TextureDesc::File {
+                key,
+                sampler: super::SamplerDesc::Linear,
+                mipmaps: false,
+            };
+            let id = asset_mgr.textures.get_or_create(desc);
+            mat_key.textures[slot as usize] = Some(id);
+        }
     }
+
+    asset_mgr
+        .materials
+        .get_or_create(mat_key.clone(), || MaterialDesc {
+            key: mat_key,
+            emissive_factor: mat_pbr.emissive_factor,
+            base_color_factor: mat_pbr.base_color_factor,
+            metallic_factor: mat_pbr.metallic_factor,
+            roughness_factor: mat_pbr.roughness_factor,
+            normal_scale: mat_pbr.normal_scale,
+            occlusion_strength: mat_pbr.occlusion_strength,
+            use_texture_slot: mat_pbr.use_texture_slot,
+        })
 }
 
-pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, gpu: &GpuScene) {
+
+
+pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
 
     // 1️⃣ crea tutte le entity
@@ -466,24 +495,23 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, gpu: &GpuSce
     for (i, node) in loaded.nodes.iter().enumerate() {
         if let Some(mesh_idx) = node.mesh {
             let entity = node_to_entity[i];
-            let mesh = &loaded.meshes[mesh_idx];
+            let mesh_id = &loaded.meshes[mesh_idx];
             let mut entry = world.entry(entity).unwrap();
 
             // MeshComponent
             entry.add_component(MeshComponent {
-                handle: gpu.mesh_handles[mesh_idx],
-                mat_handle: mesh
-                    .material
-                    .map(|m| gpu.material_handles[m].clone())
-                    .unwrap(),
+                handle: mesh_id.clone(),
             });
 
             // BoundingBoxComponent
-            let bbox = &mesh.bbox;
-            entry.add_component(BoundingBoxComponent {
-                bounding_box: bbox.clone(),
-                global_bounding_box: bbox.clone(),
-            });
+            if let Some(mesh) = asset_mgr.meshes.get(*mesh_id){
+                let bbox = &mesh.bounds;
+                entry.add_component(BoundingBoxComponent {
+                    bounding_box: bbox.clone(),
+                    global_bounding_box: bbox.clone(),
+                });
+
+            }
         }
     }
 
@@ -519,9 +547,10 @@ mod tests {
     #[test]
     fn should_load_scene() {
         let path = "./assets/cube/cube.gltf";
-
-        let e = load_gltf(path);
-
+        let mut asset_mgr = AssetManager::default();
+        
+        let e = load_gltf(path, &mut asset_mgr);
+        
         assert!(e.is_ok());
         assert_eq!(e.ok().iter().len(), 1);
     }
@@ -529,7 +558,9 @@ mod tests {
     #[test]
     fn should_create_material() {
         use material_manager::MaterialTextureSlot::*;
-
+        
+        let mut asset_mgr = AssetManager::default();
+        
         let path = "./assets/cube/cube.gltf";
         let base_path = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
         let color_path = base_path.join("Cube_BaseColor.png");
@@ -540,11 +571,34 @@ mod tests {
         mat_pbr.set_path(Normal, Some(normal_path));
         mat_pbr.metallic_factor = 0.0;
         mat_pbr.roughness_factor = 1.0;
-
-        let e = load_gltf(path).unwrap();
-
+        
+        let e = load_gltf(path, &mut asset_mgr).unwrap();
+        
         assert_eq!(e.materials.len(), 1);
-        assert_eq!(e.materials[0], mat_pbr);
+    }
+    
+    #[test]
+    fn should_create_entity(){
+        let mut world = legion::World::default();
+        let mut asset_mgr = AssetManager::default();
+        let path = "./assets/cube/cube.gltf";
+        let loaded = load_gltf(path, &mut asset_mgr).unwrap();
+
+        assert!(world.is_empty());
+
+        spawn_scene(&mut world, &loaded, &asset_mgr);
+
+        assert_eq!(world.len(), 1);
+
+        use legion::query::IntoQuery;
+
+        let mut query = <(&TagComponent, &MeshComponent)>::query();
+        let (tag, mesh) = query.iter(&world).next().unwrap();
+
+        let mesh = asset_mgr.meshes.get(mesh.handle).unwrap();
+        
+        assert_eq!(tag.name, "Cube");
+        assert_eq!(mesh.indices.len(), 36);
+
     }
 }
- */
