@@ -5,7 +5,7 @@ use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, assets::material_asset::MaterialPBR,
+    TransformComponent,
     material_asset::MaterialTextureSlot,
 };
 
@@ -79,7 +79,7 @@ impl TagComponent {
         dirty
     }
 }
-
+/* 
 impl MaterialPBR {
     fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<PathBuf, TextureId>) -> bool {
         let material = self;
@@ -216,7 +216,7 @@ impl MaterialPBR {
         dirty
     }
 }
-
+ */
 impl TransformComponent {
     fn draw_ui(&mut self, ui: &Ui) -> bool {
         let transform = self;

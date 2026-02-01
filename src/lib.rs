@@ -68,7 +68,8 @@ use std::{
 };
 
 use legion::Entity;
-use material_asset::MaterialPBR;
+
+use crate::assets::MaterialDesc;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -87,7 +88,7 @@ pub struct UiComponentView {
     mesh: Option<MeshComponent>,
     transform: Option<TransformComponent>,
     bounding_box: Option<BoundingBoxComponent>,
-    material: Option<MaterialPBR>,
+    material: Option<MaterialDesc>,
     texture_id_map: HashMap<assets::TextureId, imgui::TextureId>,
     light: Option<LightComponent>,
 }
@@ -100,7 +101,7 @@ pub enum DomainEvent {
     ChangeSkybox(PathBuf),
     UpdateTag(Entity, TagComponent),
     UpdateTransform(Entity, TransformComponent),
-    UpdateMaterial(Entity, MaterialPBR),
+    UpdateMaterial(Entity, MaterialDesc),
     UpdateLight(Entity, LightComponent),
 }
 

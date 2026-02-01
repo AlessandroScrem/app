@@ -6,8 +6,8 @@ use crate::{
     BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, TagComponent,
     TransformComponent,
     assets::{
-        MaterialDesc, MaterialId, MaterialKey, MeshDesc, MeshId, MeshKey, SubMesh, TextureKey,
-        asset_manager::AssetManager, material_asset::MaterialPBR, vertexdata::MeshVertexData,
+        MaterialDesc, MaterialId, MeshDesc, MeshId, MeshKey, SubMesh, asset_manager::AssetManager,
+        vertexdata::MeshVertexData,
     },
     math::*,
     prelude::*,
@@ -27,19 +27,6 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-// impl TransformComponent {
-//     fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
-//         let (position, r, scale) = g_node.transform().decomposed();
-//         let quat = Quat::new(r[3], r[0], r[1], r[2]);
-//         let euler = Euler::from(quat);
-//         let rotation = [euler.x.0, euler.y.0, euler.z.0];
-//         Self {
-//             position,
-//             rotation,
-//             scale,
-//         }
-//     }
-// }
 
 pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
@@ -295,8 +282,7 @@ pub fn load_gltf<P: AsRef<Path>>(
 
             let index_end = indices.len() as u32;
 
-            let mat_pbr = create_material(&primitive.material(), &images, &path);
-            let material_id = mat_pbr_to_id(asset_mgr, &mat_pbr);
+            let material_id = create_material(&primitive.material(), asset_mgr, &images, &path);
             materials.push(material_id);
 
             submeshes.push(SubMesh {
@@ -388,10 +374,12 @@ fn path_from_gtexture(
 
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
+    asset_mgr: &mut AssetManager,
     images: &Vec<gltf::Image<'_>>,
     path: P,
-) -> MaterialPBR {
+) -> MaterialId {
     use material_asset::MaterialTextureSlot::*;
+    let texture_asset = &mut asset_mgr.textures;
 
     let name = gltf_material.name().unwrap_or("material_no_name");
     let parent_path = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
@@ -399,82 +387,56 @@ fn create_material<P: AsRef<Path>>(
     // gltf pbr material
     let pbr = gltf_material.pbr_metallic_roughness();
 
-    let mut material_pbr = MaterialPBR::default();
+    let mut material_desc = MaterialDesc::default();
 
-    material_pbr.name = name.into();
-    material_pbr.base_color_factor = pbr.base_color_factor().into();
-    material_pbr.roughness_factor = pbr.roughness_factor();
-    material_pbr.metallic_factor = pbr.metallic_factor();
-    material_pbr.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
+    material_desc.set_name(name);
+    material_desc.base_color_factor = pbr.base_color_factor().into();
+    material_desc.roughness_factor = pbr.roughness_factor();
+    material_desc.metallic_factor = pbr.metallic_factor();
+    material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
 
     if let Some(normal_tex) = gltf_material.normal_texture() {
-        material_pbr.normal_scale = normal_tex.scale();
-        material_pbr.set_path(
+        material_desc.normal_scale = normal_tex.scale();
+        material_desc.set_texture(
+            texture_asset,
             Normal,
             path_from_gtexture(normal_tex.texture(), parent_path),
         );
     }
     if let Some(occl_tex) = gltf_material.occlusion_texture() {
-        material_pbr.occlusion_strength = occl_tex.strength().clamp(0.0, 1.0);
-        material_pbr.set_path(
+        material_desc.occlusion_strength = occl_tex.strength().clamp(0.0, 1.0);
+        material_desc.set_texture(
+            texture_asset,
             Occlusion,
             path_from_gtexture(occl_tex.texture(), parent_path),
         )
     }
     if let Some(color_info) = pbr.base_color_texture() {
-        material_pbr.set_path(BaseColor, path_from_ginfo(color_info, parent_path, &images));
+        material_desc.set_texture(
+            texture_asset,
+            BaseColor,
+            path_from_ginfo(color_info, parent_path, &images),
+        );
     }
     if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
-        material_pbr.set_path(
+        material_desc.set_texture(
+            texture_asset,
             MetallicRoughness,
             path_from_ginfo(met_rough_info, parent_path, &images),
         );
     }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
-        material_pbr.set_path(
+        material_desc.set_texture(
+            texture_asset,
             Emissive,
             path_from_ginfo(emissive_info, parent_path, &images),
         );
     }
 
-    material_pbr
-}
-
-fn mat_pbr_to_id(asset_mgr: &mut AssetManager, mat_pbr: &MaterialPBR) -> MaterialId {
-    let mut mat_key = MaterialKey::default();
-
-    for slot in material_asset::MaterialTextureSlot::ALL {
-        if let Some(path) = mat_pbr.get_path(slot) {
-            let key = TextureKey::File {
-                color_space: slot.color_space().into(),
-                path: path.into(),
-                usage: slot.into(),
-            };
-            let desc = super::TextureDesc::File {
-                key,
-                sampler: super::SamplerDesc::Linear,
-                mipmaps: false,
-            };
-            let id = asset_mgr.textures.get_or_create(desc);
-            mat_key.textures[slot as usize] = Some(id);
-        }
-    }
-
     asset_mgr
         .materials
-        .get_or_create(mat_key.clone(), || MaterialDesc {
-            key: mat_key,
-            emissive_factor: mat_pbr.emissive_factor,
-            base_color_factor: mat_pbr.base_color_factor,
-            metallic_factor: mat_pbr.metallic_factor,
-            roughness_factor: mat_pbr.roughness_factor,
-            normal_scale: mat_pbr.normal_scale,
-            occlusion_strength: mat_pbr.occlusion_strength,
-            use_texture_slot: mat_pbr.use_texture_slot,
-        })
+        .get_or_create(material_desc.key.clone(), || material_desc)
 }
-
-
 
 pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
@@ -504,13 +466,12 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &
             });
 
             // BoundingBoxComponent
-            if let Some(mesh) = asset_mgr.meshes.get(*mesh_id){
+            if let Some(mesh) = asset_mgr.meshes.get(*mesh_id) {
                 let bbox = &mesh.bounds;
                 entry.add_component(BoundingBoxComponent {
                     bounding_box: bbox.clone(),
                     global_bounding_box: bbox.clone(),
                 });
-
             }
         }
     }
@@ -548,9 +509,9 @@ mod tests {
     fn should_load_scene() {
         let path = "./assets/cube/cube.gltf";
         let mut asset_mgr = AssetManager::default();
-        
+
         let e = load_gltf(path, &mut asset_mgr);
-        
+
         assert!(e.is_ok());
         assert_eq!(e.ok().iter().len(), 1);
     }
@@ -558,27 +519,28 @@ mod tests {
     #[test]
     fn should_create_material() {
         use material_asset::MaterialTextureSlot::*;
-        
+
         let mut asset_mgr = AssetManager::default();
-        
+        let texture_asset = &mut asset_mgr.textures;
+
         let path = "./assets/cube/cube.gltf";
         let base_path = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
         let color_path = base_path.join("Cube_BaseColor.png");
         let normal_path = base_path.join("Cube_normal.png");
-        let mut mat_pbr = MaterialPBR::default();
-        mat_pbr.name = "Cube".into();
-        mat_pbr.set_path(BaseColor, Some(color_path));
-        mat_pbr.set_path(Normal, Some(normal_path));
-        mat_pbr.metallic_factor = 0.0;
-        mat_pbr.roughness_factor = 1.0;
-        
+        let mut mat_desc = MaterialDesc::default();
+        mat_desc.set_name("Cube");
+        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path));
+        mat_desc.set_texture(texture_asset, Normal, Some(normal_path));
+        mat_desc.metallic_factor = 0.0;
+        mat_desc.roughness_factor = 1.0;
+
         let e = load_gltf(path, &mut asset_mgr).unwrap();
-        
+
         assert_eq!(e.materials.len(), 1);
     }
-    
+
     #[test]
-    fn should_create_entity(){
+    fn should_create_entity() {
         let mut world = legion::World::default();
         let mut asset_mgr = AssetManager::default();
         let path = "./assets/cube/cube.gltf";
@@ -596,9 +558,8 @@ mod tests {
         let (tag, mesh) = query.iter(&world).next().unwrap();
 
         let mesh = asset_mgr.meshes.get(mesh.handle).unwrap();
-        
+
         assert_eq!(tag.name, "Cube");
         assert_eq!(mesh.indices.len(), 36);
-
     }
 }

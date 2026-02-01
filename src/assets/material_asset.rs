@@ -1,10 +1,7 @@
 use super::*;
-use std::path::{Path, PathBuf};
-
-use wgpu::TextureFormat::{Rgba8Unorm, Rgba8UnormSrgb};
-
+use std::path::PathBuf;
+use texture_asset::ColorSpace;
 use crate::{math::*, renderer::uniform::MaterialUniform};
-
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
 pub enum ShaderId {
@@ -12,11 +9,55 @@ pub enum ShaderId {
     Pbr,
 }
 
+pub const MATERIAL_TEXTURE_COUNT: usize = 5;
+pub const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
+    MaterialTextureSlot::BaseColor,
+    MaterialTextureSlot::Normal,
+    MaterialTextureSlot::MetallicRoughness,
+    MaterialTextureSlot::Emissive,
+    MaterialTextureSlot::Occlusion,
+];
+
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
 pub struct MaterialKey {
+    pub name: String,
     pub shader: ShaderId,
     pub textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
 }
+
+
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum MaterialTextureSlot {
+    BaseColor = 0,
+    Normal = 1,
+    MetallicRoughness = 2,
+    Emissive = 3,
+    Occlusion = 4,
+}
+
+impl MaterialTextureSlot {
+    pub fn color_space(self) -> ColorSpace {
+        match self {
+            MaterialTextureSlot::BaseColor | MaterialTextureSlot::Emissive => ColorSpace::Srgba8,
+
+            MaterialTextureSlot::Normal
+            | MaterialTextureSlot::MetallicRoughness
+            | MaterialTextureSlot::Occlusion => ColorSpace::Rgba8,
+        }
+    }
+}
+
+impl MaterialTextureSlot {
+    pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
+        MaterialTextureSlot::BaseColor,
+        MaterialTextureSlot::Normal,
+        MaterialTextureSlot::MetallicRoughness,
+        MaterialTextureSlot::Emissive,
+        MaterialTextureSlot::Occlusion,
+    ];
+}
+
 
 #[derive(Clone)]
 pub struct MaterialDesc {
@@ -31,9 +72,48 @@ pub struct MaterialDesc {
     pub occlusion_strength: f32,
 }
 
+impl Default for MaterialDesc {
+    fn default() -> Self {
+        MaterialDesc {
+            key: MaterialKey::default(),
+            use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
+
+            base_color_factor: Vec4::from_value(one()),
+            emissive_factor: Vec4::from_value(zero()),
+            roughness_factor: one(),
+            metallic_factor: one(),
+            normal_scale: one(),
+            occlusion_strength: one(),
+        }
+    }
+}
+
 impl MaterialDesc {
     pub fn get_texture_slot(&self, slot: MaterialTextureSlot) -> Option<TextureId> {
         self.key.textures.get(slot as usize).copied().flatten()
+    }
+
+    pub fn set_name(&mut self, name: &str) {
+        self.key.name = name.into();
+    }
+
+    pub fn set_texture(&mut self, texture_asset: &mut TextureAssets, slot: MaterialTextureSlot, path: Option<PathBuf>) {
+        if let Some(path) = path  {
+            let key = TextureKey::File {
+                color_space: slot.color_space().into(),
+                path: path.into(),
+                usage: slot.into(),
+            };
+            let desc = super::TextureDesc::File {
+                key,
+                sampler: super::SamplerDesc::Linear,
+                mipmaps: false,
+            };
+            let id = texture_asset.get_or_create(desc);
+            self.key.textures[slot as usize] = Some(id);
+            self.use_texture_slot[slot as usize] = true;
+        }
+
     }
 }
 
@@ -68,116 +148,6 @@ impl MaterialAssets {
     }
 }
 
-
-pub const MATERIAL_TEXTURE_COUNT: usize = 5;
-pub const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
-    MaterialTextureSlot::BaseColor,
-    MaterialTextureSlot::Normal,
-    MaterialTextureSlot::MetallicRoughness,
-    MaterialTextureSlot::Emissive,
-    MaterialTextureSlot::Occlusion,
-];
-
-#[repr(u8)]
-#[derive(Copy, Clone, Debug)]
-pub enum MaterialTextureSlot {
-    BaseColor = 0,
-    Normal = 1,
-    MetallicRoughness = 2,
-    Emissive = 3,
-    Occlusion = 4,
-}
-
-impl MaterialTextureSlot {
-    pub fn color_space(self) -> wgpu::TextureFormat {
-        match self {
-            MaterialTextureSlot::BaseColor | MaterialTextureSlot::Emissive => Rgba8UnormSrgb,
-
-            MaterialTextureSlot::Normal
-            | MaterialTextureSlot::MetallicRoughness
-            | MaterialTextureSlot::Occlusion => Rgba8Unorm,
-        }
-    }
-}
-
-impl MaterialTextureSlot {
-    pub const ALL: [MaterialTextureSlot; 5] = [
-        MaterialTextureSlot::BaseColor,
-        MaterialTextureSlot::Normal,
-        MaterialTextureSlot::MetallicRoughness,
-        MaterialTextureSlot::Emissive,
-        MaterialTextureSlot::Occlusion,
-    ];
-}
-
-#[derive(Clone, Debug)]
-pub struct MaterialPBR {
-    pub name: String,
-
-    texture_slot: [Option<PathBuf>; MATERIAL_TEXTURE_COUNT],
-    pub use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
-
-    pub base_color_factor: Vec4,
-    pub emissive_factor: Vec4,
-    pub roughness_factor: f32,
-    pub metallic_factor: f32,
-    pub normal_scale: f32,
-    pub occlusion_strength: f32,
-}
-impl Default for MaterialPBR {
-    fn default() -> Self {
-        Self {
-            name: "Default".into(),
-
-            texture_slot: [const { None }; MATERIAL_TEXTURE_COUNT],
-            use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
-
-            base_color_factor: Vec4::from_value(one()),
-            emissive_factor: Vec4::from_value(zero()),
-            roughness_factor: one(),
-            metallic_factor: one(),
-            normal_scale: one(),
-            occlusion_strength: one(),
-        }
-    }
-}
-
-impl PartialEq for MaterialPBR {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.texture_slot == other.texture_slot
-            && self.use_texture_slot == other.use_texture_slot
-            && self.base_color_factor == other.base_color_factor
-            && self.emissive_factor == other.emissive_factor
-            && self.roughness_factor == other.roughness_factor
-            && self.metallic_factor == other.metallic_factor
-            && self.normal_scale == other.normal_scale
-            && self.occlusion_strength == other.occlusion_strength
-    }
-}
-
-impl MaterialPBR {
-    pub fn set_path(&mut self, slot: MaterialTextureSlot, path: Option<PathBuf>) {
-        self.texture_slot[slot as usize] = path;
-        self.use_texture_slot[slot as usize] = true;
-    }
-    pub fn some_or_fallback(&self, slot: MaterialTextureSlot) -> &Path {
-        self.texture_slot[slot as usize]
-            .as_deref()
-            .unwrap_or_else(|| Path::new(""))
-    }
-
-    pub fn get_path(&self, slot: MaterialTextureSlot) -> Option<&Path> {
-        self.texture_slot[slot as usize].as_deref()
-    }
-    pub fn get_used_texture_slot(&self, slot: MaterialTextureSlot) -> bool {
-        self.use_texture_slot[slot as usize]
-    }
-    pub fn set_used_texture_slot(&mut self, slot: MaterialTextureSlot, flag: bool) {
-        self.use_texture_slot[slot as usize] = flag
-    }
-}
-
 impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
         Self {
@@ -205,6 +175,5 @@ impl From<&MaterialDesc> for MaterialUniform {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn should_create_material_from_id() {
-    }
+    fn should_create_material_from_id() {}
 }
