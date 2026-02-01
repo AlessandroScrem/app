@@ -1,21 +1,12 @@
 use std::collections::HashMap;
 
-use crate::BoundingBoxComponent;
 use crate::DomainEvent;
 use crate::DomainEvents;
-use crate::HierarchyComponent;
-use crate::LightComponent;
-use crate::MeshComponent;
-use crate::TagComponent;
-use crate::TransformComponent;
 use crate::UiComponentView;
 use crate::application_handler::RunningApp;
 use crate::assets::asset_manager::AssetManager;
+use crate::assets::asset_manager::SkyboxHandle;
 use crate::input::Input;
-use crate::prelude::ui::ui_layer::HierarchyNode;
-use crate::prelude::ui::ui_layer::RootNodes;
-use crate::prelude::ui::ui_layer::RootSnapshot;
-use crate::prelude::ui::ui_layer::Snapshot;
 
 use crate::Globals;
 use crate::prelude::*;
@@ -45,6 +36,9 @@ impl App {
         self.domain_events.queue.push_back(DomainEvent::LoadGltf(
             "./assets/Lantern/Lantern.gltf".into(),
         ));
+        let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        let hdr_id = self.asset_mgr.textures.from_file(hdrpath, renderer::TextureUsage::HDR16);
+        self.asset_mgr.skybox = SkyboxHandle::new(hdr_id);
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
@@ -305,6 +299,8 @@ fn get_comp_view(
                 if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
                     for submesh in mesh_desc.submeshes.iter() {
                         if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
+                            //TODO: set material for submesh, not for mesh
+                            comp_view.material = Some(mat_desc.clone());
                             for slot in material_asset::MATERIAL_TEXTURE_SLOTS {
                                 if let Some(id) = mat_desc.get_texture_slot(slot) {
                                     if let Some(reg_id) = tex_registry.ids.get(&id) {

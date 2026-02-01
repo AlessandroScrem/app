@@ -5,7 +5,6 @@ pub mod tools;
 pub mod properties;
 pub mod debug;
 
-// pub use registry::ImGuiTextureRegistry;
 pub use ui_layer::UiLayer;
 pub use ui_layer::UiContext;
 
@@ -15,5 +14,6 @@ pub use entity_list::*;
 pub use settings::*;
 pub use properties::*;
 pub use debug::*;
+pub use crate::*;
 
 pub use ui_layer::Layer;

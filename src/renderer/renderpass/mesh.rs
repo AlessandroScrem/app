@@ -4,7 +4,7 @@ use crate::{assets::MaterialId, assets::MeshId};
 struct GpuMeshFrame {
     // pub entity: EntityId,
     pub mesh_handle: MeshId,
-    pub submesh: u32,
+    pub _submesh: u32,
     pub index_range: std::ops::Range<u32>,
     pub material: MaterialId,
     pub model: ModelUniform,
@@ -70,7 +70,7 @@ impl RenderPass for MeshPass {
                     mesh_handle: mesh.handle,
                     model,
                     material: submesh.material,
-                    submesh: i as u32,
+                    _submesh: i as u32,
                     index_range: submesh.index_range.clone(),
                 });
             }

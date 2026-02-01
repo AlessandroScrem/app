@@ -1,12 +1,12 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use super::*;
 use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent,
-    material_asset::MaterialTextureSlot,
+    TransformComponent, assets::MaterialDesc, material_asset::MaterialTextureSlot,
+    assets,
 };
 
 pub struct PropertyUi {}
@@ -52,10 +52,10 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(f) = &mut cv.material {
-        // if f.draw_ui(ui, &ids) {
-        //     ctx.commands
-        //         .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
-        // }
+        if f.draw_ui(ui, &ids) {
+            ctx.commands
+                .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
+        }
     }
 
     if let Some(f) = &mut cv.light {
@@ -79,9 +79,9 @@ impl TagComponent {
         dirty
     }
 }
-/* 
-impl MaterialPBR {
-    fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<PathBuf, TextureId>) -> bool {
+
+impl MaterialDesc {
+    fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<assets::TextureId, TextureId>) -> bool {
         let material = self;
         let mut dirty = false;
 
@@ -89,21 +89,21 @@ impl MaterialPBR {
             "Material",
             TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
         ) {
-            let name = format!("Material: {} ", material.name);
+            let name = format!("Material: {} ", material.key.name);
 
             if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
                 ui.text("Color");
                 {
                     let mut use_texture =
-                        material.get_used_texture_slot(MaterialTextureSlot::BaseColor);
-                    if let Some(path) = material.get_path(MaterialTextureSlot::BaseColor) {
+                        material.slot_get(MaterialTextureSlot::BaseColor);
+                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::BaseColor) {
                         dirty |= ui.checkbox("Use##_ct", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, path);
+                            draw_ui_texture_icon(ui, id_map, id);
                             ui.same_line();
                         }
-                        material.set_used_texture_slot(MaterialTextureSlot::BaseColor, use_texture);
+                        material.slot_set(MaterialTextureSlot::BaseColor, use_texture);
                     }
                     ui.disabled(use_texture, || {
                         let mut color: [f32; 4] = material.base_color_factor.into();
@@ -118,15 +118,15 @@ impl MaterialPBR {
                 {
                     ui.text("Emissive");
                     let mut use_texture =
-                        material.get_used_texture_slot(MaterialTextureSlot::Emissive);
-                    if let Some(path) = material.get_path(MaterialTextureSlot::Emissive) {
+                        material.slot_get(MaterialTextureSlot::Emissive);
+                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Emissive) {
                         dirty |= ui.checkbox("Use##_em", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, path);
+                            draw_ui_texture_icon(ui, id_map, id);
                             ui.same_line();
                         }
-                        material.set_used_texture_slot(MaterialTextureSlot::Emissive, use_texture);
+                        material.slot_set(MaterialTextureSlot::Emissive, use_texture);
                     }
                     ui.disabled(use_texture, || {
                         let mut color: [f32; 4] = material.emissive_factor.into();
@@ -141,16 +141,16 @@ impl MaterialPBR {
                 {
                     ui.text("Occlusion");
                     let mut use_texture =
-                        material.get_used_texture_slot(MaterialTextureSlot::Occlusion);
-                    if let Some(path) = material.get_path(MaterialTextureSlot::Occlusion) {
+                        material.slot_get(MaterialTextureSlot::Occlusion);
+                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Occlusion) {
                         dirty |= ui.checkbox("Use##_occ", &mut use_texture);
                         ui.same_line();
 
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, path);
+                            draw_ui_texture_icon(ui, id_map, id);
                             ui.same_line();
                         }
-                        material.set_used_texture_slot(MaterialTextureSlot::Occlusion, use_texture);
+                        material.slot_set(MaterialTextureSlot::Occlusion, use_texture);
                     }
                     ui.disabled(use_texture, || {
                         dirty |= Drag::new("##Occlusion")
@@ -164,16 +164,16 @@ impl MaterialPBR {
                 {
                     ui.text("Metallic Roughness");
                     let mut use_texture =
-                        material.get_used_texture_slot(MaterialTextureSlot::MetallicRoughness);
-                    if let Some(path) = material.get_path(MaterialTextureSlot::MetallicRoughness) {
+                        material.slot_get(MaterialTextureSlot::MetallicRoughness);
+                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::MetallicRoughness) {
                         dirty |= ui.checkbox("Use##_mr", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, path);
+                            draw_ui_texture_icon(ui, id_map, id);
                             ui.same_line();
                         }
 
-                        material.set_used_texture_slot(
+                        material.slot_set(
                             MaterialTextureSlot::MetallicRoughness,
                             use_texture,
                         );
@@ -194,15 +194,15 @@ impl MaterialPBR {
                 {
                     ui.text("Normal");
                     let mut use_texture =
-                        material.get_used_texture_slot(MaterialTextureSlot::Normal);
-                    if let Some(path) = material.get_path(MaterialTextureSlot::Normal) {
+                        material.slot_get(MaterialTextureSlot::Normal);
+                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Normal) {
                         dirty |= ui.checkbox("Use##_normal_texture", &mut use_texture);
                         ui.same_line();
                         if use_texture {
                             ui.same_line();
-                            draw_ui_texture_icon(ui, id_map, path);
+                            draw_ui_texture_icon(ui, id_map, id);
                         }
-                        material.set_used_texture_slot(MaterialTextureSlot::Normal, use_texture);
+                        material.slot_set(MaterialTextureSlot::Normal, use_texture);
                         ui.disabled(use_texture, || {
                             dirty |= Drag::new("##Normal")
                                 .speed(0.01)
@@ -216,7 +216,7 @@ impl MaterialPBR {
         dirty
     }
 }
- */
+
 impl TransformComponent {
     fn draw_ui(&mut self, ui: &Ui) -> bool {
         let transform = self;
@@ -315,12 +315,12 @@ impl LightComponent {
     }
 }
 
-fn draw_ui_texture_icon<P: AsRef<std::path::Path>>(
+fn draw_ui_texture_icon(
     ui: &imgui::Ui,
-    ids: &HashMap<PathBuf, TextureId>,
-    name: P,
+    ids: &HashMap<assets::TextureId, TextureId>,
+    id: assets::TextureId,
 ) {
-    if let Some(id) = ids.get(name.as_ref()) {
-        ui.image_button(name.as_ref().to_str().unwrap(), *id, [25.0, 25.0]);
+    if let Some(id) = ids.get(&id) {
+        ui.image_button("no name", *id, [25.0, 25.0]);
     }
 }

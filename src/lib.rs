@@ -1,18 +1,18 @@
 mod app;
+mod camera;
+mod picking;
+mod scene;
+mod systems;
+mod timer;
+mod transform;
 mod application_handler;
 pub mod assets;
 pub mod bounding_box;
-mod camera;
 pub mod entities;
 pub mod input;
-mod picking;
 pub mod renderer;
-mod scene;
-mod systems;
 pub mod test_utils;
-mod timer;
 pub mod timestep;
-mod transform;
 pub mod ui;
 
 pub mod prelude {
@@ -25,7 +25,7 @@ pub mod prelude {
     pub use crate::renderer::Renderer;
     pub use crate::renderer::uniform;
     pub use crate::timestep;
-    pub use crate::ui;
+    pub use crate::ui::ui_layer::*;
     pub use log::{debug, error, info, trace, warn};
 }
 
@@ -69,7 +69,7 @@ use std::{
 
 use legion::Entity;
 
-use crate::assets::MaterialDesc;
+use crate::assets::{MaterialDesc};
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];

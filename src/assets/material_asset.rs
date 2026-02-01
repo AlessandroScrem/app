@@ -93,6 +93,13 @@ impl MaterialDesc {
         self.key.textures.get(slot as usize).copied().flatten()
     }
 
+    pub fn slot_get(&self, slot: MaterialTextureSlot) -> bool {
+        self.use_texture_slot[slot as usize]
+    }
+    pub fn slot_set(&mut self, slot: MaterialTextureSlot, flag: bool) {
+        self.use_texture_slot[slot as usize] = flag;
+    }
+
     pub fn set_name(&mut self, name: &str) {
         self.key.name = name.into();
     }
@@ -141,6 +148,12 @@ impl MaterialAssets {
 
     pub fn get(&self, id: MaterialId) -> Option<&MaterialDesc> {
         self.storage.get(id)
+    }
+
+    pub fn update(&mut self, desc: &MaterialDesc) {
+        if let Some(id) = self.lookup.get(&desc.key){
+            self.storage[*id] = desc.clone();
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (MaterialId, &MaterialDesc)> {

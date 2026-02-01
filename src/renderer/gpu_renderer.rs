@@ -46,7 +46,6 @@ pub struct GpuDevice<'a> {
     pub skb_mgr: &'a mut SkyboxManager,
 }
 
-
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
@@ -190,10 +189,7 @@ impl Renderer {
 
         // Skybox initialization
         let mut texture_cache = GpuTextureCache::default();
-        let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-        let hdr_id = asset_mgr
-            .textures
-            .from_file(hdrpath, crate::assets::TextureUsage::HDR16);
+        let hdr_id = asset_mgr.skybox.get_id();
         let hdr = texture_cache.get_or_create(hdr_id, &asset_mgr.textures, &device, &queue);
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
         // -----
@@ -244,14 +240,14 @@ impl Renderer {
         self._adapter.get_info().name
     }
 
-    pub fn get_hdr_id(&self) -> &TextureId {
-        &self.skybox_mgr.get_hdr_id()
+    pub fn get_hdr_id(&self) -> TextureId {
+        self.skybox_mgr.get_hdr_id()
     }
 
     pub fn get_hdr_imgui_id(&self) -> Option<&imgui::TextureId> {
         let hdr_id = self.get_hdr_id();
         let registry = self.get_texture_registry();
-        registry.ids.get(hdr_id)
+        registry.ids.get(&hdr_id)
     }
 
     pub fn get_hovered(&mut self) -> Option<Entity> {
@@ -342,6 +338,22 @@ impl Renderer {
     }
 
     pub fn prepare(&mut self, asset_mgr: &AssetManager) {
+        // skybox
+        if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
+            let hdr_texture = self.gpu_cache.textures.get_or_create(
+                asset_mgr.skybox.get_id(),
+                &asset_mgr.textures,
+                &self.device,
+                &self.queue,
+            );
+            self.skybox_mgr.update_skybox(
+                asset_mgr.skybox.get_id(),
+                hdr_texture,
+                &self.device,
+                &self.queue,
+                &self.gpu_mgr,
+            );
+        }
         // meshes
         let mesh_cache = &mut self.gpu_cache.mesh;
         for (id, _desc) in asset_mgr.meshes.iter() {

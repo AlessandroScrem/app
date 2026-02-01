@@ -6,11 +6,10 @@
 
 // #![allow(dead_code)]
 
-
 use crate::renderer::{
-        GpuTexture,
-        gpu_manager::{GpuManager, LayoutKind},
-    };
+    GpuTexture,
+    gpu_manager::{GpuManager, LayoutKind},
+};
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
 use super::texture;
@@ -808,6 +807,35 @@ impl SkyboxManager {
         }
     }
 
+    pub fn update_skybox(
+        &mut self,
+        hdr_id: crate::assets::TextureId,
+        hdr: &GpuTexture,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        gpu_manager: &GpuManager,
+    ) {
+        if self.skybox.hdr_id == hdr_id {
+            return;
+        }
+
+        self.skybox = Self::create_skybox(
+            hdr_id,
+            hdr,
+            device,
+            queue,
+            gpu_manager.get_layout(LayoutKind::Skybox),
+        );
+
+        self.ibl_bind_group = Self::create_ibl_bind_group(
+            device,
+            gpu_manager.get_layout(LayoutKind::Ibl),
+            &self.skybox.irradiance_view,
+            &self.skybox.prefilter_view,
+            &self._brdf_lut_view,
+        );
+    }
+
     fn create_ibl_bind_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
@@ -855,37 +883,9 @@ impl SkyboxManager {
     pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
         &self.ibl_bind_group
     }
-    pub fn get_hdr_id(&self) -> &crate::assets::TextureId {
-        &self.skybox.hdr_id
+    pub fn get_hdr_id(&self) -> crate::assets::TextureId {
+        self.skybox.hdr_id
     }
-
-    // pub fn change_skybox(
-    //     &mut self,
-    //     hdr_path: &std::path::Path,
-    //     device: &wgpu::Device,
-    //     queue: &wgpu::Queue,
-    //     gpu_manager: &GpuManager,
-    //     texture_manager: &mut TextureManager,
-    // ) {
-    //     if !hdr_path.exists() {
-    //         return;
-    //     }
-
-    //     self.skybox = Self::create_skybox(
-    //         device,
-    //         queue,
-    //         gpu_manager.get_layout(LayoutKind::Skybox),
-    //         texture_manager,
-    //         hdr_path,
-    //     );
-    //     self.ibl_bind_group = Self::create_ibl_bind_group(
-    //         device,
-    //         gpu_manager.get_layout(LayoutKind::Ibl),
-    //         &self.skybox.irradiance_view,
-    //         &self.skybox.prefilter_view,
-    //         &self.brdf_lut_view,
-    //     );
-    // }
 
     fn create_skybox(
         hdr_id: crate::assets::TextureId,
@@ -987,7 +987,7 @@ mod tests {
             .textures
             .from_file(HDR_PATH, crate::assets::TextureUsage::HDR16);
         let hdr = texture_cache.get_or_create(hdr_id, &asset_mgr.textures, device, queue);
-        
+
         let cubemap = EquirectangularToCubemap::build(&hdr.texture, &device, &queue, CUBEMAP_SIZE);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
@@ -1071,14 +1071,8 @@ mod tests {
             .textures
             .from_file(HDR_PATH, crate::assets::TextureUsage::HDR16);
         let hdr = texture_cache.get_or_create(hdr_id, &asset_mgr.textures, device, queue);
-        
-        let _manager = SkyboxManager::new(
-            hdr_id,
-            hdr,
-            &device,
-            &queue,
-            &gpu_manager,
-        );
+
+        let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
     }
 
     /// Utils

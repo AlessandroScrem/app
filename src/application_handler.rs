@@ -5,7 +5,6 @@ use std::time::Duration;
 use crate::input::Input;
 use crate::timer::Timer;
 
-use crate::prelude::ui::ui_layer::UiLayer;
 use crate::{
     DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*,
 };
@@ -70,7 +69,7 @@ impl MyApplication {
     }
 }
 
-fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
+fn update_domain_event(app: &mut App) {
     // event needs world update, will be executed next frame.
     let mut next_queue = VecDeque::<DomainEvent>::new();
 
@@ -92,14 +91,8 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                 app.recenter_camera();
             }
             DomainEvent::ChangeSkybox(path) => {
-                let gpu = &mut runtime.renderer.get_gpu_mut();
-                // gpu.skb_mgr.change_skybox(
-                //     &path,
-                //     &gpu.device,
-                //     &gpu.queue,
-                //     &gpu.gpu_mgr,
-                //     &mut gpu.texure_mgr,
-                // );
+                let hdr_id = app.asset_mgr.textures.from_file(path, crate::assets::TextureUsage::HDR16);
+                app.asset_mgr.skybox.set_id(hdr_id);
             }
             DomainEvent::UpdateTag(entity, c) => {
                 if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
@@ -115,14 +108,8 @@ fn update_domain_event(runtime: &mut RunningApp, app: &mut App) {
                     }
                 }
             }
-            DomainEvent::UpdateMaterial(entity, c) => {
-                // if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                //     if let Ok(t) = e.get_component_mut::<MeshComponent>() {
-                //         let mat_mgr = &mut runtime.renderer.get_gpu_mut().mat_mgr;
-                //         let mat = &mut mat_mgr.get_mut(&t.mat_handle).material_pbr;
-                //         *mat = c;
-                //     }
-                // }
+            DomainEvent::UpdateMaterial(_entity, c) => {
+                app.asset_mgr.materials.update(&c);
             }
             DomainEvent::UpdateLight(entity, c) => {
                 if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
@@ -181,13 +168,14 @@ impl ApplicationHandler for MyApplication {
             Arc::new(wnd)
         };
 
+        self.app.init();
+        debug!("App initialized in {} ms", timer.elapsed().as_millis());
+
         let mut uilayer = UiLayer::new(&window);
 
         let renderer = Renderer::new(window.clone(), uilayer.get_context_mut(), &mut self.app.asset_mgr);
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        self.app.init();
-        debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
@@ -234,7 +222,7 @@ impl ApplicationHandler for MyApplication {
             debug!("Sync_with_registry: ");
         });
 
-        update_domain_event(runtime, &mut self.app);
+        update_domain_event(&mut self.app);
 
         runtime.window.request_redraw();
     }
