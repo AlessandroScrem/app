@@ -37,7 +37,10 @@ impl App {
             "./assets/Lantern/Lantern.gltf".into(),
         ));
         let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-        let hdr_id = self.asset_mgr.textures.from_file(hdrpath, renderer::TextureUsage::HDR16);
+        let hdr_id = self
+            .asset_mgr
+            .textures
+            .from_file(hdrpath, renderer::TextureUsage::HDR16);
         self.asset_mgr.skybox = SkyboxHandle::new(hdr_id);
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
@@ -243,13 +246,16 @@ fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
             .map(|n| n.name.clone())
             .unwrap_or("<unnamed>".to_string());
 
-        let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
-
-        let children = hierarchy
-            .children
-            .iter()
-            .map(|&child| build_node(world, child, Some(entity)))
-            .collect();
+        let children = entry
+            .get_component::<HierarchyComponent>()
+            .map(|hierarchy| {
+                hierarchy
+                    .children
+                    .iter()
+                    .map(|&child| build_node(world, child, Some(entity)))
+                    .collect()
+            })
+            .unwrap_or_default();
 
         HierarchyNode {
             name,
@@ -305,7 +311,7 @@ fn get_comp_view(
                                 if let Some(id) = mat_desc.get_texture_slot(slot) {
                                     if let Some(reg_id) = tex_registry.ids.get(&id) {
                                         ids.insert(id.clone(), reg_id.clone());
-                                    } 
+                                    }
                                 }
                             }
                         }

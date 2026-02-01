@@ -1,5 +1,5 @@
-pub mod light;
 pub mod components;
+pub mod light;
 
 pub use components::*;
 
@@ -43,7 +43,6 @@ impl From<EntityId> for Entity {
     }
 }
 
-
 use std::hash::{Hash, Hasher};
 pub trait EntityHash {
     /// Restituisce un hash `u64` deterministico
@@ -58,22 +57,21 @@ impl EntityHash for Entity {
     }
 }
 
-
 pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
     if !is_root(entity, world) {
         warn!("{:?} Not Root: Remove abort", entity);
         return;
     }
-    
+
     let mut to_delete = Vec::new();
     collect_subtree(world, entity, &mut to_delete);
     for e in to_delete.into_iter().rev() {
         world.remove(e);
     }
-    
+
     fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
         out.push(root);
-    
+
         if let Ok(entry) = world.entry_ref(root) {
             if let Ok(h) = entry.get_component::<HierarchyComponent>() {
                 for &child in &h.children {
@@ -83,7 +81,6 @@ pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
         }
     }
 }
-
 
 fn is_root(entity: Entity, world: &legion::World) -> bool {
     let Ok(entry) = world.entry_ref(entity) else {
@@ -120,12 +117,10 @@ pub fn add_parent(entity: Entity, world: &mut legion::World) {
     };
 
     // Register new node as root
-    if let Ok(mut entry) = world.entry_mut(entity) {
-        let hierarchy = entry
-            .get_component_mut::<crate::HierarchyComponent>()
-            .unwrap();
-        hierarchy.parent = Some(new_root);
-    };
+    world.entry_mut(entity).ok().map(|mut e| {
+        e.get_component_mut::<HierarchyComponent>()
+            .map(|h| h.parent = Some(new_root))
+    });
 }
 
 #[cfg(test)]

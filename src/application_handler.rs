@@ -5,9 +5,7 @@ use std::time::Duration;
 use crate::input::Input;
 use crate::timer::Timer;
 
-use crate::{
-    DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*,
-};
+use crate::{DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*};
 
 use legion::EntityStore;
 use winit::application::ApplicationHandler;
@@ -62,7 +60,7 @@ impl MyApplication {
         }
     }
     pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let event_loop = winit::event_loop::EventLoop::new().unwrap();
+        let event_loop = winit::event_loop::EventLoop::new()?;
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
         event_loop.run_app(&mut self)?;
         Ok(())
@@ -80,9 +78,15 @@ fn update_domain_event(app: &mut App) {
                 app.selected = None;
             }
             DomainEvent::LoadGltf(path) => {
-                let loaded = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr).unwrap();
-                crate::assets::gltf_loader::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
-                next_queue.push_back(DomainEvent::RecenterCamera);
+                if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr)
+                {
+                    crate::assets::gltf_loader::spawn_scene(
+                        &mut app.current_scene.world,
+                        &loaded,
+                        &app.asset_mgr,
+                    );
+                    next_queue.push_back(DomainEvent::RecenterCamera);
+                }
             }
             DomainEvent::AddParent(entity) => {
                 crate::entities::add_parent(entity, &mut app.current_scene.world);
@@ -91,7 +95,10 @@ fn update_domain_event(app: &mut App) {
                 app.recenter_camera();
             }
             DomainEvent::ChangeSkybox(path) => {
-                let hdr_id = app.asset_mgr.textures.from_file(path, crate::assets::TextureUsage::HDR16);
+                let hdr_id = app
+                    .asset_mgr
+                    .textures
+                    .from_file(path, crate::assets::TextureUsage::HDR16);
                 app.asset_mgr.skybox.set_id(hdr_id);
             }
             DomainEvent::UpdateTag(entity, c) => {
@@ -173,9 +180,12 @@ impl ApplicationHandler for MyApplication {
 
         let mut uilayer = UiLayer::new(&window);
 
-        let renderer = Renderer::new(window.clone(), uilayer.get_context_mut(), &mut self.app.asset_mgr);
+        let renderer = Renderer::new(
+            window.clone(),
+            uilayer.get_context_mut(),
+            &mut self.app.asset_mgr,
+        );
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
-
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
@@ -252,7 +262,7 @@ impl ApplicationHandler for MyApplication {
                 if size.width > 0 && size.height > 0 {
                     let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
                     runtime.is_minimized = false;
-                    
+
                     runtime.renderer.resize_frame(size.width, size.height);
                     self.app.camera.set_aspect(aspect);
                 } else {

@@ -106,9 +106,12 @@ impl ImguiRender {
             })
         };
 
-        self.renderer
-            .render(draw_data, queue, device, &mut pass)
-            .unwrap();
+        match self.renderer.render(draw_data, queue, device, &mut pass) {
+            Ok(()) => {} 
+            Err(e) => {
+                error!("Imgui Render failed: {:?}", e);
+            }
+        }
     }
 }
 #[derive(Default)]
@@ -158,15 +161,17 @@ impl Renderer {
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
-            .unwrap();
+            .expect("unable to  crate adapter");
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default())
             .await
-            .unwrap();
+            .expect("unable to create device");
 
         debug!("Device initialized in {} ms", timer.elapsed().as_millis());
 
-        let surface = instance.create_surface(window.clone()).unwrap();
+        let surface = instance
+            .create_surface(window.clone())
+            .expect("unable to create Surface");
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps.formats[0];
 

@@ -32,7 +32,7 @@ impl PickObject {
     
     fn read_pixel<'a>(data: wgpu::BufferView<'a>) -> Option<Entity> {
         if data.len() >= 8 {
-            let id = u64::from_le_bytes(data[0..8].try_into().unwrap());
+            let id = u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
             let entity: Entity = crate::entities::EntityRawU64::from_raw_u64(id);
             Some(entity)
         } else {

@@ -58,6 +58,7 @@ pub mod math {
         Angle, Array, Deg, EuclideanSpace, Euler, InnerSpace as _, Matrix as _, Rad,
         Rotation3 as _, SquareMatrix as _, Zero,
         num_traits::{one, zero},
+        One,
         perspective, vec3, vec4,
     };
 }

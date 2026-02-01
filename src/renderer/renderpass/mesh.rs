@@ -64,15 +64,18 @@ impl RenderPass for MeshPass {
         for (entity, mesh, global) in mesh_query.iter(world) {
             let mut model = ModelUniform::new(global.mat);
             model.entity_id = entity.as_raw_u64();
-            let submeshes = &asset_mgr.meshes.get(mesh.handle).unwrap().submeshes;
-            for (i, submesh) in submeshes.iter().enumerate() {
-                self.meshes.push(GpuMeshFrame {
-                    mesh_handle: mesh.handle,
-                    model,
-                    material: submesh.material,
-                    _submesh: i as u32,
-                    index_range: submesh.index_range.clone(),
-                });
+            
+            if let Some(mesh_desc) = &asset_mgr.meshes.get(mesh.handle) {
+                for (i, submesh) in mesh_desc.submeshes.iter().enumerate() {
+                    self.meshes.push(GpuMeshFrame {
+                        mesh_handle: mesh.handle,
+                        model,
+                        material: submesh.material,
+                        _submesh: i as u32,
+                        index_range: submesh.index_range.clone(),
+                    });
+                }
+
             }
         }
 

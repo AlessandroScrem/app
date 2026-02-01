@@ -27,7 +27,6 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-
 pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
 
@@ -208,7 +207,7 @@ fn print_gltf_document(document: &gltf::Document) {
             mesh.name().unwrap_or("<Unnamed>")
         );
         for primitive in mesh.primitives() {
-            let index = primitive.indices().unwrap();
+            let index = primitive.indices().expect("indices not found");
             println!(
                 " - Primitive #{} Index Count {}",
                 primitive.index(),
@@ -255,13 +254,7 @@ pub fn load_gltf<P: AsRef<Path>>(
     path: P,
     asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
-    if path.as_ref().extension().unwrap() != "gltf" {
-        error!("File: {} is not a glTF", path.as_ref().display());
-        return Err(ImportError::MeshLoadFailed);
-    }
-
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
-
     let images: Vec<gltf::Image<'_>> = gltf.images().collect();
 
     let mut meshes = Vec::new();
@@ -458,20 +451,21 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &
         if let Some(mesh_idx) = node.mesh {
             let entity = node_to_entity[i];
             let mesh_id = &loaded.meshes[mesh_idx];
-            let mut entry = world.entry(entity).unwrap();
 
-            // MeshComponent
-            entry.add_component(MeshComponent {
-                handle: mesh_id.clone(),
-            });
-
-            // BoundingBoxComponent
-            if let Some(mesh) = asset_mgr.meshes.get(*mesh_id) {
-                let bbox = &mesh.bounds;
-                entry.add_component(BoundingBoxComponent {
-                    bounding_box: bbox.clone(),
-                    global_bounding_box: bbox.clone(),
+            if let Some(mut entry) = world.entry(entity) {
+                // MeshComponent
+                entry.add_component(MeshComponent {
+                    handle: mesh_id.clone(),
                 });
+
+                // BoundingBoxComponent
+                if let Some(mesh) = asset_mgr.meshes.get(*mesh_id) {
+                    let bbox = &mesh.bounds;
+                    entry.add_component(BoundingBoxComponent {
+                        bounding_box: bbox.clone(),
+                        global_bounding_box: bbox.clone(),
+                    });
+                }
             }
         }
     }
@@ -483,20 +477,15 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &
         for &child_idx in &node.children {
             let child = node_to_entity[child_idx];
 
-            world
-                .entry_mut(parent)
-                .unwrap()
-                .get_component_mut::<HierarchyComponent>()
-                .unwrap()
-                .children
-                .push(child);
+            world.entry_mut(parent).ok().map(|mut e| {
+                e.get_component_mut::<HierarchyComponent>()
+                    .map(|h| h.children.push(child))
+            });
 
-            world
-                .entry_mut(child)
-                .unwrap()
-                .get_component_mut::<HierarchyComponent>()
-                .unwrap()
-                .parent = Some(parent);
+            world.entry_mut(child).ok().map(|mut e| {
+                e.get_component_mut::<HierarchyComponent>()
+                    .map(|h| h.parent = Some(parent))
+            });
         }
     }
 }
