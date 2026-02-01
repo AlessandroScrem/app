@@ -1,8 +1,6 @@
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::{MaterialId, MeshAssets, MeshId};
 use crate::entities::EntityRawU64;
 use crate::input::Input;
-use crate::uniform::{MaterialUniform, ModelUniform};
 use imgui_wgpu::RendererConfig;
 use legion::{Entity, Resources, World};
 use std::collections::HashMap;
@@ -24,8 +22,6 @@ pub struct RenderContext<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
-    // pub mat_mgr: &'a MaterialManager,
-    // pub mesh_mgr: &'a MeshManager,
     pub light_mgr: &'a LightManager,
     pub bbox_mgr: &'a mut BBoxManager,
     pub pickobject: &'a PickObject,
@@ -39,9 +35,6 @@ pub struct GpuView<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
-    // pub mat_mgr: &'a MaterialManager,
-    // pub mesh_mgr: &'a MeshManager,
-    // pub texture_mgr: &'a TextureManager,
     pub light_mgr: &'a LightManager,
     pub bbox_mgr: &'a BBoxManager,
 }
@@ -50,104 +43,9 @@ pub struct GpuDevice<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a Queue,
     pub gpu_mgr: &'a GpuManager,
-    // pub mat_mgr: &'a mut MaterialManager,
-    // pub mesh_mgr: &'a mut MeshManager,
-    // pub texure_mgr: &'a mut TextureManager,
     pub skb_mgr: &'a mut SkyboxManager,
 }
 
-#[derive(Default)]
-pub struct GpuMeshCache {
-    map: HashMap<MeshId, mesh_manager::GpuMesh>,
-}
-
-impl GpuMeshCache {
-    fn ensure(
-        &mut self,
-        id: MeshId,
-        assets: &MeshAssets,
-        gpu_mgr: &GpuManager,
-        device: &wgpu::Device,
-    ) {
-        self.map
-            .entry(id)
-            .or_insert_with(|| Self::create_gpu_mesh(id, assets, gpu_mgr, device));
-    }
-
-    fn create_gpu_mesh(
-        id: MeshId,
-        asset: &MeshAssets,
-        gpu_manager: &GpuManager,
-        device: &wgpu::Device,
-    ) -> mesh_manager::GpuMesh {
-        let mesh = asset.get(id).unwrap();
-        let vertices = &mesh.vertices;
-        let indices = &mesh.indices;
-        mesh_manager::create_gpu_mesh(device, gpu_manager, vertices, indices)
-    }
-
-    pub fn update(&self, id: &MeshId, queue: &wgpu::Queue, uniform: &ModelUniform) {
-        if let Some(mesh) = self.map.get(id) {
-            let buffer = &mesh.model_uniform;
-            queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
-        }
-    }
-
-    pub fn get(&self, id: &MeshId) -> Option<&mesh_manager::GpuMesh> {
-        self.map.get(id)
-    }
-}
-
-#[derive(Default)]
-pub struct GpuMaterialCache {
-    map: HashMap<MaterialId, material_manager::GpuMaterial>,
-}
-
-impl GpuMaterialCache {
-    fn ensure(
-        &mut self,
-        id: MaterialId,
-        gpu_texture_cache: &mut GpuTextureCache,
-        assets: &AssetManager,
-        gpu_mgr: &GpuManager,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
-        self.map.entry(id).or_insert_with(|| {
-            Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device, queue)
-        });
-    }
-
-    fn create_gpu_material(
-        id: MaterialId,
-        gpu_texture_cache: &mut GpuTextureCache,
-        asset: &AssetManager,
-        gpu_manager: &GpuManager,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> material_manager::GpuMaterial {
-        material_manager::create_gpu_material(
-            device,
-            queue,
-            gpu_texture_cache,
-            id,
-            asset,
-            gpu_manager,
-        )
-    }
-
-    pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
-        if let Some(material) = self.map.get(id) {
-            if let Some(buffer) = &material.uniform_buffer {
-                queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
-            }
-        }
-    }
-
-    pub fn get(&self, id: &MaterialId) -> Option<&material_manager::GpuMaterial> {
-        self.map.get(id)
-    }
-}
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
@@ -230,9 +128,6 @@ pub struct Renderer {
     gpu_mgr: GpuManager,
     pipeline_mgr: PipelineManager,
     light_mgr: LightManager,
-    // texture_mgr: TextureManager,
-    // mesh_mgr: MeshManager,
-    // mat_mgr: MaterialManager,
     skybox_mgr: SkyboxManager,
     bbox_mgr: BBoxManager,
     imgui_render: ImguiRender,
@@ -287,10 +182,6 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        // let mut texture_mgr = TextureManager::new(device.clone(), queue.clone());
-        // let mat_mgr = MaterialManager::new(&device, &gpu_mgr, &mut texture_mgr);
-        // let mesh_mgr = MeshManager::new();
-
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
         let light_mgr = LightManager::new(&gpu_mgr, &device, &queue);
@@ -340,9 +231,6 @@ impl Renderer {
             gpu_mgr,
             pipeline_mgr,
             light_mgr,
-            // texture_mgr,
-            // mesh_mgr,
-            // mat_mgr,
             skybox_mgr,
             bbox_mgr,
             pickobject,
@@ -388,11 +276,8 @@ impl Renderer {
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
-            // mat_mgr: &self.mat_mgr,
-            // mesh_mgr: &self.mesh_mgr,
             light_mgr: &self.light_mgr,
             bbox_mgr: &self.bbox_mgr,
-            // texture_mgr: &self.texture_mgr,
         }
     }
 
@@ -401,20 +286,9 @@ impl Renderer {
             device: &self.device,
             queue: &self.queue,
             gpu_mgr: &self.gpu_mgr,
-            // mat_mgr: &mut self.mat_mgr,
-            // mesh_mgr: &mut self.mesh_mgr,
-            // texure_mgr: &mut self.texture_mgr,
             skb_mgr: &mut self.skybox_mgr,
         }
     }
-
-    // pub fn get_mat_mgr(&self) -> &MaterialManager {
-    //     &self.mat_mgr
-    // }
-
-    // pub fn get_mat_mgr_mut(&mut self) -> &mut MaterialManager {
-    //     &mut self.mat_mgr
-    // }
 
     pub fn get_texture_registry(&self) -> &ImGuiTextureRegistry {
         &self.imgui_render.registry
@@ -521,8 +395,6 @@ impl Renderer {
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
-            // mesh_mgr: &self.mesh_mgr,
-            // mat_mgr: &self.mat_mgr,
             light_mgr: &self.light_mgr,
             bbox_mgr: &mut self.bbox_mgr,
             pickobject: &self.pickobject,

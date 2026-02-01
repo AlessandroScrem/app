@@ -305,7 +305,7 @@ fn get_comp_view(
                 if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
                     for submesh in mesh_desc.submeshes.iter() {
                         if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
-                            for slot in material_manager::MATERIAL_TEXTURE_SLOTS {
+                            for slot in material_asset::MATERIAL_TEXTURE_SLOTS {
                                 if let Some(id) = mat_desc.get_texture_slot(slot) {
                                     if let Some(reg_id) = tex_registry.ids.get(&id) {
                                         ids.insert(id.clone(), reg_id.clone());

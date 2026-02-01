@@ -7,7 +7,7 @@ use crate::timer::Timer;
 
 use crate::prelude::ui::ui_layer::UiLayer;
 use crate::{
-    DomainEvent, LightComponent, MeshComponent, TagComponent, TransformComponent, prelude::*,
+    DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*,
 };
 
 use legion::EntityStore;

@@ -1,6 +1,6 @@
-use crate::{
-    assets::texture::Texture,
-    renderer::gpu_manager::{GpuManager, LayoutKind},
+use super::{
+    texture::Texture,
+    gpu_manager::{GpuManager, LayoutKind},
 };
 
 pub struct LightManager {

@@ -7,7 +7,7 @@ use crate::{
     TransformComponent,
     assets::{
         MaterialDesc, MaterialId, MaterialKey, MeshDesc, MeshId, MeshKey, SubMesh, TextureKey,
-        asset_manager::AssetManager, material_manager::MaterialPBR, vertexdata::MeshVertexData,
+        asset_manager::AssetManager, material_asset::MaterialPBR, vertexdata::MeshVertexData,
     },
     math::*,
     prelude::*,
@@ -391,7 +391,7 @@ fn create_material<P: AsRef<Path>>(
     images: &Vec<gltf::Image<'_>>,
     path: P,
 ) -> MaterialPBR {
-    use material_manager::MaterialTextureSlot::*;
+    use material_asset::MaterialTextureSlot::*;
 
     let name = gltf_material.name().unwrap_or("material_no_name");
     let parent_path = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
@@ -443,7 +443,7 @@ fn create_material<P: AsRef<Path>>(
 fn mat_pbr_to_id(asset_mgr: &mut AssetManager, mat_pbr: &MaterialPBR) -> MaterialId {
     let mut mat_key = MaterialKey::default();
 
-    for slot in material_manager::MaterialTextureSlot::ALL {
+    for slot in material_asset::MaterialTextureSlot::ALL {
         if let Some(path) = mat_pbr.get_path(slot) {
             let key = TextureKey::File {
                 color_space: slot.color_space().into(),
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn should_create_material() {
-        use material_manager::MaterialTextureSlot::*;
+        use material_asset::MaterialTextureSlot::*;
         
         let mut asset_mgr = AssetManager::default();
         

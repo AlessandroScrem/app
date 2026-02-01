@@ -18,7 +18,7 @@ pub mod ui;
 pub mod prelude {
     pub use super::app::App;
     pub use super::application_handler::MyApplication;
-    pub use crate::assets::material_manager;
+    pub use crate::assets::material_asset;
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
     pub use crate::entities::components::*;
@@ -28,7 +28,7 @@ pub mod prelude {
     pub use crate::ui;
     pub use log::{debug, error, info, trace, warn};
 }
-use imgui::TextureId;
+
 pub use prelude::*;
 
 pub mod math {
@@ -68,7 +68,7 @@ use std::{
 };
 
 use legion::Entity;
-use material_manager::MaterialPBR;
+use material_asset::MaterialPBR;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];

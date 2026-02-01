@@ -5,8 +5,8 @@ use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, assets::material_manager::MaterialPBR,
-    material_manager::MaterialTextureSlot,
+    TransformComponent, assets::material_asset::MaterialPBR,
+    material_asset::MaterialTextureSlot,
 };
 
 pub struct PropertyUi {}

@@ -2,19 +2,13 @@ use crate::math::*;
 use crate::prelude::*;
 use legion::Entity;
 
-use crate::assets::{MaterialId, MeshId};
+use crate::assets::MeshId;
 
 // Ecs Components
 #[derive(Default, Clone)]
 pub struct LightComponent {
     pub data: uniform::LightUniform,
 }
-
-// #[derive(Default, Clone)]
-// pub struct MeshComponent {
-//     pub handle: usize,
-//     pub mat_handle: material_manager::MaterialId,
-// }
 
 #[derive(Default, Clone)]
 pub struct MeshComponent {

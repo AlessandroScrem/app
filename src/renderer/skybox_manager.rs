@@ -13,7 +13,7 @@ use crate::renderer::{
     };
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
-use crate::assets::texture;
+use super::texture;
 
 mod utils {
     use crate::math::*;
@@ -765,8 +765,8 @@ pub struct Skybox {
 }
 
 pub struct SkyboxManager {
-    brdf_lut: wgpu::Texture,
-    brdf_lut_view: wgpu::TextureView,
+    _brdf_lut: wgpu::Texture,
+    _brdf_lut_view: wgpu::TextureView,
     skybox: Skybox,
     ibl_bind_group: wgpu::BindGroup,
 }
@@ -801,8 +801,8 @@ impl SkyboxManager {
         );
 
         Self {
-            brdf_lut,
-            brdf_lut_view,
+            _brdf_lut: brdf_lut,
+            _brdf_lut_view: brdf_lut_view,
             skybox,
             ibl_bind_group,
         }
