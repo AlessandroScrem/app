@@ -1,5 +1,7 @@
-use crate::{assets::texture::Texture, renderer::{gpu_manager::{GPUResourceManager, LayoutKind}}};
-use std::sync::Arc;
+use super::{
+    texture::Texture,
+    gpu_manager::{GpuManager, LayoutKind},
+};
 
 pub struct LightManager {
     pub light_texture_bind_group: wgpu::BindGroup,
@@ -7,9 +9,9 @@ pub struct LightManager {
 
 impl LightManager {
     pub fn new(
-        gpu_resource_manager: &GPUResourceManager,
-        device: Arc<wgpu::Device>,
-        queue: Arc<wgpu::Queue>,
+        gpu_manager: &GpuManager,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
     ) -> Self {
         let light_texture = {
             let buffer = include_bytes!(concat!(
@@ -29,7 +31,8 @@ impl LightManager {
             ..Default::default()
         });
 
-        let light_texture_bind_group_layout = gpu_resource_manager.get_layout(LayoutKind::LightTexture);
+        let light_texture_bind_group_layout =
+            gpu_manager.get_layout(LayoutKind::LightTexture);
 
         let light_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_texture_bind_group_layout,

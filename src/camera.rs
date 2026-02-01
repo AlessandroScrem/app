@@ -8,35 +8,6 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-/* //glam implementation
-   pub fn perspective_lh(fov_y_radians: f64, aspect_ratio: f64, z_near: f64, z_far: f64) -> Self {
-       glam_assert!(z_near > 0.0 && z_far > 0.0);
-       let (sin_fov, cos_fov) = math::sin_cos(0.5 * fov_y_radians);
-       let h = cos_fov / sin_fov;
-       let w = h / aspect_ratio;
-       let r = z_far / (z_far - z_near);
-       Self::from_cols(
-           DVec4::new(w, 0.0, 0.0, 0.0),
-           DVec4::new(0.0, h, 0.0, 0.0),
-           DVec4::new(0.0, 0.0, r, 1.0),
-           DVec4::new(0.0, 0.0, -r * z_near, 0.0),
-       )
-   }
-*/
-
-/*     /// Perspective LH (left-handed) come in DirectX (da testare)
-   #[rustfmt::skip]
-   pub fn perspective_lh<A: Into<Rad<f32>>>(fovy: A, aspect: f32, near: f32, far: f32) -> Mat4 {
-       let fovy = fovy.into();
-       let f = 1.0 / (fovy.0 / 2.0).tan();
-       Mat4::new(
-       f / aspect, 0.0, 0.0, 0.0,
-       0.0, f, 0.0, 0.0,
-       0.0, 0.0, far / (far - near), 1.0,
-       0.0, 0.0, -(near * far) / (far - near), 0.0,)
-   }
-*/
-
 #[derive(Clone, Debug)]
 pub struct Camera {
     position: Vec3,
@@ -52,12 +23,14 @@ pub struct Camera {
     pub recenter_request: bool,
 }
 
-impl Camera {
-    pub fn default() -> Self {
+impl Default for Camera {
+    fn default() -> Self {
         const FOV: Deg<f32> = Deg::<f32>(30.0);
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
+}
 
+impl Camera {
     pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(
         fov: F,
         aspect: f32,
@@ -192,32 +165,6 @@ impl Camera {
     fn calculate_position(&self) -> Vec3 {
         self.focal_point - self.get_forward_direction() * self.distance
     }
-}
-
-pub fn center_camera_to_bounding_box(
-    camera: &mut Camera,
-    bbox: crate::entities::bounding_box::BoundingBox,
-) {
-    use crate::math::*;
-    let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
-    let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
-    let size = max - min;
-
-    let fov = camera.fov;
-    let aspect = camera.get_aspect();
-    let center = (min + max) * 0.5;
-    let max_size = size.magnitude();
-    let fit_offset = 1.5f32;
-    let fit_height_distance = max_size / (2.0f32 * Angle::tan(fov * 0.5));
-    let fit_width_distance = fit_height_distance / aspect;
-    let distance = fit_offset * fit_height_distance.max(fit_width_distance);
-    let near = distance / 100.0;
-    let far = distance * 100.0;
-
-    camera.near = near;
-    camera.far = far;
-    camera.set_focal_point(center);
-    camera.set_distance(distance);
 }
 
 #[cfg(test)]
@@ -432,37 +379,4 @@ mod tests {
             z_ndc_far
         );
     }
-
-    /*     #[test]
-    fn glam_perspective_lh_is_wgpu_compatible() {
-        // glam = "0.30.5"
-        use glam::{Mat4, Vec4};
-        let fovy = std::f32::consts::FRAC_PI_4; // 45°
-        let aspect = 1.0;
-        let near = 1.0;
-        let far = 100.0;
-
-        // LH: forward = +Z, clip depth in [0,1]
-        let proj = Mat4::perspective_lh(fovy, aspect, near, far);
-
-        // punti sui piani near/far (z positive in LH)
-        let near_clip = proj * Vec4::new(0.0, 0.0, near, 1.0);
-        let far_clip = proj * Vec4::new(0.0, 0.0, far, 1.0);
-
-        let z_ndc_near = near_clip.z / near_clip.w;
-        let z_ndc_far = far_clip.z / far_clip.w;
-
-        let eps = 1e-6;
-        // In wgpu ci aspettiamo [0,1]
-        assert!(
-            (z_ndc_near - 0.0).abs() < eps,
-            "near -> expected 0, got {}",
-            z_ndc_near
-        );
-        assert!(
-            (z_ndc_far - 1.0).abs() < eps,
-            "far  -> expected 1, got {}",
-            z_ndc_far
-        );
-    } */
 }

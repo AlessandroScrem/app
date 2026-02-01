@@ -1,45 +1,48 @@
-use std::collections::HashMap;
 
-use legion::Entity;
+use wgpu::util::DeviceExt;
 
 use crate::assets::vertexdata::LinesVertexData;
-use crate::entities::bounding_box::BoundingBox;
-
 use crate::math::*;
+use crate::prelude::*;
 use crate::{BoundingBoxComponent, colors};
 
+
 pub struct BBoxManager {
-    vertexbuffers: HashMap<Entity, wgpu::Buffer>,
+    vertexbuffer: Option<wgpu::Buffer>,
+    count: u32,
 }
 
 impl BBoxManager {
     pub fn new() -> Self {
         Self {
-            vertexbuffers: HashMap::new(),
+            vertexbuffer: None,
+            count: 0,
         }
     }
 
-    fn create(&mut self, device: &wgpu::Device, id: Entity) {
-        let vertexbuffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Dynamic BBox Vertex Buffer"),
-            size: (std::mem::size_of::<BBoxVertexData>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
+    pub fn create_buffer(&mut self, device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) {
+        let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
+            label: Some("BBox Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
         });
-        self.vertexbuffers.insert(id, vertexbuffer);
+
+        self.count = (vertices.len() * VERTICES) as u32;
+        self.vertexbuffer = Some(vertexbuffer);
     }
 
-    pub fn get_or_create(&mut self, device: &wgpu::Device, id: Entity) -> &wgpu::Buffer {
-        if !self.vertexbuffers.contains_key(&id) {
-            self.create(device, id);
-        }
-        self.vertexbuffers.get(&id).expect("vb not exist")
+    pub fn get_count(&self)->u32 {
+        self.count
+    }
+    pub fn get_vertexbuffer(&self) -> &wgpu::Buffer {
+        &self.vertexbuffer.as_ref().expect("vb not exist")
     }
 }
 
 const VERTICES: usize = 24;
 const CORNERS: usize = VERTICES / 3;
-type BBoxVertexData = [LinesVertexData; VERTICES];
+
+pub type BBoxVertexData = [LinesVertexData; VERTICES];
 type BBoxCornerData = [Vec3; CORNERS];
 
 impl BoundingBox {

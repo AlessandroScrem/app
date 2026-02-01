@@ -1,74 +1,230 @@
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::input::Input;
-use crate::prelude::*;
-use crate::renderer::gpu_manager::GPUResourceManager;
-use crate::renderer::hdr_frame::IDTexture;
-use crate::renderer::{gpu_renderer::DepthTexture, hdr_frame::HdrFrame};
-use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use crate::timer::Timer;
 
-impl ApplicationHandler for App {
+use crate::{
+    DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*,
+};
+
+use legion::EntityStore;
+use winit::application::ApplicationHandler;
+use winit::event::{DeviceEvent, Event, WindowEvent};
+use winit::event_loop::ActiveEventLoop;
+use winit::window::{Window, WindowAttributes, WindowId};
+
+#[derive(Default)]
+pub struct EventQueue {
+    pub queue: VecDeque<Event<()>>,
+}
+
+pub struct RunningApp {
+    pub window: Arc<Window>,
+    pub renderer: Renderer,
+    pub uilayer: UiLayer,
+    pub is_minimized: bool,
+    pub timer: Timer,
+    pub event_queue: EventQueue,
+    pub input: Input,
+}
+
+impl RunningApp {
+    pub fn update_input(&mut self) {
+        while let Some(event) = self.event_queue.queue.pop_front() {
+            self.uilayer.handle_event(&self.window, &event);
+
+            match &event {
+                Event::DeviceEvent { .. } | Event::WindowEvent { .. } => {
+                    if !self.uilayer.want_capture_mouse() {
+                        self.input.update_events(&event);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct MyApplication {
+    app: App,
+    runtime: Option<RunningApp>,
+    size: winit::dpi::PhysicalSize<u32>,
+}
+
+impl MyApplication {
+    pub fn new_with_size(width: u32, height: u32) -> Self {
+        Self {
+            size: winit::dpi::PhysicalSize::new(width, height),
+            ..Default::default()
+        }
+    }
+    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let event_loop = winit::event_loop::EventLoop::new().unwrap();
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        event_loop.run_app(&mut self)?;
+        Ok(())
+    }
+}
+
+fn update_domain_event(app: &mut App) {
+    // event needs world update, will be executed next frame.
+    let mut next_queue = VecDeque::<DomainEvent>::new();
+
+    while let Some(event) = app.domain_events.queue.pop_front() {
+        match event {
+            DomainEvent::RemoveEntity(entity) => {
+                crate::entities::remove_from_root(entity, &mut app.current_scene.world);
+                app.selected = None;
+            }
+            DomainEvent::LoadGltf(path) => {
+                let loaded = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr).unwrap();
+                crate::assets::gltf_loader::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
+                next_queue.push_back(DomainEvent::RecenterCamera);
+            }
+            DomainEvent::AddParent(entity) => {
+                crate::entities::add_parent(entity, &mut app.current_scene.world);
+            }
+            DomainEvent::RecenterCamera => {
+                app.recenter_camera();
+            }
+            DomainEvent::ChangeSkybox(path) => {
+                let hdr_id = app.asset_mgr.textures.from_file(path, crate::assets::TextureUsage::HDR16);
+                app.asset_mgr.skybox.set_id(hdr_id);
+            }
+            DomainEvent::UpdateTag(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(t) = e.get_component_mut::<TagComponent>() {
+                        *t = c;
+                    }
+                }
+            }
+            DomainEvent::UpdateTransform(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(t) = e.get_component_mut::<TransformComponent>() {
+                        *t = c;
+                    }
+                }
+            }
+            DomainEvent::UpdateMaterial(_entity, c) => {
+                app.asset_mgr.materials.update(&c);
+            }
+            DomainEvent::UpdateLight(entity, c) => {
+                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
+                    if let Ok(light) = e.get_component_mut::<LightComponent>() {
+                        *light = c;
+                    }
+                }
+            }
+        }
+    }
+
+    app.domain_events.queue.append(&mut next_queue);
+}
+
+pub trait CenterWindow {
+    fn try_fit_center_to_monitor(self) -> Self;
+}
+
+impl CenterWindow for winit::window::Window {
+    fn try_fit_center_to_monitor(self) -> Self {
+        if let Some(monitor) = self.current_monitor() {
+            let screen_size = monitor.size();
+            let window_size = self.inner_size();
+            let safe_width = screen_size.width.min(window_size.width);
+            let safe_height = screen_size.height.min(window_size.height);
+
+            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
+            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
+            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+        }
+        self
+    }
+}
+
+impl ApplicationHandler for MyApplication {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        println!("resumed");
+        if self.runtime.is_some() {
+            println!("Exit");
+            return;
+        };
+
         let timer = std::time::Instant::now();
         debug!("App resumed after  {} ms", timer.elapsed().as_millis());
 
-        let window = self.create_and_center_window(event_loop);
-        self.window = Some(window.clone());
+        let window = {
+            let wnd = event_loop
+                .create_window(
+                    WindowAttributes::default()
+                        .with_inner_size(self.size)
+                        .with_title("App"),
+                )
+                .map(|w| w.try_fit_center_to_monitor())
+                .expect("Failed to crate window");
 
-        Renderer::init(window.clone(), &mut self.resources);
-        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+            Arc::new(wnd)
+        };
 
-        self.load();
+        self.app.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
-        window.request_redraw();
-    }
+        let mut uilayer = UiLayer::new(&window);
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: ()) {
-        //imgui
-        if let (Some(window), Some(imgui)) = (&mut self.window, &mut self.imgui) {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                &window,
-                &winit::event::Event::UserEvent(event),
-            );
-        }
+        let renderer = Renderer::new(window.clone(), uilayer.get_context_mut(), &mut self.app.asset_mgr);
+        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+
+
+        self.runtime = Some(RunningApp {
+            window: window.clone(),
+            event_queue: EventQueue::default(),
+            input: Input::new(),
+            renderer,
+            uilayer,
+            is_minimized: false,
+            timer: Timer::new(),
+        });
+
+        window.request_redraw();
     }
 
     fn device_event(
         &mut self,
         _event_loop: &ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
+        device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
+        let Some(runtime) = &mut self.runtime else {
+            return;
+        };
+
         {
-            let mut input = self.resources.get_mut::<Input>().unwrap();
-            input.update_device_events(&event);
+            let event = Event::DeviceEvent { device_id, event };
+            runtime.event_queue.queue.push_back(event);
         }
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
+        let Some(runtime) = &mut self.runtime else {
+            return;
         };
 
         // update timer and input
-        self.timer.tick_step_iter().for_each(|_dt| {
-            self.resources.get_mut::<Input>().unwrap().clear();
+        runtime.timer.tick_step_iter().for_each(|_dt| {
+            runtime.input.clear();
         });
 
         // Esegue `callback` ogni secondo , in base al clock interno.
-        self.timer.trigger_every(Duration::from_secs(1), || {
-            self.update_schedule
-                .execute(&mut self.current_scene.world, &mut self.resources);
+        runtime.timer.trigger_every(Duration::from_secs(1), || {
+            runtime.renderer.sync_imgui_texture();
+            debug!("Sync_with_registry: ");
         });
 
-        window.request_redraw();
+        update_domain_event(&mut self.app);
+
+        runtime.window.request_redraw();
     }
 
     fn window_event(
@@ -77,30 +233,14 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
+        let Some(runtime) = &mut self.runtime else {
+            return;
         };
 
-        let mut imgui_capture_events = false;
-
-        if let Some(imgui) = &mut self.imgui {
-            imgui.platform.handle_event::<()>(
-                imgui.context.io_mut(),
-                window,
-                &winit::event::Event::WindowEvent {
-                    window_id,
-                    event: event.clone(),
-                },
-            );
-            imgui_capture_events =
-                imgui.context.io().want_capture_mouse || imgui.context.io().want_capture_keyboard;
-        }
-
-        if !imgui_capture_events {
-            let mut input = self.resources.get_mut::<Input>().unwrap();
-            input.update_window_events(&event);
-        }
+        runtime.event_queue.queue.push_back(Event::WindowEvent {
+            window_id,
+            event: event.clone(),
+        });
 
         match event {
             WindowEvent::CloseRequested => {
@@ -110,77 +250,31 @@ impl ApplicationHandler for App {
 
             WindowEvent::Resized(size) => {
                 if size.width > 0 && size.height > 0 {
-                    self.is_minimized = false;
-                    resize_resources(&mut self.resources, size.width, size.height);
+                    let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
+                    runtime.is_minimized = false;
+                    
+                    runtime.renderer.resize_frame(size.width, size.height);
+                    self.app.camera.set_aspect(aspect);
                 } else {
-                    self.is_minimized = true;
+                    runtime.is_minimized = true;
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.update_scene();
-                self.render();
+                if runtime.is_minimized {
+                    return;
+                }
+
+                // Update
+                runtime.update_input();
+                self.app.update_camera(&runtime.input);
+                self.app.update_selected(runtime);
+                self.app.update_scene();
+                self.app.update_uilayer(runtime);
+
+                // Render
+                self.app.render(runtime)
             }
             _ => (),
         }
-    }
-}
-
-fn resize_resources(resources: &mut legion::Resources, width: u32, height: u32) {
-    {
-        let mut surface_config = resources.get_mut::<wgpu::SurfaceConfiguration>().unwrap();
-        surface_config.width = width;
-        surface_config.height = height;
-
-        let surface = resources.get::<wgpu::Surface>().unwrap();
-        let device = resources.get::<wgpu::Device>().unwrap();
-
-        surface.configure(&device, &surface_config);
-    }
-    // resize hdr texture
-    {
-        resources.insert({
-            let device = resources.get::<wgpu::Device>().unwrap();
-            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-            HdrFrame::new(
-                &device,
-                &gpu_resource_manager,
-                winit::dpi::PhysicalSize::new(width, height),
-            )
-        });
-    }
-    // resize entity_id_texture
-    {
-        resources.insert({
-            let device = resources.get::<wgpu::Device>().unwrap();
-            let gpu_resource_manager = resources.get::<Arc<GPUResourceManager>>().unwrap();
-            IDTexture::new(
-                &device,
-                &gpu_resource_manager,
-                winit::dpi::PhysicalSize::new(width, height),
-            )
-        });
-    }
-
-    // resize depth texture
-    {
-        let depth_texture = {
-            let device = resources.get::<wgpu::Device>().unwrap();
-            device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("depth_texture"),
-                size: wgpu::Extent3d {
-                    width: width,
-                    height: height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            })
-        };
-        let depth_view = depth_texture.create_view(&Default::default());
-        resources.insert(DepthTexture(depth_view));
     }
 }

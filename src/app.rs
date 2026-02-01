@@ -1,251 +1,319 @@
+use std::collections::HashMap;
+
+use crate::DomainEvent;
+use crate::DomainEvents;
+use crate::UiComponentView;
+use crate::application_handler::RunningApp;
+use crate::assets::asset_manager::AssetManager;
+use crate::assets::asset_manager::SkyboxHandle;
 use crate::input::Input;
-use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
 
 use crate::Globals;
-use crate::prelude::ui::ImguiState;
 use crate::prelude::*;
+use crate::renderer;
 use crate::scene::Scene;
 
+use legion::Entity;
+use legion::EntityStore;
 use legion::Resources;
-use legion::Schedule;
-use legion::systems::Builder;
 
-pub struct Timer {
-    pub clock: Instant,    // timer since application start
-    pub delta_time: f32,   //time since last frame
-    pub elapsed_time: f32, //timer since last update
-    pub frame_time: f32,   //time taken to render last frame
-    last_trigger: Instant, // last time the every() callback was triggered
-}
-
-impl Timer {
-    pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; //minimum timestep (to avoid leg)
-    pub fn new() -> Self {
-        Self {
-            clock: Instant::now(),
-            delta_time: 0.0,
-            elapsed_time: 0.0,
-            frame_time: 0.0,
-            last_trigger: Instant::now(),
-        }
-    }
-
-    /// Returns the time in seconds since the last call to frametime() and updates the internal timer.
-    pub fn frametime(&mut self) -> f32 {
-        let frametime = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
-        self.frame_time = frametime * 1000.0;
-        frametime
-    }
-
-    /// Update the timer with the given frametime.
-    /// Clamps the delta_time to FIXED_TIMESTEP to avoid large timesteps.
-    pub fn tick(&mut self, frametime: f32) -> f32 {
-        self.delta_time = f32::min(frametime, Self::FIXED_TIMESTEP);
-        self.elapsed_time += self.delta_time;
-        self.delta_time
-    }
-
-    /// Iterator that yields fixed timestep steps until the current frametime is covered.
-    /// This can be used to run fixed timestep updates in a variable timestep environment.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let mut timer = super::Timer::new();
-    /// let frametime = timer.frametime();
-    /// for dt in timer.tick_step_iter() {
-    ///     // Run fixed timestep update with dt
-    /// }
-    /// ```
-    pub fn tick_step_iter(&mut self) -> impl Iterator<Item = f32> + '_ {
-        let mut remaining = self.frametime();
-        std::iter::from_fn(move || {
-            if remaining > 0.0 {
-                let dt = remaining.min(Self::FIXED_TIMESTEP);
-                remaining -= dt;
-                Some(self.tick(dt))
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Trigger a callback every `interval` duration.
-    /// The callback is called once for each interval that has passed since the last trigger.
-    /// This function should be called every frame, typically in the main loop.
-    /// # Example
-    /// ```ignore
-    /// use std::time::Duration;
-    /// let mut timer = Timer::new();
-    /// loop {
-    ///   timer.trigger_every(Duration::from_secs(1), || {
-    ///     println!("This prints every second");
-    /// });
-    /// }
-    /// ```
-    ///  
-    pub fn trigger_every<F>(&mut self, interval: Duration, mut callback: F)
-    where
-        F: FnMut(),
-    {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_trigger);
-
-        if elapsed >= interval {
-            // Calcola quanti intervalli completi sono passati
-            let steps = elapsed.as_nanos() / interval.as_nanos();
-            self.last_trigger += interval * steps as u32;
-
-            // Esegui la callback
-            callback();
-        }
-    }
-}
-
-pub trait CenterWindow {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32>;
-}
-
-impl CenterWindow for winit::window::Window {
-    fn try_fit_center_to_monitor(&self) -> winit::dpi::PhysicalSize<u32> {
-        let mut size = self.inner_size();
-        if let Some(monitor) = self.current_monitor() {
-            let screen_size = monitor.size();
-            let window_size = self.inner_size();
-            let safe_width = screen_size.width.min(window_size.width);
-            let safe_height = screen_size.height.min(window_size.height);
-
-            if let Some(new_size) =
-                self.request_inner_size(winit::dpi::PhysicalSize::new(safe_width, safe_height))
-            {
-                size = new_size;
-            }
-
-            let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
-            let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
-            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
-        }
-        size
-    }
-}
-
+#[derive(Default)]
 pub struct App {
-    pub(super) window: Option<Arc<winit::window::Window>>,
     pub current_scene: Scene,
+    pub asset_mgr: AssetManager,
     pub resources: Resources,
-    pub timer: Timer,
-    pub size: winit::dpi::PhysicalSize<u32>,
-    pub update_schedule: Schedule,
-    pub render_schedule: Schedule,
-    pub imgui: Option<ImguiState>,
-    pub is_minimized: bool,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        let update_schedule = Builder::default().build();
-        let render_schedule = Builder::default().build();
-
-        Self {
-            window: None,
-            current_scene: Scene::default(),
-            resources: Resources::default(),
-            update_schedule,
-            render_schedule,
-            timer: Timer::new(),
-            size: winit::dpi::PhysicalSize::new(1280, 1024),
-            imgui: None,
-            is_minimized: false,
-        }
-    }
+    pub globals: Globals,
+    pub camera: Camera,
+    pub domain_events: DomainEvents,
+    pub selected: Option<Entity>,
+    pub hovered: Option<Entity>,
 }
 
 impl App {
-    pub fn new_with_size(width: u32, height: u32) -> Self {
-        Self {
-            size: winit::dpi::PhysicalSize::new(width, height),
-            ..Default::default()
-        }
-    }
-
-    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let event_loop = winit::event_loop::EventLoop::new().unwrap();
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
-        event_loop.run_app(&mut self)?;
-        Ok(())
-    }
-
-    pub fn load(&mut self) {
+    pub fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        self.resources.insert(Input::new());
-        self.resources.insert(Camera::default());
-        self.resources.insert(Globals::default());
+        self.domain_events.queue.push_back(DomainEvent::LoadGltf(
+            "./assets/Lantern/Lantern.gltf".into(),
+        ));
+        let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        let hdr_id = self.asset_mgr.textures.from_file(hdrpath, renderer::TextureUsage::HDR16);
+        self.asset_mgr.skybox = SkyboxHandle::new(hdr_id);
 
-        crate::entities::mesh::create(&mut self.current_scene.world, &self.resources);
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
-        self.update_schedule = crate::systems::create_update_schedule_builder();
-        self.render_schedule = crate::systems::create_render_schedule_builder();
-
-        self.create_gui();
 
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
-    pub fn create_and_center_window(
-        &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-    ) -> std::sync::Arc<winit::window::Window> {
-        let attributes = winit::window::Window::default_attributes()
-            .with_inner_size(self.size)
-            .with_title("App".to_string());
+    pub fn update_selected(&mut self, runtime: &mut RunningApp) {
+        let input = &runtime.input;
+        let renderer = &mut runtime.renderer;
+        // update hovered entity_id from buffer
+        use crate::input::MouseButton;
+        use winit::keyboard::{Key, NamedKey};
+        if input.is_cursor_moved() {
+            self.hovered = renderer.get_hovered();
+        }
 
-        let window = std::sync::Arc::new(
-            event_loop
-                .create_window(attributes)
-                .expect("Failed to crate window"),
-        );
-        let new_size = window.try_fit_center_to_monitor();
-        self.size = new_size;
-
-        window
-    }
-
-    fn create_gui(&mut self) {
-        if let Some(window) = &self.window {
-            let imgui = ui::ImguiState::create_imgui(window, &mut self.resources);
-
-            self.imgui = Some(imgui);
+        if input.is_mouse_button_pressed(MouseButton::Left)
+            && input.is_key_down(Key::Named(NamedKey::Alt))
+        {
+            self.selected = self.hovered;
         }
     }
 
     pub fn update_scene(&mut self) {
-        // scheduler di update ecs (camera, mesh, etc)
-        let window = match &mut self.window {
-            Some(window) => window,
-            None => return,
-        };
-
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
-    
-        if let Some(imgui) = &mut self.imgui {
-            let mut scene_world = &mut self.current_scene.world;
-            imgui.update_ui(window, &mut scene_world, &mut self.resources);
+    }
+
+    pub fn update_camera(&mut self, input: &Input) {
+        // move away from here
+
+        if input.is_mouse_button_down(crate::input::MouseButton::Left) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            self.camera.orbit(delta);
+        }
+
+        if input.is_mouse_button_down(crate::input::MouseButton::Middle) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            self.camera.pan(delta);
+        }
+
+        if let Some(delta) = input.mouse_wheel_movement {
+            self.camera.zoom(delta.y);
         }
     }
 
-    pub fn render(&mut self) {
-        if self.is_minimized {
-            return;
+    pub fn render(&mut self, runtime: &mut RunningApp) {
+        runtime.renderer.render(
+            &self.asset_mgr,
+            &self.current_scene.world,
+            &mut self.resources,
+            &self.camera,
+            &self.globals,
+            self.selected,
+            &runtime.input,
+            runtime.uilayer.get_draw_data(),
+        );
+    }
+
+    pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
+        let uilayer = &mut runtime.uilayer;
+        let renderer = &mut runtime.renderer;
+        let window = &runtime.window;
+
+        let root_snapshot = create_root_snapshot(&self.current_scene.world);
+        let comp_view = &mut get_comp_view(
+            self.selected,
+            &self.current_scene.world,
+            &self.asset_mgr,
+            &renderer.get_texture_registry(),
+        );
+
+        let mut snapshot = Snapshot {
+            camera: &mut self.camera,
+            globals: &mut self.globals,
+            root_nodes: &root_snapshot.root_nodes,
+            lights_nodes: &root_snapshot.lights_nodes,
+            comp_view,
+            selected: &mut self.selected,
+            hovered: self.hovered,
+            adapter_string: renderer.get_adapter_string(),
+            hdr_texture_id: renderer.get_hdr_imgui_id(),
+            debug_texture_id: None,
+        };
+
+        // Main operation: update_ui
+        let mut events = uilayer.build(window, &mut snapshot);
+        self.domain_events.queue.append(&mut events);
+    }
+
+    pub fn recenter_camera(&mut self) {
+        let camera = &mut self.camera;
+        let world = &self.current_scene.world;
+        let selected = self.selected;
+
+        let bbox = {
+            if let Some(selected) = selected {
+                get_bbox_from_entity(world, selected)
+            } else {
+                get_bounding_box_from_world(world)
+            }
+        };
+
+        center_camera_to_bounding_box(camera, bbox.clone());
+
+        fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
+            let entry = world.entry_ref(entity).ok()?;
+            entry
+                .get_component::<BoundingBoxComponent>()
+                .ok()
+                .map(|b| b.global_bounding_box.clone())
         }
 
-        // scheduler di rendering (mesh, gui)
-        self.render_schedule
-            .execute(&mut self.current_scene.world, &mut self.resources);
+        fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
+            <&BoundingBoxComponent>::query()
+                .iter(world)
+                .map(|b| b.global_bounding_box.clone())
+                .reduce(|mut acc, b| {
+                    acc.merge(&b);
+                    acc
+                })
+        }
+
+        fn center_camera_to_bounding_box(camera: &mut Camera, bbox: Option<BoundingBox>) {
+            if let Some(bbox) = bbox {
+                debug!("Recenter Camera {:?}", bbox);
+                use crate::math::*;
+                let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
+                let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);
+                let size = max - min;
+                let fit_offset = 1.1f32;
+
+                let fov = camera.fov;
+                let aspect = camera.get_aspect();
+                let max_size = size.magnitude();
+                let fit_height_distance = max_size / Angle::tan(fov);
+                let fit_width_distance = fit_height_distance / aspect;
+
+                let distance = fit_offset * fit_height_distance.max(fit_width_distance);
+                let center = (min + max) * 0.5;
+                let near = distance / 100.0;
+                let far = distance * 100.0;
+
+                camera.near = near;
+                camera.far = far;
+                camera.set_focal_point(center);
+                camera.set_distance(distance);
+            }
+        }
     }
+}
+
+fn create_root_snapshot(world: &legion::World) -> RootSnapshot {
+    let root_nodes = get_hierarchy_roots(world);
+    let lights_nodes = get_lights_roots(world);
+
+    RootSnapshot {
+        root_nodes,
+        lights_nodes,
+    }
+}
+
+use legion::query::IntoQuery;
+fn get_lights_roots(world: &legion::World) -> RootNodes {
+    let mut roots = RootNodes::default();
+    let mut query = <(Entity, &LightComponent, &TagComponent)>::query();
+    for (entity, _light, tag) in query.iter(world) {
+        let name = tag.name.clone();
+        let node = HierarchyNode {
+            name,
+            parent: None,
+            entity: entity.clone(),
+            children: Vec::new(),
+        };
+
+        roots.nodes.push(node);
+    }
+    roots
+}
+
+fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
+    let mut query = <(Entity, &HierarchyComponent)>::query();
+    let mut roots = RootNodes::default();
+
+    for (entity, hierarchy) in query.iter(world) {
+        if hierarchy.parent.is_none() {
+            let node = build_node(world, *entity, None);
+            roots.nodes.push(node);
+        }
+    }
+
+    fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> HierarchyNode {
+        let entry = world
+            .entry_ref(entity)
+            .expect(format!("entity {:?} not found", entity).as_str());
+
+        let name = entry
+            .get_component::<TagComponent>()
+            .map(|n| n.name.clone())
+            .unwrap_or("<unnamed>".to_string());
+
+        let hierarchy = entry.get_component::<HierarchyComponent>().unwrap();
+
+        let children = hierarchy
+            .children
+            .iter()
+            .map(|&child| build_node(world, child, Some(entity)))
+            .collect();
+
+        HierarchyNode {
+            name,
+            parent,
+            entity,
+            children,
+        }
+    }
+
+    roots
+}
+
+fn get_comp_view(
+    selected: Option<Entity>,
+    world: &legion::World,
+    asset_mgr: &AssetManager,
+    tex_registry: &renderer::ImGuiTextureRegistry,
+) -> UiComponentView {
+    let mut comp_view = UiComponentView::default();
+
+    if let Some(selected) = selected {
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(light) = entry.get_component::<LightComponent>() {
+                comp_view.light = Some(light.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(tag) = entry.get_component::<TagComponent>() {
+                comp_view.tag = Some(tag.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(transform) = entry.get_component::<TransformComponent>() {
+                comp_view.transform = Some(transform.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(bbox) = entry.get_component::<BoundingBoxComponent>() {
+                comp_view.bounding_box = Some(bbox.clone());
+            }
+        }
+        if let Ok(entry) = world.entry_ref(selected) {
+            if let Ok(mesh) = entry.get_component::<MeshComponent>() {
+                comp_view.mesh = Some(mesh.clone());
+
+                let mut ids = HashMap::new();
+                if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
+                    for submesh in mesh_desc.submeshes.iter() {
+                        if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
+                            //TODO: set material for submesh, not for mesh
+                            comp_view.material = Some(mat_desc.clone());
+                            for slot in material_asset::MATERIAL_TEXTURE_SLOTS {
+                                if let Some(id) = mat_desc.get_texture_slot(slot) {
+                                    if let Some(reg_id) = tex_registry.ids.get(&id) {
+                                        ids.insert(id.clone(), reg_id.clone());
+                                    } 
+                                }
+                            }
+                        }
+                    }
+                }
+                comp_view.texture_id_map = ids;
+            }
+        }
+    }
+    comp_view
 }

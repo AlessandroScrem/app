@@ -21,21 +21,38 @@ pub enum LayoutKind {
     EntityId,
 }
 
-pub struct GPUResourceManager {
+struct LayoutCache {
+    layouts: Vec<BindGroupLayout>,
+}
+impl LayoutCache {
+    fn new(device: &wgpu::Device) -> Self {
+        let layouts: Vec<BindGroupLayout> = LayoutKind::iter()
+            .map(|kind| create_layout(device, kind))
+            .collect();
+        LayoutCache { layouts }
+    }
+
+    fn get(&self, kind: LayoutKind) -> &wgpu::BindGroupLayout {
+        &self.layouts[kind as usize]
+    }
+}
+
+pub struct GpuManager {
     pub globals_uniform_buffer: wgpu::Buffer,
     pub camera_uniform_buffer: wgpu::Buffer,
     pub light_uniform_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
     pub per_frame_bind_group: wgpu::BindGroup,
     pub axis_vertexbuffer: wgpu::Buffer,
-    layouts: Vec<BindGroupLayout>,
+    pub hdr_frame: HdrFrame,
+    pub entity_id_texture: IDTexture,
+    pub depth_view: wgpu::TextureView,
+    layout_cache: LayoutCache,
 }
 
-impl GPUResourceManager {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let layouts: Vec<BindGroupLayout> = LayoutKind::iter()
-            .map(|kind| create_layout(device, kind))
-            .collect();
+impl GpuManager {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+        let layout_cache = LayoutCache::new(device);
 
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
@@ -56,7 +73,7 @@ impl GPUResourceManager {
         });
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &layouts[LayoutKind::Camera as usize],
+            layout: layout_cache.get(LayoutKind::Camera),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: camera_uniform_buffer.as_entire_binding(),
@@ -65,7 +82,7 @@ impl GPUResourceManager {
         });
 
         let per_frame_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &layouts[LayoutKind::PerFrame as usize],
+            layout: layout_cache.get(LayoutKind::PerFrame),
             entries: &[
                 // Camera
                 wgpu::BindGroupEntry {
@@ -86,6 +103,16 @@ impl GPUResourceManager {
             label: Some("Globals Bind Group"),
         });
 
+        let hdr_frame = HdrFrame::new(&device, layout_cache.get(LayoutKind::Hdr), width, height);
+        let entity_id_texture = IDTexture::new(
+            &device,
+            layout_cache.get(LayoutKind::EntityId),
+            width,
+            height,
+        );
+
+        let depth_view = create_depth_view(device, width, height);
+
         let axis_vertexbuffer = create_axis_buffer(device);
 
         Self {
@@ -95,13 +122,47 @@ impl GPUResourceManager {
             light_uniform_buffer,
             per_frame_bind_group,
             axis_vertexbuffer,
-            layouts,
+            hdr_frame,
+            depth_view,
+            entity_id_texture,
+            layout_cache,
         }
     }
 
     pub fn get_layout(&self, kind: LayoutKind) -> &wgpu::BindGroupLayout {
-        &self.layouts[kind as usize]
+        self.layout_cache.get(kind)
     }
+
+    pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        self.hdr_frame = HdrFrame::new(&device, self.get_layout(LayoutKind::Hdr), width, height);
+        self.entity_id_texture = IDTexture::new(
+            &device,
+            self.get_layout(LayoutKind::EntityId),
+            width,
+            height,
+        );
+        self.depth_view = create_depth_view(device, width, height);
+    }
+}
+
+fn create_depth_view(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
+    let depth_texture = {
+        device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("depth_texture"),
+            size: wgpu::Extent3d {
+                width: width,
+                height: height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        })
+    };
+    depth_texture.create_view(&Default::default())
 }
 
 fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {

@@ -5,8 +5,8 @@ pub struct Scene {
     pub schedule: Schedule,
 }
 
-impl Scene {
-    pub fn default() -> Self {
+impl Default for Scene {
+    fn default() -> Self {
         let world = World::default();
 
         let mut schedule_builder = Schedule::builder();

@@ -1,15 +1,30 @@
-pub mod ui;
-pub mod pipeline_manager;
-pub mod uniform;
-pub mod hdr_frame;
-pub mod gpu_renderer;
-pub mod gpu_manager;
-pub mod light_manager;
-pub mod skybox_manager;
 pub mod bbox_manager;
-
+pub mod gpu_manager;
+pub mod gpu_renderer;
+pub mod hdr_frame;
+pub mod light_manager;
+pub mod mesh_manager;
+pub mod pipeline_manager;
+pub mod renderpass;
+pub mod skybox_manager;
+pub mod uniform;
+pub mod texture;
 pub use gpu_renderer::Renderer;
+pub mod gpu_texture_cache;
+pub mod gpu_material_cache;
+pub mod gpu_mesh_cache;
 
-pub use uniform::{CameraUniform, GlobalUniform, LightUniform};
-pub use gpu_manager::{GPUResourceManager};
+pub use skybox_manager::SkyboxManager;
+pub use light_manager::LightManager;
+pub use pipeline_manager::PipelineManager;
+pub use bbox_manager::BBoxManager;
+pub use gpu_manager::{LayoutKind, GpuManager};
+pub use gpu_renderer::{GpuDevice, ImGuiTextureRegistry};
 pub use hdr_frame::{HdrFrame, IDTexture};
+pub use uniform::{CameraUniform, GlobalUniform, LightUniform, MaterialUniform, ModelUniform};
+
+use crate::assets::asset_manager::AssetManager;
+pub use crate::assets::*;
+pub use gpu_texture_cache::*;
+pub use gpu_material_cache::*;
+pub use gpu_mesh_cache::*;

@@ -21,7 +21,7 @@ pub fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     {
         // Calcolo della matrice globale
         let local_matrix = transform.compute_model_matrix();
-        let global_model: GlobalModelComponent = local_matrix.into(); 
+        let global_model =  GlobalModelComponent{ mat: local_matrix}; 
 
         // Aggiorna o sostituisce il componente
         commands.add_component(*entity, global_model);
@@ -64,7 +64,7 @@ fn propagate_recursive(
     let local_matrix = parent_matrix * local_matrix;
 
     // Aggiorna o sostituisce il componente
-    let global_model = GlobalModelComponent::from(local_matrix);
+    let global_model = GlobalModelComponent{mat: local_matrix};
     commands.add_component(entity, global_model);
 
     // Propaga ai figli

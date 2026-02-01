@@ -1,6 +1,6 @@
 use crate::{
     assets::vertexdata::LinesVertexData,
-    renderer::gpu_manager::{GPUResourceManager, LayoutKind},
+    renderer::gpu_manager::{GpuManager, LayoutKind},
 };
 use wgpu::DepthStencilState;
 
@@ -174,7 +174,7 @@ impl PipelineManager {
 
     pub fn new(
         device: &wgpu::Device,
-        gpu_resource_manager: &GPUResourceManager,
+        gpu_resource_manager: &GpuManager,
         final_format: wgpu::TextureFormat,
     ) -> Self {
         let pipelines: Vec<wgpu::RenderPipeline> = PipelineKind::iter()
@@ -195,7 +195,7 @@ impl PipelineManager {
 
 fn create_pipeline(
     device: &wgpu::Device,
-    gpu_resource_manager: &GPUResourceManager,
+    gpu_resource_manager: &GpuManager,
     kind: PipelineKind,
     hdr_format: wgpu::TextureFormat,
     final_format: wgpu::TextureFormat,

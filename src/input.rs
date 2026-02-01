@@ -1,5 +1,5 @@
-use winit::keyboard::Key;
 use std::collections::HashSet;
+use winit::{event::Event, keyboard::Key};
 
 use crate::math::{Vec2, Zero};
 
@@ -58,39 +58,50 @@ impl Input {
     pub fn is_key_down(&self, key: Key) -> bool {
         self.keys_down.contains(&key)
     }
-    
+
     pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
     }
-    
+
     pub fn is_key_released(&self, key: Key) -> bool {
         self.keys_released.contains(&key)
     }
-    
+
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
-    
+
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
     }
-    
+
     pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
     }
 
-    pub fn is_cursor_moved(&self) ->bool {
+    pub fn is_cursor_moved(&self) -> bool {
         self.cursor_moved
     }
 
-    pub(crate) fn update_window_events(&mut self, winit_event: &winit::event::WindowEvent) {
+    pub fn update_events<T>(&mut self, event: &Event<T>) {
+        match event {
+            Event::WindowEvent { event,  ..} => {
+                self.update_window_events(event);
+            }
+            Event::DeviceEvent { event, .. } => {
+                self.update_device_events(event);
+            }
+            _ => (),
+        }
+    }
+
+    fn update_window_events(&mut self, winit_event: &winit::event::WindowEvent) {
         match winit_event {
             winit::event::WindowEvent::KeyboardInput { event, .. } => {
                 let key = event.logical_key.clone();
                 if event.state.is_pressed() {
                     self.keys_down.insert(key.clone());
                     self.keys_pressed.insert(key.clone());
-                    
                 } else {
                     self.keys_down.remove(&key.clone());
                     self.keys_released.insert(key.clone());
@@ -115,7 +126,9 @@ impl Input {
             winit::event::WindowEvent::MouseWheel { delta, .. } => {
                 self.mouse_wheel_movement = match delta {
                     winit::event::MouseScrollDelta::LineDelta(x, y) => Some(Vec2::new(*x, *y)),
-                    winit::event::MouseScrollDelta::PixelDelta(pos) => Some(Vec2::new(pos.x as f32, pos.y as f32)),
+                    winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                        Some(Vec2::new(pos.x as f32, pos.y as f32))
+                    }
                 };
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
@@ -126,7 +139,7 @@ impl Input {
         }
     }
 
-    pub(crate) fn update_device_events(&mut self, winit_event: &winit::event::DeviceEvent) {
+    fn update_device_events(&mut self, winit_event: &winit::event::DeviceEvent) {
         match winit_event {
             winit::event::DeviceEvent::MouseMotion { delta } => {
                 self.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
@@ -135,7 +148,7 @@ impl Input {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.keys_pressed.clear();
         self.keys_released.clear();
         self.mouse_buttons_pressed.clear();
