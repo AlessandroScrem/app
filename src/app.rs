@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::DomainEvent;
 use crate::DomainEvents;
 use crate::UiComponentView;
@@ -114,10 +112,10 @@ impl App {
             self.selected,
             &self.current_scene.world,
             &self.asset_mgr,
-            &renderer.get_texture_registry(),
         );
 
         let mut snapshot = Snapshot {
+            resolver: renderer,
             camera: &mut self.camera,
             globals: &mut self.globals,
             root_nodes: &root_snapshot.root_nodes,
@@ -272,7 +270,6 @@ fn get_comp_view(
     selected: Option<Entity>,
     world: &legion::World,
     asset_mgr: &AssetManager,
-    tex_registry: &renderer::ImGuiTextureRegistry,
 ) -> UiComponentView {
     let mut comp_view = UiComponentView::default();
 
@@ -301,23 +298,14 @@ fn get_comp_view(
             if let Ok(mesh) = entry.get_component::<MeshComponent>() {
                 comp_view.mesh = Some(mesh.clone());
 
-                let mut ids = HashMap::new();
                 if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
                     for submesh in mesh_desc.submeshes.iter() {
                         if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
                             //TODO: set material for submesh, not for mesh
                             comp_view.material = Some(mat_desc.clone());
-                            for slot in material_asset::MATERIAL_TEXTURE_SLOTS {
-                                if let Some(id) = mat_desc.get_texture_slot(slot) {
-                                    if let Some(reg_id) = tex_registry.ids.get(&id) {
-                                        ids.insert(id.clone(), reg_id.clone());
-                                    }
-                                }
-                            }
                         }
                     }
                 }
-                comp_view.texture_id_map = ids;
             }
         }
     }

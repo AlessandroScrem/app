@@ -5,7 +5,10 @@ use imgui_winit_support::WinitPlatform;
 use legion::Entity;
 use winit::window::Window;
 
-use crate::{DomainEvent, Globals, UiComponentView, camera::Camera, timestep::Timestep};
+use crate::{
+    DomainEvent, Globals, UiComponentView, camera::Camera, renderer::UiTextureResolver,
+    timestep::Timestep,
+};
 
 pub struct UiContext<'a, 'b> {
     pub snapshot: &'a mut Snapshot<'b>,
@@ -14,6 +17,7 @@ pub struct UiContext<'a, 'b> {
 }
 
 pub struct Snapshot<'a> {
+    pub resolver: &'a dyn UiTextureResolver,
     pub camera: &'a mut Camera,
     pub globals: &'a mut Globals,
     pub root_nodes: &'a RootNodes,
@@ -178,7 +182,11 @@ impl UiLayer {
         self.load_ini_if_needed();
     }
 
-    pub fn build(&mut self, window: &Window, snapshot: &mut Snapshot) -> VecDeque<DomainEvent> {
+    pub fn build(
+        &mut self,
+        window: &Window,
+        snapshot: &mut Snapshot,
+    ) -> VecDeque<DomainEvent> {
         let mut ctx = UiContext {
             snapshot,
             commands: VecDeque::new(),

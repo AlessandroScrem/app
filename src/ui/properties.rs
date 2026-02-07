@@ -1,12 +1,12 @@
-use std::collections::HashMap;
-
 use super::*;
 use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, assets::MaterialDesc, material_asset::MaterialTextureSlot,
-    assets,
+    TransformComponent,
+    assets::MaterialDesc,
+    material_asset::MaterialTextureSlot,
+    renderer::{UiTexture, UiTextureResolver},
 };
 
 pub struct PropertyUi {}
@@ -25,8 +25,8 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     let Some(selected) = ctx.snapshot.selected else {
         return;
     };
-    let ids = &ctx.snapshot.comp_view.texture_id_map.clone();
 
+    let resolver = ctx.snapshot.resolver;
     let cv = &mut ctx.snapshot.comp_view;
 
     if let Some(f) = &mut cv.tag {
@@ -52,7 +52,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(f) = &mut cv.material {
-        if f.draw_ui(ui, &ids) {
+        if f.draw_ui(ui, resolver) {
             ctx.commands
                 .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
         }
@@ -81,7 +81,7 @@ impl TagComponent {
 }
 
 impl MaterialDesc {
-    fn draw_ui(&mut self, ui: &Ui, id_map: &HashMap<assets::TextureId, TextureId>) -> bool {
+    fn draw_ui(&mut self, ui: &Ui, resolver: &dyn UiTextureResolver) -> bool {
         let material = self;
         let mut dirty = false;
 
@@ -94,13 +94,12 @@ impl MaterialDesc {
             if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF) {
                 ui.text("Color");
                 {
-                    let mut use_texture =
-                        material.slot_get(MaterialTextureSlot::BaseColor);
+                    let mut use_texture = material.slot_get(MaterialTextureSlot::BaseColor);
                     if let Some(id) = material.get_texture_slot(MaterialTextureSlot::BaseColor) {
                         dirty |= ui.checkbox("Use##_ct", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, id);
+                            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)));
                             ui.same_line();
                         }
                         material.slot_set(MaterialTextureSlot::BaseColor, use_texture);
@@ -117,13 +116,12 @@ impl MaterialDesc {
 
                 {
                     ui.text("Emissive");
-                    let mut use_texture =
-                        material.slot_get(MaterialTextureSlot::Emissive);
+                    let mut use_texture = material.slot_get(MaterialTextureSlot::Emissive);
                     if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Emissive) {
                         dirty |= ui.checkbox("Use##_em", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, id);
+                            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)));
                             ui.same_line();
                         }
                         material.slot_set(MaterialTextureSlot::Emissive, use_texture);
@@ -140,14 +138,13 @@ impl MaterialDesc {
 
                 {
                     ui.text("Occlusion");
-                    let mut use_texture =
-                        material.slot_get(MaterialTextureSlot::Occlusion);
+                    let mut use_texture = material.slot_get(MaterialTextureSlot::Occlusion);
                     if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Occlusion) {
                         dirty |= ui.checkbox("Use##_occ", &mut use_texture);
                         ui.same_line();
 
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, id);
+                            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)));
                             ui.same_line();
                         }
                         material.slot_set(MaterialTextureSlot::Occlusion, use_texture);
@@ -163,20 +160,18 @@ impl MaterialDesc {
 
                 {
                     ui.text("Metallic Roughness");
-                    let mut use_texture =
-                        material.slot_get(MaterialTextureSlot::MetallicRoughness);
-                    if let Some(id) = material.get_texture_slot(MaterialTextureSlot::MetallicRoughness) {
+                    let mut use_texture = material.slot_get(MaterialTextureSlot::MetallicRoughness);
+                    if let Some(id) =
+                        material.get_texture_slot(MaterialTextureSlot::MetallicRoughness)
+                    {
                         dirty |= ui.checkbox("Use##_mr", &mut use_texture);
                         ui.same_line();
                         if use_texture {
-                            draw_ui_texture_icon(ui, id_map, id);
+                            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)));
                             ui.same_line();
                         }
 
-                        material.slot_set(
-                            MaterialTextureSlot::MetallicRoughness,
-                            use_texture,
-                        );
+                        material.slot_set(MaterialTextureSlot::MetallicRoughness, use_texture);
                     }
                     ui.disabled(use_texture, || {
                         dirty |= Drag::new("Met")
@@ -193,14 +188,13 @@ impl MaterialDesc {
 
                 {
                     ui.text("Normal");
-                    let mut use_texture =
-                        material.slot_get(MaterialTextureSlot::Normal);
+                    let mut use_texture = material.slot_get(MaterialTextureSlot::Normal);
                     if let Some(id) = material.get_texture_slot(MaterialTextureSlot::Normal) {
                         dirty |= ui.checkbox("Use##_normal_texture", &mut use_texture);
                         ui.same_line();
                         if use_texture {
                             ui.same_line();
-                            draw_ui_texture_icon(ui, id_map, id);
+                            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)));
                         }
                         material.slot_set(MaterialTextureSlot::Normal, use_texture);
                         ui.disabled(use_texture, || {
@@ -315,12 +309,8 @@ impl LightComponent {
     }
 }
 
-fn draw_ui_texture_icon(
-    ui: &imgui::Ui,
-    ids: &HashMap<assets::TextureId, TextureId>,
-    id: assets::TextureId,
-) {
-    if let Some(id) = ids.get(&id) {
-        ui.image_button("no name", *id, [25.0, 25.0]);
+fn draw_ui_texture_icon(ui: &imgui::Ui, id: Option<TextureId>) {
+    if let Some(id) = id {
+        ui.image_button("no name", id, [25.0, 25.0]);
     }
 }

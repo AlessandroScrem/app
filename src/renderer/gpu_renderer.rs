@@ -13,6 +13,15 @@ use crate::renderer::renderpass::*;
 
 use crate::{Globals, prelude::*};
 
+impl UiTextureResolver for Renderer {
+    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
+        match tex {
+            UiTexture::Engine(id) => self.imgui_render.registry.ids.get(&id).cloned(),
+            UiTexture::Builtin(id) => Some(id),
+        }
+    }
+}
+
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub queue: &'a Queue,

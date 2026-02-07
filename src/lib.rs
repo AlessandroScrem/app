@@ -1,18 +1,18 @@
 mod app;
-mod camera;
-mod picking;
-mod scene;
-mod systems;
-mod timer;
-mod transform;
 mod application_handler;
 pub mod assets;
 pub mod bounding_box;
+mod camera;
 pub mod entities;
 pub mod input;
+mod picking;
 pub mod renderer;
+mod scene;
+mod systems;
 pub mod test_utils;
+mod timer;
 pub mod timestep;
+mod transform;
 pub mod ui;
 
 pub mod prelude {
@@ -55,22 +55,18 @@ pub mod math {
     pub type Point3f = Point3<f32>;
     pub type Quat = Quaternion<f32>;
     pub use cgmath::{
-        Angle, Array, Deg, EuclideanSpace, Euler, InnerSpace as _, Matrix as _, Rad,
+        Angle, Array, Deg, EuclideanSpace, Euler, InnerSpace as _, Matrix as _, One, Rad,
         Rotation3 as _, SquareMatrix as _, Zero,
         num_traits::{one, zero},
-        One,
         perspective, vec3, vec4,
     };
 }
 
-use std::{
-    collections::{HashMap, VecDeque},
-    path::PathBuf,
-};
+use std::{collections::VecDeque, path::PathBuf};
 
 use legion::Entity;
 
-use crate::assets::{MaterialDesc};
+use crate::assets::MaterialDesc;
 
 pub mod colors {
     pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
@@ -90,7 +86,6 @@ pub struct UiComponentView {
     transform: Option<TransformComponent>,
     bounding_box: Option<BoundingBoxComponent>,
     material: Option<MaterialDesc>,
-    texture_id_map: HashMap<assets::TextureId, imgui::TextureId>,
     light: Option<LightComponent>,
 }
 

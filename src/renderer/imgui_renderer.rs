@@ -5,6 +5,16 @@ use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
 
+pub enum UiTexture {
+    Engine(TextureId),   // la texture viene dall’engine
+    Builtin(imgui::TextureId), // icone, font, ecc.
+}
+
+pub trait UiTextureResolver {
+    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId>;
+}
+
+
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
