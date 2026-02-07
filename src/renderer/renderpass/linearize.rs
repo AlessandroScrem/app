@@ -26,7 +26,7 @@ impl RenderPass for LinearizePass {
     ) {
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext,frame: &FrameDrawable) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
         let frame_view = &ctx.target;

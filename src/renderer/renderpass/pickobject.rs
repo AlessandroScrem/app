@@ -34,7 +34,7 @@ impl RenderPass for PickObjectPass {
         self.mouse_pos_y = input.mouse_position.y as u32;
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
         let pickobject = ctx.pickobject;
         let gpu_manager = ctx.gpu_mgr;
 

@@ -14,6 +14,79 @@ use crate::renderer::renderpass::*;
 
 use crate::{Globals, prelude::*};
 
+pub struct MeshDrawable<'a> {
+    pub gpu_mesh: &'a GpuMesh,
+    pub material_bg: &'a wgpu::BindGroup,
+    pub index_range: std::ops::Range<u32>,
+}
+
+pub struct FrameDrawable<'a> {
+    pub mesh_drawables: &'a [MeshDrawable<'a>],
+}
+
+struct FrameBuilder<'a> {
+    mesh_drawables: Vec<MeshDrawable<'a>>,
+}
+
+impl<'a> FrameBuilder<'a> {
+    pub fn new() -> Self {
+        Self {
+            mesh_drawables: Vec::new(),
+        }
+    }
+
+    pub fn build(
+        &'a mut self,
+        world: &'a World,
+        asset_mgr: &'a AssetManager,
+        gpu_cache: &'a GpuCache,
+    ) -> FrameDrawable <'a> {
+        self.gather_meshes(world, asset_mgr, gpu_cache);
+
+        FrameDrawable { mesh_drawables: &self.mesh_drawables }
+    }
+
+    fn gather_meshes(
+        &mut self,
+        world: &'a World,
+        asset_mgr: &'a AssetManager,
+        gpu_cache: &'a GpuCache,
+    ) {
+        let mut query =
+            <(&MeshComponent, &GlobalModelComponent)>::query();
+
+        for (mesh, _global) in query.iter(world) {
+            let mesh_desc = match asset_mgr.meshes.get(mesh.handle) {
+                Some(m) => m,
+                None => continue,
+            };
+
+            let gpu_mesh = match gpu_cache.mesh.get(&mesh.handle) {
+                Some(m) => m,
+                None => continue,
+            };
+
+            for sub in &mesh_desc.submeshes {
+                let gpu_material = match gpu_cache.material.get(&sub.material) {
+                    Some(m) => m,
+                    None => continue,
+                };
+
+                let material_bg = match gpu_material.bind_group.as_ref() {
+                    Some(bg) => bg,
+                    None => continue,
+                };
+
+                self.mesh_drawables.push(MeshDrawable {
+                    gpu_mesh,
+                    material_bg,
+                    index_range: sub.index_range.clone(),
+                });
+            }
+        }
+    }
+}
+
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub queue: &'a Queue,
@@ -107,7 +180,7 @@ impl ImguiRender {
         };
 
         match self.renderer.render(draw_data, queue, device, &mut pass) {
-            Ok(()) => {} 
+            Ok(()) => {}
             Err(e) => {
                 error!("Imgui Render failed: {:?}", e);
             }
@@ -425,11 +498,14 @@ impl Renderer {
             );
         }
 
+        let mut frame_builder = FrameBuilder::new();
+        let drawables = frame_builder.build(world, asset_mgr, &self.gpu_cache);
+
         // Render phase
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
         for pass in &mut self.passes {
-            pass.execute(&mut encoder, &mut ctx);
+            pass.execute(&mut encoder, &mut ctx, &drawables);
         }
 
         // Render Imgui Pass

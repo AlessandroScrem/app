@@ -30,7 +30,12 @@ impl RenderPass for AxisPass {
         self.enable = globals.axis_enable;
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        frame: &FrameDrawable,
+    ) {
         let enable = self.enable;
         if !enable {
             return;
@@ -63,5 +68,3 @@ impl RenderPass for AxisPass {
         renderpass.draw(0..6, 0..1);
     }
 }
-
-

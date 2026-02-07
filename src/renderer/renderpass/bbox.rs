@@ -75,7 +75,12 @@ impl RenderPass for BBoxPass {
         self.update_to_gpu(ctx);
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        frame: &FrameDrawable,
+    ) {
         let enable = self.enable;
 
         if !enable {

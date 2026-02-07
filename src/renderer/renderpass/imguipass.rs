@@ -26,7 +26,7 @@ impl RenderPass for ImguiPass {
     ) {
     }
 
-    fn execute(&mut self, _encoder: &mut wgpu::CommandEncoder, _ctx: &mut RenderContext) {
+    fn execute(&mut self, _encoder: &mut wgpu::CommandEncoder, _ctx: &mut RenderContext, frame: &FrameDrawable) {
         // let imgui = &mut ctx.imgui;
         // let device = ctx.device;
         // let queue = ctx.queue;

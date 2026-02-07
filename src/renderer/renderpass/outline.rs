@@ -29,7 +29,7 @@ impl RenderPass for OutlinePass {
         self.enable = selected.is_some();
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
         // let pick_object = self.gpu.pickobject;
         let enable = self.enable;
         let frame_view = &ctx.target;

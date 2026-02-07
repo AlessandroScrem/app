@@ -29,6 +29,8 @@ use crate::{
     uniform::ModelUniform,
 };
 
+use crate::renderer::gpu_renderer::{FrameDrawable, MeshDrawable};
+
 pub use legion::query::IntoQuery;
 pub use legion::{Entity, Resources, World};
 use wgpu::IndexFormat;
@@ -96,17 +98,17 @@ impl RenderPass for RenderPassEnum {
         }
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext) {
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
         match self {
-            RenderPassEnum::Mesh(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Light(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Skybox(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Axis(p) => p.execute(encoder, ctx),
-            RenderPassEnum::BBox(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Linearize(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Outline(p) => p.execute(encoder, ctx),
-            RenderPassEnum::PickObject(p) => p.execute(encoder, ctx),
-            RenderPassEnum::Imgui(p) => p.execute(encoder, ctx),
+            RenderPassEnum::Mesh(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Light(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Skybox(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Axis(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::BBox(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Linearize(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Outline(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::PickObject(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Imgui(p) => p.execute(encoder, ctx, frame),
         }
     }
 }
@@ -126,6 +128,6 @@ pub trait RenderPass {
         ctx: &mut RenderContext,
     );
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext);
+    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable);
 }
 
