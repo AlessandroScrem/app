@@ -53,7 +53,12 @@ impl RenderPass for LightPass {
         self.update_to_gpu(ctx);
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
         let light_manager = ctx.light_mgr;

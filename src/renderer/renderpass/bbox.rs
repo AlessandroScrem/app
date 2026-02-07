@@ -79,7 +79,7 @@ impl RenderPass for BBoxPass {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        frame: &FrameDrawable,
+        _asset_mgr: &AssetManager,
     ) {
         let enable = self.enable;
 

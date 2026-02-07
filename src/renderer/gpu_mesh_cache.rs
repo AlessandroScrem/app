@@ -42,6 +42,14 @@ impl GpuMeshCache {
     pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
         self.map.get(id)
     }
+
+    pub fn keys(&self) ->impl Iterator<Item = &MeshId> {
+        self.map.keys()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &GpuMesh>{
+        self.map.values()
+    }
 }
 
 pub struct GpuMesh {

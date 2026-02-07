@@ -5,7 +5,7 @@ pub struct OutlinePass {
     enable: bool,
 }
 impl OutlinePass {
-    pub fn new()->Self{
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -29,7 +29,12 @@ impl RenderPass for OutlinePass {
         self.enable = selected.is_some();
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ) {
         // let pick_object = self.gpu.pickobject;
         let enable = self.enable;
         let frame_view = &ctx.target;

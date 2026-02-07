@@ -1,4 +1,41 @@
 pub use super::*;
+use crate::renderer::{GpuMesh, gpu_renderer::GpuCache};
+
+struct MeshDrawable<'a> {
+    gpu_mesh: &'a GpuMesh,
+    material_bg: &'a wgpu::BindGroup,
+    index_range: &'a std::ops::Range<u32>,
+}
+
+fn drawables<'a>(
+    assets: &'a AssetManager,
+    gpu_cache: &'a GpuCache,
+) -> impl Iterator<Item = MeshDrawable<'a>> + 'a {
+    gpu_cache.mesh.keys().flat_map(move |mesh_id| {
+        // Option → Iterator
+        gpu_cache
+            .mesh
+            .get(mesh_id)
+            .into_iter() // trasforma Some -> iteratore, None -> empty iter
+            .flat_map(move |gpu_mesh| {
+                assets
+                    .meshes
+                    .get(*mesh_id)
+                    .into_iter() // stessa logica
+                    .flat_map(move |mesh_desc| {
+                        mesh_desc.submeshes.iter().filter_map(move |sub| {
+                            let gpu_material = gpu_cache.material.get(&sub.material)?;
+                            let bg = gpu_material.bind_group.as_ref()?;
+                            Some(MeshDrawable {
+                                gpu_mesh,
+                                material_bg: bg,
+                                index_range: &sub.index_range,
+                            })
+                        })
+                    })
+            })
+    })
+}
 
 #[derive(Default)]
 pub struct MeshPass {}
@@ -23,7 +60,7 @@ impl MeshPass {
             mesh_cache.update(&mesh.handle, queue, &model);
 
             if let Some(mesh_desc) = &asset_mgr.meshes.get(mesh.handle) {
-                for (submesh) in mesh_desc.submeshes.iter() {
+                for submesh in mesh_desc.submeshes.iter() {
                     // Material Uniform
                     if let Some(material_desc) = asset_mgr.materials.get(submesh.material) {
                         let updated_uniform = MaterialUniform::from(material_desc);
@@ -58,7 +95,7 @@ impl RenderPass for MeshPass {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        drawables: &FrameDrawable,
+        asset_mgr: &AssetManager,
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
@@ -109,7 +146,7 @@ impl RenderPass for MeshPass {
         renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
         renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
-        for mesh in drawables.mesh_drawables.iter() {
+        for mesh in drawables(asset_mgr, ctx.gpu_cache) {
             let MeshDrawable {
                 gpu_mesh,
                 material_bg,
@@ -117,10 +154,10 @@ impl RenderPass for MeshPass {
             } = mesh;
 
             renderpass.set_bind_group(2, &gpu_mesh.model_bind_group, &[]);
-            renderpass.set_bind_group(1, *material_bg, &[]);
+            renderpass.set_bind_group(1, material_bg, &[]);
             renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
             renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
-            renderpass.draw_indexed(index_range.clone(), 0, 0..1);
+            renderpass.draw_indexed((*index_range).clone(), 0, 0..1);
         }
     }
 }

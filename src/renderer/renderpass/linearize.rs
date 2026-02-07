@@ -4,7 +4,7 @@ pub use super::*;
 pub struct LinearizePass {}
 
 impl LinearizePass {
-    pub fn new()->Self{
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -26,7 +26,12 @@ impl RenderPass for LinearizePass {
     ) {
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext,frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
         let frame_view = &ctx.target;
@@ -55,4 +60,3 @@ impl RenderPass for LinearizePass {
         renderpass.draw(0..3, 0..1);
     }
 }
-

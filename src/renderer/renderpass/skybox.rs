@@ -29,7 +29,12 @@ impl RenderPass for SkyboxPass {
         self.enable = globals.skybox_enable;
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ) {
         let enable = self.enable;
 
         if !enable {

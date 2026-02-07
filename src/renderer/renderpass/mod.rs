@@ -6,7 +6,6 @@ pub mod mesh;
 pub mod outline;
 pub mod pickobject;
 pub mod skybox;
-pub mod imguipass;
 
 pub use axis::AxisPass;
 pub use bbox::BBoxPass;
@@ -16,7 +15,6 @@ pub use mesh::MeshPass;
 pub use outline::OutlinePass;
 pub use pickobject::PickObjectPass;
 pub use skybox::SkyboxPass;
-pub use imguipass::ImguiPass;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
@@ -28,8 +26,6 @@ use crate::{
     Camera, GlobalModelComponent, Globals, MeshComponent, renderer::gpu_renderer::RenderContext,
     uniform::ModelUniform,
 };
-
-use crate::renderer::gpu_renderer::{FrameDrawable, MeshDrawable};
 
 pub use legion::query::IntoQuery;
 pub use legion::{Entity, Resources, World};
@@ -44,7 +40,6 @@ pub enum RenderPassEnum {
     Linearize(LinearizePass),
     Outline(OutlinePass),
     PickObject(PickObjectPass),
-    Imgui(ImguiPass),
 }
 
 impl RenderPass for RenderPassEnum {
@@ -58,7 +53,6 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.name(),
             RenderPassEnum::Outline(p) => p.name(),
             RenderPassEnum::PickObject(p) => p.name(),
-            RenderPassEnum::Imgui(p) => p.name(),
         }
     }
 
@@ -74,15 +68,21 @@ impl RenderPass for RenderPassEnum {
         ctx: &mut RenderContext,
     ) {
         match self {
-            RenderPassEnum::Mesh(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
+            RenderPassEnum::Mesh(p) => {
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
+            }
             RenderPassEnum::Light(p) => {
                 p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
             RenderPassEnum::Skybox(p) => {
                 p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
-            RenderPassEnum::Axis(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
-            RenderPassEnum::BBox(p) => p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx),
+            RenderPassEnum::Axis(p) => {
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
+            }
+            RenderPassEnum::BBox(p) => {
+                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
+            }
             RenderPassEnum::Linearize(p) => {
                 p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
@@ -92,23 +92,24 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::PickObject(p) => {
                 p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
             }
-            RenderPassEnum::Imgui(p) => {
-                p.prepare(asset_mgr, world, res, camera, globals, selected, input, ctx)
-            }
         }
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        asset_mgr: &AssetManager,
+    ) {
         match self {
-            RenderPassEnum::Mesh(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Light(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Skybox(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Axis(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::BBox(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Linearize(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Outline(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::PickObject(p) => p.execute(encoder, ctx, frame),
-            RenderPassEnum::Imgui(p) => p.execute(encoder, ctx, frame),
+            RenderPassEnum::Mesh(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Light(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Skybox(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Axis(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::BBox(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Linearize(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Outline(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::PickObject(p) => p.execute(encoder, ctx, asset_mgr),
         }
     }
 }
@@ -128,6 +129,10 @@ pub trait RenderPass {
         ctx: &mut RenderContext,
     );
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable);
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        asset_mgr: &AssetManager,
+    );
 }
-

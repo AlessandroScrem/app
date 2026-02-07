@@ -45,6 +45,7 @@ impl GpuMaterialCache {
     pub fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
         self.map.get(id)
     }
+
 }
 
 #[derive(Default)]

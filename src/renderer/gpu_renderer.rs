@@ -1,9 +1,8 @@
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
 use crate::input::Input;
-use imgui_wgpu::RendererConfig;
+
 use legion::{Entity, Resources, World};
-use std::collections::HashMap;
 use std::sync::Arc;
 use wgpu::{Adapter, Device, Queue, Surface, SurfaceConfiguration};
 use winit::window::Window;
@@ -13,79 +12,6 @@ use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
 use crate::{Globals, prelude::*};
-
-pub struct MeshDrawable<'a> {
-    pub gpu_mesh: &'a GpuMesh,
-    pub material_bg: &'a wgpu::BindGroup,
-    pub index_range: std::ops::Range<u32>,
-}
-
-pub struct FrameDrawable<'a> {
-    pub mesh_drawables: &'a [MeshDrawable<'a>],
-}
-
-struct FrameBuilder<'a> {
-    mesh_drawables: Vec<MeshDrawable<'a>>,
-}
-
-impl<'a> FrameBuilder<'a> {
-    pub fn new() -> Self {
-        Self {
-            mesh_drawables: Vec::new(),
-        }
-    }
-
-    pub fn build(
-        &'a mut self,
-        world: &'a World,
-        asset_mgr: &'a AssetManager,
-        gpu_cache: &'a GpuCache,
-    ) -> FrameDrawable <'a> {
-        self.gather_meshes(world, asset_mgr, gpu_cache);
-
-        FrameDrawable { mesh_drawables: &self.mesh_drawables }
-    }
-
-    fn gather_meshes(
-        &mut self,
-        world: &'a World,
-        asset_mgr: &'a AssetManager,
-        gpu_cache: &'a GpuCache,
-    ) {
-        let mut query =
-            <(&MeshComponent, &GlobalModelComponent)>::query();
-
-        for (mesh, _global) in query.iter(world) {
-            let mesh_desc = match asset_mgr.meshes.get(mesh.handle) {
-                Some(m) => m,
-                None => continue,
-            };
-
-            let gpu_mesh = match gpu_cache.mesh.get(&mesh.handle) {
-                Some(m) => m,
-                None => continue,
-            };
-
-            for sub in &mesh_desc.submeshes {
-                let gpu_material = match gpu_cache.material.get(&sub.material) {
-                    Some(m) => m,
-                    None => continue,
-                };
-
-                let material_bg = match gpu_material.bind_group.as_ref() {
-                    Some(bg) => bg,
-                    None => continue,
-                };
-
-                self.mesh_drawables.push(MeshDrawable {
-                    gpu_mesh,
-                    material_bg,
-                    index_range: sub.index_range.clone(),
-                });
-            }
-        }
-    }
-}
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
@@ -119,74 +45,8 @@ pub struct GpuDevice<'a> {
     pub skb_mgr: &'a mut SkyboxManager,
 }
 
-// registro imgui separato
-pub struct ImGuiTextureRegistry {
-    pub ids: HashMap<TextureId, imgui::TextureId>,
-}
 
-impl ImGuiTextureRegistry {
-    pub fn new() -> Self {
-        Self {
-            ids: HashMap::new(),
-        }
-    }
-}
-pub struct ImguiRender {
-    renderer: imgui_wgpu::Renderer,
-    registry: ImGuiTextureRegistry,
-}
 
-impl ImguiRender {
-    fn new(
-        device: &Device,
-        queue: &Queue,
-        context: &mut imgui::Context,
-        texture_format: wgpu::TextureFormat,
-    ) -> Self {
-        let renderer_config = RendererConfig {
-            texture_format,
-            ..Default::default()
-        };
-        let renderer = imgui_wgpu::Renderer::new(context, &device, &queue, renderer_config);
-        let registry = ImGuiTextureRegistry::new();
-
-        Self { renderer, registry }
-    }
-    pub fn render(
-        &mut self,
-        draw_data: &imgui::DrawData,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        device: &Device,
-        queue: &Queue,
-    ) {
-        let frame_view = target;
-
-        // Render pass
-        let mut pass = {
-            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("ImGui Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: frame_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load, // non cancellare la scena
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                ..Default::default()
-            })
-        };
-
-        match self.renderer.render(draw_data, queue, device, &mut pass) {
-            Ok(()) => {}
-            Err(e) => {
-                error!("Imgui Render failed: {:?}", e);
-            }
-        }
-    }
-}
 #[derive(Default)]
 pub struct GpuCache {
     pub mesh: GpuMeshCache,
@@ -415,6 +275,8 @@ impl Renderer {
         });
     }
 
+    /// update skybox
+    /// sync GpuCache Ids with assets Ids (meshes materials textures)
     pub fn prepare(&mut self, asset_mgr: &AssetManager) {
         // skybox
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
@@ -498,14 +360,11 @@ impl Renderer {
             );
         }
 
-        let mut frame_builder = FrameBuilder::new();
-        let drawables = frame_builder.build(world, asset_mgr, &self.gpu_cache);
-
         // Render phase
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
         for pass in &mut self.passes {
-            pass.execute(&mut encoder, &mut ctx, &drawables);
+            pass.execute(&mut encoder, &mut ctx, &asset_mgr);
         }
 
         // Render Imgui Pass

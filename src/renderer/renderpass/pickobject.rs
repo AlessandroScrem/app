@@ -8,7 +8,7 @@ pub struct PickObjectPass {
 }
 
 impl PickObjectPass {
-    pub fn new()->Self{
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -34,7 +34,12 @@ impl RenderPass for PickObjectPass {
         self.mouse_pos_y = input.mouse_position.y as u32;
     }
 
-    fn execute(&mut self, encoder: &mut wgpu::CommandEncoder, ctx: &mut RenderContext, frame: &FrameDrawable) {
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ) {
         let pickobject = ctx.pickobject;
         let gpu_manager = ctx.gpu_mgr;
 
