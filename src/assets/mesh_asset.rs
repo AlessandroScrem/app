@@ -57,6 +57,13 @@ impl MeshAssets {
         id
     }
 
+    pub fn remove(&mut self, id: MeshId) {
+        if self.storage.contains_key(id) {
+            self.storage.remove(id);
+            self.lookup.retain(|_key, &mut id| id != id);
+        }
+    }
+
     pub fn get(&self, id: MeshId) -> Option<&MeshDesc> {
         self.storage.get(id)
     }

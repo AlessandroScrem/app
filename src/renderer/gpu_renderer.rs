@@ -274,6 +274,18 @@ impl Renderer {
         });
     }
 
+    pub fn remove_mesh_from_cache(&mut self, id: MeshId) {
+        self.gpu_cache.mesh.remove(&id);
+    }
+
+    pub fn remove_material_from_cache(&mut self, id: MaterialId) {
+        self.gpu_cache.material.remove(&id);
+    }
+
+    pub fn remove_texture_from_cache(&mut self, id: TextureId) {
+        self.gpu_cache.textures.remove(&id);
+    }
+
     /// update skybox
     /// sync GpuCache Ids with assets Ids (meshes materials textures)
     pub fn prepare(&mut self, asset_mgr: &AssetManager) {

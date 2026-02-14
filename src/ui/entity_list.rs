@@ -82,17 +82,19 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
 
     // Commands on selected
     if let Some(selected) = selected.clone() {
-        if ctx
+        if let Some(node) = ctx
             .snapshot
             .root_snapshot
             .root_nodes
             .nodes
             .iter()
-            .any(|n| n.parent == None)
+            .find(|n| n.entity == selected)
         {
-            // add Context menu if ui.group is hovered
-            if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
-                ui.open_popup("entity_context");
+            if node.parent.is_none() {
+                // add Context menu if ui.group is hovered
+                if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
+                    ui.open_popup("entity_context");
+                }
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {

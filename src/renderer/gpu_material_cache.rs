@@ -23,6 +23,12 @@ impl GpuMaterialCache {
         });
     }
 
+    pub fn remove(&mut self, id: &MaterialId) {
+        if self.map.contains_key(id) {
+            self.map.remove(id);
+        }
+    }
+
     fn create_gpu_material(
         id: MaterialId,
         gpu_texture_cache: &mut GpuTextureCache,

@@ -44,6 +44,8 @@ impl From<EntityId> for Entity {
 }
 
 use std::hash::{Hash, Hasher};
+
+use crate::assets::MaterialTextureSlot;
 pub trait EntityHash {
     /// Restituisce un hash `u64` deterministico
     fn entity_hash(&self) -> u64;
@@ -57,16 +59,11 @@ impl EntityHash for Entity {
     }
 }
 
-pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
+fn collect_entity_from_root(entity: Entity, world: &mut legion::World) -> Vec<Entity> {
+    let mut entities = Vec::new();
     if !is_root(entity, world) {
         warn!("{:?} Not Root: Remove abort", entity);
-        return;
-    }
-
-    let mut to_delete = Vec::new();
-    collect_subtree(world, entity, &mut to_delete);
-    for e in to_delete.into_iter().rev() {
-        world.remove(e);
+        return entities;
     }
 
     fn collect_subtree(world: &legion::World, root: Entity, out: &mut Vec<Entity>) {
@@ -80,6 +77,10 @@ pub fn remove_from_root(entity: Entity, world: &mut legion::World) {
             }
         }
     }
+
+    collect_subtree(world, entity, &mut entities);
+
+    entities
 }
 
 fn is_root(entity: Entity, world: &legion::World) -> bool {
@@ -121,6 +122,86 @@ pub fn add_parent(entity: Entity, world: &mut legion::World) {
         e.get_component_mut::<HierarchyComponent>()
             .map(|h| h.parent = Some(new_root))
     });
+}
+
+struct IDCollection {
+    mesh_ids: Vec<crate::assets::MeshId>,
+    material_ids: Vec<crate::assets::MaterialId>,
+    texture_ids: Vec<crate::assets::TextureId>,
+}
+fn collect_asset_ids_from_entity(
+    world: &legion::World,
+    asset_mgr: &mut crate::AssetManager,
+    entities: &Vec<Entity>,
+) -> IDCollection {
+    let mut mesh_ids = vec![];
+    let mut material_ids = vec![];
+    let mut texture_ids = vec![];
+
+    for e in entities.clone() {
+        if let Ok(entry) = world.entry_ref(e) {
+            if let Ok(mesh) = entry.get_component::<MeshComponent>() {
+                mesh_ids.push(mesh.handle);
+                if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
+                    for submesh in mesh_desc.submeshes.iter() {
+                        let mat_id = submesh.material;
+                        material_ids.push(mat_id);
+                        if let Some(mat_desc) = asset_mgr.materials.get(mat_id) {
+                            for slot in MaterialTextureSlot::ALL {
+                                if let Some(tex_id) = mat_desc.get_texture_slot(slot) {
+                                    texture_ids.push(tex_id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    IDCollection {
+        mesh_ids,
+        material_ids,
+        texture_ids,
+    }
+}
+
+pub fn remove_entity_from_all(
+    asset_mgr: &mut crate::AssetManager,
+    runtime: &mut crate::engine::RunningApp,
+    entity: Entity,
+    world: &mut legion::World,
+) {
+    let entities = collect_entity_from_root(entity, world);
+    let IDCollection {
+        mesh_ids,
+        material_ids,
+        texture_ids,
+    } = collect_asset_ids_from_entity(world, asset_mgr, &entities);
+
+    // remove entity from world
+    for e in entities {
+        world.remove(e);
+    }
+
+    // remove mesh from asset & GpuCache
+    for mesh_id in mesh_ids {
+        asset_mgr.meshes.remove(mesh_id);
+        runtime.renderer.remove_mesh_from_cache(mesh_id);
+    }
+
+    // remove material from asset & GpuCache
+    // TODO: check if material is shared by others before removing
+    for mat_id in material_ids {
+        asset_mgr.materials.remove(mat_id);
+        runtime.renderer.remove_material_from_cache(mat_id);
+    }
+
+    // remove texture from asset & GpuCache
+    // TODO: check if  is shared by others before removing
+    for tex_id in texture_ids {
+        asset_mgr.textures.remove(tex_id);
+        runtime.renderer.remove_texture_from_cache(tex_id);
+    }
 }
 
 #[cfg(test)]

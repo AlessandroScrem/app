@@ -127,6 +127,13 @@ impl TextureAssets {
         self.storage.get(id)
     }
 
+    pub fn remove(&mut self, id: TextureId) {
+        if self.storage.contains_key(id) {
+            self.storage.remove(id);
+            self.lookup.retain(|_key, &mut id| id != id);
+        }
+    }
+
     pub fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
         match desc {
             TextureDesc::White => self.white,

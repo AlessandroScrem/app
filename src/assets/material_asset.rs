@@ -150,6 +150,13 @@ impl MaterialAssets {
         self.storage.get(id)
     }
 
+    pub fn remove(&mut self, id: MaterialId) {
+        if self.storage.contains_key(id) {
+            self.storage.remove(id);
+            self.lookup.retain(|_key, &mut id| id != id);
+        }
+    }
+
     pub fn update(&mut self, desc: &MaterialDesc) {
         if let Some(id) = self.lookup.get(&desc.key){
             self.storage[*id] = desc.clone();

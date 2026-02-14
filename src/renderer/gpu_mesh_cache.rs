@@ -39,6 +39,12 @@ impl GpuMeshCache {
         }
     }
 
+    pub fn remove(&mut self, id: &MeshId) {
+        if self.map.contains_key(id) {
+            self.map.remove(id);
+        }
+    }
+
     pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
         self.map.get(id)
     }
