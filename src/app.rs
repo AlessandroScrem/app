@@ -49,6 +49,30 @@ impl App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
 
+    pub fn update(&mut self, rt: &mut RunningApp) {
+        // Esegue `callback` ogni secondo , in base al clock interno.
+        rt.timer
+            .trigger_every(std::time::Duration::from_secs(1), || {
+                rt.renderer.sync_imgui_texture();
+                debug!("Sync_with_registry: ");
+            });
+
+        self.update_domain_event();
+        self.update_camera(&rt.input);
+        self.update_selected(rt);
+        self.update_scene();
+        self.update_uilayer(rt);
+    }
+
+    pub fn on_close(&mut self) {
+        info!("The close button was pressed; App stopping");
+    }
+
+    pub fn on_resize(&mut self, width: u32, height: u32) {
+        let aspect = width.max(1) as f32 / height.max(1) as f32;
+        self.camera.set_aspect(aspect);
+    }
+
     pub fn update_selected(&mut self, runtime: &mut RunningApp) {
         let input = &runtime.input;
         let renderer = &mut runtime.renderer;
@@ -72,7 +96,7 @@ impl App {
             .execute(&mut self.current_scene.world, &mut self.resources);
     }
 
-    pub fn update_domain_event(&mut self ) {
+    pub fn update_domain_event(&mut self) {
         // event needs world update, will be executed next frame.
         let mut next_queue = VecDeque::<DomainEvent>::new();
 

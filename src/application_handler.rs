@@ -1,14 +1,79 @@
-use std::sync::Arc;
-use std::time::Duration;
 use crate::input::Input;
 use crate::timer::Timer;
+use std::sync::Arc;
 
 use crate::prelude::*;
 
 use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, Event, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{self, ActiveEventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
+
+// pub trait Application {
+//     fn init(&mut self);
+//     fn update(&mut self, runtime: &mut RunningApp);
+//     fn render(&mut self, runtime: &mut RunningApp);
+//     fn on_resize(&mut self, width: u32, height: u32);
+//     fn on_close(&mut self);
+// }
+
+// pub struct Engine<A: Application> {
+//     pub app: A,
+//     pub runtime: Option<RunningApp>,
+// }
+
+// impl <A: Application> Engine<A> {
+//     pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
+//         if self.runtime.is_some() {
+//             return;
+//         };
+
+//         let timer = std::time::Instant::now();
+//         debug!("App resumed after  {} ms", timer.elapsed().as_millis());
+
+//         let window = {
+//             let wnd = event_loop
+//                 .create_window(
+//                     WindowAttributes::default()
+//                         .with_inner_size(size)
+//                         .with_title("App"),
+//                 )
+//                 .map(|w| w.try_fit_center_to_monitor())
+//                 .expect("Failed to crate window");
+
+//             Arc::new(wnd)
+//         };
+
+//         self.app.init();
+//         debug!("App initialized in {} ms", timer.elapsed().as_millis());
+
+//         let mut context = imgui::Context::create();
+//         let renderer = Renderer::new(window.clone(), &mut context, &mut self.app.asset_mgr);
+//         let adapter_string = renderer.get_adapter_string();
+//         let uilayer = UiLayer::new(&window, context, adapter_string);
+
+//         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+
+//         self.runtime = Some(RunningApp {
+//             window: window.clone(),
+//             input: Input::new(),
+//             renderer,
+//             uilayer,
+//             is_minimized: false,
+//             timer: Timer::new(),
+//             events: Vec::new(),
+//         });
+
+//         window.request_redraw();
+
+//     }
+// }
+
+pub enum RuntimeEvent {
+    Resize { width: u32, height: u32 },
+    CloseRequested,
+}
 
 pub struct RunningApp {
     pub window: Arc<Window>,
@@ -17,6 +82,7 @@ pub struct RunningApp {
     pub is_minimized: bool,
     pub timer: Timer,
     pub input: Input,
+    pub events: Vec<RuntimeEvent>,
 }
 
 impl RunningApp {
@@ -24,7 +90,6 @@ impl RunningApp {
         // Handle Imgui platform events
         self.uilayer.handle_event(&self.window, event);
 
-        self.input.update_events(&event);
         // Handle Input
         match event {
             Event::WindowEvent { .. } | Event::DeviceEvent { .. } => {
@@ -33,6 +98,43 @@ impl RunningApp {
                 }
             }
             _ => {}
+        }
+    }
+
+    fn tick(&mut self, app: &mut App) {
+        if self.is_minimized {
+            return;
+        }
+
+        let events = std::mem::take(&mut self.events);
+        for event in events {
+            self.handle_runtime_event(app, event);
+        }
+
+        // let dt = self.timer.tick();
+        app.update(self);
+
+        // Render
+        app.render(self);
+
+        // Clear Input
+        self.input.clear();
+    }
+
+    fn handle_runtime_event(&mut self, app: &mut App, event: RuntimeEvent) {
+        match event {
+            RuntimeEvent::Resize { width, height } => {
+                if width > 0 && height > 0 {
+                    self.is_minimized = false;
+                    self.renderer.resize_frame(width, height);
+                    app.on_resize(width, height);
+                } else {
+                    self.is_minimized = true;
+                }
+            }
+            RuntimeEvent::CloseRequested => {
+                app.on_close();
+            }
         }
     }
 }
@@ -120,6 +222,7 @@ impl ApplicationHandler for MyApplication {
             uilayer,
             is_minimized: false,
             timer: Timer::new(),
+            events: Vec::new(),
         });
 
         window.request_redraw();
@@ -143,17 +246,9 @@ impl ApplicationHandler for MyApplication {
         let Some(runtime) = &mut self.runtime else {
             return;
         };
-
-        // update timer and input
-        runtime.timer.tick_step_iter().for_each(|_dt| {
-            runtime.input.clear();
-        });
-
-        // Esegue `callback` ogni secondo , in base al clock interno.
-        runtime.timer.trigger_every(Duration::from_secs(1), || {
-            runtime.renderer.sync_imgui_texture();
-            debug!("Sync_with_registry: ");
-        });
+        if runtime.is_minimized {
+            return;
+        }
 
         runtime.window.request_redraw();
     }
@@ -178,35 +273,18 @@ impl ApplicationHandler for MyApplication {
 
         match event {
             WindowEvent::CloseRequested => {
-                info!("The close button was pressed; stopping");
+                runtime.events.push(RuntimeEvent::CloseRequested);
                 event_loop.exit();
             }
 
             WindowEvent::Resized(size) => {
-                if size.width > 0 && size.height > 0 {
-                    let aspect = size.width.max(1) as f32 / size.height.max(1) as f32;
-                    runtime.is_minimized = false;
-
-                    runtime.renderer.resize_frame(size.width, size.height);
-                    self.app.camera.set_aspect(aspect);
-                } else {
-                    runtime.is_minimized = true;
-                }
+                runtime.events.push(RuntimeEvent::Resize {
+                    width: size.width,
+                    height: size.height,
+                });
             }
             WindowEvent::RedrawRequested => {
-                if runtime.is_minimized {
-                    return;
-                }
-
-                // Update
-                self.app.update_domain_event();
-                self.app.update_camera(&runtime.input);
-                self.app.update_selected(runtime);
-                self.app.update_scene();
-                self.app.update_uilayer(runtime);
-
-                // Render
-                self.app.render(runtime)
+                runtime.tick(&mut self.app);
             }
             _ => (),
         }
