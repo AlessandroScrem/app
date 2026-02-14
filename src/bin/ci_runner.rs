@@ -1,4 +1,4 @@
-use app_wgpu::prelude::MyApplication;
+use app_wgpu::prelude::{MyApplication, App};
 
 use std::thread;
 use std::time::Duration;
@@ -14,5 +14,5 @@ fn main() ->Result<(), Box<dyn std::error::Error>>{
     // Avvio normale della tua app
     println!("CI runner: app  started ... \n\t will be stopped after 30 secs..\n");
 
-    MyApplication::new_with_size(2400, 1200).run()
+     MyApplication::<App>::new_with_size(2400, 1200).run()
 }

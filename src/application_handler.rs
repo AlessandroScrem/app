@@ -1,3 +1,4 @@
+use crate::assets::asset_manager::AssetManager;
 use crate::input::Input;
 use crate::timer::Timer;
 use std::sync::Arc;
@@ -7,68 +8,139 @@ use crate::prelude::*;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, Event, WindowEvent};
-use winit::event_loop::{self, ActiveEventLoop};
+use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowAttributes, WindowId};
 
-// pub trait Application {
-//     fn init(&mut self);
-//     fn update(&mut self, runtime: &mut RunningApp);
-//     fn render(&mut self, runtime: &mut RunningApp);
-//     fn on_resize(&mut self, width: u32, height: u32);
-//     fn on_close(&mut self);
-// }
+pub trait Application{
+    fn init(&mut self);
+    fn update(&mut self, runtime: &mut RunningApp);
+    fn render(&mut self, runtime: &mut RunningApp);
+    fn on_resize(&mut self, width: u32, height: u32);
+    fn on_close(&mut self);
+}
 
-// pub struct Engine<A: Application> {
-//     pub app: A,
-//     pub runtime: Option<RunningApp>,
-// }
+impl Application for App {
+    fn init(&mut self) {
+        let timer = std::time::Instant::now();
 
-// impl <A: Application> Engine<A> {
-//     pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
-//         if self.runtime.is_some() {
-//             return;
-//         };
+        self.domain_events
+            .queue
+            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(
+                "./assets/Lantern/Lantern.gltf".into(),
+            )));
+        let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        let hdr_id = self
+            .asset_mgr
+            .textures
+            .from_file(hdrpath, renderer::TextureUsage::HDR16);
+        self.asset_mgr.skybox = assets::asset_manager::SkyboxHandle::new(hdr_id);
 
-//         let timer = std::time::Instant::now();
-//         debug!("App resumed after  {} ms", timer.elapsed().as_millis());
+        crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 
-//         let window = {
-//             let wnd = event_loop
-//                 .create_window(
-//                     WindowAttributes::default()
-//                         .with_inner_size(size)
-//                         .with_title("App"),
-//                 )
-//                 .map(|w| w.try_fit_center_to_monitor())
-//                 .expect("Failed to crate window");
+        self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
 
-//             Arc::new(wnd)
-//         };
+        debug!("App loader took {} ms", timer.elapsed().as_millis());
+    }
+    fn update(&mut self, runtime: &mut RunningApp) {
+        // Esegue `callback` ogni secondo , in base al clock interno.
+        runtime.timer
+            .trigger_every(std::time::Duration::from_secs(1), || {
+                runtime.renderer.sync_imgui_texture();
+                debug!("Sync_with_registry: ");
+            });
 
-//         self.app.init();
-//         debug!("App initialized in {} ms", timer.elapsed().as_millis());
+        self.update_domain_event();
+        self.update_camera(&runtime.input);
+        self.update_selected(runtime);
+        self.update_scene();
+        self.update_uilayer(runtime);
+    }
 
-//         let mut context = imgui::Context::create();
-//         let renderer = Renderer::new(window.clone(), &mut context, &mut self.app.asset_mgr);
-//         let adapter_string = renderer.get_adapter_string();
-//         let uilayer = UiLayer::new(&window, context, adapter_string);
+    fn on_resize(&mut self, width: u32, height: u32) {
+        
+        let aspect = width.max(1) as f32 / height.max(1) as f32;
+        self.camera.set_aspect(aspect);
+    }
+    fn render(&mut self, runtime: &mut RunningApp) {
+        runtime.renderer.render(
+            &self.asset_mgr,
+            &self.current_scene.world,
+            &mut self.resources,
+            &self.camera,
+            &self.globals,
+            self.selected,
+            &runtime.input,
+            runtime.uilayer.get_draw_data(),
+        );
+    }
+    fn on_close(&mut self) {
+        info!("The close button was pressed; App stopping");
+    }
+}
 
-//         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+pub trait HasAssetMgr {
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
+}
 
-//         self.runtime = Some(RunningApp {
-//             window: window.clone(),
-//             input: Input::new(),
-//             renderer,
-//             uilayer,
-//             is_minimized: false,
-//             timer: Timer::new(),
-//             events: Vec::new(),
-//         });
+impl HasAssetMgr for App {
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager {
+        &mut self.asset_mgr
+    }
+}
 
-//         window.request_redraw();
+#[derive(Default)]
+pub struct Engine<A: Application> {
+    pub app: A,
+    pub runtime: Option<RunningApp>,
+}
 
-//     }
-// }
+impl <A: Application + HasAssetMgr> Engine<A> {
+    pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
+        if self.runtime.is_some() {
+            return;
+        };
+
+        let timer = std::time::Instant::now();
+        debug!("App resumed after  {} ms", timer.elapsed().as_millis());
+
+        let window = {
+            let wnd = event_loop
+                .create_window(
+                    WindowAttributes::default()
+                        .with_inner_size(size)
+                        .with_title("App"),
+                )
+                .map(|w| w.try_fit_center_to_monitor())
+                .expect("Failed to crate window");
+
+            Arc::new(wnd)
+        };
+
+        self.app.init();
+        debug!("App initialized in {} ms", timer.elapsed().as_millis());
+
+        let mut context = imgui::Context::create();
+        let asset_mgr = self.app.asset_mgr_mut();
+        let renderer = Renderer::new(window.clone(), &mut context, asset_mgr);
+        let adapter_string = renderer.get_adapter_string();
+        let uilayer = UiLayer::new(&window, context, adapter_string);
+
+        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+
+        self.runtime = Some(RunningApp {
+            window: window.clone(),
+            input: Input::new(),
+            renderer,
+            uilayer,
+            is_minimized: false,
+            timer: Timer::new(),
+            events: Vec::new(),
+        });
+
+        window.request_redraw();
+
+    }
+}
 
 pub enum RuntimeEvent {
     Resize { width: u32, height: u32 },
@@ -101,7 +173,7 @@ impl RunningApp {
         }
     }
 
-    fn tick(&mut self, app: &mut App) {
+    fn tick<A: Application>(&mut self, app: &mut A) {
         if self.is_minimized {
             return;
         }
@@ -121,7 +193,7 @@ impl RunningApp {
         self.input.clear();
     }
 
-    fn handle_runtime_event(&mut self, app: &mut App, event: RuntimeEvent) {
+    fn handle_runtime_event<A:Application>(&mut self, app: &mut A, event: RuntimeEvent) {
         match event {
             RuntimeEvent::Resize { width, height } => {
                 if width > 0 && height > 0 {
@@ -137,16 +209,16 @@ impl RunningApp {
             }
         }
     }
+    
 }
 
 #[derive(Default)]
-pub struct MyApplication {
-    app: App,
-    runtime: Option<RunningApp>,
+pub struct MyApplication<A: Application> {
+    engine: Engine<A>,
     size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl MyApplication {
+impl <A: Application + Default + HasAssetMgr> MyApplication<A> {
     pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: winit::dpi::PhysicalSize::new(width, height),
@@ -181,51 +253,10 @@ impl CenterWindow for winit::window::Window {
     }
 }
 
-impl ApplicationHandler for MyApplication {
+impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         println!("resumed");
-        if self.runtime.is_some() {
-            println!("Exit");
-            return;
-        };
-
-        let timer = std::time::Instant::now();
-        debug!("App resumed after  {} ms", timer.elapsed().as_millis());
-
-        let window = {
-            let wnd = event_loop
-                .create_window(
-                    WindowAttributes::default()
-                        .with_inner_size(self.size)
-                        .with_title("App"),
-                )
-                .map(|w| w.try_fit_center_to_monitor())
-                .expect("Failed to crate window");
-
-            Arc::new(wnd)
-        };
-
-        self.app.init();
-        debug!("App initialized in {} ms", timer.elapsed().as_millis());
-
-        let mut context = imgui::Context::create();
-        let renderer = Renderer::new(window.clone(), &mut context, &mut self.app.asset_mgr);
-        let adapter_string = renderer.get_adapter_string();
-        let uilayer = UiLayer::new(&window, context, adapter_string);
-
-        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
-
-        self.runtime = Some(RunningApp {
-            window: window.clone(),
-            input: Input::new(),
-            renderer,
-            uilayer,
-            is_minimized: false,
-            timer: Timer::new(),
-            events: Vec::new(),
-        });
-
-        window.request_redraw();
+        self.engine.resume(event_loop, self.size);
     }
 
     fn device_event(
@@ -234,7 +265,7 @@ impl ApplicationHandler for MyApplication {
         device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
-        let Some(runtime) = &mut self.runtime else {
+        let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
 
@@ -243,7 +274,7 @@ impl ApplicationHandler for MyApplication {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        let Some(runtime) = &mut self.runtime else {
+        let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
         if runtime.is_minimized {
@@ -259,7 +290,7 @@ impl ApplicationHandler for MyApplication {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let Some(runtime) = &mut self.runtime else {
+        let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
 
@@ -284,7 +315,7 @@ impl ApplicationHandler for MyApplication {
                 });
             }
             WindowEvent::RedrawRequested => {
-                runtime.tick(&mut self.app);
+                runtime.tick(&mut self.engine.app);
             }
             _ => (),
         }
