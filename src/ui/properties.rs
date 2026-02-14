@@ -1,4 +1,5 @@
 use super::*;
+use imgui::*;
 use imgui::{Drag, TreeNodeFlags};
 
 use crate::{
@@ -27,41 +28,51 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     };
 
     let resolver = ctx.snapshot.resolver;
-    let cv = &mut ctx.snapshot.comp_view;
+    let cv = &ctx.snapshot.comp_state;
 
-    if let Some(f) = &mut cv.tag {
+    if let Some(f) = &mut cv.tag.clone() {
         if f.draw_ui(ui) {
-            ctx.commands
-                .push_back(DomainEvent::UpdateTag(selected.clone(), f.clone()));
+            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateTag(
+                selected.clone(),
+                f.clone(),
+            )));
         }
     }
 
-    if let Some(f) = &mut cv.transform {
+    if let Some(f) = &mut cv.transform.clone() {
         if f.draw_ui(ui) {
-            ctx.commands
-                .push_back(DomainEvent::UpdateTransform(selected.clone(), f.clone()));
+            ctx.write
+                .push(DomainEvent::Entity(EntityEvent::UpdateTransform(
+                    selected.clone(),
+                    f.clone(),
+                )));
         }
     }
 
-    if let Some(f) = &mut cv.bounding_box {
+    if let Some(f) = &cv.bounding_box {
         f.draw_ui(ui);
     }
 
-    if let Some(f) = &mut cv.mesh {
+    if let Some(f) = &mut cv.mesh.clone() {
         f.draw_ui(ui);
     }
 
-    if let Some(f) = &mut cv.material {
+    if let Some(f) = &mut cv.material.clone() {
         if f.draw_ui(ui, resolver) {
-            ctx.commands
-                .push_back(DomainEvent::UpdateMaterial(selected.clone(), f.clone()));
+            ctx.write
+                .push(DomainEvent::Entity(EntityEvent::UpdateMaterial(
+                    selected.clone(),
+                    f.clone(),
+                )));
         }
     }
 
-    if let Some(f) = &mut cv.light {
+    if let Some(f) = &mut cv.light.clone() {
         if f.draw_ui(ui) {
-            ctx.commands
-                .push_back(DomainEvent::UpdateLight(selected.clone(), f.clone()));
+            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateLight(
+                selected.clone(),
+                f.clone(),
+            )));
         }
     }
 }

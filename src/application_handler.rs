@@ -1,22 +1,14 @@
-use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
-
 use crate::input::Input;
 use crate::timer::Timer;
 
-use crate::{DomainEvent, LightComponent, TagComponent, TransformComponent, prelude::*};
+use crate::prelude::*;
 
-use legion::EntityStore;
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowAttributes, WindowId};
-
-#[derive(Default)]
-pub struct EventQueue {
-    pub queue: VecDeque<Event<()>>,
-}
 
 pub struct RunningApp {
     pub window: Arc<Window>,
@@ -24,23 +16,23 @@ pub struct RunningApp {
     pub uilayer: UiLayer,
     pub is_minimized: bool,
     pub timer: Timer,
-    pub event_queue: EventQueue,
     pub input: Input,
 }
 
 impl RunningApp {
-    pub fn update_input(&mut self) {
-        while let Some(event) = self.event_queue.queue.pop_front() {
-            self.uilayer.handle_event(&self.window, &event);
+    fn handle_winit_event(&mut self, event: &Event<()>) {
+        // Handle Imgui platform events
+        self.uilayer.handle_event(&self.window, event);
 
-            match &event {
-                Event::DeviceEvent { .. } | Event::WindowEvent { .. } => {
-                    if !self.uilayer.want_capture_mouse() {
-                        self.input.update_events(&event);
-                    }
+        self.input.update_events(&event);
+        // Handle Input
+        match event {
+            Event::WindowEvent { .. } | Event::DeviceEvent { .. } => {
+                if !self.uilayer.want_capture_mouse() {
+                    self.input.update_events(&event);
                 }
-                _ => {}
             }
+            _ => {}
         }
     }
 }
@@ -65,70 +57,6 @@ impl MyApplication {
         event_loop.run_app(&mut self)?;
         Ok(())
     }
-}
-
-fn update_domain_event(app: &mut App) {
-    // event needs world update, will be executed next frame.
-    let mut next_queue = VecDeque::<DomainEvent>::new();
-
-    while let Some(event) = app.domain_events.queue.pop_front() {
-        match event {
-            DomainEvent::RemoveEntity(entity) => {
-                crate::entities::remove_from_root(entity, &mut app.current_scene.world);
-                app.selected = None;
-            }
-            DomainEvent::LoadGltf(path) => {
-                if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr)
-                {
-                    crate::assets::gltf_loader::spawn_scene(
-                        &mut app.current_scene.world,
-                        &loaded,
-                        &app.asset_mgr,
-                    );
-                    next_queue.push_back(DomainEvent::RecenterCamera);
-                }
-            }
-            DomainEvent::AddParent(entity) => {
-                crate::entities::add_parent(entity, &mut app.current_scene.world);
-            }
-            DomainEvent::RecenterCamera => {
-                app.recenter_camera();
-            }
-            DomainEvent::ChangeSkybox(path) => {
-                let hdr_id = app
-                    .asset_mgr
-                    .textures
-                    .from_file(path, crate::assets::TextureUsage::HDR16);
-                app.asset_mgr.skybox.set_id(hdr_id);
-            }
-            DomainEvent::UpdateTag(entity, c) => {
-                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                    if let Ok(t) = e.get_component_mut::<TagComponent>() {
-                        *t = c;
-                    }
-                }
-            }
-            DomainEvent::UpdateTransform(entity, c) => {
-                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                    if let Ok(t) = e.get_component_mut::<TransformComponent>() {
-                        *t = c;
-                    }
-                }
-            }
-            DomainEvent::UpdateMaterial(_entity, c) => {
-                app.asset_mgr.materials.update(&c);
-            }
-            DomainEvent::UpdateLight(entity, c) => {
-                if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                    if let Ok(light) = e.get_component_mut::<LightComponent>() {
-                        *light = c;
-                    }
-                }
-            }
-        }
-    }
-
-    app.domain_events.queue.append(&mut next_queue);
 }
 
 pub trait CenterWindow {
@@ -178,18 +106,15 @@ impl ApplicationHandler for MyApplication {
         self.app.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
-        let mut uilayer = UiLayer::new(&window);
+        let mut context = imgui::Context::create();
+        let renderer = Renderer::new(window.clone(), &mut context, &mut self.app.asset_mgr);
+        let adapter_string = renderer.get_adapter_string();
+        let uilayer = UiLayer::new(&window, context, adapter_string);
 
-        let renderer = Renderer::new(
-            window.clone(),
-            uilayer.get_context_mut(),
-            &mut self.app.asset_mgr,
-        );
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
-            event_queue: EventQueue::default(),
             input: Input::new(),
             renderer,
             uilayer,
@@ -210,10 +135,8 @@ impl ApplicationHandler for MyApplication {
             return;
         };
 
-        {
-            let event = Event::DeviceEvent { device_id, event };
-            runtime.event_queue.queue.push_back(event);
-        }
+        let event = Event::DeviceEvent { device_id, event };
+        runtime.handle_winit_event(&event);
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
@@ -232,8 +155,6 @@ impl ApplicationHandler for MyApplication {
             debug!("Sync_with_registry: ");
         });
 
-        update_domain_event(&mut self.app);
-
         runtime.window.request_redraw();
     }
 
@@ -247,10 +168,13 @@ impl ApplicationHandler for MyApplication {
             return;
         };
 
-        runtime.event_queue.queue.push_back(Event::WindowEvent {
-            window_id,
-            event: event.clone(),
-        });
+        {
+            let evt = Event::WindowEvent {
+                window_id,
+                event: event.clone(),
+            };
+            runtime.handle_winit_event(&evt);
+        }
 
         match event {
             WindowEvent::CloseRequested => {
@@ -275,7 +199,7 @@ impl ApplicationHandler for MyApplication {
                 }
 
                 // Update
-                runtime.update_input();
+                self.app.update_domain_event();
                 self.app.update_camera(&runtime.input);
                 self.app.update_selected(runtime);
                 self.app.update_scene();

@@ -1,7 +1,6 @@
-use core::f32;
-
 use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
+use imgui::*;
 
 use crate::{DomainEvent, Globals, camera::Camera, text_fmt};
 
@@ -9,15 +8,17 @@ use crate::{DomainEvent, Globals, camera::Camera, text_fmt};
 pub struct SettimgsUi {
     demo_open: bool,
 }
+
 impl Layer for SettimgsUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let camera = &mut ctx.snapshot.camera;
-        let globals = &mut ctx.snapshot.globals;
+        let camera = &ctx.snapshot.camera;
+        let globals = &ctx.snapshot.globals;
         let hovered_entity = ctx.snapshot.hovered;
         let selected_entity = &ctx.snapshot.selected;
-        let adapter_name = &ctx.snapshot.adapter_string;
-        let hdr_texture_id = &ctx.snapshot.hdr_texture_id;
+        let adapter_name = &ctx.adapter_string;
+        let hdr_texture_id = ctx.snapshot.hdr_texture_id;
         let timestep = &ctx.timestep;
+        let resolver = &ctx.snapshot.resolver;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -58,24 +59,29 @@ impl Layer for SettimgsUi {
                         ui.show_demo_window(&mut self.demo_open);
                     }
 
-                    globals.draw_ui(ui);
+                    if let Some(command) = globals.draw_ui(ui) {
+                        ctx.write.push(command);
+                    }
 
                     ui.separator();
-                    if let Some(command) = draw_ui_skybox_selector(&ui, *hdr_texture_id) {
-                        ctx.commands.push_back(command);
+                    if let Some(command) = draw_ui_skybox_selector(
+                        &ui,
+                        resolver.resolve(UiTexture::Engine(hdr_texture_id)),
+                    ) {
+                        ctx.write.push(command);
                     }
                 }
 
                 if let Some(command) = camera.draw_ui(ui) {
-                    ctx.commands.push_back(command)
+                    ctx.write.push(command)
                 }
             });
     }
 }
 
 impl Globals {
-    fn draw_ui(&mut self, ui: &Ui) -> Option<DomainEvent> {
-        let command: Option<DomainEvent> = None;
+    fn draw_ui(&self, ui: &Ui) -> Option<DomainEvent> {
+        let mut command: Option<DomainEvent> = None;
 
         const TONEMAP_FILTERS: [&str; 8] = [
             "ACES",
@@ -107,13 +113,29 @@ impl Globals {
             ui.checkbox("Vsync", &mut mode);
         });
 
-        ui.checkbox("Ibl enable", &mut self.ibl_enable);
-        ui.checkbox("Skybox enable", &mut self.skybox_enable);
-        ui.checkbox("Axis enable", &mut self.axis_enable);
-        ui.checkbox("BoundingBox", &mut self.bbox_enable);
+        let mut ibl_enable = self.ibl_enable;
+        let mut skybox_enable = self.skybox_enable;
+        let mut axis_enable = self.axis_enable;
+        let mut bbox_enable = self.bbox_enable;
+        use GlobalEvent::*;
+        if ui.checkbox("Ibl enable", &mut ibl_enable) {
+            command = Some(DomainEvent::Global(IblEnable(ibl_enable)));
+        }
+        if ui.checkbox("Skybox enable", &mut skybox_enable) {
+            command = Some(DomainEvent::Global(SkyboxEnable(skybox_enable)));
+        }
+        if ui.checkbox("Axis enable", &mut axis_enable) {
+            command = Some(DomainEvent::Global(AxisEnable(axis_enable)));
+        }
+        if ui.checkbox("BoundingBox", &mut bbox_enable) {
+            command = Some(DomainEvent::Global(BboxEnable(bbox_enable)));
+        }
         if self.bbox_enable {
+            let mut bbox_axis_aligned = self.bbox_axis_aligned;
             ui.same_line();
-            ui.checkbox("BoxAligned", &mut self.bbox_axis_aligned);
+            if ui.checkbox("BoxAligned", &mut bbox_axis_aligned) {
+                command = Some(DomainEvent::Global(BboxAxisAligned(bbox_axis_aligned)));
+            }
         }
 
         {
@@ -121,16 +143,26 @@ impl Globals {
             if ui.combo("Debug Mode", &mut current_item, &DEBUG_CODE, |item| {
                 std::borrow::Cow::Borrowed(*item)
             }) {
-                self.debug_code = current_item as u32;
+                command = Some(DomainEvent::Global(DebugCode(current_item as u32)));
             }
         }
 
-        ui.slider_config("Scene Exposure", 0.001, 64.0)
+        let mut exposure = self.exposure;
+        let mut ibl_intensity = self.ibl_intensity;
+        if ui
+            .slider_config("Scene Exposure", 0.001, 64.0)
             .flags(SliderFlags::LOGARITHMIC)
-            .build(&mut self.exposure);
-        ui.slider_config("Ibl Intensity", 0.01, 10_000.0)
+            .build(&mut exposure)
+        {
+            command = Some(DomainEvent::Global(Exposure(exposure)))
+        }
+        if ui
+            .slider_config("Ibl Intensity", 0.01, 10_000.0)
             .flags(SliderFlags::LOGARITHMIC)
-            .build(&mut self.ibl_intensity);
+            .build(&mut ibl_intensity)
+        {
+            command = Some(DomainEvent::Global(IblIntensity(ibl_intensity)))
+        }
         ui.separator();
 
         {
@@ -138,7 +170,8 @@ impl Globals {
             if ui.combo("Tonemap", &mut current_item, &TONEMAP_FILTERS, |item| {
                 std::borrow::Cow::Borrowed(*item)
             }) {
-                self.tonemap_filter = current_item as u32;
+                // self.tonemap_filter = current_item as u32;
+                command = Some(DomainEvent::Global(TonemapFilter(current_item as u32)))
             }
         }
         command
@@ -146,7 +179,8 @@ impl Globals {
 }
 
 impl Camera {
-    fn draw_ui(&mut self, ui: &Ui) -> Option<DomainEvent> {
+    fn draw_ui(&self, ui: &Ui) -> Option<DomainEvent> {
+        use CameraEvent::*;
         let mut command: Option<DomainEvent> = None;
 
         ui.text(format!("Position: {:?}", self.get_position()));
@@ -158,17 +192,18 @@ impl Camera {
         ));
 
         if ui.button("Recenter self") {
-            command = Some(DomainEvent::RecenterCamera);
+            command = Some(DomainEvent::Camera(RecenterCamera));
         }
 
         ui.separator();
-        let mut fov = Deg::from(self.fov).0;
+        let mut fov = Deg::from(self.get_fov()).0;
         if Drag::new("Fov")
             .range(1.0, 179.0)
             .speed(1.0)
             .build(ui, &mut fov)
         {
-            self.fov = Rad(fov.to_radians());
+            // self.fov = Rad(fov.to_radians());
+            command = Some(DomainEvent::Camera(CameraFov(Rad(fov.to_radians()))));
         }
 
         let mut distance = self.get_distance();
@@ -177,11 +212,11 @@ impl Camera {
             .speed(1.0)
             .build(ui, &mut distance)
         {
-            self.set_distance(distance);
+            // self.set_distance(distance);
+            command = Some(DomainEvent::Camera(CameraDistance(distance)));
         }
 
-        let mut near = self.near;
-        let mut far = self.far;
+        let (mut near, mut far) = self.get_near_far();
         if DragRange::new("Near/Far")
             .range(0.01, f32::MAX)
             .speed(1.0)
@@ -189,20 +224,21 @@ impl Camera {
         {
             let near = near.max(0.1);
             let far = far.max(near + 0.1);
-            self.near = near;
-            self.far = far;
+            // self.near = near;
+            // self.far = far;
+            command = Some(DomainEvent::Camera(CameraNearFar((near, far))));
         }
 
         command
     }
 }
 
-fn draw_ui_skybox_selector(ui: &Ui, hdr_texture_id: Option<&TextureId>) -> Option<DomainEvent> {
+fn draw_ui_skybox_selector(ui: &Ui, hdr_texture_id: Option<TextureId>) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
 
     let mut change_skybox = false;
     if let Some(id) = hdr_texture_id {
-        change_skybox = ui.image_button("##name", *id, [60.0, 60.0]);
+        change_skybox = ui.image_button("##name", id, [60.0, 60.0]);
         ui.same_line();
         ui.text("HdrTexture");
         ui.separator();
@@ -212,7 +248,7 @@ fn draw_ui_skybox_selector(ui: &Ui, hdr_texture_id: Option<&TextureId>) -> Optio
         FileDialog::new()
             .add_filter("hdr", &["hdr"])
             .pick_file()
-            .map(|f| command = Some(DomainEvent::ChangeSkybox(f)));
+            .map(|f| command = Some(DomainEvent::Assets(AssetEvent::ChangeSkybox(f))));
     }
     command
 }

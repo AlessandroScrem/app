@@ -12,9 +12,9 @@ pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
 pub struct Camera {
     position: Vec3,
     aspect: f32,
-    pub fov: Rad<f32>,
-    pub near: f32,
-    pub far: f32,
+    fov: Rad<f32>,
+    near: f32,
+    far: f32,
     yaw: f32,
     pitch: f32,
     focal_point: Vec3,
@@ -123,6 +123,12 @@ impl Camera {
     pub fn get_aspect(&self) -> f32 {
         self.aspect
     }
+    pub fn get_fov(&self) -> Rad<f32> {
+        self.fov
+    }
+    pub fn get_near_far(&self) -> (f32, f32) {
+        (self.near, self.far)
+    }
 
     // setters
     pub fn set_distance(&mut self, distance: f32) {
@@ -132,6 +138,15 @@ impl Camera {
 
     pub fn set_aspect(&mut self, aspect: f32) {
         self.aspect = aspect;
+    }
+
+    pub fn set_fov(&mut self, fov: Rad<f32>) {
+        self.fov = fov;
+    }
+
+    pub fn set_near_far(&mut self, near_far: (f32, f32)) {
+        self.near = near_far.0;
+        self.far = near_far.1;
     }
 
     pub fn set_focal_point(&mut self, new_focal_point: Vec3) {

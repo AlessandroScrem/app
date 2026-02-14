@@ -14,6 +14,7 @@ mod timer;
 pub mod timestep;
 mod transform;
 pub mod ui;
+pub mod domain_events;
 
 pub mod prelude {
     pub use super::app::App;
@@ -25,7 +26,8 @@ pub mod prelude {
     pub use crate::renderer::Renderer;
     pub use crate::renderer::uniform;
     pub use crate::timestep;
-    pub use crate::ui::ui_layer::*;
+    pub use crate::ui::*;
+    pub use crate::domain_events::*;
     pub use log::{debug, error, info, trace, warn};
 }
 
@@ -64,7 +66,6 @@ pub mod math {
 
 use std::{collections::VecDeque, path::PathBuf};
 
-use legion::Entity;
 
 use crate::assets::MaterialDesc;
 
@@ -79,32 +80,8 @@ pub mod colors {
     pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 
-#[derive(Default)]
-pub struct UiComponentView {
-    tag: Option<TagComponent>,
-    mesh: Option<MeshComponent>,
-    transform: Option<TransformComponent>,
-    bounding_box: Option<BoundingBoxComponent>,
-    material: Option<MaterialDesc>,
-    light: Option<LightComponent>,
-}
 
-pub enum DomainEvent {
-    RemoveEntity(Entity),
-    LoadGltf(PathBuf),
-    AddParent(Entity),
-    RecenterCamera,
-    ChangeSkybox(PathBuf),
-    UpdateTag(Entity, TagComponent),
-    UpdateTransform(Entity, TransformComponent),
-    UpdateMaterial(Entity, MaterialDesc),
-    UpdateLight(Entity, LightComponent),
-}
 
-#[derive(Default)]
-pub struct DomainEvents {
-    pub queue: VecDeque<DomainEvent>,
-}
 
 #[derive(Clone, Debug)]
 pub struct Globals {

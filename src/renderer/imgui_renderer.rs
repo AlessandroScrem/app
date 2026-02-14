@@ -6,14 +6,13 @@ use std::collections::HashMap;
 use wgpu::*;
 
 pub enum UiTexture {
-    Engine(TextureId),   // la texture viene dall’engine
+    Engine(TextureId),         // la texture viene dall’engine
     Builtin(imgui::TextureId), // icone, font, ecc.
 }
 
 pub trait UiTextureResolver {
     fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId>;
 }
-
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
@@ -36,6 +35,7 @@ impl ImguiRender {
     pub fn new(
         device: &Device,
         queue: &Queue,
+        window: &winit::window::Window,
         context: &mut imgui::Context,
         texture_format: wgpu::TextureFormat,
     ) -> Self {
@@ -43,6 +43,19 @@ impl ImguiRender {
             texture_format,
             ..Default::default()
         };
+
+        let hidpi_factor = window.scale_factor();
+        let font_size = (9.0 * hidpi_factor) as f32;
+
+        context.fonts().add_font(&[imgui::FontSource::DefaultFontData {
+            config: Some(imgui::FontConfig {
+                oversample_h: 1,
+                pixel_snap_h: true,
+                size_pixels: font_size,
+                ..Default::default()
+            }),
+        }]);
+
         let renderer = imgui_wgpu::Renderer::new(context, &device, &queue, renderer_config);
         let registry = ImGuiTextureRegistry::new();
 

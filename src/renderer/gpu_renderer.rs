@@ -141,7 +141,7 @@ impl Renderer {
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
         // -----
 
-        let imgui_render = ImguiRender::new(&device, &queue, imgui_ctx, surface_config.format);
+        let imgui_render = ImguiRender::new(&device, &queue, &window, imgui_ctx, surface_config.format);
 
         info!(
             "Renderer Created: Surface config format is {:?}",
@@ -185,16 +185,6 @@ impl Renderer {
 
     pub fn get_adapter_string(&self) -> String {
         self._adapter.get_info().name
-    }
-
-    pub fn get_hdr_id(&self) -> TextureId {
-        self.skybox_mgr.get_hdr_id()
-    }
-
-    pub fn get_hdr_imgui_id(&self) -> Option<&imgui::TextureId> {
-        let hdr_id = self.get_hdr_id();
-        let registry = self.get_texture_registry();
-        registry.ids.get(&hdr_id)
     }
 
     pub fn get_hovered(&mut self) -> Option<Entity> {

@@ -1,6 +1,5 @@
 use crate::DomainEvent;
 use crate::DomainEvents;
-use crate::UiComponentView;
 use crate::application_handler::RunningApp;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::asset_manager::SkyboxHandle;
@@ -31,9 +30,11 @@ impl App {
     pub fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        self.domain_events.queue.push_back(DomainEvent::LoadGltf(
-            "./assets/Lantern/Lantern.gltf".into(),
-        ));
+        self.domain_events
+            .queue
+            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(
+                "./assets/Lantern/Lantern.gltf".into(),
+            )));
         let hdrpath = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
         let hdr_id = self
             .asset_mgr
@@ -69,6 +70,33 @@ impl App {
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
+    }
+
+    pub fn update_domain_event(&mut self ) {
+        // event needs world update, will be executed next frame.
+        let mut next_queue = VecDeque::<DomainEvent>::new();
+
+        while let Some(event) = self.domain_events.queue.pop_front() {
+            match event {
+                DomainEvent::Camera(event) => {
+                    handle_camera_event(self, event);
+                }
+                DomainEvent::Global(event) => {
+                    handle_global_event(self, event);
+                }
+                DomainEvent::Entity(event) => {
+                    handle_entity_event(self, event);
+                }
+                DomainEvent::Assets(event) => {
+                    handle_asset_event(self, event, &mut next_queue);
+                }
+                DomainEvent::Selection(event) => {
+                    handle_selection_event(self, event);
+                }
+            }
+        }
+
+        self.domain_events.queue.append(&mut next_queue);
     }
 
     pub fn update_camera(&mut self, input: &Input) {
@@ -107,29 +135,18 @@ impl App {
         let renderer = &mut runtime.renderer;
         let window = &runtime.window;
 
-        let root_snapshot = create_root_snapshot(&self.current_scene.world);
-        let comp_view = &mut get_comp_view(
-            self.selected,
+        let snapshot = UiSnapshot::from_world(
             &self.current_scene.world,
+            self.selected,
             &self.asset_mgr,
+            &self.camera,
+            &self.globals,
+            renderer,
+            None,
         );
 
-        let mut snapshot = Snapshot {
-            resolver: renderer,
-            camera: &mut self.camera,
-            globals: &mut self.globals,
-            root_nodes: &root_snapshot.root_nodes,
-            lights_nodes: &root_snapshot.lights_nodes,
-            comp_view,
-            selected: &mut self.selected,
-            hovered: self.hovered,
-            adapter_string: renderer.get_adapter_string(),
-            hdr_texture_id: renderer.get_hdr_imgui_id(),
-            debug_texture_id: None,
-        };
-
         // Main operation: update_ui
-        let mut events = uilayer.build(window, &mut snapshot);
+        let mut events = uilayer.build(window, snapshot);
         self.domain_events.queue.append(&mut events);
     }
 
@@ -157,6 +174,7 @@ impl App {
         }
 
         fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
+            use legion::IntoQuery;
             <&BoundingBoxComponent>::query()
                 .iter(world)
                 .map(|b| b.global_bounding_box.clone())
@@ -175,7 +193,7 @@ impl App {
                 let size = max - min;
                 let fit_offset = 1.1f32;
 
-                let fov = camera.fov;
+                let fov = camera.get_fov();
                 let aspect = camera.get_aspect();
                 let max_size = size.magnitude();
                 let fit_height_distance = max_size / Angle::tan(fov);
@@ -186,128 +204,10 @@ impl App {
                 let near = distance / 100.0;
                 let far = distance * 100.0;
 
-                camera.near = near;
-                camera.far = far;
+                camera.set_near_far((near, far));
                 camera.set_focal_point(center);
                 camera.set_distance(distance);
             }
         }
     }
-}
-
-fn create_root_snapshot(world: &legion::World) -> RootSnapshot {
-    let root_nodes = get_hierarchy_roots(world);
-    let lights_nodes = get_lights_roots(world);
-
-    RootSnapshot {
-        root_nodes,
-        lights_nodes,
-    }
-}
-
-use legion::query::IntoQuery;
-fn get_lights_roots(world: &legion::World) -> RootNodes {
-    let mut roots = RootNodes::default();
-    let mut query = <(Entity, &LightComponent, &TagComponent)>::query();
-    for (entity, _light, tag) in query.iter(world) {
-        let name = tag.name.clone();
-        let node = HierarchyNode {
-            name,
-            parent: None,
-            entity: entity.clone(),
-            children: Vec::new(),
-        };
-
-        roots.nodes.push(node);
-    }
-    roots
-}
-
-fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
-    let mut query = <(Entity, &HierarchyComponent)>::query();
-    let mut roots = RootNodes::default();
-
-    for (entity, hierarchy) in query.iter(world) {
-        if hierarchy.parent.is_none() {
-            let node = build_node(world, *entity, None);
-            roots.nodes.push(node);
-        }
-    }
-
-    fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> HierarchyNode {
-        let entry = world
-            .entry_ref(entity)
-            .expect(format!("entity {:?} not found", entity).as_str());
-
-        let name = entry
-            .get_component::<TagComponent>()
-            .map(|n| n.name.clone())
-            .unwrap_or("<unnamed>".to_string());
-
-        let children = entry
-            .get_component::<HierarchyComponent>()
-            .map(|hierarchy| {
-                hierarchy
-                    .children
-                    .iter()
-                    .map(|&child| build_node(world, child, Some(entity)))
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        HierarchyNode {
-            name,
-            parent,
-            entity,
-            children,
-        }
-    }
-
-    roots
-}
-
-fn get_comp_view(
-    selected: Option<Entity>,
-    world: &legion::World,
-    asset_mgr: &AssetManager,
-) -> UiComponentView {
-    let mut comp_view = UiComponentView::default();
-
-    if let Some(selected) = selected {
-        if let Ok(entry) = world.entry_ref(selected) {
-            if let Ok(light) = entry.get_component::<LightComponent>() {
-                comp_view.light = Some(light.clone());
-            }
-        }
-        if let Ok(entry) = world.entry_ref(selected) {
-            if let Ok(tag) = entry.get_component::<TagComponent>() {
-                comp_view.tag = Some(tag.clone());
-            }
-        }
-        if let Ok(entry) = world.entry_ref(selected) {
-            if let Ok(transform) = entry.get_component::<TransformComponent>() {
-                comp_view.transform = Some(transform.clone());
-            }
-        }
-        if let Ok(entry) = world.entry_ref(selected) {
-            if let Ok(bbox) = entry.get_component::<BoundingBoxComponent>() {
-                comp_view.bounding_box = Some(bbox.clone());
-            }
-        }
-        if let Ok(entry) = world.entry_ref(selected) {
-            if let Ok(mesh) = entry.get_component::<MeshComponent>() {
-                comp_view.mesh = Some(mesh.clone());
-
-                if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                    for submesh in mesh_desc.submeshes.iter() {
-                        if let Some(mat_desc) = asset_mgr.materials.get(submesh.material) {
-                            //TODO: set material for submesh, not for mesh
-                            comp_view.material = Some(mat_desc.clone());
-                        }
-                    }
-                }
-            }
-        }
-    }
-    comp_view
 }

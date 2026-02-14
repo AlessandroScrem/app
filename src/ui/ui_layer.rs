@@ -1,51 +1,34 @@
 use std::collections::VecDeque;
 
 use super::*;
+use imgui::*;
+
 use imgui_winit_support::WinitPlatform;
-use legion::Entity;
 use winit::window::Window;
 
-use crate::{
-    DomainEvent, Globals, UiComponentView, camera::Camera, renderer::UiTextureResolver,
-    timestep::Timestep,
-};
+use crate::timestep::Timestep;
 
-pub struct UiContext<'a, 'b> {
-    pub snapshot: &'a mut Snapshot<'b>,
-    pub commands: VecDeque<DomainEvent>,
+pub struct UiContext<'a> {
+    pub snapshot: &'a UiSnapshot<'a>,
+    pub write: UiWriteModel,
     pub timestep: Timestep,
-}
-
-pub struct Snapshot<'a> {
-    pub resolver: &'a dyn UiTextureResolver,
-    pub camera: &'a mut Camera,
-    pub globals: &'a mut Globals,
-    pub root_nodes: &'a RootNodes,
-    pub lights_nodes: &'a RootNodes,
-    pub comp_view: &'a mut UiComponentView,
-    pub selected: &'a mut Option<Entity>,
-    pub hovered: Option<Entity>,
     pub adapter_string: String,
-    pub hdr_texture_id: Option<&'a TextureId>,
-    pub debug_texture_id: Option<&'a imgui::TextureId>,
 }
 
-pub struct HierarchyNode {
-    pub name: String,
-    pub parent: Option<Entity>,
-    pub entity: Entity,
-    pub children: Vec<HierarchyNode>,
+pub struct UiWriteModel {
+    pub commands: VecDeque<DomainEvent>,
 }
 
-#[derive(Default)]
-pub struct RootNodes {
-    pub nodes: Vec<HierarchyNode>,
-}
+impl UiWriteModel {
+    pub fn new() -> Self {
+        Self {
+            commands: VecDeque::new(),
+        }
+    }
 
-#[derive(Default)]
-pub struct RootSnapshot {
-    pub root_nodes: RootNodes,
-    pub lights_nodes: RootNodes,
+    pub fn push(&mut self, cmd: DomainEvent) {
+        self.commands.push_back(cmd);
+    }
 }
 
 pub struct UiLayer {
@@ -54,6 +37,7 @@ pub struct UiLayer {
     ini_loaded: bool,
     timestep: Timestep,
     stack: UiStack,
+    adapter_string: String,
 }
 
 struct UiStack {
@@ -82,36 +66,21 @@ impl Layer for UiStack {
 }
 
 impl UiLayer {
-    pub fn new(window: &Window) -> Self {
-        let mut context = imgui::Context::create();
-
-        let io = context.io_mut();
-        io.config_flags.insert(ConfigFlags::DOCKING_ENABLE);
-        io.config_flags.insert(ConfigFlags::VIEWPORTS_ENABLE);
-
+    pub fn new(window: &Window, mut context: imgui::Context, adapter_string: String) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
 
-        let mut platform = WinitPlatform::new(&mut context);
-        let hidpi_factor = window.scale_factor();
+        let io = context.io_mut();
+        io.config_flags.insert(imgui::ConfigFlags::DOCKING_ENABLE);
+        io.config_flags.insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
 
+        context.set_ini_filename(None);
+
+        let mut platform = WinitPlatform::new(&mut context);
         platform.attach_window(
             context.io_mut(),
             window,
             imgui_winit_support::HiDpiMode::Default,
         );
-
-        context.set_ini_filename(None);
-
-        let font_size = (9.0 * hidpi_factor) as f32;
-
-        context.fonts().add_font(&[FontSource::DefaultFontData {
-            config: Some(imgui::FontConfig {
-                oversample_h: 1,
-                pixel_snap_h: true,
-                size_pixels: font_size,
-                ..Default::default()
-            }),
-        }]);
 
         let timestep = Timestep::new();
 
@@ -127,6 +96,7 @@ impl UiLayer {
             ini_loaded: false,
             timestep,
             stack: ui,
+            adapter_string,
         }
     }
 
@@ -144,13 +114,6 @@ impl UiLayer {
         }
 
         self.ini_loaded = true;
-    }
-
-    pub fn get_context_mut(&mut self) -> &mut imgui::Context {
-        &mut self.context
-    }
-    pub fn get_context(&self) -> &imgui::Context {
-        &self.context
     }
 
     pub fn want_capture_mouse(&self) -> bool {
@@ -182,15 +145,12 @@ impl UiLayer {
         self.load_ini_if_needed();
     }
 
-    pub fn build(
-        &mut self,
-        window: &Window,
-        snapshot: &mut Snapshot,
-    ) -> VecDeque<DomainEvent> {
+    pub fn build(&mut self, window: &Window, snapshot: UiSnapshot) -> VecDeque<DomainEvent> {
         let mut ctx = UiContext {
-            snapshot,
-            commands: VecDeque::new(),
+            snapshot: &snapshot,
+            write: UiWriteModel::new(),
             timestep: self.timestep.clone(),
+            adapter_string: self.adapter_string.clone(),
         };
 
         self.begin_frame(window);
@@ -206,7 +166,7 @@ impl UiLayer {
 
         self.end_frame();
 
-        ctx.commands
+        ctx.write.commands
     }
 }
 

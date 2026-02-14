@@ -1,4 +1,5 @@
 use super::*;
+use imgui::*;
 use legion::Entity;
 
 pub struct EntityListUi {}
@@ -24,7 +25,7 @@ impl Layer for EntityListUi {
                         rfd::FileDialog::new()
                             .add_filter("gltf", &["gltf"])
                             .pick_file()
-                            .map(|f| ctx.commands.push_back(DomainEvent::LoadGltf(f)));
+                            .map(|f| ctx.write.push(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
                     });
                     popup.end();
                 }
@@ -34,7 +35,8 @@ impl Layer for EntityListUi {
                     && ui.is_mouse_clicked(MouseButton::Left)
                     && !ui.is_any_item_hovered()
                 {
-                    *ctx.snapshot.selected = None;
+                    ctx.write
+                        .push(DomainEvent::Selection(SelectionEvent::Selected(None)));
                 }
             });
     }
@@ -69,12 +71,12 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
 }
 
 fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let selected = &mut ctx.snapshot.selected;
+    let mut selected = ctx.snapshot.selected.clone();
 
     ui.group(|| {
-        for node in ctx.snapshot.root_nodes.nodes.iter() {
+        for node in ctx.snapshot.root_snapshot.root_nodes.nodes.iter() {
             // traverse from root nodes
-            draw_entity_node_recurse(ui, node, selected);
+            draw_entity_node_recurse(ui, node, &mut selected);
         }
     });
 
@@ -82,6 +84,7 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     if let Some(selected) = selected.clone() {
         if ctx
             .snapshot
+            .root_snapshot
             .root_nodes
             .nodes
             .iter()
@@ -93,27 +96,39 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {
-                    ctx.commands.push_back(DomainEvent::RemoveEntity(selected));
+                    ctx.write
+                        .push(DomainEvent::Entity(EntityEvent::RemoveEntity(selected)));
                 });
-                ui.menu_item("Add Parent ..")
-                    .then(|| ctx.commands.push_back(DomainEvent::AddParent(selected)));
+                ui.menu_item("Add Parent ..").then(|| {
+                    ctx.write
+                        .push(DomainEvent::Entity(EntityEvent::AddParent(selected)))
+                });
                 popup.end();
             }
         }
     }
+
+    if selected != ctx.snapshot.selected.clone() {
+        ctx.write
+            .push(DomainEvent::Selection(SelectionEvent::Selected(selected)));
+    }
 }
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let selected = &mut ctx.snapshot.selected;
+    let selected = ctx.snapshot.selected;
+    let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
 
-    for node in ctx.snapshot.lights_nodes.nodes.iter() {
+    for node in lights_nodes.nodes.iter() {
         let entity = node.entity;
         if ui
             .selectable_config(format!("{} {:?}", node.name, node.entity))
             .selected(selected.map(|e| e == entity).unwrap_or(false))
             .build()
         {
-            **selected = Some(entity);
+            ctx.write
+                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                    entity,
+                ))));
         }
     }
 }
