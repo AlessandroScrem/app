@@ -1,57 +1,38 @@
-use super::*;
+use std::collections::VecDeque;
 use legion::*;
+use crate::prelude::*;
+use crate::App;
 
-pub enum DomainEvent {
-    Scene(SceneEvent),
-    Camera(CameraEvent),
-    Global(GlobalEvent),
-    Assets(AssetEvent),
-    Entity(EntityEvent),
-    Selection(SelectionEvent),
-}
 
-pub enum SceneEvent {}
+impl App {
+       pub fn update_domain_event(&mut self) {
+        // event needs world update, will be executed next frame.
+        let mut next_queue = VecDeque::<DomainEvent>::new();
 
-pub enum SelectionEvent {
-    Selected(Option<Entity>),
-}
-pub enum AssetEvent {
-    LoadGltf(PathBuf),
-    ChangeSkybox(PathBuf),
+        while let Some(event) = self.domain_events.queue.pop_front() {
+            match event {
+                DomainEvent::Camera(event) => {
+                    handle_camera_event(self, event);
+                }
+                DomainEvent::Global(event) => {
+                    handle_global_event(self, event);
+                }
+                DomainEvent::Entity(event) => {
+                    handle_entity_event(self, event);
+                }
+                DomainEvent::Assets(event) => {
+                    handle_asset_event(self, event, &mut next_queue);
+                }
+                DomainEvent::Selection(event) => {
+                    handle_selection_event(self, event);
+                }
+            }
+        }
 
-}
-pub enum EntityEvent {
-    RemoveEntity(Entity),
-    AddParent(Entity),
-    UpdateTag(Entity, TagComponent),
-    UpdateTransform(Entity, TransformComponent),
-    UpdateMaterial(Entity, MaterialDesc),
-    UpdateLight(Entity, LightComponent),
-    
-}
-pub enum GlobalEvent {
-    IblEnable(bool),
-    SkyboxEnable(bool),
-    AxisEnable(bool),
-    BboxEnable(bool),
-    BboxAxisAligned(bool),
-    DebugCode(u32),
-    Exposure(f32),
-    IblIntensity(f32),
-    TonemapFilter(u32),
+        self.domain_events.queue.append(&mut next_queue);
+    }
 }
 
-pub enum CameraEvent {
-    RecenterCamera,
-    CameraFov(math::Rad<f32>),
-    CameraDistance(f32),
-    CameraNearFar((f32, f32)),
-}
-
-#[derive(Default)]
-pub struct DomainEvents {
-    pub queue: VecDeque<DomainEvent>,
-}
 
 pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
     match event {

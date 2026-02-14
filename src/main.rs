@@ -1,4 +1,4 @@
-use app_wgpu::prelude::{MyApplication, App};
+use app_wgpu::{MyApplication, App};
 
 use clap::crate_version;
 use clap::{AppSettings, Arg};

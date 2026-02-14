@@ -1,82 +1,10 @@
-use crate::DomainEvent;
-use crate::DomainEvents;
-use crate::application_handler::RunningApp;
-use crate::assets::asset_manager::AssetManager;
-use crate::input::Input;
-
-use crate::Globals;
 use crate::prelude::*;
-use crate::scene::Scene;
-
+use crate::input::Input;
 use legion::Entity;
 use legion::EntityStore;
-use legion::Resources;
 
-#[derive(Default)]
-pub struct App {
-    pub current_scene: Scene,
-    pub asset_mgr: AssetManager,
-    pub resources: Resources,
-    pub globals: Globals,
-    pub camera: Camera,
-    pub domain_events: DomainEvents,
-    pub selected: Option<Entity>,
-    pub hovered: Option<Entity>,
-}
 
 impl App {
-    
-
-
-    pub fn update_selected(&mut self, runtime: &mut RunningApp) {
-        let input = &runtime.input;
-        let renderer = &mut runtime.renderer;
-        // update hovered entity_id from buffer
-        use crate::input::MouseButton;
-        use winit::keyboard::{Key, NamedKey};
-        if input.is_cursor_moved() {
-            self.hovered = renderer.get_hovered();
-        }
-
-        if input.is_mouse_button_pressed(MouseButton::Left)
-            && input.is_key_down(Key::Named(NamedKey::Alt))
-        {
-            self.selected = self.hovered;
-        }
-    }
-
-    pub fn update_scene(&mut self) {
-        self.current_scene
-            .schedule
-            .execute(&mut self.current_scene.world, &mut self.resources);
-    }
-
-    pub fn update_domain_event(&mut self) {
-        // event needs world update, will be executed next frame.
-        let mut next_queue = VecDeque::<DomainEvent>::new();
-
-        while let Some(event) = self.domain_events.queue.pop_front() {
-            match event {
-                DomainEvent::Camera(event) => {
-                    handle_camera_event(self, event);
-                }
-                DomainEvent::Global(event) => {
-                    handle_global_event(self, event);
-                }
-                DomainEvent::Entity(event) => {
-                    handle_entity_event(self, event);
-                }
-                DomainEvent::Assets(event) => {
-                    handle_asset_event(self, event, &mut next_queue);
-                }
-                DomainEvent::Selection(event) => {
-                    handle_selection_event(self, event);
-                }
-            }
-        }
-
-        self.domain_events.queue.append(&mut next_queue);
-    }
 
     pub fn update_camera(&mut self, input: &Input) {
         // move away from here
@@ -94,27 +22,6 @@ impl App {
         if let Some(delta) = input.mouse_wheel_movement {
             self.camera.zoom(delta.y);
         }
-    }
-
-
-    pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
-        let uilayer = &mut runtime.uilayer;
-        let renderer = &mut runtime.renderer;
-        let window = &runtime.window;
-
-        let snapshot = UiSnapshot::from_world(
-            &self.current_scene.world,
-            self.selected,
-            &self.asset_mgr,
-            &self.camera,
-            &self.globals,
-            renderer,
-            None,
-        );
-
-        // Main operation: update_ui
-        let mut events = uilayer.build(window, snapshot);
-        self.domain_events.queue.append(&mut events);
     }
 
     pub fn recenter_camera(&mut self) {

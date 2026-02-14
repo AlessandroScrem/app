@@ -1,5 +1,5 @@
 mod app;
-mod application_handler;
+mod engine;
 pub mod assets;
 pub mod bounding_box;
 mod camera;
@@ -14,12 +14,11 @@ mod timer;
 pub mod timestep;
 mod transform;
 pub mod ui;
-pub mod domain_events;
+
 
 pub mod prelude {
-    pub use super::app::App;
-    pub use super::application_handler::MyApplication;
     pub use crate::assets::material_asset;
+    pub use crate::assets::asset_manager::AssetManager;
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
     pub use crate::entities::components::*;
@@ -27,7 +26,9 @@ pub mod prelude {
     pub use crate::renderer::uniform;
     pub use crate::timestep;
     pub use crate::ui::*;
-    pub use crate::domain_events::*;
+    pub use crate::app::domain::*;
+    pub use app::App;
+    pub use engine::MyApplication;
     pub use log::{debug, error, info, trace, warn};
 }
 
@@ -63,8 +64,6 @@ pub mod math {
         perspective, vec3, vec4,
     };
 }
-
-use std::{collections::VecDeque, path::PathBuf};
 
 
 use crate::assets::MaterialDesc;
