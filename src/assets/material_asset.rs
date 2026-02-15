@@ -1,7 +1,7 @@
 use super::*;
-use std::path::PathBuf;
-use texture_asset::ColorSpace;
 use crate::{math::*, renderer::uniform::MaterialUniform};
+use std::{cell::Cell, path::PathBuf};
+use texture_asset::ColorSpace;
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
 pub enum ShaderId {
@@ -24,7 +24,6 @@ pub struct MaterialKey {
     pub shader: ShaderId,
     pub textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
 }
-
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
@@ -57,7 +56,6 @@ impl MaterialTextureSlot {
         MaterialTextureSlot::Occlusion,
     ];
 }
-
 
 #[derive(Clone)]
 pub struct MaterialDesc {
@@ -104,8 +102,13 @@ impl MaterialDesc {
         self.key.name = name.into();
     }
 
-    pub fn set_texture(&mut self, texture_asset: &mut TextureAssets, slot: MaterialTextureSlot, path: Option<PathBuf>) {
-        if let Some(path) = path  {
+    pub fn set_texture(
+        &mut self,
+        texture_asset: &mut TextureAssets,
+        slot: MaterialTextureSlot,
+        path: Option<PathBuf>,
+    ) {
+        if let Some(path) = path {
             let key = TextureKey::File {
                 color_space: slot.color_space().into(),
                 path: path.into(),
@@ -120,13 +123,18 @@ impl MaterialDesc {
             self.key.textures[slot as usize] = Some(id);
             self.use_texture_slot[slot as usize] = true;
         }
-
     }
+}
+
+#[derive(Clone)]
+struct MaterialAsset {
+    desc: MaterialDesc,
+    ref_count: Cell<u32>,
 }
 
 #[derive(Default)]
 pub struct MaterialAssets {
-    storage: SlotMap<MaterialId, MaterialDesc>,
+    storage: SlotMap<MaterialId, MaterialAsset>,
     lookup: HashMap<MaterialKey, MaterialId>,
 }
 
@@ -136,39 +144,64 @@ impl MaterialAssets {
         key: MaterialKey,
         desc_fn: impl FnOnce() -> MaterialDesc,
     ) -> MaterialId {
-        if let Some(id) = self.lookup.get(&key) {
-            return *id;
+        match self.lookup.get(&key) {
+            Some(&id) => {
+                let mat = &self.storage[id];
+                mat.ref_count.set(mat.ref_count.get() + 1);
+                id
+            }
+            None => {
+                let id = self.storage.insert(MaterialAsset {
+                    desc: desc_fn(),
+                    ref_count: Cell::new(1),
+                });
+                self.lookup.insert(key, id);
+                id
+            }
         }
-
-        let desc = desc_fn();
-        let id = self.storage.insert(desc);
-        self.lookup.insert(key, id);
-        id
     }
 
-    pub fn get(&self, id: MaterialId) -> Option<&MaterialDesc> {
-        self.storage.get(id)
+    pub fn get_desc(&self, id: MaterialId) -> Option<&MaterialDesc> {
+        self.storage.get(id).map(|m| &m.desc)
     }
 
-    pub fn contains_key(&self, id: MaterialId) ->bool {
+    pub fn contains_key(&self, id: MaterialId) -> bool {
         self.storage.contains_key(id)
     }
 
-    pub fn remove(&mut self, id: MaterialId) {
-        if self.storage.contains_key(id) {
-            self.storage.remove(id);
-            self.lookup.retain(|_key, &mut id| id != id);
+    pub fn iter(&self) -> impl Iterator<Item = (MaterialId, &MaterialDesc)> {
+        self.storage.iter().map(|(id, asset)| (id, &asset.desc))
+    }
+
+    pub fn remove(&mut self, id: MaterialId, texture_asset: &mut TextureAssets) {
+        if let Some(asset) = self.storage.get(id) {
+            let count = asset.ref_count.get();
+
+            if count > 1 {
+                asset.ref_count.set(count - 1);
+            } else {
+                let removed = self.storage.remove(id).unwrap();
+                let desc = removed.desc;
+                // remove textures from slots
+                // TODO: Remove from here
+                for slot in MaterialTextureSlot::ALL {
+                    if let Some(id) = desc.get_texture_slot(slot) {
+                        texture_asset.remove(id);
+                        debug!("Remove texture slot {:?}", slot);
+                    }
+                }
+                // remove mat key from lookup table
+                debug!("Remove material id {:?}", id);
+                self.lookup.remove(&desc.key);
+            }
         }
     }
 
     pub fn update(&mut self, desc: &MaterialDesc) {
-        if let Some(id) = self.lookup.get(&desc.key){
-            self.storage[*id] = desc.clone();
+        if let Some(id) = self.lookup.get(&desc.key) {
+            let asset = &mut self.storage[*id];
+            asset.desc = desc.clone();
         }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (MaterialId, &MaterialDesc)> {
-        self.storage.iter()
     }
 }
 
@@ -198,6 +231,58 @@ impl From<&MaterialDesc> for MaterialUniform {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn should_create_material_from_id() {}
+    fn should_create_material() {
+        let mut materials = MaterialAssets::default();
+        
+        let key = MaterialKey::default();
+        let desc = MaterialDesc::default();
+        
+        let id = materials.get_or_create(key, || desc);
+        
+        assert!(materials.contains_key(id));
+    }
+    
+    
+    #[test]
+    fn should_remove_material() {
+        let mut materials = MaterialAssets::default();
+        let mut texture_asset = TextureAssets::new();
+
+        let key = MaterialKey::default();
+        let desc = MaterialDesc::default();
+        
+        let _ = materials.get_or_create(key.clone(), || desc.clone());
+        let id = materials.get_or_create(key, || desc);
+        
+        materials.remove(id, &mut texture_asset);        
+        assert!(materials.contains_key(id));
+        assert!(materials.get_desc(id).is_some());
+        
+        materials.remove(id, &mut texture_asset);
+        assert_eq!(materials.contains_key(id), false);
+        assert!(materials.get_desc(id).is_none());
+    }
+    
+    #[test]
+    fn should_remove_textures_from_slot() {
+        let mut materials = MaterialAssets::default();
+        let mut texture_asset = TextureAssets::new();
+        let path = Some(PathBuf::from("albedo.png"));
+    
+        let key = MaterialKey::default();
+        let mut desc = MaterialDesc::default();
+        desc.set_texture(&mut texture_asset, MaterialTextureSlot::BaseColor, path);
+        
+        let id = materials.get_or_create(key, || desc);
+        let mat_desc = materials.get_desc(id).unwrap();
+
+        let tex_id = mat_desc.get_texture_slot(MaterialTextureSlot::BaseColor).unwrap();
+        assert!(texture_asset.contains_key(tex_id));
+        
+        materials.remove(id, &mut texture_asset);        
+        assert_eq!(texture_asset.contains_key(tex_id), false);
+    }
 }

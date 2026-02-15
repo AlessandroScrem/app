@@ -22,7 +22,7 @@ impl GpuTextureCache {
     ) -> &GpuTexture {
         
         self.map.entry(id).unwrap().or_insert_with(|| {
-            let desc = assets.storage.get(id).unwrap();
+            let desc = assets.get_desc(id).unwrap();
             GpuTexture::from_desc(desc, device, queue)
         })
     }

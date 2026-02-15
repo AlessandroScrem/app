@@ -61,7 +61,7 @@ impl GpuMaterialCache {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> GpuMaterial {
-        let material_desc = asset_manager.materials.get(material_id).unwrap();
+        let material_desc = asset_manager.materials.get_desc(material_id).unwrap();
         let uniform_buffer = create_uniform_from_desc(device, material_desc);
     
         let bindgroup = create_bindgroup_from_desc(

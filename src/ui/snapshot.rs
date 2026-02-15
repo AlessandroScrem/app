@@ -65,7 +65,7 @@ impl UiComponentState {
 
             if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
                 if let Some(submesh) = mesh_desc.submeshes.first() {
-                    if let Some(mat) = asset_mgr.materials.get(submesh.material) {
+                    if let Some(mat) = asset_mgr.materials.get_desc(submesh.material) {
                         state.material = Some(mat.clone());
                     }
                 }

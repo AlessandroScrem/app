@@ -3,8 +3,6 @@ use std::{collections::HashMap, path::PathBuf};
 use slotmap::SlotMap;
 use slotmap::new_key_type;
 
-use crate::BoundingBox;
-
 pub mod asset_manager;
 pub mod file;
 pub mod gltf_loader;
@@ -23,6 +21,7 @@ pub use crate::assets::vertexdata::MeshVertexData;
 pub use texture_asset::*;
 pub use mesh_asset::*;
 pub use material_asset::*;
+pub use crate::prelude::*;
 
 
 #[test]

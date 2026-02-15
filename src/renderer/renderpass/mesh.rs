@@ -62,7 +62,7 @@ impl MeshPass {
             if let Some(mesh_desc) = &asset_mgr.meshes.get(mesh.handle) {
                 for submesh in mesh_desc.submeshes.iter() {
                     // Material Uniform
-                    if let Some(material_desc) = asset_mgr.materials.get(submesh.material) {
+                    if let Some(material_desc) = asset_mgr.materials.get_desc(submesh.material) {
                         let updated_uniform = MaterialUniform::from(material_desc);
                         material_cache.update(&submesh.material, queue, &updated_uniform);
                     }

@@ -146,7 +146,7 @@ fn collect_asset_ids_from_entity(
                     for submesh in mesh_desc.submeshes.iter() {
                         let mat_id = submesh.material;
                         material_ids.push(mat_id);
-                        if let Some(mat_desc) = asset_mgr.materials.get(mat_id) {
+                        if let Some(mat_desc) = asset_mgr.materials.get_desc(mat_id) {
                             for slot in MaterialTextureSlot::ALL {
                                 if let Some(tex_id) = mat_desc.get_texture_slot(slot) {
                                     texture_ids.push(tex_id);
@@ -189,13 +189,13 @@ pub fn remove_entity_from_all(
     }
 
     // remove material from asset 
-    // TODO: check if material is shared by others before removing
+    // remove also textures from slot
     for mat_id in material_ids {
-        asset_mgr.materials.remove(mat_id);
+        asset_mgr.materials.remove(mat_id, &mut asset_mgr.textures);
     }
 
     // remove texture from asset 
-    // TODO: check if  is shared by others before removing
+    // texture slot are removed from materials.remove() 
     for tex_id in texture_ids {
         asset_mgr.textures.remove(tex_id);
     }

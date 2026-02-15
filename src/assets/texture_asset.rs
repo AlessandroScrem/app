@@ -1,4 +1,5 @@
 use super::*;
+use std::cell::Cell;
 
 impl TextureId {
     pub fn white(assets: &TextureAssets) -> TextureId {
@@ -90,9 +91,14 @@ pub enum TextureDesc {
     },
     White,
 }
+#[derive(Clone)]
+struct TextureAsset {
+    desc: TextureDesc,
+    ref_count: Cell<u32>,
+}
 
 pub struct TextureAssets {
-    pub storage: SlotMap<TextureId, TextureDesc>,
+    storage: SlotMap<TextureId, TextureAsset>,
     lookup: HashMap<TextureKey, TextureId>,
     white: TextureId,
 }
@@ -102,7 +108,10 @@ impl Default for TextureAssets {
         let mut storage = SlotMap::with_key();
         let mut lookup = HashMap::new();
         let white_key = TextureKey::White;
-        let white_id = storage.insert(TextureDesc::White);
+        let white_id = storage.insert(TextureAsset {
+            desc: TextureDesc::White,
+            ref_count: Cell::new(1),
+        });
 
         lookup.insert(white_key, white_id);
 
@@ -123,40 +132,66 @@ impl TextureAssets {
         self.white
     }
 
-    pub fn get(&self, id: TextureId) -> Option<&TextureDesc> {
-        self.storage.get(id)
+    pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
+        self.storage.get(id).map(|t| &t.desc)
     }
     
-    pub fn contains_key(&self, id: TextureId) ->bool {
+    pub fn contains_key(&self, id: TextureId) -> bool {
         self.storage.contains_key(id)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureDesc)> {
+        self.storage.iter().map(|(id, asset)| (id, &asset.desc))
+    }
+    
     pub fn remove(&mut self, id: TextureId) {
-        if self.storage.contains_key(id) {
-            self.storage.remove(id);
-            self.lookup.retain(|_key, &mut id| id != id);
+        // Do not remove White!
+        if id == self.white {
+            return;
+        }
+
+        if let Some(asset) = self.storage.get(id) {
+            let count = asset.ref_count.get();
+
+            if count > 1 {
+                asset.ref_count.set(count - 1);
+            } else {
+                let removed = self.storage.remove(id).unwrap();
+                if let TextureDesc::File { key, .. } = removed.desc {
+                    self.lookup.remove(&key);
+                }
+            }
         }
     }
 
     pub fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
         match desc {
             TextureDesc::White => self.white,
+
             TextureDesc::File {
                 key,
                 sampler,
                 mipmaps,
-            } => {
-                if let Some(id) = self.lookup.get(&key) {
-                    return *id;
+            } => match self.lookup.get(&key) {
+                Some(&id) => {
+                    let tex = &self.storage[id];
+                    tex.ref_count.set(tex.ref_count.get() + 1);
+                    id
                 }
-                let id = self.storage.insert(TextureDesc::File {
-                    key: key.clone(),
-                    sampler,
-                    mipmaps,
-                });
-                self.lookup.insert(key, id);
-                id
-            }
+
+                None => {
+                    let id = self.storage.insert(TextureAsset {
+                        desc: TextureDesc::File {
+                            key: key.clone(),
+                            sampler,
+                            mipmaps,
+                        },
+                        ref_count: Cell::new(1),
+                    });
+                    self.lookup.insert(key, id);
+                    id
+                }
+            },
         }
     }
 
@@ -176,15 +211,12 @@ impl TextureAssets {
         self.get_or_create(desc)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureDesc)> {
-        self.storage.iter()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn same_texture_same_id() {
         let mut textures = TextureAssets::new();
@@ -209,10 +241,38 @@ mod tests {
     #[test]
     fn should_contain_white_texture_id() {
         let texture_assets = TextureAssets::new();
-
+        
         let white_id = TextureId::white(&texture_assets);
+        
+        assert!(texture_assets.get_desc(white_id).is_some())
+    }
+    
+    #[test]
+    fn should_not_remove_shared_from_asset(){
+        let mut textures = TextureAssets::new();
+        
+        let key = TextureKey::File {
+            path: "albedo.png".into(),
+            color_space: ColorSpace::Rgba8,
+            usage: TextureUsage::Albedo,
+        };
+        
+        let desc = TextureDesc::File {
+            key,
+            sampler: SamplerDesc::default(),
+            mipmaps: true,
+        };
+        
+        let _ = textures.get_or_create(desc.clone());
+        let id = textures.get_or_create(desc);
+        
+        
+        textures.remove(id);
+        assert!(textures.get_desc(id).is_some());
 
-        assert!(texture_assets.get(white_id).is_some())
+        // now will remove ..
+        textures.remove(id);
+        assert!(textures.get_desc(id).is_none());
     }
 }
 

@@ -24,7 +24,6 @@ pub use pipeline_manager::PipelineManager;
 pub use skybox_manager::SkyboxManager;
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform, MaterialUniform, ModelUniform};
 
-use crate::assets::asset_manager::AssetManager;
 pub use crate::assets::*;
 pub use gpu_material_cache::*;
 pub use gpu_mesh_cache::*;

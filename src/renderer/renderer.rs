@@ -11,7 +11,7 @@ use super::*;
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
-use crate::{Globals, prelude::*};
+use crate::{Globals};
 
 impl UiTextureResolver for Renderer {
     fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
@@ -271,18 +271,6 @@ impl Renderer {
                 true
             }
         });
-    }
-
-    pub fn remove_mesh_from_cache(&mut self, id: MeshId) {
-        self.gpu_cache.mesh.remove(&id);
-    }
-
-    pub fn remove_material_from_cache(&mut self, id: MaterialId) {
-        self.gpu_cache.material.remove(&id);
-    }
-
-    pub fn remove_texture_from_cache(&mut self, id: TextureId) {
-        self.gpu_cache.textures.remove(&id);
     }
 
     fn sync_caches(&mut self, asset_mgr: &AssetManager) {
