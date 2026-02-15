@@ -44,7 +44,7 @@ impl Application for App {
                 debug!("Sync_with_registry: ");
             });
 
-        self.update_domain_event(runtime);
+        self.update_domain_event();
         self.update_camera(&runtime.input);
         self.update_selected(runtime);
         self.update_scene();

@@ -1,5 +1,5 @@
 pub use super::*;
-use crate::renderer::{GpuMesh, gpu_renderer::GpuCache};
+use crate::renderer::{GpuMesh, renderer::GpuCache};
 
 struct MeshDrawable<'a> {
     gpu_mesh: &'a GpuMesh,

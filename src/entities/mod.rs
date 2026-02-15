@@ -167,7 +167,6 @@ fn collect_asset_ids_from_entity(
 
 pub fn remove_entity_from_all(
     asset_mgr: &mut crate::AssetManager,
-    runtime: &mut crate::engine::RunningApp,
     entity: Entity,
     world: &mut legion::World,
 ) {
@@ -183,24 +182,22 @@ pub fn remove_entity_from_all(
         world.remove(e);
     }
 
-    // remove mesh from asset & GpuCache
+    // remove mesh from asset
+    // TODO: check if mesh is shared by others before removing
     for mesh_id in mesh_ids {
         asset_mgr.meshes.remove(mesh_id);
-        runtime.renderer.remove_mesh_from_cache(mesh_id);
     }
 
-    // remove material from asset & GpuCache
+    // remove material from asset 
     // TODO: check if material is shared by others before removing
     for mat_id in material_ids {
         asset_mgr.materials.remove(mat_id);
-        runtime.renderer.remove_material_from_cache(mat_id);
     }
 
-    // remove texture from asset & GpuCache
+    // remove texture from asset 
     // TODO: check if  is shared by others before removing
     for tex_id in texture_ids {
         asset_mgr.textures.remove(tex_id);
-        runtime.renderer.remove_texture_from_cache(tex_id);
     }
 }
 

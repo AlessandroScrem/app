@@ -30,6 +30,11 @@ impl GpuMaterialCache {
         }
     }
 
+    pub fn retain(&mut self, assets: &MaterialAssets) {
+        // Sync cleanup
+        self.map.retain(|id, _| assets.contains_key(id));
+    }
+
     pub fn remove(&mut self, id: &MaterialId) {
         if self.map.contains_key(*id) {
             self.map.remove(*id);

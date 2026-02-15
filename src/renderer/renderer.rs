@@ -55,7 +55,6 @@ pub struct GpuDevice<'a> {
 }
 
 
-
 #[derive(Default)]
 pub struct GpuCache {
     pub mesh: GpuMeshCache,
@@ -286,10 +285,27 @@ impl Renderer {
         self.gpu_cache.textures.remove(&id);
     }
 
-    /// update skybox
-    /// sync GpuCache Ids with assets Ids (meshes materials textures)
-    pub fn prepare(&mut self, asset_mgr: &AssetManager) {
-        // skybox
+    fn sync_caches(&mut self, asset_mgr: &AssetManager) {
+        // Sync cleanup
+        self.gpu_cache.mesh.retain(&asset_mgr.meshes);
+        self.gpu_cache.material.retain(&asset_mgr.materials);
+        self.gpu_cache.textures.retain(&asset_mgr.textures);
+
+        // Sync Meshes
+        for (id, _value) in asset_mgr.meshes.iter() {
+            self.gpu_cache.mesh.ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
+        }
+        // Sync Textures
+        for (id, _value) in asset_mgr.textures.iter() {
+            self.gpu_cache.textures.ensure(id, &asset_mgr.textures, &self.device, &self.queue);
+        }
+        // Sync Materials (crate also textures)
+        for (id, _value) in asset_mgr.materials.iter() {
+            self.gpu_cache.material.ensure(id, &mut self.gpu_cache.textures, &asset_mgr, &self.gpu_mgr, &self.device, &self.queue);
+        }
+    }
+
+    fn sync_skybox(&mut self, asset_mgr: &AssetManager) {
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
             let hdr_texture = self.gpu_cache.textures.get_or_create(
                 asset_mgr.skybox.get_id(),
@@ -305,30 +321,13 @@ impl Renderer {
                 &self.gpu_mgr,
             );
         }
-        // meshes
-        let mesh_cache = &mut self.gpu_cache.mesh;
-        for (id, _desc) in asset_mgr.meshes.iter() {
-            mesh_cache.ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
-        }
+    }
 
-        // materials
-        let material_cache = &mut self.gpu_cache.material;
-        for (id, _desc) in asset_mgr.materials.iter() {
-            material_cache.ensure(
-                id,
-                &mut self.gpu_cache.textures,
-                &asset_mgr,
-                &self.gpu_mgr,
-                &self.device,
-                &self.queue,
-            );
-        }
-
-        //textures
-        let texture_cache = &mut self.gpu_cache.textures;
-        for (id, _desc) in asset_mgr.textures.iter() {
-            texture_cache.ensure(id, &asset_mgr.textures, &self.device, &self.queue);
-        }
+    /// update skybox
+    /// sync GpuCache Ids with assets Ids (meshes materials textures)
+    pub fn prepare(&mut self, asset_mgr: &AssetManager) {
+        self.sync_skybox(asset_mgr);
+        self.sync_caches(asset_mgr);
     }
 
     pub fn render(

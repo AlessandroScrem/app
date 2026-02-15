@@ -64,6 +64,10 @@ impl MeshAssets {
         }
     }
 
+    pub fn contains_key(&self, id: MeshId) ->bool {
+        self.storage.contains_key(id)
+    }
+
     pub fn get(&self, id: MeshId) -> Option<&MeshDesc> {
         self.storage.get(id)
     }

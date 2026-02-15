@@ -1,6 +1,6 @@
 pub mod bbox_manager;
 pub mod gpu_manager;
-pub mod gpu_renderer;
+pub mod renderer;
 pub mod hdr_frame;
 pub mod light_manager;
 pub mod mesh_manager;
@@ -9,7 +9,7 @@ pub mod renderpass;
 pub mod skybox_manager;
 pub mod texture;
 pub mod uniform;
-pub use gpu_renderer::Renderer;
+pub use renderer::Renderer;
 pub mod gpu_material_cache;
 pub mod gpu_mesh_cache;
 pub mod gpu_texture_cache;
@@ -17,7 +17,7 @@ pub mod imgui_renderer;
 
 pub use bbox_manager::BBoxManager;
 pub use gpu_manager::{GpuManager, LayoutKind};
-pub use gpu_renderer::GpuDevice;
+pub use renderer::GpuDevice;
 pub use hdr_frame::{HdrFrame, IDTexture};
 pub use light_manager::LightManager;
 pub use pipeline_manager::PipelineManager;

@@ -27,6 +27,11 @@ impl GpuTextureCache {
         })
     }
 
+    pub fn retain(&mut self, assets: &TextureAssets) {
+        // Sync cleanup
+        self.map.retain(|id, _| assets.contains_key(id));
+    }
+
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self
             .map

@@ -150,6 +150,10 @@ impl MaterialAssets {
         self.storage.get(id)
     }
 
+    pub fn contains_key(&self, id: MaterialId) ->bool {
+        self.storage.contains_key(id)
+    }
+
     pub fn remove(&mut self, id: MaterialId) {
         if self.storage.contains_key(id) {
             self.storage.remove(id);

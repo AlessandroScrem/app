@@ -1,6 +1,6 @@
 use super::*;
 use slotmap::SecondaryMap;
-use wgpu::util::DeviceExt as _;
+use wgpu::util::DeviceExt;
 
 #[derive(Default)]
 pub struct GpuMeshCache {
@@ -19,6 +19,11 @@ impl GpuMeshCache {
             let value = Self::create_gpu_mesh(id, assets, gpu_mgr, device);
             self.map.insert(id, value);
         }
+    }
+
+    pub fn retain(&mut self, assets: &MeshAssets) {
+        // Sync cleanup
+        self.map.retain(|id, _| assets.contains_key(id));
     }
 
     pub fn create_gpu_mesh(

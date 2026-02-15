@@ -23,7 +23,7 @@ use crate::renderer::pipeline_manager::PipelineKind;
 use crate::uniform::{LightUniform, MaterialUniform};
 use crate::{BoundingBoxComponent, LightComponent};
 use crate::{
-    Camera, GlobalModelComponent, Globals, MeshComponent, renderer::gpu_renderer::RenderContext,
+    Camera, GlobalModelComponent, Globals, MeshComponent, renderer::renderer::RenderContext,
     uniform::ModelUniform,
 };
 

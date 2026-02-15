@@ -1,12 +1,11 @@
 use std::collections::VecDeque;
 use legion::*;
-use crate::engine::RunningApp;
 use crate::prelude::*;
 use crate::App;
 
 
 impl App {
-       pub fn update_domain_event(&mut self, runtime: &mut RunningApp) {
+       pub fn update_domain_event(&mut self) {
         // event needs world update, will be executed next frame.
         let mut next_queue = VecDeque::<DomainEvent>::new();
 
@@ -19,7 +18,7 @@ impl App {
                     handle_global_event(self, event);
                 }
                 DomainEvent::Entity(event) => {
-                    handle_entity_event(self, runtime, event);
+                    handle_entity_event(self, event);
                 }
                 DomainEvent::Assets(event) => {
                     handle_asset_event(self, event, &mut next_queue);
@@ -67,11 +66,11 @@ pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
     }
 }
 
-pub fn handle_entity_event(app: &mut App, runtime: &mut RunningApp, event: EntityEvent) {
+pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     let world = &mut app.current_scene.world;
     match event {
         EntityEvent::RemoveEntity(entity) => {
-            crate::entities::remove_entity_from_all(&mut app.asset_mgr, runtime, entity, world);
+            crate::entities::remove_entity_from_all(&mut app.asset_mgr, entity, world);
             app.selected = None;
         }
         EntityEvent::AddParent(entity) => {

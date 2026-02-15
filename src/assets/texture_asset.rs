@@ -126,6 +126,10 @@ impl TextureAssets {
     pub fn get(&self, id: TextureId) -> Option<&TextureDesc> {
         self.storage.get(id)
     }
+    
+    pub fn contains_key(&self, id: TextureId) ->bool {
+        self.storage.contains_key(id)
+    }
 
     pub fn remove(&mut self, id: TextureId) {
         if self.storage.contains_key(id) {
