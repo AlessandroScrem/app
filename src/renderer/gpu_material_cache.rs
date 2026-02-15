@@ -1,11 +1,17 @@
 use super::*;
 
+use slotmap::SecondaryMap;
 use wgpu::util::DeviceExt;
-use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct GpuMaterialCache {
-    map: HashMap<MaterialId, GpuMaterial>,
+    map: SecondaryMap<MaterialId, GpuMaterial>,
+}
+
+#[derive(Default)]
+pub struct GpuMaterial {
+    pub bind_group: Option<wgpu::BindGroup>,
+    pub uniform_buffer: Option<wgpu::Buffer>,
 }
 
 impl GpuMaterialCache {
@@ -18,30 +24,20 @@ impl GpuMaterialCache {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        self.map.entry(id).or_insert_with(|| {
-            Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device, queue)
-        });
-    }
-
-    pub fn remove(&mut self, id: &MaterialId) {
-        if self.map.contains_key(id) {
-            self.map.remove(id);
+        if !self.map.contains_key(id) {
+            let value = Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device, queue);
+            self.map.insert(id, value);
         }
     }
 
-    fn create_gpu_material(
-        id: MaterialId,
-        gpu_texture_cache: &mut GpuTextureCache,
-        asset: &AssetManager,
-        gpu_manager: &GpuManager,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> GpuMaterial {
-        create_gpu_material(device, queue, gpu_texture_cache, id, asset, gpu_manager)
+    pub fn remove(&mut self, id: &MaterialId) {
+        if self.map.contains_key(*id) {
+            self.map.remove(*id);
+        }
     }
 
     pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
-        if let Some(material) = self.map.get(id) {
+        if let Some(material) = self.map.get(*id) {
             if let Some(buffer) = &material.uniform_buffer {
                 queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
             }
@@ -49,43 +45,37 @@ impl GpuMaterialCache {
     }
 
     pub fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
-        self.map.get(id)
+        self.map.get(*id)
     }
-
-}
-
-#[derive(Default)]
-pub struct GpuMaterial {
-    pub bind_group: Option<wgpu::BindGroup>,
-    pub uniform_buffer: Option<wgpu::Buffer>,
-}
-
- fn create_gpu_material(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    texture_cache: &mut GpuTextureCache,
-    material_id: crate::assets::MaterialId,
-    asset_manager: &AssetManager,
-    gpu_manager: &GpuManager,
-) -> GpuMaterial {
-    let material_desc = asset_manager.materials.get(material_id).unwrap();
-    let uniform_buffer = create_uniform_from_desc(device, material_desc);
-
-    let bindgroup = create_bindgroup_from_desc(
-        device,
-        queue,
-        asset_manager,
-        texture_cache,
-        material_desc,
-        &uniform_buffer,
-        gpu_manager,
-    );
-
-    GpuMaterial {
-        bind_group: Some(bindgroup),
-        uniform_buffer: Some(uniform_buffer),
+    
+    fn create_gpu_material(
+        material_id: crate::assets::MaterialId,
+        texture_cache: &mut GpuTextureCache,
+        asset_manager: &AssetManager,
+        gpu_manager: &GpuManager,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> GpuMaterial {
+        let material_desc = asset_manager.materials.get(material_id).unwrap();
+        let uniform_buffer = create_uniform_from_desc(device, material_desc);
+    
+        let bindgroup = create_bindgroup_from_desc(
+            device,
+            queue,
+            asset_manager,
+            texture_cache,
+            material_desc,
+            &uniform_buffer,
+            gpu_manager,
+        );
+    
+        GpuMaterial {
+            bind_group: Some(bindgroup),
+            uniform_buffer: Some(uniform_buffer),
+        }
     }
 }
+
 
 fn create_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc) -> wgpu::Buffer {
     let uniform = MaterialUniform::from(material_desc);

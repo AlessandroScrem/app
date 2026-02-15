@@ -1,10 +1,10 @@
 use super::*;
-use std::collections::HashMap;
+use slotmap::SecondaryMap;
 use wgpu::util::DeviceExt as _;
 
 #[derive(Default)]
 pub struct GpuMeshCache {
-    map: HashMap<MeshId, GpuMesh>,
+    map: SecondaryMap<MeshId, GpuMesh>,
 }
 
 impl GpuMeshCache {
@@ -15,9 +15,10 @@ impl GpuMeshCache {
         gpu_mgr: &GpuManager,
         device: &wgpu::Device,
     ) {
-        self.map
-            .entry(id)
-            .or_insert_with(|| Self::create_gpu_mesh(id, assets, gpu_mgr, device));
+        if !self.map.contains_key(id) {
+            let value = Self::create_gpu_mesh(id, assets, gpu_mgr, device);
+            self.map.insert(id, value);
+        }
     }
 
     pub fn create_gpu_mesh(
@@ -33,27 +34,27 @@ impl GpuMeshCache {
     }
 
     pub fn update(&self, id: &MeshId, queue: &wgpu::Queue, uniform: &ModelUniform) {
-        if let Some(mesh) = self.map.get(id) {
+        if let Some(mesh) = self.map.get(*id) {
             let buffer = &mesh.model_uniform;
             queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
         }
     }
 
     pub fn remove(&mut self, id: &MeshId) {
-        if self.map.contains_key(id) {
-            self.map.remove(id);
+        if self.map.contains_key(*id) {
+            self.map.remove(*id);
         }
     }
 
     pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
-        self.map.get(id)
+        self.map.get(*id)
     }
 
-    pub fn keys(&self) ->impl Iterator<Item = &MeshId> {
+    pub fn keys(&self) -> impl Iterator<Item = MeshId> {
         self.map.keys()
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &GpuMesh>{
+    pub fn values(&self) -> impl Iterator<Item = &GpuMesh> {
         self.map.values()
     }
 }
@@ -109,4 +110,3 @@ fn create_gpu_mesh(
         indexcount,
     }
 }
-

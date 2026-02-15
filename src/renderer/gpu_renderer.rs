@@ -236,7 +236,7 @@ impl Renderer {
         // record new textures
         use imgui_wgpu::RawTextureConfig;
         for (gpu_id, tex) in texture_cache.iter() {
-            if !registry.ids.contains_key(gpu_id) {
+            if !registry.ids.contains_key(&gpu_id) {
                 let texture_config = RawTextureConfig {
                     label: None,
                     sampler_desc: wgpu::SamplerDescriptor {
@@ -342,6 +342,7 @@ impl Renderer {
         input: &Input,
         draw_data: &imgui::DrawData,
     ) {
+        // sync GpuCache Ids with assets Ids (meshes materials textures)
         self.prepare(asset_mgr);
 
         // update global data (uniform) to GPU

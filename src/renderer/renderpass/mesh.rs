@@ -15,12 +15,12 @@ fn drawables<'a>(
         // Option → Iterator
         gpu_cache
             .mesh
-            .get(mesh_id)
+            .get(&mesh_id)
             .into_iter() // trasforma Some -> iteratore, None -> empty iter
             .flat_map(move |gpu_mesh| {
                 assets
                     .meshes
-                    .get(*mesh_id)
+                    .get(mesh_id)
                     .into_iter() // stessa logica
                     .flat_map(move |mesh_desc| {
                         mesh_desc.submeshes.iter().filter_map(move |sub| {

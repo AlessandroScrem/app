@@ -1,16 +1,15 @@
 
 use super::*;
+use slotmap::SecondaryMap;
 
 pub static WHITE_TEXTURE_BYTES: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/core/white.png"
 ));
 
-use std::collections::HashMap;
-
 #[derive(Default)]
 pub struct GpuTextureCache {
-    map: HashMap<TextureId, GpuTexture>,
+    map: SecondaryMap<TextureId, GpuTexture>,
 }
 
 impl GpuTextureCache {
@@ -21,7 +20,8 @@ impl GpuTextureCache {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> &GpuTexture {
-        self.map.entry(id).or_insert_with(|| {
+        
+        self.map.entry(id).unwrap().or_insert_with(|| {
             let desc = assets.storage.get(id).unwrap();
             GpuTexture::from_desc(desc, device, queue)
         })
@@ -30,19 +30,19 @@ impl GpuTextureCache {
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self
             .map
-            .get(&id)
+            .get(id)
             .expect("unable to get texture")
             .texture
             .view
     }
 
     pub fn contains_key(&self, id: &TextureId) ->bool {
-        self.map.contains_key(id)
+        self.map.contains_key(*id)
     }
 
     pub fn remove(&mut self, id: &TextureId) {
-        if self.map.contains_key(id) {
-            self.map.remove(id);
+        if self.map.contains_key(*id) {
+            self.map.remove(*id);
         }
     }
 
@@ -53,16 +53,10 @@ impl GpuTextureCache {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        if self.map.contains_key(&id) {
-            return;
-        }
-
-        let desc = assets.get(id).unwrap();
-        let gpu_tex = GpuTexture::from_desc(desc, device, queue);
-        self.map.insert(id, gpu_tex);
+        self.get_or_create(id, assets, device, queue);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&TextureId, &GpuTexture)> {
+    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
         self.map.iter()
     }
 }
@@ -158,6 +152,6 @@ mod tests {
 
         let _ = gpu_texture_cache.get_or_create(texture_id, &texture_assets, device, queue);
 
-        assert!(gpu_texture_cache.map.contains_key(&texture_id));
+        assert!(gpu_texture_cache.map.contains_key(texture_id));
     }
 }
