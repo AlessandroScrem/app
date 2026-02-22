@@ -91,7 +91,6 @@ pub enum TextureDesc {
         sampler: SamplerDesc,
         mipmaps: bool,
     },
-    White,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -123,7 +122,7 @@ pub enum TextureState {
 #[derive(Clone)]
 pub struct TextureAsset {
     pub state: TextureState,
-    pub desc: TextureDesc,
+    pub desc: Option<TextureDesc>,
     ref_count: Cell<u32>,
 }
 
@@ -148,20 +147,28 @@ impl Default for TextureAssets {
     fn default() -> Self {
         let mut storage = SlotMap::with_key();
         let mut lookup = HashMap::new();
-        let white_key = TextureKey::White;
+
+        // --- White texture 1x1 RGBA8 ---
+        let white_cpu = CpuTexture {
+            width: 1,
+            height: 1,
+            format: ColorSpace::Rgba8,
+            pixels: vec![255, 255, 255, 255],
+        };
+
         let white_id = storage.insert(TextureAsset {
-            state: TextureState::MetaOnly,
-            desc: TextureDesc::White,
+            state: TextureState::CpuReady(TextureInfo::from(&white_cpu)),
+            desc: None,
             ref_count: Cell::new(1),
         });
 
-        lookup.insert(white_key, white_id);
+        lookup.insert(TextureKey::White, white_id);
 
         Self {
             storage,
             lookup,
             white: white_id,
-            dirty_textures: Vec::new(),
+            dirty_textures: vec![(white_id, UploadPayload::Ready(white_cpu))],
         }
     }
 }
@@ -176,7 +183,7 @@ impl TextureAssets {
     }
 
     pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
-        self.storage.get(id).map(|t| &t.desc)
+        self.storage.get(id)?.desc.as_ref()
     }
 
     pub fn contains_key(&self, id: TextureId) -> bool {
@@ -199,9 +206,11 @@ impl TextureAssets {
             if count > 1 {
                 asset.ref_count.set(count - 1);
             } else {
-                let removed = self.storage.remove(id).unwrap();
-                if let TextureDesc::File { key, .. } = removed.desc {
-                    self.lookup.remove(&key);
+                // remove from storage
+                if let Some(removed) = self.storage.remove(id) {
+                    if let Some(TextureDesc::File { key, .. }) = removed.desc {
+                        self.lookup.remove(&key);
+                    }
                 }
             }
         }
@@ -209,8 +218,6 @@ impl TextureAssets {
 
     pub fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
         match desc {
-            TextureDesc::White => self.white,
-
             TextureDesc::File {
                 key,
                 sampler,
@@ -225,11 +232,11 @@ impl TextureAssets {
                 None => {
                     let id = self.storage.insert(TextureAsset {
                         state: TextureState::MetaOnly,
-                        desc: TextureDesc::File {
+                        desc: Some(TextureDesc::File {
                             key: key.clone(),
                             sampler,
                             mipmaps,
-                        },
+                        }),
                         ref_count: Cell::new(1),
                     });
                     self.lookup.insert(key, id);
@@ -266,11 +273,12 @@ impl TextureAssets {
                         UploadPayload::Ready(cpu) => {
                             asset.state = TextureState::CpuReady(TextureInfo::from(&cpu));
                             self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
-                            trace!("Loaded Texture {:?} {:?}", id, asset.state);
+                            trace!("Asset Load Texture {:?} {:?}", id, asset.state);
                         }
                         UploadPayload::Fallback => {
                             asset.state = TextureState::Fallback;
                             self.dirty_textures.push((id, UploadPayload::Fallback));
+                            trace!("Asset Load Fallback Texture {:?} {:?}", id, asset.state);
                         }
                     },
                     Err(e) => {

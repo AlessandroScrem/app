@@ -2,10 +2,10 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
 use super::TextureId;
+use super::file;
 use crate::assets::TextureState;
 use crate::assets::{ColorSpace, TextureAsset, TextureDesc};
 use crate::prelude::*;
-use super::file;
 
 use super::image_decoder::{
     decode_image_rgbaf32, decode_stb_image_rgaba8, decode_stb_image_rgbaf16,
@@ -62,7 +62,7 @@ pub fn load_cpu_textures_par<'a>(
     let results: Vec<_> = jobs
         .into_par_iter() // parallelo
         .map(|(id, desc)| {
-            let result = load_and_decode(&desc);
+            let result = load_and_decode(desc);
             (id, result)
         })
         .collect();
@@ -70,7 +70,15 @@ pub fn load_cpu_textures_par<'a>(
     results
 }
 
-fn load_and_decode(desc: &TextureDesc) -> Result<UploadPayload, TextureError> {
+fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureError> {
+    let desc = match desc {
+        Some(d) => d,
+        None => {
+            // Qui è la white texture o asset senza desc: già pronto → fallback
+            return Ok(UploadPayload::Fallback);
+        }
+    };
+
     let (path, color_space) = match desc {
         TextureDesc::File { key, .. } => match key {
             assets::TextureKey::File {
@@ -78,7 +86,6 @@ fn load_and_decode(desc: &TextureDesc) -> Result<UploadPayload, TextureError> {
             } => (path, color_space),
             assets::TextureKey::White => return Ok(UploadPayload::Fallback),
         },
-        TextureDesc::White => return Ok(UploadPayload::Fallback),
     };
 
     let buffer = file::read_bytes(path)?;

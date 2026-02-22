@@ -77,7 +77,7 @@ impl GpuTextureCache {
         for (id, cpu_texture) in dirty {
             if let Some(asset) = source.get_texture_asset(id) {
                 self.create_from_cpu(id, cpu_texture, device, queue);
-                trace!("Upload texture {:?} {:?} to gpu", id, asset.state);
+                trace!("Gpu Upload texture {:?} {:?} ", id, asset.state);
             }
         }
     }
