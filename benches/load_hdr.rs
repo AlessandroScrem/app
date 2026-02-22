@@ -1,11 +1,12 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use rayon::prelude::*;
-use std::fs;
+use std::{fs, time::Duration};
 
 /// Run benchmark:
 /// 
 /// '''rust, ignore
-/// cargo bench --bench ldr_bench
+/// cargo bench --bench hdr_bench --quiet -- conversion 
+/// cargo bench --bench hdr_bench --quiet -- load 
 /// '''
 
 fn load_hdr_to_buffer_u8(path: &str) -> Vec<u8> {
@@ -127,16 +128,16 @@ fn bench_conversions(c: &mut Criterion) {
     );
     let raw_u8 = load_hdr_to_buffer_u8(path);
 
-    c.bench_function("image_rs ser", |b| {
+    c.bench_function("conversion: image_rs ser", |b| {
         b.iter(|| decode_image_rs_serial(&raw_u8))
     });
-    c.bench_function("image_rs par", |b| {
+    c.bench_function("conversion: image_rs par", |b| {
         b.iter(|| decode_image_rs_parallel(&raw_u8))
     });
-    c.bench_function("stb_image flat_map_iter + collect", |b| {
+    c.bench_function("conversion: stb_image flat_map_iter + collect", |b| {
         b.iter(|| decode_stb_image_parallel(&raw_u8))
     });
-    c.bench_function("stb_image par_chunks_mut + zip", |b| {
+    c.bench_function("conversion: stb_image par_chunks_mut + zip", |b| {
         b.iter(|| decode_stb_image_parallel2(&raw_u8))
     });
 }
@@ -177,7 +178,7 @@ fn bench_loaders(c: &mut Criterion) {
     );
     let raw_u8 = load_hdr_to_buffer_u8(path);
 
-    c.bench_function("load mage_rs ", |b| {
+    c.bench_function("load image_rs ", |b| {
         b.iter(|| load_image_rs(&raw_u8))
     });
     c.bench_function("load stb_image", |b| {
@@ -186,5 +187,31 @@ fn bench_loaders(c: &mut Criterion) {
 
 }
 
-criterion_group!(benches, bench_conversions, bench_loaders);
-criterion_main!(benches);
+// ---------------------------
+// Config personalizzata
+// ---------------------------
+fn custom_criterion() -> Criterion {
+    Criterion::default()
+        .sample_size(50) // meno sample -> meno warning
+        .measurement_time(Duration::from_secs(10)) // più tempo di misura
+        .warm_up_time(Duration::from_secs(3))
+        .without_plots() // evita messaggio gnuplot
+        .configure_from_args() // permette --quiet
+}
+
+// ---------------------------
+// Group con config custom
+// ---------------------------
+criterion_group! {
+    name = load_benches;
+    config = custom_criterion();
+    targets = bench_loaders
+}
+
+criterion_group! {
+    name = conversion_benches;
+    config = custom_criterion();
+    targets = bench_conversions
+}
+
+criterion_main!(load_benches, conversion_benches);

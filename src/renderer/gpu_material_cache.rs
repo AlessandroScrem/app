@@ -129,11 +129,11 @@ fn create_bindgroup_from_desc(
     let emissive_id = resolve_texture_id(Emissive, material_desc, &asset_manager.textures);
     let occlusion_id = resolve_texture_id(Occlusion, material_desc, &asset_manager.textures);
 
-    texture_cache.ensure(base_id, &asset_manager.textures, device, queue);
-    texture_cache.ensure(normal_id, &asset_manager.textures, device, queue);
-    texture_cache.ensure(met_rough_id, &asset_manager.textures, device, queue);
-    texture_cache.ensure(emissive_id, &asset_manager.textures, device, queue);
-    texture_cache.ensure(occlusion_id, &asset_manager.textures, device, queue);
+    texture_cache.ensure(base_id, device, queue);
+    texture_cache.ensure(normal_id, device, queue);
+    texture_cache.ensure(met_rough_id, device, queue);
+    texture_cache.ensure(emissive_id, device, queue);
+    texture_cache.ensure(occlusion_id,  device, queue);
 
     let base_view = texture_cache.view(base_id);
     let normal_view = texture_cache.view(normal_id);

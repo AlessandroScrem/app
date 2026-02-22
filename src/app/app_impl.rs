@@ -36,6 +36,17 @@ impl Application for App {
         debug!("App loader took {} ms", timer.elapsed().as_millis());
     }
     fn update(&mut self, runtime: &mut RunningApp) {
+
+        self.update_domain_event();
+
+        
+        // load texture from file to cpu data
+        self.asset_mgr.textures.load_cpu_textures();
+
+        // upload texture from cpu data to gpu 
+        runtime.renderer.upload_textures(&mut self.asset_mgr.textures);
+
+
         // Esegue `callback` ogni secondo , in base al clock interno.
         runtime
             .timer
@@ -44,7 +55,6 @@ impl Application for App {
                 debug!("Sync_with_registry: ");
             });
 
-        self.update_domain_event();
         self.update_camera(&runtime.input);
         self.update_selected(runtime);
         self.update_scene();

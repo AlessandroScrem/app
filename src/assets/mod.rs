@@ -10,6 +10,8 @@ pub mod material_asset;
 pub mod texture_asset;
 pub mod mesh_asset;
 pub mod vertexdata;
+pub mod texture_upload;
+pub mod image_decoder;
 
 new_key_type! {
     pub struct TextureId;
@@ -22,6 +24,7 @@ pub use texture_asset::*;
 pub use mesh_asset::*;
 pub use material_asset::*;
 pub use crate::prelude::*;
+pub use texture_upload::load_and_decode;
 
 
 #[test]

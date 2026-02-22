@@ -11,7 +11,7 @@ use super::*;
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
-use crate::{Globals};
+use crate::Globals;
 
 impl UiTextureResolver for Renderer {
     fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
@@ -53,7 +53,6 @@ pub struct GpuDevice<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub skb_mgr: &'a mut SkyboxManager,
 }
-
 
 #[derive(Default)]
 pub struct GpuCache {
@@ -127,20 +126,31 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
+        let light_icon_id = asset_mgr
+            .textures
+            .from_file(light_manager::LIGHT_BULB_PATH, TextureUsage::Albedo);
+        asset_mgr.textures.load_cpu_textures();
+
+        let mut texture_cache = GpuTextureCache::default();
+        texture_cache.upload_textures(&mut asset_mgr.textures, &device, &queue);
+
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
-        let light_mgr = LightManager::new(&gpu_mgr, &device, &queue);
         let bbox_mgr = BBoxManager::new();
         let pickobject = PickObject::new(&device);
 
+        // lightmanager initialization
+        let light_icon_texture = texture_cache.get_or_fallback(light_icon_id, &device, &queue);
+        let light_mgr = LightManager::new(&light_icon_texture, &gpu_mgr, &device);
+
         // Skybox initialization
-        let mut texture_cache = GpuTextureCache::default();
         let hdr_id = asset_mgr.skybox.get_id();
-        let hdr = texture_cache.get_or_create(hdr_id, &asset_mgr.textures, &device, &queue);
+        let hdr = texture_cache.get_or_fallback(hdr_id, &device, &queue);
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
         // -----
 
-        let imgui_render = ImguiRender::new(&device, &queue, &window, imgui_ctx, surface_config.format);
+        let imgui_render =
+            ImguiRender::new(&device, &queue, &window, imgui_ctx, surface_config.format);
 
         info!(
             "Renderer Created: Surface config format is {:?}",
@@ -273,6 +283,10 @@ impl Renderer {
         });
     }
 
+    pub fn upload_textures(&mut self, source: &mut impl texture_upload::TextureUploadSource) {
+        self.gpu_cache.textures.upload_textures(source, &self.device, &self.queue);
+    }
+
     fn sync_caches(&mut self, asset_mgr: &AssetManager) {
         // Sync cleanup
         self.gpu_cache.mesh.retain(&asset_mgr.meshes);
@@ -281,23 +295,33 @@ impl Renderer {
 
         // Sync Meshes
         for (id, _value) in asset_mgr.meshes.iter() {
-            self.gpu_cache.mesh.ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
+            self.gpu_cache
+                .mesh
+                .ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
         }
         // Sync Textures
         for (id, _value) in asset_mgr.textures.iter() {
-            self.gpu_cache.textures.ensure(id, &asset_mgr.textures, &self.device, &self.queue);
+            self.gpu_cache
+                .textures
+                .ensure(id, &self.device, &self.queue);
         }
         // Sync Materials (crate also textures)
         for (id, _value) in asset_mgr.materials.iter() {
-            self.gpu_cache.material.ensure(id, &mut self.gpu_cache.textures, &asset_mgr, &self.gpu_mgr, &self.device, &self.queue);
+            self.gpu_cache.material.ensure(
+                id,
+                &mut self.gpu_cache.textures,
+                &asset_mgr,
+                &self.gpu_mgr,
+                &self.device,
+                &self.queue,
+            );
         }
     }
 
     fn sync_skybox(&mut self, asset_mgr: &AssetManager) {
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
-            let hdr_texture = self.gpu_cache.textures.get_or_create(
+            let hdr_texture = self.gpu_cache.textures.get_or_fallback(
                 asset_mgr.skybox.get_id(),
-                &asset_mgr.textures,
                 &self.device,
                 &self.queue,
             );

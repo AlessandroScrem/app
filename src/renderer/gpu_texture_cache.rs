@@ -1,11 +1,7 @@
+use crate::assets::texture_upload::{CpuTexture, UploadPayload};
 
 use super::*;
 use slotmap::SecondaryMap;
-
-pub static WHITE_TEXTURE_BYTES: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/assets/core/white.png"
-));
 
 #[derive(Default)]
 pub struct GpuTextureCache {
@@ -13,18 +9,29 @@ pub struct GpuTextureCache {
 }
 
 impl GpuTextureCache {
-    pub fn get_or_create(
+    pub fn get_or_fallback(
         &mut self,
         id: TextureId,
-        assets: &TextureAssets,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> &GpuTexture {
-        
         self.map.entry(id).unwrap().or_insert_with(|| {
-            let desc = assets.get_desc(id).unwrap();
-            GpuTexture::from_desc(desc, device, queue)
+            info!("GpuTextureCache create Fallback Texture with id {:?}", id);
+            GpuTexture::white_texture(device, queue)
         })
+    }
+
+    pub fn create_from_cpu(
+        &mut self,
+        id: TextureId,
+        payload: UploadPayload,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> &GpuTexture {
+        self.map
+            .entry(id)
+            .unwrap()
+            .or_insert_with(|| GpuTexture::from_cpu(payload, device, queue))
     }
 
     pub fn retain(&mut self, assets: &TextureAssets) {
@@ -41,7 +48,7 @@ impl GpuTextureCache {
             .view
     }
 
-    pub fn contains_key(&self, id: &TextureId) ->bool {
+    pub fn contains_key(&self, id: &TextureId) -> bool {
         self.map.contains_key(*id)
     }
 
@@ -51,18 +58,28 @@ impl GpuTextureCache {
         }
     }
 
-    pub fn ensure(
-        &mut self,
-        id: TextureId,
-        assets: &TextureAssets,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
-        self.get_or_create(id, assets, device, queue);
+    pub fn ensure(&mut self, id: TextureId, device: &wgpu::Device, queue: &wgpu::Queue) {
+        self.get_or_fallback(id, device, queue);
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
         self.map.iter()
+    }
+
+    pub fn upload_textures(
+        &mut self,
+        source: &mut impl texture_upload::TextureUploadSource,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
+        let dirty = source.drain_dirty_textures();
+
+        for (id, cpu_texture) in dirty {
+            if let Some(asset) = source.get_texture_asset(id) {
+                self.create_from_cpu(id, cpu_texture, device, queue);
+                info!("Upload texture {:?} {:?} to gpu", id, asset.state);
+            }
+        }
     }
 }
 
@@ -82,40 +99,23 @@ pub struct GpuTexture {
 }
 impl GpuTexture {
     pub fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let texture = texture::Texture::new(
-            &device,
-            &queue,
-            WHITE_TEXTURE_BYTES,
-            wgpu::TextureFormat::Rgba8Unorm,
-        );
+        let white_bytes = CpuTexture {
+            width: 1,
+            height: 1,
+            format: ColorSpace::Rgba8,
+            pixels: vec![255, 255, 255, 255],
+        };
+
+        let texture = texture::Texture::from_cpu(&device, &queue, &white_bytes);
         Self { texture }
     }
 
-    fn from_desc(desc: &TextureDesc, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        match desc {
-            TextureDesc::White => return Self::white_texture(device, queue),
-            TextureDesc::File {
-                key,
-                sampler: _,
-                mipmaps: _,
-            } => match key {
-                TextureKey::File {
-                    path,
-                    color_space,
-                    usage: _,
-                } => {
-                    let buffer = file::read_bytes(path).expect("Failed to read texture file");
-                    Self {
-                        texture: texture::Texture::new(
-                            device,
-                            queue,
-                            &buffer,
-                            (*color_space).into(),
-                        ),
-                    }
-                }
-                TextureKey::White => Self::white_texture(device, queue),
+    fn from_cpu(payload: UploadPayload, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        match payload {
+            UploadPayload::Ready(cpu) => Self {
+                texture: texture::Texture::from_cpu(device, queue, &cpu),
             },
+            UploadPayload::Fallback => Self::white_texture(device, queue),
         }
     }
 }
@@ -155,7 +155,8 @@ mod tests {
 
         let texture_id = texture_assets.get_or_create(desc);
 
-        let _ = gpu_texture_cache.get_or_create(texture_id, &texture_assets, device, queue);
+        texture_assets.load_cpu_textures();
+        gpu_texture_cache.upload_textures(&mut texture_assets, device, queue);
 
         assert!(gpu_texture_cache.map.contains_key(texture_id));
     }

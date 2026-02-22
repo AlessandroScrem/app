@@ -1,3 +1,5 @@
+use crate::assets::texture_upload::{TextureUploadSource, UploadPayload};
+
 use super::*;
 use std::cell::Cell;
 
@@ -8,7 +10,7 @@ impl TextureId {
 }
 
 // Textures
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum ColorSpace {
     Rgbaf32,
     Rgbaf16,
@@ -16,7 +18,7 @@ pub enum ColorSpace {
     Rgba8,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+#[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum TextureUsage {
     Albedo,
     Normal,
@@ -66,13 +68,13 @@ impl From<wgpu::TextureFormat> for ColorSpace {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub enum SamplerDesc {
     #[default]
     Linear,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum TextureKey {
     File {
         path: PathBuf,
@@ -82,7 +84,7 @@ pub enum TextureKey {
     White,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TextureDesc {
     File {
         key: TextureKey,
@@ -91,16 +93,44 @@ pub enum TextureDesc {
     },
     White,
 }
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+    pub format: ColorSpace,
+    pub byte_size: usize,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum TextureState {
+    MetaOnly,              // solo path noto
+    CpuReady(TextureInfo), // cpu texture caricata
+    Fallback,              // errore → fallback
+}
+
 #[derive(Clone)]
-struct TextureAsset {
+pub struct TextureAsset {
+    pub state: TextureState,
     desc: TextureDesc,
     ref_count: Cell<u32>,
+}
+
+impl TextureUploadSource for TextureAssets {
+    fn drain_dirty_textures(&mut self) -> Vec<(TextureId, UploadPayload)> {
+        std::mem::take(&mut self.dirty_textures)
+    }
+    
+    fn get_texture_asset(&self, id: TextureId) -> Option<&TextureAsset> {
+        self.storage.get(id)
+    }
 }
 
 pub struct TextureAssets {
     storage: SlotMap<TextureId, TextureAsset>,
     lookup: HashMap<TextureKey, TextureId>,
     white: TextureId,
+    dirty_textures: Vec<(TextureId, UploadPayload)>,
 }
 
 impl Default for TextureAssets {
@@ -109,6 +139,7 @@ impl Default for TextureAssets {
         let mut lookup = HashMap::new();
         let white_key = TextureKey::White;
         let white_id = storage.insert(TextureAsset {
+            state: TextureState::MetaOnly,
             desc: TextureDesc::White,
             ref_count: Cell::new(1),
         });
@@ -119,6 +150,7 @@ impl Default for TextureAssets {
             storage,
             lookup,
             white: white_id,
+            dirty_textures: Vec::new(),
         }
     }
 }
@@ -135,7 +167,7 @@ impl TextureAssets {
     pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
         self.storage.get(id).map(|t| &t.desc)
     }
-    
+
     pub fn contains_key(&self, id: TextureId) -> bool {
         self.storage.contains_key(id)
     }
@@ -143,7 +175,7 @@ impl TextureAssets {
     pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureDesc)> {
         self.storage.iter().map(|(id, asset)| (id, &asset.desc))
     }
-    
+
     pub fn remove(&mut self, id: TextureId) {
         // Do not remove White!
         if id == self.white {
@@ -181,6 +213,7 @@ impl TextureAssets {
 
                 None => {
                     let id = self.storage.insert(TextureAsset {
+                        state: TextureState::MetaOnly,
                         desc: TextureDesc::File {
                             key: key.clone(),
                             sampler,
@@ -211,7 +244,38 @@ impl TextureAssets {
         self.get_or_create(desc)
     }
 
+    pub fn load_cpu_textures(&mut self) {
+        for (id, tex) in self.storage.iter_mut() {
+            if tex.state != TextureState::MetaOnly {
+                continue;
+            }
+
+            match load_and_decode(&tex.desc) {
+                Ok(cpu) => {
+                    tex.state = TextureState::CpuReady(TextureInfo {
+                        width: cpu.width,
+                        height: cpu.height,
+                        format: cpu.format,
+                        byte_size: cpu.pixels.len(),
+                    });
+
+                    self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
+                    
+                    info!("Loaded Texture {:?} {:?}", id, tex.state);
+                }
+                Err(e) => {
+                    tex.state = TextureState::Fallback;
+                    self.dirty_textures.push((id, UploadPayload::Fallback));
+
+                    warn!("{:?}",e);
+                    info!("Loaded dirty Texture {:?} {:?}", id, tex.state);
+                }
+            }
+
+        }
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -241,32 +305,31 @@ mod tests {
     #[test]
     fn should_contain_white_texture_id() {
         let texture_assets = TextureAssets::new();
-        
+
         let white_id = TextureId::white(&texture_assets);
-        
+
         assert!(texture_assets.get_desc(white_id).is_some())
     }
-    
+
     #[test]
-    fn should_not_remove_shared_from_asset(){
+    fn should_not_remove_shared_from_asset() {
         let mut textures = TextureAssets::new();
-        
+
         let key = TextureKey::File {
             path: "albedo.png".into(),
             color_space: ColorSpace::Rgba8,
             usage: TextureUsage::Albedo,
         };
-        
+
         let desc = TextureDesc::File {
             key,
             sampler: SamplerDesc::default(),
             mipmaps: true,
         };
-        
+
         let _ = textures.get_or_create(desc.clone());
         let id = textures.get_or_create(desc);
-        
-        
+
         textures.remove(id);
         assert!(textures.get_desc(id).is_some());
 

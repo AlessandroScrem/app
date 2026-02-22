@@ -1,26 +1,22 @@
-use super::{
-    texture::Texture,
-    gpu_manager::{GpuManager, LayoutKind},
-};
+use crate::renderer::GpuTexture;
+
+use super::gpu_manager::{GpuManager, LayoutKind};
 
 pub struct LightManager {
     pub light_texture_bind_group: wgpu::BindGroup,
 }
 
+pub const LIGHT_BULB_PATH: &'static str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/core/lightbulb-icon32.png"
+);
+
 impl LightManager {
     pub fn new(
+        light_texture: &GpuTexture,
         gpu_manager: &GpuManager,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
     ) -> Self {
-        let light_texture = {
-            let buffer = include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/assets/core/lightbulb-icon32.png"
-            ));
-            Texture::new(&device, &queue, buffer, wgpu::TextureFormat::Rgba8UnormSrgb)
-        };
-
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
@@ -31,8 +27,7 @@ impl LightManager {
             ..Default::default()
         });
 
-        let light_texture_bind_group_layout =
-            gpu_manager.get_layout(LayoutKind::LightTexture);
+        let light_texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::LightTexture);
 
         let light_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &light_texture_bind_group_layout,
@@ -43,7 +38,7 @@ impl LightManager {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&light_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&light_texture.texture.view),
                 },
             ],
             label: Some("light texture_bind_group"),
