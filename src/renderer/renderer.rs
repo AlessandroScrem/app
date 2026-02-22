@@ -300,7 +300,7 @@ impl Renderer {
                 .ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
         }
         // Sync Textures
-        for (id, _value) in asset_mgr.textures.iter() {
+        for (id, _asset) in asset_mgr.textures.iter() {
             self.gpu_cache
                 .textures
                 .ensure(id, &self.device, &self.queue);

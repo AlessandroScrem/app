@@ -1,5 +1,9 @@
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
+
 use super::TextureId;
 use super::file;
+use crate::assets::TextureState;
 use crate::assets::{ColorSpace, TextureAsset, TextureDesc};
 use crate::prelude::*;
 
@@ -43,6 +47,30 @@ impl From<image::ImageError> for TextureError {
     fn from(value: image::ImageError) -> Self {
         TextureError::Image(value)
     }
+}
+
+pub fn load_cpu_textures_par<'a>(textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>)->Vec<(TextureId, Result<CpuTexture, TextureError>)> {
+    // 1️⃣ raccogli solo le texture MetaOnly
+    let jobs: Vec<_> = 
+        textures
+        .filter_map(|(id, tex)| {
+            if tex.state != TextureState::MetaOnly {
+                return None;
+            }
+            Some((id, tex.desc.clone()))
+        })
+        .collect();
+
+    // 2️⃣ spawn decode su thread pool Rayon
+    let results: Vec<_> = jobs
+        .into_par_iter() // parallelo
+        .map(|(id, desc)| {
+            let result = load_and_decode(&desc); // la tua funzione originale
+            (id, result)
+        })
+        .collect();
+    
+    results
 }
 
 pub fn load_and_decode(desc: &TextureDesc) -> Result<CpuTexture, TextureError> {

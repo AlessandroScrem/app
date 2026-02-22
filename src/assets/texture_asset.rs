@@ -1,4 +1,4 @@
-use crate::assets::texture_upload::{TextureUploadSource, UploadPayload};
+use crate::assets::texture_upload::{CpuTexture, TextureUploadSource, UploadPayload};
 
 use super::*;
 use std::cell::Cell;
@@ -102,6 +102,17 @@ pub struct TextureInfo {
     pub byte_size: usize,
 }
 
+impl From<&CpuTexture> for TextureInfo {
+    fn from(value: &CpuTexture) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+            format: value.format,
+            byte_size: value.pixels.len(),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum TextureState {
     MetaOnly,              // solo path noto
@@ -112,7 +123,7 @@ pub enum TextureState {
 #[derive(Clone)]
 pub struct TextureAsset {
     pub state: TextureState,
-    desc: TextureDesc,
+    pub desc: TextureDesc,
     ref_count: Cell<u32>,
 }
 
@@ -120,7 +131,7 @@ impl TextureUploadSource for TextureAssets {
     fn drain_dirty_textures(&mut self) -> Vec<(TextureId, UploadPayload)> {
         std::mem::take(&mut self.dirty_textures)
     }
-    
+
     fn get_texture_asset(&self, id: TextureId) -> Option<&TextureAsset> {
         self.storage.get(id)
     }
@@ -172,8 +183,8 @@ impl TextureAssets {
         self.storage.contains_key(id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureDesc)> {
-        self.storage.iter().map(|(id, asset)| (id, &asset.desc))
+    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureAsset)> {
+        self.storage.iter()
     }
 
     pub fn remove(&mut self, id: TextureId) {
@@ -245,37 +256,29 @@ impl TextureAssets {
     }
 
     pub fn load_cpu_textures(&mut self) {
-        for (id, tex) in self.storage.iter_mut() {
-            if tex.state != TextureState::MetaOnly {
-                continue;
-            }
+        let results = super::texture_upload::load_cpu_textures_par(self.storage.iter());
 
-            match load_and_decode(&tex.desc) {
-                Ok(cpu) => {
-                    tex.state = TextureState::CpuReady(TextureInfo {
-                        width: cpu.width,
-                        height: cpu.height,
-                        format: cpu.format,
-                        byte_size: cpu.pixels.len(),
-                    });
-
-                    self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
-                    
-                    info!("Loaded Texture {:?} {:?}", id, tex.state);
-                }
-                Err(e) => {
-                    tex.state = TextureState::Fallback;
-                    self.dirty_textures.push((id, UploadPayload::Fallback));
-
-                    warn!("{:?}",e);
-                    info!("Loaded dirty Texture {:?} {:?}", id, tex.state);
-                }
-            }
-
+        // 4️⃣ aggiorna storage e dirty list
+        for (id, result) in results {
+            self.storage
+                .get_mut(id)
+                .map(|asset| match result {
+                    Ok(cpu) => {
+                        asset.state = TextureState::CpuReady(TextureInfo::from(&cpu));
+                        self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
+                        trace!("Loaded Texture {:?} {:?}", id, asset.state);
+                    }
+                    Err(e) => {
+                        asset.state = TextureState::Fallback;
+                        self.dirty_textures.push((id, UploadPayload::Fallback));
+                        warn!("{:?}", e);
+                        trace!("Loaded dirty Texture {:?} {:?}", id, asset.state);
+                    }
+                })
+                .unwrap_or_else(|| warn!("TextureId {:?} not found", id));
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

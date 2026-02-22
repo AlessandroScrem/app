@@ -37,14 +37,12 @@ legion = {version = "0.4.0", features = ["extended-tuple-impls"]}
 cgmath = "0.18.0"
 bytemuck = { version = "1.16", features = [ "derive" ] }
 #
-pollster = "0.4.0"
 gltf = "1.4.1"
 image = "0.25.6"
 half = "2.6.0"
 strum = "0.27.2"
 strum_macros = "0.27.2"
 anyhow = "1.0.99"
-rayon = "1.11.0"
 stb_image = "0.3.0"
 rfd = "0.15.4"
 log = "0.4.28"
@@ -57,3 +55,7 @@ mikktspace = "0.3.0"
 slotmap = "1.1.1"
 # nofmt = "1.0.0"
 
+#
+rayon = "1.11.0"
+pollster = "0.4.0"
+smol = "1.2"
