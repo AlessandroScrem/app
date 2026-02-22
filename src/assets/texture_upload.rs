@@ -2,12 +2,14 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
 use super::TextureId;
-use super::file;
 use crate::assets::TextureState;
 use crate::assets::{ColorSpace, TextureAsset, TextureDesc};
 use crate::prelude::*;
+use super::file;
 
-use super::image_decoder::{decode_stb_image_par, read_stb_image};
+use super::image_decoder::{
+    decode_image_rgbaf32, decode_stb_image_rgaba8, decode_stb_image_rgbaf16,
+};
 
 #[derive(Clone)]
 pub struct CpuTexture {
@@ -43,16 +45,11 @@ impl From<String> for TextureError {
     }
 }
 
-impl From<image::ImageError> for TextureError {
-    fn from(value: image::ImageError) -> Self {
-        TextureError::Image(value)
-    }
-}
-
-pub fn load_cpu_textures_par<'a>(textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>)->Vec<(TextureId, Result<CpuTexture, TextureError>)> {
-    // 1️⃣ raccogli solo le texture MetaOnly
-    let jobs: Vec<_> = 
-        textures
+pub fn load_cpu_textures_par<'a>(
+    textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>,
+) -> Vec<(TextureId, Result<UploadPayload, TextureError>)> {
+    // collect texture MetaOnly
+    let jobs: Vec<_> = textures
         .filter_map(|(id, tex)| {
             if tex.state != TextureState::MetaOnly {
                 return None;
@@ -61,60 +58,43 @@ pub fn load_cpu_textures_par<'a>(textures: impl Iterator<Item = (TextureId, &'a 
         })
         .collect();
 
-    // 2️⃣ spawn decode su thread pool Rayon
+    // spawn decode on thread pool Rayon
     let results: Vec<_> = jobs
         .into_par_iter() // parallelo
         .map(|(id, desc)| {
-            let result = load_and_decode(&desc); // la tua funzione originale
+            let result = load_and_decode(&desc);
             (id, result)
         })
         .collect();
-    
+
     results
 }
 
-pub fn load_and_decode(desc: &TextureDesc) -> Result<CpuTexture, TextureError> {
-    match desc {
+fn load_and_decode(desc: &TextureDesc) -> Result<UploadPayload, TextureError> {
+    let (path, color_space) = match desc {
         TextureDesc::File { key, .. } => match key {
             assets::TextureKey::File {
                 path, color_space, ..
-            } => {
-                let buffer = file::read_bytes(path)?;
-                match color_space {
-                    ColorSpace::Rgba8 | ColorSpace::Srgba8 => {
-                        let (pixels, width, height) = read_stb_image(&buffer)?;
-                        Ok(CpuTexture {
-                            format: color_space.clone(),
-                            width,
-                            height,
-                            pixels,
-                        })
-                    }
-                    ColorSpace::Rgbaf16 => {
-                        let (pixels, width, height) = decode_stb_image_par(&buffer)?;
-                        Ok(CpuTexture {
-                            format: color_space.clone(),
-                            width,
-                            height,
-                            pixels,
-                        })
-                    }
-                    ColorSpace::Rgbaf32 => {
-                        let image = image::load_from_memory(&buffer)?.to_rgba32f();
-                        let (width, height) = image.dimensions();
-                        let raw_f32: Vec<f32> = image.into_raw();
-                        let pixels: Vec<u8> = bytemuck::cast_slice(&raw_f32).to_vec();
-                        Ok(CpuTexture {
-                            format: color_space.clone(),
-                            width,
-                            height,
-                            pixels,
-                        })
-                    }
-                }
-            }
-            assets::TextureKey::White => Err(TextureError::FallbackWhite),
+            } => (path, color_space),
+            assets::TextureKey::White => return Ok(UploadPayload::Fallback),
         },
-        TextureDesc::White => Err(TextureError::FallbackWhite),
-    }
+        TextureDesc::White => return Ok(UploadPayload::Fallback),
+    };
+
+    let buffer = file::read_bytes(path)?;
+
+    let (pixels, width, height) = match color_space {
+        ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer)?,
+
+        ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer)?,
+
+        ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
+    };
+
+    Ok(UploadPayload::Ready(CpuTexture {
+        format: color_space.clone(),
+        width,
+        height,
+        pixels,
+    }))
 }

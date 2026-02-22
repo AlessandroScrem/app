@@ -258,21 +258,25 @@ impl TextureAssets {
     pub fn load_cpu_textures(&mut self) {
         let results = super::texture_upload::load_cpu_textures_par(self.storage.iter());
 
-        // 4️⃣ aggiorna storage e dirty list
         for (id, result) in results {
             self.storage
                 .get_mut(id)
                 .map(|asset| match result {
-                    Ok(cpu) => {
-                        asset.state = TextureState::CpuReady(TextureInfo::from(&cpu));
-                        self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
-                        trace!("Loaded Texture {:?} {:?}", id, asset.state);
-                    }
+                    Ok(upload) => match upload {
+                        UploadPayload::Ready(cpu) => {
+                            asset.state = TextureState::CpuReady(TextureInfo::from(&cpu));
+                            self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
+                            trace!("Loaded Texture {:?} {:?}", id, asset.state);
+                        }
+                        UploadPayload::Fallback => {
+                            asset.state = TextureState::Fallback;
+                            self.dirty_textures.push((id, UploadPayload::Fallback));
+                        }
+                    },
                     Err(e) => {
                         asset.state = TextureState::Fallback;
                         self.dirty_textures.push((id, UploadPayload::Fallback));
-                        warn!("{:?}", e);
-                        trace!("Loaded dirty Texture {:?} {:?}", id, asset.state);
+                        warn!("{:?} for id {:?} desc {:?}", e, id, asset.desc);
                     }
                 })
                 .unwrap_or_else(|| warn!("TextureId {:?} not found", id));

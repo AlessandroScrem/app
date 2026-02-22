@@ -24,8 +24,6 @@ pub use texture_asset::*;
 pub use mesh_asset::*;
 pub use material_asset::*;
 pub use crate::prelude::*;
-pub use texture_upload::load_and_decode;
-
 
 #[test]
 fn sync_add_remove_reuse() {
