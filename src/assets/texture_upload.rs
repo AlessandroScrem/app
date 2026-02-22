@@ -19,6 +19,18 @@ pub struct CpuTexture {
     pub format: ColorSpace,
 }
 
+/// --- White texture 1x1 RGBA8 
+impl CpuTexture {
+    pub fn white() -> Self {
+        Self {
+            width: 1,
+            height: 1,
+            format: ColorSpace::Rgba8,
+            pixels: vec![255, 255, 255, 255],
+        }
+    }
+}
+
 pub enum UploadPayload {
     Ready(CpuTexture),
     Fallback,
@@ -74,7 +86,6 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
     let desc = match desc {
         Some(d) => d,
         None => {
-            // Qui è la white texture o asset senza desc: già pronto → fallback
             return Ok(UploadPayload::Fallback);
         }
     };

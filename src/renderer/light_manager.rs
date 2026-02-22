@@ -38,7 +38,7 @@ impl LightManager {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&light_texture.texture.view),
+                    resource: wgpu::BindingResource::TextureView(&light_texture.view),
                 },
             ],
             label: Some("light texture_bind_group"),

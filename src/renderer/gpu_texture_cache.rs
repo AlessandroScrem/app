@@ -1,4 +1,4 @@
-use crate::assets::texture_upload::{CpuTexture, UploadPayload};
+use crate::{assets::texture_upload::UploadPayload, renderer::texture::GpuTexture};
 
 use super::*;
 use slotmap::SecondaryMap;
@@ -44,7 +44,6 @@ impl GpuTextureCache {
             .map
             .get(id)
             .expect("unable to get texture")
-            .texture
             .view
     }
 
@@ -90,32 +89,6 @@ impl From<ColorSpace> for wgpu::TextureFormat {
             ColorSpace::Srgba8 => wgpu::TextureFormat::Rgba8UnormSrgb,
             ColorSpace::Rgbaf16 => wgpu::TextureFormat::Rgba16Float,
             ColorSpace::Rgbaf32 => wgpu::TextureFormat::Rgba32Float,
-        }
-    }
-}
-
-pub struct GpuTexture {
-    pub texture: texture::Texture,
-}
-impl GpuTexture {
-    pub fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let white_bytes = CpuTexture {
-            width: 1,
-            height: 1,
-            format: ColorSpace::Rgba8,
-            pixels: vec![255, 255, 255, 255],
-        };
-
-        let texture = texture::Texture::from_cpu(&device, &queue, &white_bytes);
-        Self { texture }
-    }
-
-    fn from_cpu(payload: UploadPayload, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        match payload {
-            UploadPayload::Ready(cpu) => Self {
-                texture: texture::Texture::from_cpu(device, queue, &cpu),
-            },
-            UploadPayload::Fallback => Self::white_texture(device, queue),
         }
     }
 }

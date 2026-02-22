@@ -12,8 +12,6 @@ use crate::renderer::{
 };
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
-use super::texture;
-
 mod utils {
     use crate::math::*;
     use wgpu::{ShaderModule, util::DeviceExt};
@@ -500,7 +498,7 @@ pub struct EquirectangularToCubemap {}
 
 impl EquirectangularToCubemap {
     pub fn build(
-        hdr_texture: &texture::Texture,
+        hdr_texture: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cube_size: u32,
@@ -894,7 +892,7 @@ impl SkyboxManager {
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
     ) -> Skybox {
-        let cube_map = EquirectangularToCubemap::build(&hdr.texture, device, queue, 512);
+        let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
         let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
         let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
@@ -992,7 +990,7 @@ mod tests {
 
         let hdr = texture_cache.get_or_fallback(hdr_id, device, queue);
 
-        let cubemap = EquirectangularToCubemap::build(&hdr.texture, &device, &queue, CUBEMAP_SIZE);
+        let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
         assert_eq!(cubemap.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(cubemap.height(), CUBEMAP_SIZE);
@@ -1023,7 +1021,7 @@ mod tests {
 
         let hdr = texture_cache.get_or_fallback(hdr_id, device, queue);
 
-        let cubemap = EquirectangularToCubemap::build(&hdr.texture, &device, &queue, CUBEMAP_SIZE);
+        let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
         let prefilter = PrefilterMap::build(device, queue, &cubemap);
 
@@ -1055,7 +1053,7 @@ mod tests {
 
         let hdr = texture_cache.get_or_fallback(hdr_id, device, queue);
 
-        let cubemap = EquirectangularToCubemap::build(&hdr.texture, &device, &queue, CUBEMAP_SIZE);
+        let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
         let irradiance = IrrarianceMap::build(&cubemap, &device, &queue);
 

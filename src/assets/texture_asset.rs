@@ -148,13 +148,8 @@ impl Default for TextureAssets {
         let mut storage = SlotMap::with_key();
         let mut lookup = HashMap::new();
 
-        // --- White texture 1x1 RGBA8 ---
-        let white_cpu = CpuTexture {
-            width: 1,
-            height: 1,
-            format: ColorSpace::Rgba8,
-            pixels: vec![255, 255, 255, 255],
-        };
+        
+        let white_cpu = CpuTexture::white();
 
         let white_id = storage.insert(TextureAsset {
             state: TextureState::CpuReady(TextureInfo::from(&white_cpu)),
@@ -323,7 +318,7 @@ mod tests {
 
         let white_id = TextureId::white(&texture_assets);
 
-        assert!(texture_assets.get_desc(white_id).is_some())
+        assert!(texture_assets.contains_key(white_id))
     }
 
     #[test]
@@ -353,103 +348,3 @@ mod tests {
         assert!(textures.get_desc(id).is_none());
     }
 }
-
-/*
-use wgpu::TextureFormat;
-
-use crate::assets::texture::{CubeTexture, Texture};
-
-    pub fn create_cubemap<P: AsRef<Path>>(
-        &mut self,
-        path: [P; 6],
-        format: TextureFormat,
-    ) -> Arc<CubeTexture> {
-        let buffer0 = Self::read_bytes(path[0].as_ref()).unwrap();
-        let buffer1 = Self::read_bytes(path[1].as_ref()).unwrap();
-        let buffer2 = Self::read_bytes(path[2].as_ref()).unwrap();
-        let buffer3 = Self::read_bytes(path[3].as_ref()).unwrap();
-        let buffer4 = Self::read_bytes(path[4].as_ref()).unwrap();
-        let buffer5 = Self::read_bytes(path[5].as_ref()).unwrap();
-
-        // Slice di slice
-        let buffers: [&[u8]; 6] = [&buffer0, &buffer1, &buffer2, &buffer3, &buffer4, &buffer5];
-        let cubemap = CubeTexture::new(&self.device, &self.queue, &buffers, format);
-
-        Arc::new(cubemap)
-    } */
-
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_utils;
-    const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-
-    fn create_manager() -> TextureManager {
-        let (device, queue) = test_utils::get_device_and_queue();
-        TextureManager::new(device.clone(), queue.clone())
-    }
-
-    #[test]
-    fn should_create_texture_manager() {
-        let manager = create_manager();
-
-        assert!(manager.textures.is_empty());
-    }
-
-    #[test]
-    fn should_load_cube_texture() {
-        let mut manager = create_manager();
-
-        let images = [
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/right.png"),
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/left.png"),
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/top.png"),
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/bottom.png"),
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/front.png"),
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/test/back.png"),
-        ];
-
-        let cube = manager.create_cubemap(images, TextureFormat::Rgba8UnormSrgb);
-
-        assert_eq!(cube.extent.depth_or_array_layers, 6);
-
-        #[cfg(feature = "save_tests")]
-        {
-            let (device, queue) = test_utils::get_device_and_queue();
-            test_utils::save_cubemap_cross(&device, &queue, "Skybox_result.png", &cube.inner)
-                .unwrap();
-        }
-    }
-
-    #[test]
-    fn should_load_hdr_texture_rgba32float() {
-        let mut manager = create_manager();
-
-        let hdr = manager.create_texture(HDR_PATH, TextureFormat::Rgba32Float);
-
-        assert_eq!(hdr.inner.format(), TextureFormat::Rgba32Float);
-    }
-
-    /// Hdr
-    #[test]
-    fn should_load_hdr_texture_rgba16float() {
-        let mut manager = create_manager();
-
-        let hdr = manager.create_texture(HDR_PATH, TextureFormat::Rgba16Float);
-
-        assert_eq!(hdr.inner.format(), TextureFormat::Rgba16Float);
-        assert!(hdr.inner.width() > 0);
-        assert!(hdr.inner.height() > 0);
-        assert_eq!(hdr.inner.mip_level_count(), 1); // <- no mipmaps
-        assert_eq!(hdr.inner.depth_or_array_layers(), 1); // <- 2D texture
-        assert_eq!(hdr.inner.dimension(), wgpu::TextureDimension::D2);
-
-        #[cfg(feature = "save_tests")]
-        {
-            let (device, queue) = test_utils::get_device_and_queue();
-            test_utils::save_texture(&device, &queue, "hdr.png", &hdr.inner, 0).unwrap();
-        }
-    }
-}
- */

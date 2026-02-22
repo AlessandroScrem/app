@@ -29,3 +29,4 @@ pub use gpu_material_cache::*;
 pub use gpu_mesh_cache::*;
 pub use gpu_texture_cache::*;
 pub use imgui_renderer::{ImGuiTextureRegistry, ImguiRender, UiTextureResolver, UiTexture};
+pub use texture::GpuTexture;

@@ -260,11 +260,11 @@ impl Renderer {
                     .insert(imgui_wgpu::Texture::from_raw_parts(
                         device,
                         renderer,
-                        tex.texture.inner.clone(),
-                        tex.texture.view.clone(),
+                        tex.inner.clone(),
+                        tex.view.clone(),
                         None,
                         Some(&texture_config),
-                        tex.texture.extent,
+                        tex.extent,
                     ));
                 registry.ids.insert(gpu_id.clone(), id);
                 debug!("add to registry texture [no name] with id {}", id.id());
