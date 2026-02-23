@@ -1,7 +1,7 @@
 use super::*;
 use imgui::*;
 
-pub struct DebugUi {}
+pub(crate) struct DebugUi {}
 
 impl Layer for DebugUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {

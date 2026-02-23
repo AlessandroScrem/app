@@ -1,7 +1,7 @@
 use stb_image::image::load_from_memory_with_depth;
 
 /// Load HDR16 stb_image
-pub fn decode_image_rgbaf32(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+pub(crate) fn decode_image_rgbaf32(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     let image = image::load_from_memory(&buffer)
         .map_err(|e| format!("Failed to decode image: {e}"))?
         .to_rgba32f();
@@ -14,7 +14,7 @@ pub fn decode_image_rgbaf32(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String
 }
 
 /// Load HDR16 stb_image
-pub fn decode_stb_image_rgbaf16(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+pub(crate) fn decode_stb_image_rgbaf16(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     use half::f16;
     use rayon::prelude::*;
     use stb_image::image::LoadResult;
@@ -49,7 +49,7 @@ pub fn decode_stb_image_rgbaf16(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), St
 }
 
 /// Load LDR stb_image
-pub fn decode_stb_image_rgaba8(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+pub(crate) fn decode_stb_image_rgaba8(buffer: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
     use stb_image::image::LoadResult;
 
     let img = match load_from_memory_with_depth(buffer, 4, false) {

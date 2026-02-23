@@ -4,11 +4,11 @@ use crate::prelude::*;
 use legion::Entity;
 
 #[derive(Default)]
-pub struct DomainEvents {
-    pub queue: VecDeque<DomainEvent>,
+pub(crate) struct DomainEvents {
+    pub(crate) queue: VecDeque<DomainEvent>,
 }
 
-pub enum DomainEvent {
+pub(crate) enum DomainEvent {
     Scene(SceneEvent),
     Camera(CameraEvent),
     Global(GlobalEvent),
@@ -17,17 +17,17 @@ pub enum DomainEvent {
     Selection(SelectionEvent),
 }
 
-pub enum SceneEvent {}
+pub(crate) enum SceneEvent {}
 
-pub enum SelectionEvent {
+pub(crate) enum SelectionEvent {
     Selected(Option<Entity>),
 }
-pub enum AssetEvent {
+pub(crate) enum AssetEvent {
     LoadGltf(PathBuf),
     ChangeSkybox(PathBuf),
 
 }
-pub enum EntityEvent {
+pub(crate) enum EntityEvent {
     RemoveEntity(Entity),
     AddParent(Entity),
     UpdateTag(Entity, TagComponent),
@@ -36,7 +36,7 @@ pub enum EntityEvent {
     UpdateLight(Entity, LightComponent),
     
 }
-pub enum GlobalEvent {
+pub(crate) enum GlobalEvent {
     IblEnable(bool),
     SkyboxEnable(bool),
     AxisEnable(bool),
@@ -48,7 +48,7 @@ pub enum GlobalEvent {
     TonemapFilter(u32),
 }
 
-pub enum CameraEvent {
+pub(crate) enum CameraEvent {
     RecenterCamera,
     CameraFov(math::Rad<f32>),
     CameraDistance(f32),

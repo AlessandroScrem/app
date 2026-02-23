@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use wgpu::RequestAdapterOptions;
 
 static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
-pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
+pub(crate) fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
         let adapter =
@@ -32,7 +32,7 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 /// # Returns
 /// * `Ok(())` on success, or an error if something went wrong
 ///
-pub fn save_texture(
+pub(crate) fn save_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     filename: &str,
@@ -194,7 +194,7 @@ pub fn save_texture(
 /// # Returns
 /// * `Ok(())` on success, or an error if something went wrong
 ///
-pub fn save_cubemap_cross(
+pub(crate) fn save_cubemap_cross(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     filename_base: &str,
@@ -465,7 +465,7 @@ mod tests {
 
     use half::f16;
     /// Supported formats: Rgba8Unorm, Rg16Float, Rgba16Float, Rgba32Float
-    pub fn create_debug_cube_texture(
+    pub(crate) fn create_debug_cube_texture(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,

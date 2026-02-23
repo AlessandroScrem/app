@@ -1,4 +1,4 @@
-pub use super::*;
+pub(crate) use super::*;
 use crate::renderer::{GpuMesh, renderer::GpuCache};
 
 struct MeshDrawable<'a> {
@@ -38,10 +38,10 @@ fn drawables<'a>(
 }
 
 #[derive(Default)]
-pub struct MeshPass {}
+pub(crate) struct MeshPass {}
 
 impl MeshPass {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 

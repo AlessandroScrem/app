@@ -1,16 +1,16 @@
 use std::time::{Duration, Instant};
 
-pub struct Timer {
-    pub clock: Instant,    // timer since application start
-    pub delta_time: f32,   //time since last frame
-    pub elapsed_time: f32, //timer since last update
-    pub frame_time: f32,   //time taken to render last frame
+pub(crate) struct Timer {
+    pub(crate) clock: Instant,    // timer since application start
+    pub(crate) delta_time: f32,   //time since last frame
+    pub(crate) elapsed_time: f32, //timer since last update
+    pub(crate) frame_time: f32,   //time taken to render last frame
     last_trigger: Instant, // last time the every() callback was triggered
 }
 
 impl Timer {
-    pub const FIXED_TIMESTEP: f32 = 1.0 / 60.0; //minimum timestep (to avoid leg)
-    pub fn new() -> Self {
+    pub(crate) const FIXED_TIMESTEP: f32 = 1.0 / 60.0; //minimum timestep (to avoid leg)
+    pub(crate) fn new() -> Self {
         Self {
             clock: Instant::now(),
             delta_time: 0.0,
@@ -21,7 +21,7 @@ impl Timer {
     }
 
     /// Returns the time in seconds since the last call to frametime() and updates the internal timer.
-    pub fn frametime(&mut self) -> f32 {
+    pub(crate) fn frametime(&mut self) -> f32 {
         let frametime = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
         self.frame_time = frametime * 1000.0;
         frametime
@@ -29,7 +29,7 @@ impl Timer {
 
     /// Update the timer with the given frametime.
     /// Clamps the delta_time to FIXED_TIMESTEP to avoid large timesteps.
-    pub fn tick(&mut self, frametime: f32) -> f32 {
+    pub(crate) fn tick(&mut self, frametime: f32) -> f32 {
         self.delta_time = f32::min(frametime, Self::FIXED_TIMESTEP);
         self.elapsed_time += self.delta_time;
         self.delta_time
@@ -46,7 +46,7 @@ impl Timer {
     ///     // Run fixed timestep update with dt
     /// }
     /// ```
-    pub fn tick_step_iter(&mut self) -> impl Iterator<Item = f32> + '_ {
+    pub(crate) fn tick_step_iter(&mut self) -> impl Iterator<Item = f32> + '_ {
         let mut remaining = self.frametime();
         std::iter::from_fn(move || {
             if remaining > 0.0 {
@@ -73,7 +73,7 @@ impl Timer {
     /// }
     /// ```
     ///  
-    pub fn trigger_every<F>(&mut self, interval: Duration, mut callback: F)
+    pub(crate) fn trigger_every<F>(&mut self, interval: Duration, mut callback: F)
     where
         F: FnMut(),
     {

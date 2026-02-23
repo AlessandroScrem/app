@@ -6,7 +6,7 @@ use legion::EntityStore;
 
 impl App {
 
-    pub fn update_camera(&mut self, input: &Input) {
+    pub(crate) fn update_camera(&mut self, input: &Input) {
         // move away from here
 
         if input.is_mouse_button_down(crate::input::MouseButton::Left) {
@@ -24,7 +24,7 @@ impl App {
         }
     }
 
-    pub fn recenter_camera(&mut self) {
+    pub(crate) fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
         let selected = self.selected;

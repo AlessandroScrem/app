@@ -8,18 +8,18 @@ use crate::UiLayer;
 use crate::input::Input;
 use crate::timer::Timer;
 
-pub struct RunningApp {
-    pub window: Arc<Window>,
-    pub renderer: Renderer,
-    pub uilayer: UiLayer,
-    pub is_minimized: bool,
-    pub timer: Timer,
-    pub input: Input,
-    pub events: Vec<RuntimeEvent>,
+pub(crate) struct RunningApp {
+    pub(crate) window: Arc<Window>,
+    pub(crate) renderer: Renderer,
+    pub(crate) uilayer: UiLayer,
+    pub(crate) is_minimized: bool,
+    pub(crate) timer: Timer,
+    pub(crate) input: Input,
+    pub(crate) events: Vec<RuntimeEvent>,
 }
 
 impl RunningApp {
-    pub fn handle_winit_event(&mut self, event: &Event<()>) {
+    pub(crate) fn handle_winit_event(&mut self, event: &Event<()>) {
         // Handle Imgui platform events
         self.uilayer.handle_event(&self.window, event);
 
@@ -34,7 +34,7 @@ impl RunningApp {
         }
     }
 
-    pub fn tick<A: Application>(&mut self, app: &mut A) {
+    pub(crate) fn tick<A: Application>(&mut self, app: &mut A) {
         if self.is_minimized {
             return;
         }

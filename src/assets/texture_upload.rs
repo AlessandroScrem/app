@@ -12,16 +12,16 @@ use super::image_decoder::{
 };
 
 #[derive(Clone)]
-pub struct CpuTexture {
-    pub width: u32,
-    pub height: u32,
-    pub pixels: Vec<u8>,
-    pub format: ColorSpace,
+pub(crate) struct CpuTexture {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) pixels: Vec<u8>,
+    pub(crate) format: ColorSpace,
 }
 
 /// --- White texture 1x1 RGBA8 
 impl CpuTexture {
-    pub fn white() -> Self {
+    pub(crate) fn white() -> Self {
         Self {
             width: 1,
             height: 1,
@@ -31,19 +31,19 @@ impl CpuTexture {
     }
 }
 
-pub enum UploadPayload {
+pub(crate) enum UploadPayload {
     Ready(CpuTexture),
     Fallback,
 }
 
-pub trait TextureUploadSource {
+pub(crate) trait TextureUploadSource {
     fn drain_dirty_textures(&mut self) -> Vec<(TextureId, UploadPayload)>;
 
     fn get_texture_asset(&self, id: TextureId) -> Option<&TextureAsset>;
 }
 
 #[derive(Debug)]
-pub enum TextureError {
+pub(crate) enum TextureError {
     Io(std::io::Error),
     String(String),
     Image(image::ImageError),
@@ -57,7 +57,7 @@ impl From<String> for TextureError {
     }
 }
 
-pub fn load_cpu_textures_par<'a>(
+pub(crate) fn load_cpu_textures_par<'a>(
     textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>,
 ) -> Vec<(TextureId, Result<UploadPayload, TextureError>)> {
     // collect texture MetaOnly

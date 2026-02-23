@@ -1,20 +1,20 @@
-pub mod axis;
-pub mod bbox;
-pub mod light;
-pub mod linearize;
-pub mod mesh;
-pub mod outline;
-pub mod pickobject;
-pub mod skybox;
+pub(crate) mod axis;
+pub(crate) mod bbox;
+pub(crate) mod light;
+pub(crate) mod linearize;
+pub(crate) mod mesh;
+pub(crate) mod outline;
+pub(crate) mod pickobject;
+pub(crate) mod skybox;
 
-pub use axis::AxisPass;
-pub use bbox::BBoxPass;
-pub use light::LightPass;
-pub use linearize::LinearizePass;
-pub use mesh::MeshPass;
-pub use outline::OutlinePass;
-pub use pickobject::PickObjectPass;
-pub use skybox::SkyboxPass;
+pub(crate) use axis::AxisPass;
+pub(crate) use bbox::BBoxPass;
+pub(crate) use light::LightPass;
+pub(crate) use linearize::LinearizePass;
+pub(crate) use mesh::MeshPass;
+pub(crate) use outline::OutlinePass;
+pub(crate) use pickobject::PickObjectPass;
+pub(crate) use skybox::SkyboxPass;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
@@ -27,11 +27,11 @@ use crate::{
     uniform::ModelUniform,
 };
 
-pub use legion::query::IntoQuery;
-pub use legion::{Entity, Resources, World};
+pub(crate) use legion::query::IntoQuery;
+pub(crate) use legion::{Entity, Resources, World};
 use wgpu::IndexFormat;
 
-pub enum RenderPassEnum {
+pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
     Light(LightPass),
     Skybox(SkyboxPass),
@@ -114,7 +114,7 @@ impl RenderPass for RenderPassEnum {
     }
 }
 
-pub trait RenderPass {
+pub(crate) trait RenderPass {
     fn name(&self) -> &'static str;
 
     fn prepare(

@@ -10,7 +10,7 @@ use crate::{
     renderer::{UiTexture, UiTextureResolver},
 };
 
-pub struct PropertyUi {}
+pub(crate) struct PropertyUi {}
 
 impl Layer for PropertyUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
@@ -22,7 +22,7 @@ impl Layer for PropertyUi {
     }
 }
 
-pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
+pub(crate) fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     let Some(selected) = ctx.snapshot.selected else {
         return;
     };

@@ -1,7 +1,6 @@
 use crate::engine::RunningApp;
 
-
-pub trait Application{
+pub  trait Application{
     fn init(&mut self);
     fn update(&mut self, runtime: &mut RunningApp);
     fn render(&mut self, runtime: &mut RunningApp);

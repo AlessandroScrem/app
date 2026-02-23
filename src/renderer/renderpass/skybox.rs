@@ -1,12 +1,12 @@
-pub use super::*;
+pub(crate) use super::*;
 
 #[derive(Default)]
-pub struct SkyboxPass {
+pub(crate) struct SkyboxPass {
     enable: bool,
 }
 
 impl SkyboxPass {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 }

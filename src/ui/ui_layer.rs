@@ -8,32 +8,32 @@ use winit::window::Window;
 
 use crate::timestep::Timestep;
 
-pub struct UiContext<'a> {
-    pub snapshot: &'a UiSnapshot<'a>,
-    pub write: UiWriteModel,
-    pub timestep: Timestep,
-    pub adapter_string: String,
+pub(crate) struct UiContext<'a> {
+    pub(crate) snapshot: &'a UiSnapshot<'a>,
+    pub(crate) write: UiWriteModel,
+    pub(crate) timestep: Timestep,
+    pub(crate) adapter_string: String,
 }
 
-pub struct UiWriteModel {
-    pub commands: VecDeque<DomainEvent>,
+pub(crate) struct UiWriteModel {
+    pub(crate) commands: VecDeque<DomainEvent>,
 }
 
 impl UiWriteModel {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             commands: VecDeque::new(),
         }
     }
 
-    pub fn push(&mut self, cmd: DomainEvent) {
+    pub(crate) fn push(&mut self, cmd: DomainEvent) {
         self.commands.push_back(cmd);
     }
 }
 
-pub struct UiLayer {
+pub(crate) struct UiLayer {
     context: imgui::Context,
-    pub platform: WinitPlatform,
+    pub(crate) platform: WinitPlatform,
     ini_loaded: bool,
     timestep: Timestep,
     stack: UiStack,
@@ -44,16 +44,16 @@ struct UiStack {
     layers: Vec<Box<dyn Layer>>,
 }
 impl UiStack {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { layers: Vec::new() }
     }
 
-    pub fn push<L: Layer + 'static>(&mut self, layer: L) {
+    pub(crate) fn push<L: Layer + 'static>(&mut self, layer: L) {
         self.layers.push(Box::new(layer));
     }
 }
 
-pub trait Layer {
+pub(crate) trait Layer {
     fn build(&mut self, ui: &Ui, ui_context: &mut UiContext);
 }
 
@@ -66,7 +66,7 @@ impl Layer for UiStack {
 }
 
 impl UiLayer {
-    pub fn new(window: &Window, mut context: imgui::Context, adapter_string: String) -> Self {
+    pub(crate) fn new(window: &Window, mut context: imgui::Context, adapter_string: String) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
 
         let io = context.io_mut();
@@ -116,16 +116,16 @@ impl UiLayer {
         self.ini_loaded = true;
     }
 
-    pub fn want_capture_mouse(&self) -> bool {
+    pub(crate) fn want_capture_mouse(&self) -> bool {
         self.context.io().want_capture_mouse
     }
 
-    pub fn handle_event(&mut self, window: &Window, event: &winit::event::Event<()>) {
+    pub(crate) fn handle_event(&mut self, window: &Window, event: &winit::event::Event<()>) {
         self.platform
             .handle_event::<()>(self.context.io_mut(), window, &event);
     }
 
-    pub fn get_draw_data(&mut self) -> &imgui::DrawData {
+    pub(crate) fn get_draw_data(&mut self) -> &imgui::DrawData {
         self.context.render()
     }
 
@@ -145,7 +145,7 @@ impl UiLayer {
         self.load_ini_if_needed();
     }
 
-    pub fn build(&mut self, window: &Window, snapshot: UiSnapshot) -> VecDeque<DomainEvent> {
+    pub(crate) fn build(&mut self, window: &Window, snapshot: UiSnapshot) -> VecDeque<DomainEvent> {
         let mut ctx = UiContext {
             snapshot: &snapshot,
             write: UiWriteModel::new(),

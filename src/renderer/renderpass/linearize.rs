@@ -1,10 +1,10 @@
-pub use super::*;
+pub(crate) use super::*;
 
 #[derive(Default)]
-pub struct LinearizePass {}
+pub(crate) struct LinearizePass {}
 
 impl LinearizePass {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 }

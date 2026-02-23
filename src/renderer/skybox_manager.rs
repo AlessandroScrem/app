@@ -18,8 +18,8 @@ mod utils {
 
     #[repr(C, align(16))]
     #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-    pub struct Camera {
-        pub view_proj: [[f32; 4]; 4],
+    pub(crate) struct Camera {
+        pub(crate) view_proj: [[f32; 4]; 4],
     }
 
     /// Calculate the size of a mip level based on the original size and the mip level index.
@@ -28,7 +28,7 @@ mod utils {
     /// * `mip_level` - The mip level index (0 for the original size, 1 for the first mip level, etc.).
     /// # Returns
     /// * The size of the texture at the specified mip level.
-    pub fn mip_size(source: u32, mip_level: u32) -> u32 {
+    pub(crate) fn mip_size(source: u32, mip_level: u32) -> u32 {
         (((source as f32) * 0.5f32.powf(mip_level as f32)).floor() as u32).max(1)
     }
 
@@ -37,7 +37,7 @@ mod utils {
     /// * `texture_size` - The size of the texture (width or height).
     /// # Returns
     /// * The number of mip levels.
-    pub fn mip_levels(texture_size: u32) -> u32 {
+    pub(crate) fn mip_levels(texture_size: u32) -> u32 {
         (1.0 + (texture_size as f32).log2().floor()) as u32
     }
 
@@ -48,7 +48,7 @@ mod utils {
     /// * `mip_level` - The mip level to create the view for.
     /// # Returns
     /// * A `wgpu::TextureView` for the specified face and mip level.
-    pub fn create_dest_view(
+    pub(crate) fn create_dest_view(
         texture: &wgpu::Texture,
         face_index: u32,
         mip_level: u32,
@@ -65,7 +65,7 @@ mod utils {
         })
     }
 
-    pub fn render_to_cubemap(
+    pub(crate) fn render_to_cubemap(
         encoder: &mut wgpu::CommandEncoder,
         pipeline: &wgpu::RenderPipeline,
         bind_group: &wgpu::BindGroup,
@@ -99,7 +99,7 @@ mod utils {
     /// Create camera views for each face of a cubemap.
     /// # Returns
     /// * A vector of 6 `Matrix4<f32>` representing the view matrices for each cubemap face.
-    pub fn create_camera_views() -> Vec<Mat4> {
+    pub(crate) fn create_camera_views() -> Vec<Mat4> {
         const ZERO: Point3f = Point3f::new(0.0, 0.0, 0.0);
         const PX: [f32; 3] = [1.0, 0.0, 0.0];
         const NX: [f32; 3] = [-1.0, 0.0, 0.0];
@@ -129,7 +129,7 @@ mod utils {
     /// * `device` - The wgpu device to create the buffer.
     /// # Returns
     /// * A `wgpu::Buffer` representing the camera uniform buffer.
-    pub fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+    pub(crate) fn create_camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Uniform Buffer"),
             contents: bytemuck::cast_slice(&[Camera::default()]),
@@ -144,7 +144,7 @@ mod utils {
     /// * `cam_view` - The view matrix to set in the camera uniform.
     /// # Returns
     /// * None.
-    pub fn update_camera_buffer(
+    pub(crate) fn update_camera_buffer(
         queue: &wgpu::Queue,
         camera_uniform_buffer: &wgpu::Buffer,
         cam_view: Mat4,
@@ -162,7 +162,7 @@ mod utils {
         );
     }
 
-    pub fn create_cube_texture(
+    pub(crate) fn create_cube_texture(
         device: &wgpu::Device,
         label: &str,
         size: u32,
@@ -183,7 +183,7 @@ mod utils {
         )
     }
 
-    pub fn create_texture(
+    pub(crate) fn create_texture(
         device: &wgpu::Device,
         label: &str,
         width: u32,
@@ -213,7 +213,7 @@ mod utils {
         texture
     }
 
-    pub fn create_pipeline(
+    pub(crate) fn create_pipeline(
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
         shader: ShaderModule,
@@ -251,11 +251,11 @@ mod utils {
     }
 }
 
-pub struct BRDFLUTBuilder {}
+pub(crate) struct BRDFLUTBuilder {}
 
 impl BRDFLUTBuilder {
     const TEXTURE_SIZE: u32 = 512;
-    pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
+    pub(crate) fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
         let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/brdflut.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "BRDFLUT Pipeline");
@@ -389,7 +389,7 @@ impl PrefilerMapResources {
     }
 }
 
-pub struct PrefilterMap {}
+pub(crate) struct PrefilterMap {}
 
 impl PrefilterMap {
     const TEXTURE_SIZE: u32 = 128;
@@ -494,10 +494,10 @@ impl EquirectResources {
     }
 }
 
-pub struct EquirectangularToCubemap {}
+pub(crate) struct EquirectangularToCubemap {}
 
 impl EquirectangularToCubemap {
-    pub fn build(
+    pub(crate) fn build(
         hdr_texture: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -592,12 +592,12 @@ impl IrradianceResources {
     }
 }
 
-pub struct IrrarianceMap {}
+pub(crate) struct IrrarianceMap {}
 
 impl IrrarianceMap {
     const TEXTURE_SIZE: u32 = 32;
 
-    pub fn build(
+    pub(crate) fn build(
         cube_texture: &wgpu::Texture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -750,7 +750,7 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
     }
 }
 
-pub struct Skybox {
+pub(crate) struct Skybox {
     hdr_id: crate::assets::TextureId,
     _cube_map: wgpu::Texture,
     _cube_map_view: wgpu::TextureView,
@@ -758,10 +758,10 @@ pub struct Skybox {
     _prefilter_map: wgpu::Texture,
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
-    pub bind_group: wgpu::BindGroup,
+    pub(crate) bind_group: wgpu::BindGroup,
 }
 
-pub struct SkyboxManager {
+pub(crate) struct SkyboxManager {
     _brdf_lut: wgpu::Texture,
     _brdf_lut_view: wgpu::TextureView,
     skybox: Skybox,
@@ -769,7 +769,7 @@ pub struct SkyboxManager {
 }
 
 impl SkyboxManager {
-    pub fn new(
+    pub(crate) fn new(
         hdr_id: crate::assets::TextureId,
         hdr: &GpuTexture,
         device: &wgpu::Device,
@@ -805,7 +805,7 @@ impl SkyboxManager {
         }
     }
 
-    pub fn update_skybox(
+    pub(crate) fn update_skybox(
         &mut self,
         hdr_id: crate::assets::TextureId,
         hdr: &GpuTexture,
@@ -875,13 +875,13 @@ impl SkyboxManager {
         })
     }
 
-    pub fn get_skybox(&self) -> &wgpu::BindGroup {
+    pub(crate) fn get_skybox(&self) -> &wgpu::BindGroup {
         &self.skybox.bind_group
     }
-    pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
+    pub(crate) fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
         &self.ibl_bind_group
     }
-    pub fn get_hdr_id(&self) -> crate::assets::TextureId {
+    pub(crate) fn get_hdr_id(&self) -> crate::assets::TextureId {
         self.skybox.hdr_id
     }
 

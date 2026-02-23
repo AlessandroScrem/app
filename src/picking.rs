@@ -4,15 +4,15 @@ use wgpu::Device;
 
 use std::sync::mpsc;
 
-pub struct PickObject {
-    pub buffer: wgpu::Buffer,
-    pub pending: bool,
+pub(crate) struct PickObject {
+    pub(crate) buffer: wgpu::Buffer,
+    pub(crate) pending: bool,
     readback_tx: mpsc::Sender<()>,
     readback_rx: mpsc::Receiver<()>,
 }
 
 impl PickObject {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub(crate) fn new(device: &wgpu::Device) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("buffer Readback Pixel"),
             size: 256,
@@ -40,7 +40,7 @@ impl PickObject {
         }
     }
     
-    pub fn poll_readback(&mut self, device: &Device)->Option<Entity> {
+    pub(crate) fn poll_readback(&mut self, device: &Device)->Option<Entity> {
         self.request_readback();
         
         let mut entity:Option<Entity> = None;

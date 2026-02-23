@@ -4,34 +4,34 @@ use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
 
-pub enum UiTexture {
+pub(crate) enum UiTexture {
     Engine(TextureId),         // la texture viene dall’engine
     Builtin(imgui::TextureId), // icone, font, ecc.
 }
 
-pub trait UiTextureResolver {
+pub(crate) trait UiTextureResolver {
     fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId>;
 }
 
 // registro imgui separato
-pub struct ImGuiTextureRegistry {
-    pub ids: HashMap<TextureId, imgui::TextureId>,
+pub(crate) struct ImGuiTextureRegistry {
+    pub(crate) ids: HashMap<TextureId, imgui::TextureId>,
 }
 
 impl ImGuiTextureRegistry {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             ids: HashMap::new(),
         }
     }
 }
-pub struct ImguiRender {
-    pub renderer: imgui_wgpu::Renderer,
-    pub registry: ImGuiTextureRegistry,
+pub(crate) struct ImguiRender {
+    pub(crate) renderer: imgui_wgpu::Renderer,
+    pub(crate) registry: ImGuiTextureRegistry,
 }
 
 impl ImguiRender {
-    pub fn new(
+    pub(crate) fn new(
         device: &Device,
         queue: &Queue,
         window: &winit::window::Window,
@@ -60,7 +60,7 @@ impl ImguiRender {
 
         Self { renderer, registry }
     }
-    pub fn render(
+    pub(crate) fn render(
         &mut self,
         draw_data: &imgui::DrawData,
         encoder: &mut wgpu::CommandEncoder,

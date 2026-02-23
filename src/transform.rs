@@ -12,7 +12,7 @@ impl Default for TransformComponent {
 } 
 
 impl TransformComponent {
-    pub fn compute_model_matrix(&self) -> Mat4 {
+    pub(crate) fn compute_model_matrix(&self) -> Mat4 {
         // converte la rotazione xyz "Radianti" in Quaternion
         fn to_quat(r: &[f32; 3]) -> Quat {
             let euler = Euler::new(Rad(r[0]), Rad(r[1]), Rad(r[2]));

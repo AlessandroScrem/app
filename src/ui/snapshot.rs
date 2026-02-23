@@ -2,50 +2,50 @@ use super::*;
 use crate::{assets::asset_manager::AssetManager, renderer::UiTextureResolver};
 use legion::*;
 
-pub struct HierarchyNode {
-    pub name: String,
-    pub parent: Option<Entity>,
-    pub entity: Entity,
-    pub children: Vec<HierarchyNode>,
+pub(crate) struct HierarchyNode {
+    pub(crate) name: String,
+    pub(crate) parent: Option<Entity>,
+    pub(crate) entity: Entity,
+    pub(crate) children: Vec<HierarchyNode>,
 }
 
 #[derive(Default)]
-pub struct RootNodes {
-    pub nodes: Vec<HierarchyNode>,
+pub(crate) struct RootNodes {
+    pub(crate) nodes: Vec<HierarchyNode>,
 }
 
 #[derive(Default)]
-pub struct RootSnapshot {
-    pub root_nodes: RootNodes,
-    pub lights_nodes: RootNodes,
+pub(crate) struct RootSnapshot {
+    pub(crate) root_nodes: RootNodes,
+    pub(crate) lights_nodes: RootNodes,
 }
 
-pub struct UiSnapshot<'a> {
-    pub resolver: &'a dyn UiTextureResolver,
-    pub camera: &'a Camera,
-    pub globals: &'a Globals,
-    pub root_snapshot: RootSnapshot,
-    pub comp_state: UiComponentState,
-    pub selected: Option<Entity>,
-    pub hovered: Option<Entity>,
-    pub hdr_texture_id: assets::TextureId,
-    pub debug_texture_id: Option<assets::TextureId>,
+pub(crate) struct UiSnapshot<'a> {
+    pub(crate) resolver: &'a dyn UiTextureResolver,
+    pub(crate) camera: &'a Camera,
+    pub(crate) globals: &'a Globals,
+    pub(crate) root_snapshot: RootSnapshot,
+    pub(crate) comp_state: UiComponentState,
+    pub(crate) selected: Option<Entity>,
+    pub(crate) hovered: Option<Entity>,
+    pub(crate) hdr_texture_id: assets::TextureId,
+    pub(crate) debug_texture_id: Option<assets::TextureId>,
 }
 
 /// UiComponentView is a per-frame snapshot.
 /// It must never be stored or reused across frames.
 #[derive(Default)]
-pub struct UiComponentState {
-    pub tag: Option<TagComponent>,
-    pub mesh: Option<MeshComponent>,
-    pub transform: Option<TransformComponent>,
-    pub bounding_box: Option<BoundingBoxComponent>,
-    pub material: Option<MaterialDesc>,
-    pub light: Option<LightComponent>,
+pub(crate) struct UiComponentState {
+    pub(crate) tag: Option<TagComponent>,
+    pub(crate) mesh: Option<MeshComponent>,
+    pub(crate) transform: Option<TransformComponent>,
+    pub(crate) bounding_box: Option<BoundingBoxComponent>,
+    pub(crate) material: Option<MaterialDesc>,
+    pub(crate) light: Option<LightComponent>,
 }
 
 impl UiComponentState {
-    pub fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &AssetManager) -> Self {
+    pub(crate) fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &AssetManager) -> Self {
         let mut state = UiComponentState::default();
 
         let Some(entity) = selected else {
@@ -77,7 +77,7 @@ impl UiComponentState {
 }
 
 impl<'a> UiSnapshot<'a> {
-    pub fn from_world(
+    pub(crate) fn from_world(
         world: &legion::World,
         selected: Option<Entity>,
         asset_mgr: &AssetManager,

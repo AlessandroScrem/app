@@ -5,7 +5,7 @@ use crate::App;
 
 
 impl App {
-       pub fn update_domain_event(&mut self) {
+       pub(crate) fn update_domain_event(&mut self) {
         // event needs world update, will be executed next frame.
         let mut next_queue = VecDeque::<DomainEvent>::new();
 
@@ -34,7 +34,7 @@ impl App {
 }
 
 
-pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
+pub(crate) fn handle_camera_event(app: &mut App, event: CameraEvent) {
     match event {
         CameraEvent::RecenterCamera => {
             app.recenter_camera();
@@ -51,7 +51,7 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
     }
 }
 
-pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
+pub(crate) fn handle_global_event(app: &mut App, event: GlobalEvent) {
     let g = &mut app.globals;
     match event {
         GlobalEvent::IblEnable(flag) => g.ibl_enable = flag,
@@ -66,7 +66,7 @@ pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
     }
 }
 
-pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
+pub(crate) fn handle_entity_event(app: &mut App, event: EntityEvent) {
     let world = &mut app.current_scene.world;
     match event {
         EntityEvent::RemoveEntity(entity) => {
@@ -103,7 +103,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     }
 }
 
-pub fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut VecDeque<DomainEvent>) {
+pub(crate) fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut VecDeque<DomainEvent>) {
     match event {
         AssetEvent::LoadGltf(path) => {
             if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
@@ -125,7 +125,7 @@ pub fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut Vec
     }
 }
 
-pub fn handle_selection_event(app: &mut App, event: SelectionEvent) {
+pub(crate) fn handle_selection_event(app: &mut App, event: SelectionEvent) {
     match event {
         SelectionEvent::Selected(selected) => {
             app.selected = selected;

@@ -7,19 +7,19 @@ use legion::Entity;
 use legion::Resources;
 
 #[derive(Default)]
-pub struct App {
-    pub current_scene: Scene,
-    pub asset_mgr: AssetManager,
-    pub resources: Resources,
-    pub globals: Globals,
-    pub camera: Camera,
-    pub domain_events: DomainEvents,
-    pub selected: Option<Entity>,
-    pub hovered: Option<Entity>,
+pub(crate) struct App {
+    pub(crate) current_scene: Scene,
+    pub(crate) asset_mgr: AssetManager,
+    pub(crate) resources: Resources,
+    pub(crate) globals: Globals,
+    pub(crate) camera: Camera,
+    pub(crate) domain_events: DomainEvents,
+    pub(crate) selected: Option<Entity>,
+    pub(crate) hovered: Option<Entity>,
 }
 
 impl App {
-    pub fn update_selected(&mut self, runtime: &mut RunningApp) {
+    pub(crate) fn update_selected(&mut self, runtime: &mut RunningApp) {
         let input = &runtime.input;
         let renderer = &mut runtime.renderer;
         // update hovered entity_id from buffer
@@ -36,7 +36,7 @@ impl App {
         }
     }
 
-    pub fn update_scene(&mut self) {
+    pub(crate) fn update_scene(&mut self) {
         self.current_scene
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);

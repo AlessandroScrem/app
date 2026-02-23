@@ -1,8 +1,8 @@
 use legion::*;
 
-pub struct Scene {
-    pub world: World,
-    pub schedule: Schedule,
+pub(crate) struct Scene {
+    pub(crate) world: World,
+    pub(crate) schedule: Schedule,
 }
 
 impl Default for Scene {

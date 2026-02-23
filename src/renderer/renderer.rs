@@ -22,50 +22,50 @@ impl UiTextureResolver for Renderer {
     }
 }
 
-pub struct RenderContext<'a> {
-    pub device: &'a Device,
-    pub queue: &'a Queue,
-    pub gpu_cache: &'a GpuCache,
+pub(crate) struct RenderContext<'a> {
+    pub(crate) device: &'a Device,
+    pub(crate) queue: &'a Queue,
+    pub(crate) gpu_cache: &'a GpuCache,
 
-    pub gpu_mgr: &'a GpuManager,
-    pub pip_mgr: &'a PipelineManager,
-    pub skb_mgr: &'a SkyboxManager,
-    pub light_mgr: &'a LightManager,
-    pub bbox_mgr: &'a mut BBoxManager,
-    pub pickobject: &'a PickObject,
-    pub target: &'a wgpu::TextureView,
+    pub(crate) gpu_mgr: &'a GpuManager,
+    pub(crate) pip_mgr: &'a PipelineManager,
+    pub(crate) skb_mgr: &'a SkyboxManager,
+    pub(crate) light_mgr: &'a LightManager,
+    pub(crate) bbox_mgr: &'a mut BBoxManager,
+    pub(crate) pickobject: &'a PickObject,
+    pub(crate) target: &'a wgpu::TextureView,
 }
 
-pub struct GpuView<'a> {
-    pub device: &'a Device,
-    pub queue: &'a Queue,
-    pub pickobject: &'a PickObject,
-    pub gpu_mgr: &'a GpuManager,
-    pub pip_mgr: &'a PipelineManager,
-    pub skb_mgr: &'a SkyboxManager,
-    pub light_mgr: &'a LightManager,
-    pub bbox_mgr: &'a BBoxManager,
+pub(crate) struct GpuView<'a> {
+    pub(crate) device: &'a Device,
+    pub(crate) queue: &'a Queue,
+    pub(crate) pickobject: &'a PickObject,
+    pub(crate) gpu_mgr: &'a GpuManager,
+    pub(crate) pip_mgr: &'a PipelineManager,
+    pub(crate) skb_mgr: &'a SkyboxManager,
+    pub(crate) light_mgr: &'a LightManager,
+    pub(crate) bbox_mgr: &'a BBoxManager,
 }
 
-pub struct GpuDevice<'a> {
-    pub device: &'a wgpu::Device,
-    pub queue: &'a Queue,
-    pub gpu_mgr: &'a GpuManager,
-    pub skb_mgr: &'a mut SkyboxManager,
+pub(crate) struct GpuDevice<'a> {
+    pub(crate) device: &'a wgpu::Device,
+    pub(crate) queue: &'a Queue,
+    pub(crate) gpu_mgr: &'a GpuManager,
+    pub(crate) skb_mgr: &'a mut SkyboxManager,
 }
 
 #[derive(Default)]
-pub struct GpuCache {
-    pub mesh: GpuMeshCache,
-    pub material: GpuMaterialCache,
-    pub textures: GpuTextureCache,
+pub(crate) struct GpuCache {
+    pub(crate) mesh: GpuMeshCache,
+    pub(crate) material: GpuMaterialCache,
+    pub(crate) textures: GpuTextureCache,
 }
 
-pub struct Renderer {
-    pub device: Device,
-    pub queue: Queue,
-    pub surface: Surface<'static>,
-    pub surface_config: SurfaceConfiguration,
+pub(crate) struct Renderer {
+    pub(crate) device: Device,
+    pub(crate) queue: Queue,
+    pub(crate) surface: Surface<'static>,
+    pub(crate) surface_config: SurfaceConfiguration,
     _adapter: Adapter,
     gpu_mgr: GpuManager,
     pipeline_mgr: PipelineManager,
@@ -81,7 +81,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(
+    pub(crate) fn new(
         window: Arc<Window>,
         imgui_ctx: &mut imgui::Context,
         asset_mgr: &mut AssetManager,
@@ -192,25 +192,25 @@ impl Renderer {
         }
     }
 
-    pub fn get_adapter_string(&self) -> String {
+    pub(crate) fn get_adapter_string(&self) -> String {
         self._adapter.get_info().name
     }
 
-    pub fn get_hovered(&mut self) -> Option<Entity> {
+    pub(crate) fn get_hovered(&mut self) -> Option<Entity> {
         self.pickobject.poll_readback(&self.device)
     }
 
-    pub fn get_encoder(&self) -> wgpu::CommandEncoder {
+    pub(crate) fn get_encoder(&self) -> wgpu::CommandEncoder {
         self.device.create_command_encoder(&Default::default())
     }
 
-    pub fn get_frame(&self) -> wgpu::SurfaceTexture {
+    pub(crate) fn get_frame(&self) -> wgpu::SurfaceTexture {
         self.surface
             .get_current_texture()
             .expect("Failed to get current texture")
     }
 
-    pub fn get_gpu_view(&mut self) -> GpuView<'_> {
+    pub(crate) fn get_gpu_view(&mut self) -> GpuView<'_> {
         GpuView {
             device: &self.device,
             queue: &self.queue,
@@ -223,7 +223,7 @@ impl Renderer {
         }
     }
 
-    pub fn get_gpu_mut(&mut self) -> GpuDevice<'_> {
+    pub(crate) fn get_gpu_mut(&mut self) -> GpuDevice<'_> {
         GpuDevice {
             device: &self.device,
             queue: &self.queue,
@@ -232,11 +232,11 @@ impl Renderer {
         }
     }
 
-    pub fn get_texture_registry(&self) -> &ImGuiTextureRegistry {
+    pub(crate) fn get_texture_registry(&self) -> &ImGuiTextureRegistry {
         &self.imgui_render.registry
     }
 
-    pub fn sync_imgui_texture(&mut self) {
+    pub(crate) fn sync_imgui_texture(&mut self) {
         let registry = &mut self.imgui_render.registry;
         let renderer = &mut self.imgui_render.renderer;
         let texture_cache = &self.gpu_cache.textures;
@@ -283,7 +283,7 @@ impl Renderer {
         });
     }
 
-    pub fn upload_textures(&mut self, source: &mut impl texture_upload::TextureUploadSource) {
+    pub(crate) fn upload_textures(&mut self, source: &mut impl texture_upload::TextureUploadSource) {
         self.gpu_cache.textures.upload_textures(source, &self.device, &self.queue);
     }
 
@@ -337,12 +337,12 @@ impl Renderer {
 
     /// update skybox
     /// sync GpuCache Ids with assets Ids (meshes materials textures)
-    pub fn prepare(&mut self, asset_mgr: &AssetManager) {
+    pub(crate) fn prepare(&mut self, asset_mgr: &AssetManager) {
         self.sync_skybox(asset_mgr);
         self.sync_caches(asset_mgr);
     }
 
-    pub fn render(
+    pub(crate) fn render(
         &mut self,
         asset_mgr: &AssetManager,
         world: &World,
@@ -444,7 +444,7 @@ impl Renderer {
         );
     }
 
-    pub fn resize_frame(&mut self, width: u32, height: u32) {
+    pub(crate) fn resize_frame(&mut self, width: u32, height: u32) {
         self.surface_config.width = width;
         self.surface_config.height = height;
 

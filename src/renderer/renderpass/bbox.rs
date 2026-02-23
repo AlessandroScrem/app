@@ -1,21 +1,21 @@
-pub use super::*;
-pub use crate::math::*;
-pub use crate::renderer::bbox_manager::BBoxVertexData;
+pub(crate) use super::*;
+pub(crate) use crate::math::*;
+pub(crate) use crate::renderer::bbox_manager::BBoxVertexData;
 
 struct GpuBoxFrame {
-    pub boundingbox: BoundingBoxComponent,
-    pub matrix: Mat4,
+    pub(crate) boundingbox: BoundingBoxComponent,
+    pub(crate) matrix: Mat4,
 }
 
 #[derive(Default)]
-pub struct BBoxPass {
+pub(crate) struct BBoxPass {
     enable: bool,
     axis_aligned: bool,
     bboxes: Vec<GpuBoxFrame>,
 }
 
 impl BBoxPass {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 }

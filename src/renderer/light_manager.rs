@@ -2,17 +2,17 @@ use crate::renderer::GpuTexture;
 
 use super::gpu_manager::{GpuManager, LayoutKind};
 
-pub struct LightManager {
-    pub light_texture_bind_group: wgpu::BindGroup,
+pub(crate) struct LightManager {
+    pub(crate) light_texture_bind_group: wgpu::BindGroup,
 }
 
-pub const LIGHT_BULB_PATH: &'static str = concat!(
+pub(crate) const LIGHT_BULB_PATH: &'static str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/core/lightbulb-icon32.png"
 );
 
 impl LightManager {
-    pub fn new(
+    pub(crate) fn new(
         light_texture: &GpuTexture,
         gpu_manager: &GpuManager,
         device: &wgpu::Device,

@@ -3,12 +3,12 @@ use slotmap::SecondaryMap;
 use wgpu::util::DeviceExt;
 
 #[derive(Default)]
-pub struct GpuMeshCache {
+pub(crate) struct GpuMeshCache {
     map: SecondaryMap<MeshId, GpuMesh>,
 }
 
 impl GpuMeshCache {
-    pub fn ensure(
+    pub(crate) fn ensure(
         &mut self,
         id: MeshId,
         assets: &MeshAssets,
@@ -21,12 +21,12 @@ impl GpuMeshCache {
         }
     }
 
-    pub fn retain(&mut self, assets: &MeshAssets) {
+    pub(crate) fn retain(&mut self, assets: &MeshAssets) {
         // Sync cleanup
         self.map.retain(|id, _| assets.contains_key(id));
     }
 
-    pub fn create_gpu_mesh(
+    pub(crate) fn create_gpu_mesh(
         id: MeshId,
         asset: &MeshAssets,
         gpu_manager: &GpuManager,
@@ -38,38 +38,38 @@ impl GpuMeshCache {
         create_gpu_mesh(device, gpu_manager, vertices, indices)
     }
 
-    pub fn update(&self, id: &MeshId, queue: &wgpu::Queue, uniform: &ModelUniform) {
+    pub(crate) fn update(&self, id: &MeshId, queue: &wgpu::Queue, uniform: &ModelUniform) {
         if let Some(mesh) = self.map.get(*id) {
             let buffer = &mesh.model_uniform;
             queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
         }
     }
 
-    pub fn remove(&mut self, id: &MeshId) {
+    pub(crate) fn remove(&mut self, id: &MeshId) {
         if self.map.contains_key(*id) {
             self.map.remove(*id);
         }
     }
 
-    pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
+    pub(crate) fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
         self.map.get(*id)
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = MeshId> {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = MeshId> {
         self.map.keys()
     }
 
-    pub fn values(&self) -> impl Iterator<Item = &GpuMesh> {
+    pub(crate) fn values(&self) -> impl Iterator<Item = &GpuMesh> {
         self.map.values()
     }
 }
 
-pub struct GpuMesh {
-    pub vertexbuffer: wgpu::Buffer,
-    pub indexbuffer: wgpu::Buffer,
-    pub indexcount: u32,
-    pub model_bind_group: wgpu::BindGroup,
-    pub model_uniform: wgpu::Buffer,
+pub(crate) struct GpuMesh {
+    pub(crate) vertexbuffer: wgpu::Buffer,
+    pub(crate) indexbuffer: wgpu::Buffer,
+    pub(crate) indexcount: u32,
+    pub(crate) model_bind_group: wgpu::BindGroup,
+    pub(crate) model_uniform: wgpu::Buffer,
 }
 
 fn create_gpu_mesh(

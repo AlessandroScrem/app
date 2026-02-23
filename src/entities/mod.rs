@@ -1,16 +1,16 @@
-pub mod components;
-pub mod light;
+pub(crate) mod components;
+pub(crate) mod light;
 
-pub use components::*;
+pub(crate) use components::*;
 
 use legion::{Entity, EntityStore};
 use log::warn;
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EntityId(pub u64);
+pub(crate) struct EntityId(pub(crate) u64);
 
-pub trait EntityRawU64 {
+pub(crate) trait EntityRawU64 {
     fn as_raw_u64(&self) -> u64;
     fn from_raw_u64(raw: u64) -> Self;
 }
@@ -46,7 +46,7 @@ impl From<EntityId> for Entity {
 use std::hash::{Hash, Hasher};
 
 use crate::assets::MaterialTextureSlot;
-pub trait EntityHash {
+pub(crate) trait EntityHash {
     /// Restituisce un hash `u64` deterministico
     fn entity_hash(&self) -> u64;
 }
@@ -95,7 +95,7 @@ fn is_root(entity: Entity, world: &legion::World) -> bool {
     hierarchy.parent.is_none()
 }
 
-pub fn add_parent(entity: Entity, world: &mut legion::World) {
+pub(crate) fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if !is_root(entity, world) {
         warn!("{:?} Not Root: Add Parent abort", entity);
@@ -165,7 +165,7 @@ fn collect_asset_ids_from_entity(
     }
 }
 
-pub fn remove_entity_from_all(
+pub(crate) fn remove_entity_from_all(
     asset_mgr: &mut crate::AssetManager,
     entity: Entity,
     world: &mut legion::World,

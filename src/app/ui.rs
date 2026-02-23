@@ -3,7 +3,7 @@ use crate::{UiSnapshot, engine::RunningApp};
 use super::app::App;
 
 impl App {
-    pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
+    pub(crate) fn update_uilayer(&mut self, runtime: &mut RunningApp) {
         let uilayer = &mut runtime.uilayer;
         let renderer = &mut runtime.renderer;
         let window = &runtime.window;

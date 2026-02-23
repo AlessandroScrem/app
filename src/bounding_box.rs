@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
-pub struct BoundingBox {
-    pub min: [f32; 3],
-    pub max: [f32; 3],
+pub(crate) struct BoundingBox {
+    pub(crate) min: [f32; 3],
+    pub(crate) max: [f32; 3],
 }
 
 impl Default for BoundingBox{
@@ -11,27 +11,27 @@ impl Default for BoundingBox{
 }
 
 impl BoundingBox {
-    pub fn new_empty() -> Self {
+    pub(crate) fn new_empty() -> Self {
         Self {
             min: [f32::INFINITY; 3],
             max: [f32::NEG_INFINITY; 3],
         }
     }
 
-    pub fn extend(&mut self, point: &[f32; 3]) {
+    pub(crate) fn extend(&mut self, point: &[f32; 3]) {
         for ((mi, ma), &val) in self.min.iter_mut().zip(self.max.iter_mut()).zip(point) {
             *mi = mi.min(val);
             *ma = ma.max(val);
         }
     }
 
-    pub fn merge(&mut self, other: &BoundingBox) {
+    pub(crate) fn merge(&mut self, other: &BoundingBox) {
         self.extend(&other.min);
         self.extend(&other.max);
     }
 
     #[allow(dead_code)]
-    pub fn from_points<'a, I: IntoIterator<Item = &'a [f32; 3]>>(points: I) -> Self {
+    pub(crate) fn from_points<'a, I: IntoIterator<Item = &'a [f32; 3]>>(points: I) -> Self {
         let mut bbox = BoundingBox::new_empty();
         for p in points {
             bbox.extend(p);

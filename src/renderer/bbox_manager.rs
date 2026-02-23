@@ -7,20 +7,20 @@ use crate::prelude::*;
 use crate::{BoundingBoxComponent, colors};
 
 
-pub struct BBoxManager {
+pub(crate) struct BBoxManager {
     vertexbuffer: Option<wgpu::Buffer>,
     count: u32,
 }
 
 impl BBoxManager {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             vertexbuffer: None,
             count: 0,
         }
     }
 
-    pub fn create_buffer(&mut self, device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) {
+    pub(crate) fn create_buffer(&mut self, device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) {
         let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
             label: Some("BBox Vertex Buffer"),
             contents: bytemuck::cast_slice(&vertices),
@@ -31,10 +31,10 @@ impl BBoxManager {
         self.vertexbuffer = Some(vertexbuffer);
     }
 
-    pub fn get_count(&self)->u32 {
+    pub(crate) fn get_count(&self)->u32 {
         self.count
     }
-    pub fn get_vertexbuffer(&self) -> &wgpu::Buffer {
+    pub(crate) fn get_vertexbuffer(&self) -> &wgpu::Buffer {
         &self.vertexbuffer.as_ref().expect("vb not exist")
     }
 }
@@ -42,7 +42,7 @@ impl BBoxManager {
 const VERTICES: usize = 24;
 const CORNERS: usize = VERTICES / 3;
 
-pub type BBoxVertexData = [LinesVertexData; VERTICES];
+pub(crate) type BBoxVertexData = [LinesVertexData; VERTICES];
 type BBoxCornerData = [Vec3; CORNERS];
 
 impl BoundingBox {
@@ -71,7 +71,7 @@ impl BoundingBox {
         ]
     }
 
-    pub fn transform_aabb(&self, matrix: &Mat4) -> Self {
+    pub(crate) fn transform_aabb(&self, matrix: &Mat4) -> Self {
         let corners = self.gen_corners();
 
         // Trasformazione
@@ -87,19 +87,19 @@ impl BoundingBox {
 }
 
 impl BoundingBoxComponent {
-    pub fn new(bbox: BoundingBox) -> Self {
+    pub(crate) fn new(bbox: BoundingBox) -> Self {
         Self {
             bounding_box: bbox.clone(),
             global_bounding_box: bbox.clone(),
         }
     }
 
-    pub fn gen_aabb_vertices(&self) -> BBoxVertexData {
+    pub(crate) fn gen_aabb_vertices(&self) -> BBoxVertexData {
         let corners = self.global_bounding_box.gen_corners();
         Self::gen_vertices(corners)
     }
 
-    pub fn gen_obb_vertices(&self, model: &Mat4) -> BBoxVertexData {
+    pub(crate) fn gen_obb_vertices(&self, model: &Mat4) -> BBoxVertexData {
         let local_corners = self.bounding_box.gen_corners();
 
         // Trasforma i corner con la Mat4 dell'oggetto

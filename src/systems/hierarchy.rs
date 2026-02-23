@@ -12,7 +12,7 @@ use crate::{
 #[system]
 #[read_component(TransformComponent)]
 #[read_component(HierarchyComponent)]
-pub fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
+pub(crate) fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     let mut query = <(Entity, Read<HierarchyComponent>, Read<TransformComponent>)>::query();
 
     // Entities with a `HierarchyComponent` and NOT a `Parent` 
