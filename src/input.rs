@@ -4,7 +4,7 @@ use winit::{event::Event, keyboard::Key};
 use crate::math::{Vec2, Zero};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum MouseButton {
+pub enum MouseButton {
     Left,
     Middle,
     Right,
@@ -24,7 +24,7 @@ fn map_mouse_button(button: winit::event::MouseButton) -> Option<MouseButton> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Input {
+pub struct Input {
     keys_down: HashSet<Key>,
     keys_pressed: HashSet<Key>,
     keys_released: HashSet<Key>,
@@ -33,13 +33,13 @@ pub(crate) struct Input {
     mouse_buttons_pressed: HashSet<MouseButton>,
     mouse_buttons_released: HashSet<MouseButton>,
     cursor_moved: bool,
-    pub(crate) mouse_position: Vec2,
-    pub(crate) mouse_delta: Vec2,
-    pub(crate) mouse_wheel_movement: Option<Vec2>,
+    pub mouse_position: Vec2,
+    pub mouse_delta: Vec2,
+    pub mouse_wheel_movement: Option<Vec2>,
 }
 
 impl Input {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             keys_down: HashSet::new(),
             keys_pressed: HashSet::new(),
@@ -55,35 +55,35 @@ impl Input {
         }
     }
 
-    pub(crate) fn is_key_down(&self, key: Key) -> bool {
+    pub fn is_key_down(&self, key: Key) -> bool {
         self.keys_down.contains(&key)
     }
 
-    pub(crate) fn is_key_pressed(&self, key: Key) -> bool {
+    pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
     }
 
-    pub(crate) fn is_key_released(&self, key: Key) -> bool {
+    pub fn is_key_released(&self, key: Key) -> bool {
         self.keys_released.contains(&key)
     }
 
-    pub(crate) fn is_mouse_button_down(&self, button: MouseButton) -> bool {
+    pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
 
-    pub(crate) fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
+    pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
     }
 
-    pub(crate) fn is_mouse_button_released(&self, button: MouseButton) -> bool {
+    pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
     }
 
-    pub(crate) fn is_cursor_moved(&self) -> bool {
+    pub fn is_cursor_moved(&self) -> bool {
         self.cursor_moved
     }
 
-    pub(crate) fn update_events<T>(&mut self, event: &Event<T>) {
+    pub fn update_events<T>(&mut self, event: &Event<T>) {
         match event {
             Event::WindowEvent { event,  ..} => {
                 self.update_window_events(event);
@@ -148,7 +148,7 @@ impl Input {
         }
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.keys_pressed.clear();
         self.keys_released.clear();
         self.mouse_buttons_pressed.clear();

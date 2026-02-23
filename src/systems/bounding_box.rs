@@ -5,7 +5,7 @@ use legion::*;
 
 #[system(for_each)]
 #[filter(maybe_changed::<GlobalModelComponent>())]
-pub(crate) fn update_bounding_box(
+ pub fn update_bounding_box(
     global_model: &GlobalModelComponent,
     bbox_component: &mut BoundingBoxComponent,
 ) {

@@ -5,22 +5,22 @@ use crate::{
 use std::sync::Arc;
 use wgpu::{TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 
-pub(crate) struct GpuTexture {
-    pub(crate) inner: Arc<wgpu::Texture>,
-    pub(crate) view: Arc<wgpu::TextureView>,
-    pub(crate) extent: wgpu::Extent3d,
-    pub(crate) _format: TextureFormat,
+pub struct GpuTexture {
+    pub inner: Arc<wgpu::Texture>,
+    pub view: Arc<wgpu::TextureView>,
+    pub extent: wgpu::Extent3d,
+    pub _format: TextureFormat,
 }
 
 impl GpuTexture {
-    pub(crate) fn from_cpu(payload: UploadPayload, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn from_cpu(payload: UploadPayload, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         match payload {
             UploadPayload::Ready(cpu) => Self::from_cpu_texture(device, queue, cpu),
             UploadPayload::Fallback => Self::white_texture(device, queue),
         }
     }
 
-    pub(crate) fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         Self::from_cpu_texture(&device, &queue, CpuTexture::white())
     }
 

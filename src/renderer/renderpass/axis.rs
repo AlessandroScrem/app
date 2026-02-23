@@ -1,12 +1,12 @@
-pub(crate) use super::*;
+use super::*;
 
 #[derive(Default)]
-pub(crate) struct AxisPass {
+pub struct AxisPass {
     enable: bool,
 }
 
 impl AxisPass {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }

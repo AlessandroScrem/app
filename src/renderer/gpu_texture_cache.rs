@@ -4,12 +4,12 @@ use super::*;
 use slotmap::SecondaryMap;
 
 #[derive(Default)]
-pub(crate) struct GpuTextureCache {
+pub struct GpuTextureCache {
     map: SecondaryMap<TextureId, GpuTexture>,
 }
 
 impl GpuTextureCache {
-    pub(crate) fn get_or_fallback(
+    pub fn get_or_fallback(
         &mut self,
         id: TextureId,
         device: &wgpu::Device,
@@ -21,7 +21,7 @@ impl GpuTextureCache {
         })
     }
 
-    pub(crate) fn create_from_cpu(
+    pub fn create_from_cpu(
         &mut self,
         id: TextureId,
         payload: UploadPayload,
@@ -34,12 +34,12 @@ impl GpuTextureCache {
             .or_insert_with(|| GpuTexture::from_cpu(payload, device, queue))
     }
 
-    pub(crate) fn retain(&mut self, assets: &TextureAssets) {
+    pub fn retain(&mut self, assets: &TextureAssets) {
         // Sync cleanup
         self.map.retain(|id, _| assets.contains_key(id));
     }
 
-    pub(crate) fn view(&self, id: TextureId) -> &wgpu::TextureView {
+    pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self
             .map
             .get(id)
@@ -47,25 +47,25 @@ impl GpuTextureCache {
             .view
     }
 
-    pub(crate) fn contains_key(&self, id: &TextureId) -> bool {
+    pub fn contains_key(&self, id: &TextureId) -> bool {
         self.map.contains_key(*id)
     }
 
-    pub(crate) fn remove(&mut self, id: &TextureId) {
+    pub fn remove(&mut self, id: &TextureId) {
         if self.map.contains_key(*id) {
             self.map.remove(*id);
         }
     }
 
-    pub(crate) fn ensure(&mut self, id: TextureId, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn ensure(&mut self, id: TextureId, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.get_or_fallback(id, device, queue);
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
+    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
         self.map.iter()
     }
 
-    pub(crate) fn upload_textures(
+    pub fn upload_textures(
         &mut self,
         source: &mut impl texture_upload::TextureUploadSource,
         device: &wgpu::Device,

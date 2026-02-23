@@ -1,11 +1,11 @@
-pub(crate) use super::*;
+use super::*;
 
 #[derive(Default)]
-pub(crate) struct OutlinePass {
+pub struct OutlinePass {
     enable: bool,
 }
 impl OutlinePass {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }

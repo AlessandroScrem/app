@@ -1,12 +1,12 @@
-pub(crate) use super::*;
+use super::*;
 
 #[derive(Default)]
-pub(crate) struct LightPass {
-    pub(crate) lights: Vec<LightUniform>,
+pub struct LightPass {
+    pub lights: Vec<LightUniform>,
 }
 
 impl LightPass {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }

@@ -4,14 +4,14 @@ use super::*;
 use std::cell::Cell;
 
 impl TextureId {
-    pub(crate) fn white(assets: &TextureAssets) -> TextureId {
+    pub fn white(assets: &TextureAssets) -> TextureId {
         assets.white()
     }
 }
 
 // Textures
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
-pub(crate) enum ColorSpace {
+pub enum ColorSpace {
     Rgbaf32,
     Rgbaf16,
     Srgba8,
@@ -19,7 +19,7 @@ pub(crate) enum ColorSpace {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
-pub(crate) enum TextureUsage {
+pub enum TextureUsage {
     Albedo,
     Normal,
     MetallicRoughness,
@@ -44,7 +44,7 @@ impl From<material_asset::MaterialTextureSlot> for TextureUsage {
 }
 
 impl TextureUsage {
-    pub(crate) fn color_space(self) -> ColorSpace {
+    pub fn color_space(self) -> ColorSpace {
         match self {
             TextureUsage::Albedo | TextureUsage::Emissive => ColorSpace::Srgba8,
             TextureUsage::Normal | TextureUsage::Occlusion | TextureUsage::MetallicRoughness => {
@@ -69,13 +69,13 @@ impl From<wgpu::TextureFormat> for ColorSpace {
 }
 
 #[derive(Default, Clone, Debug)]
-pub(crate) enum SamplerDesc {
+pub enum SamplerDesc {
     #[default]
     Linear,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
-pub(crate) enum TextureKey {
+pub enum TextureKey {
     File {
         path: PathBuf,
         color_space: ColorSpace,
@@ -85,7 +85,7 @@ pub(crate) enum TextureKey {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum TextureDesc {
+pub enum TextureDesc {
     File {
         key: TextureKey,
         sampler: SamplerDesc,
@@ -94,11 +94,11 @@ pub(crate) enum TextureDesc {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub(crate) struct TextureInfo {
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    pub(crate) format: ColorSpace,
-    pub(crate) byte_size: usize,
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+    pub format: ColorSpace,
+    pub byte_size: usize,
 }
 
 impl From<&CpuTexture> for TextureInfo {
@@ -113,16 +113,16 @@ impl From<&CpuTexture> for TextureInfo {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub(crate) enum TextureState {
+pub enum TextureState {
     MetaOnly,              // solo path noto
     CpuReady(TextureInfo), // cpu texture caricata
     Fallback,              // errore → fallback
 }
 
 #[derive(Clone)]
-pub(crate) struct TextureAsset {
-    pub(crate) state: TextureState,
-    pub(crate) desc: Option<TextureDesc>,
+pub struct TextureAsset {
+    pub state: TextureState,
+    pub desc: Option<TextureDesc>,
     ref_count: Cell<u32>,
 }
 
@@ -136,7 +136,7 @@ impl TextureUploadSource for TextureAssets {
     }
 }
 
-pub(crate) struct TextureAssets {
+pub struct TextureAssets {
     storage: SlotMap<TextureId, TextureAsset>,
     lookup: HashMap<TextureKey, TextureId>,
     white: TextureId,
@@ -169,27 +169,27 @@ impl Default for TextureAssets {
 }
 
 impl TextureAssets {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         TextureAssets::default()
     }
 
-    pub(crate) fn white(&self) -> TextureId {
+    pub fn white(&self) -> TextureId {
         self.white
     }
 
-    pub(crate) fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
+    pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
         self.storage.get(id)?.desc.as_ref()
     }
 
-    pub(crate) fn contains_key(&self, id: TextureId) -> bool {
+    pub fn contains_key(&self, id: TextureId) -> bool {
         self.storage.contains_key(id)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureAsset)> {
+    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureAsset)> {
         self.storage.iter()
     }
 
-    pub(crate) fn remove(&mut self, id: TextureId) {
+    pub fn remove(&mut self, id: TextureId) {
         // Do not remove White!
         if id == self.white {
             return;
@@ -211,7 +211,7 @@ impl TextureAssets {
         }
     }
 
-    pub(crate) fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
+    pub fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
         match desc {
             TextureDesc::File {
                 key,
@@ -241,7 +241,7 @@ impl TextureAssets {
         }
     }
 
-    pub(crate) fn from_file(&mut self, path: impl Into<PathBuf>, usage: TextureUsage) -> TextureId {
+    pub fn from_file(&mut self, path: impl Into<PathBuf>, usage: TextureUsage) -> TextureId {
         let key = TextureKey::File {
             color_space: usage.color_space(),
             path: path.into(),
@@ -257,7 +257,7 @@ impl TextureAssets {
         self.get_or_create(desc)
     }
 
-    pub(crate) fn load_cpu_textures(&mut self) {
+    pub fn load_cpu_textures(&mut self) {
         let results = super::texture_upload::load_cpu_textures_par(self.storage.iter());
 
         for (id, result) in results {

@@ -6,7 +6,7 @@ macro_rules!  text_fmt {
 };
 }
 
-pub(crate) fn disabled<F>(ui: &imgui::Ui, func: F)
+pub fn disabled<F>(ui: &imgui::Ui, func: F)
 where
     F: FnOnce(),
 {
@@ -14,7 +14,7 @@ where
     func();
 }
 
-pub(crate) fn set_dark_theme_colors(style: &mut imgui::Style) {
+pub fn set_dark_theme_colors(style: &mut imgui::Style) {
     const DARK_GREY: [f32; 4] = [0.1, 0.105, 0.11, 1.0];
     const COLD_GREY: [f32; 4] = [0.2, 0.205, 0.21, 1.0];
     const DARK_COLD_GREY: [f32; 4] = [0.15, 0.1505, 0.151, 1.0];

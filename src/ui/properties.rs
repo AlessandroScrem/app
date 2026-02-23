@@ -1,4 +1,5 @@
 use super::*;
+use crate::material_asset::MaterialTextureSlot;
 use imgui::*;
 use imgui::{Drag, TreeNodeFlags};
 
@@ -6,11 +7,10 @@ use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::MaterialDesc,
-    material_asset::MaterialTextureSlot,
     renderer::{UiTexture, UiTextureResolver},
 };
 
-pub(crate) struct PropertyUi {}
+pub struct PropertyUi {}
 
 impl Layer for PropertyUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
@@ -22,7 +22,7 @@ impl Layer for PropertyUi {
     }
 }
 
-pub(crate) fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
+pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     let Some(selected) = ctx.snapshot.selected else {
         return;
     };

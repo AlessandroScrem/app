@@ -1,12 +1,12 @@
-pub(crate) struct HdrFrame {
-    pub(crate) _texture: wgpu::Texture,
-    pub(crate) view: wgpu::TextureView,
-    pub(crate) sampler: wgpu::Sampler,
-    pub(crate) hdr_bind_group: wgpu::BindGroup,
+pub struct HdrFrame {
+    pub _texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
+    pub hdr_bind_group: wgpu::BindGroup,
 }
 
 impl HdrFrame {
-    pub(crate) fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
         let hdr_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("hdr_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -58,14 +58,14 @@ impl HdrFrame {
     }
 }
 
-pub(crate) struct IDTexture {
-    pub(crate) _texture: wgpu::Texture,
-    pub(crate) view: wgpu::TextureView,
-    pub(crate) sampler: wgpu::Sampler,
-    pub(crate) id_bind_group: wgpu::BindGroup,
+pub struct IDTexture {
+    pub _texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
+    pub id_bind_group: wgpu::BindGroup,
 }
 impl IDTexture {
-    pub(crate) fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
         let id_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("entity_id_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,

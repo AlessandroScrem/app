@@ -10,7 +10,7 @@ use std::mem;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct EntityId(pub(crate) u64);
 
-pub(crate) trait EntityRawU64 {
+pub trait EntityRawU64 {
     fn as_raw_u64(&self) -> u64;
     fn from_raw_u64(raw: u64) -> Self;
 }

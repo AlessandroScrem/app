@@ -6,24 +6,24 @@ use crate::assets::MeshId;
 
 // Ecs Components
 #[derive(Default, Clone)]
-pub(crate) struct LightComponent {
-    pub(crate) data: uniform::LightUniform,
+pub struct LightComponent {
+    pub data: uniform::LightUniform,
 }
 
 #[derive(Default, Clone)]
-pub(crate) struct MeshComponent {
-    pub(crate) handle: MeshId,
+pub struct MeshComponent {
+    pub handle: MeshId,
 }
 
 #[derive(Clone)]
-pub(crate) struct TransformComponent {
-    pub(crate) position: [f32; 3],
-    pub(crate) rotation: [f32; 3],
-    pub(crate) scale: [f32; 3],
+pub struct TransformComponent {
+    pub position: [f32; 3],
+    pub rotation: [f32; 3],
+    pub scale: [f32; 3],
 }
 
 impl TransformComponent {
-    pub(crate) fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
+    pub fn from_gltf(g_node: &gltf::Node<'_>) -> Self {
         let (position, r, scale) = g_node.transform().decomposed();
         let quat = Quat::new(r[3], r[0], r[1], r[2]);
         let euler = Euler::from(quat);
@@ -37,8 +37,8 @@ impl TransformComponent {
 }
 
 #[derive(Clone)]
-pub(crate) struct GlobalModelComponent {
-    pub(crate) mat: Mat4,
+pub struct GlobalModelComponent {
+    pub mat: Mat4,
 }
 
 impl Default for GlobalModelComponent {
@@ -50,18 +50,18 @@ impl Default for GlobalModelComponent {
 }
 
 #[derive(Default, Clone)]
-pub(crate) struct TagComponent {
-    pub(crate) name: String,
+pub struct TagComponent {
+    pub name: String,
 }
 
 #[derive(Clone)]
-pub(crate) struct BoundingBoxComponent {
-    pub(crate) global_bounding_box: BoundingBox,
-    pub(crate) bounding_box: BoundingBox,
+pub struct BoundingBoxComponent {
+    pub global_bounding_box: BoundingBox,
+    pub bounding_box: BoundingBox,
 }
 
 #[derive(Default, Clone)]
-pub(crate) struct HierarchyComponent {
-    pub(crate) parent: Option<Entity>,
-    pub(crate) children: Vec<Entity>,
+pub struct HierarchyComponent {
+    pub parent: Option<Entity>,
+    pub children: Vec<Entity>,
 }

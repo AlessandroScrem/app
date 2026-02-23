@@ -4,13 +4,13 @@ use std::{cell::Cell, path::PathBuf};
 use texture_asset::ColorSpace;
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
-pub(crate) enum ShaderId {
+pub enum ShaderId {
     #[default]
     Pbr,
 }
 
-pub(crate) const MATERIAL_TEXTURE_COUNT: usize = 5;
-pub(crate) const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
+pub const MATERIAL_TEXTURE_COUNT: usize = 5;
+pub const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
     MaterialTextureSlot::BaseColor,
     MaterialTextureSlot::Normal,
     MaterialTextureSlot::MetallicRoughness,
@@ -19,15 +19,15 @@ pub(crate) const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_
 ];
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
-pub(crate) struct MaterialKey {
-    pub(crate) name: String,
-    pub(crate) shader: ShaderId,
-    pub(crate) textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
+pub struct MaterialKey {
+    pub name: String,
+    pub shader: ShaderId,
+    pub textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
 }
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum MaterialTextureSlot {
+pub enum MaterialTextureSlot {
     BaseColor = 0,
     Normal = 1,
     MetallicRoughness = 2,
@@ -36,7 +36,7 @@ pub(crate) enum MaterialTextureSlot {
 }
 
 impl MaterialTextureSlot {
-    pub(crate) fn color_space(self) -> ColorSpace {
+    pub fn color_space(self) -> ColorSpace {
         match self {
             MaterialTextureSlot::BaseColor | MaterialTextureSlot::Emissive => ColorSpace::Srgba8,
 
@@ -48,7 +48,7 @@ impl MaterialTextureSlot {
 }
 
 impl MaterialTextureSlot {
-    pub(crate) const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
+    pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
         MaterialTextureSlot::BaseColor,
         MaterialTextureSlot::Normal,
         MaterialTextureSlot::MetallicRoughness,
@@ -58,16 +58,16 @@ impl MaterialTextureSlot {
 }
 
 #[derive(Clone)]
-pub(crate) struct MaterialDesc {
-    pub(crate) key: MaterialKey,
-    pub(crate) use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
+pub struct MaterialDesc {
+    pub key: MaterialKey,
+    pub use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
 
-    pub(crate) base_color_factor: Vec4,
-    pub(crate) emissive_factor: Vec4,
-    pub(crate) roughness_factor: f32,
-    pub(crate) metallic_factor: f32,
-    pub(crate) normal_scale: f32,
-    pub(crate) occlusion_strength: f32,
+    pub base_color_factor: Vec4,
+    pub emissive_factor: Vec4,
+    pub roughness_factor: f32,
+    pub metallic_factor: f32,
+    pub normal_scale: f32,
+    pub occlusion_strength: f32,
 }
 
 impl Default for MaterialDesc {
@@ -87,22 +87,22 @@ impl Default for MaterialDesc {
 }
 
 impl MaterialDesc {
-    pub(crate) fn get_texture_slot(&self, slot: MaterialTextureSlot) -> Option<TextureId> {
+    pub fn get_texture_slot(&self, slot: MaterialTextureSlot) -> Option<TextureId> {
         self.key.textures.get(slot as usize).copied().flatten()
     }
 
-    pub(crate) fn slot_get(&self, slot: MaterialTextureSlot) -> bool {
+    pub fn slot_get(&self, slot: MaterialTextureSlot) -> bool {
         self.use_texture_slot[slot as usize]
     }
-    pub(crate) fn slot_set(&mut self, slot: MaterialTextureSlot, flag: bool) {
+    pub fn slot_set(&mut self, slot: MaterialTextureSlot, flag: bool) {
         self.use_texture_slot[slot as usize] = flag;
     }
 
-    pub(crate) fn set_name(&mut self, name: &str) {
+    pub fn set_name(&mut self, name: &str) {
         self.key.name = name.into();
     }
 
-    pub(crate) fn set_texture(
+    pub fn set_texture(
         &mut self,
         texture_asset: &mut TextureAssets,
         slot: MaterialTextureSlot,
@@ -133,13 +133,13 @@ struct MaterialAsset {
 }
 
 #[derive(Default)]
-pub(crate) struct MaterialAssets {
+pub struct MaterialAssets {
     storage: SlotMap<MaterialId, MaterialAsset>,
     lookup: HashMap<MaterialKey, MaterialId>,
 }
 
 impl MaterialAssets {
-    pub(crate) fn get_or_create(
+    pub fn get_or_create(
         &mut self,
         key: MaterialKey,
         desc_fn: impl FnOnce() -> MaterialDesc,
@@ -161,19 +161,19 @@ impl MaterialAssets {
         }
     }
 
-    pub(crate) fn get_desc(&self, id: MaterialId) -> Option<&MaterialDesc> {
+    pub fn get_desc(&self, id: MaterialId) -> Option<&MaterialDesc> {
         self.storage.get(id).map(|m| &m.desc)
     }
 
-    pub(crate) fn contains_key(&self, id: MaterialId) -> bool {
+    pub fn contains_key(&self, id: MaterialId) -> bool {
         self.storage.contains_key(id)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (MaterialId, &MaterialDesc)> {
+    pub fn iter(&self) -> impl Iterator<Item = (MaterialId, &MaterialDesc)> {
         self.storage.iter().map(|(id, asset)| (id, &asset.desc))
     }
 
-    pub(crate) fn remove(&mut self, id: MaterialId, texture_asset: &mut TextureAssets) {
+    pub fn remove(&mut self, id: MaterialId, texture_asset: &mut TextureAssets) {
         if let Some(asset) = self.storage.get(id) {
             let count = asset.ref_count.get();
 
@@ -197,7 +197,7 @@ impl MaterialAssets {
         }
     }
 
-    pub(crate) fn update(&mut self, desc: &MaterialDesc) {
+    pub fn update(&mut self, desc: &MaterialDesc) {
         if let Some(id) = self.lookup.get(&desc.key) {
             let asset = &mut self.storage[*id];
             asset.desc = desc.clone();

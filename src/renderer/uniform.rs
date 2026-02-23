@@ -5,12 +5,12 @@ use crate::math::*;
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct CameraUniform {
-    pub(crate) view_position: [f32; 4],
-    pub(crate) view: [[f32; 4]; 4],
-    pub(crate) proj: [[f32; 4]; 4],
-    pub(crate) screen_size: [f32; 2],
-    pub(crate) _pad: [f32; 2],
+pub struct CameraUniform {
+    pub view_position: [f32; 4],
+    pub view: [[f32; 4]; 4],
+    pub proj: [[f32; 4]; 4],
+    pub screen_size: [f32; 2],
+    pub _pad: [f32; 2],
 }
 
 impl Default for CameraUniform {
@@ -58,10 +58,10 @@ impl Mat4x3 {
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct ModelUniform {
-    pub(crate) model: [[f32; 4]; 4],
+pub struct ModelUniform {
+    pub model: [[f32; 4]; 4],
     normal_matrix: Mat4x3,
-    pub(crate) entity_id: u64,
+    pub entity_id: u64,
     pad2: [u32; 2],
 }
 
@@ -77,7 +77,7 @@ impl Default for ModelUniform {
 }
 
 impl ModelUniform {
-    pub(crate) fn new(model: Mat4) -> Self {
+    pub fn new(model: Mat4) -> Self {
         Self {
             model: model.into(),
             normal_matrix: Mat4x3::inverse_transpose(&model),
@@ -89,26 +89,26 @@ impl ModelUniform {
 ///shader: [pbr, hdr]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct GlobalUniform {
-    pub(crate) ibl_enable: u32,
-    pub(crate) skybox_enable: u32,
-    pub(crate) exposure: f32,
-    pub(crate) ibl_intensity: f32,
-    pub(crate) entity_id: u64,
-    pub(crate) tonemap_filter: u32,
-    pub(crate) debug: u32,
+pub struct GlobalUniform {
+    pub ibl_enable: u32,
+    pub skybox_enable: u32,
+    pub exposure: f32,
+    pub ibl_intensity: f32,
+    pub entity_id: u64,
+    pub tonemap_filter: u32,
+    pub debug: u32,
 }
 
 ///shader: [pbr, blinnphong, light]
 #[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct LightUniform {
-    pub(crate) color: [f32; 3],
-    pub(crate) directional: u32,
-    pub(crate) position: [f32; 3],
-    pub(crate) cast_shadow: u32,
-    pub(crate) entity_id: u64,
-    pub(crate) pad2: [i32; 2],
+pub struct LightUniform {
+    pub color: [f32; 3],
+    pub directional: u32,
+    pub position: [f32; 3],
+    pub cast_shadow: u32,
+    pub entity_id: u64,
+    pub pad2: [i32; 2],
 }
 impl Default for LightUniform {
     fn default() -> Self {
@@ -126,18 +126,18 @@ impl Default for LightUniform {
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MaterialUniform {
-    pub(crate) color_factor: [f32; 4],
-    pub(crate) emissive_factor: [f32; 4],
-    pub(crate) roughness_factor: f32,
-    pub(crate) metallic_factor: f32,
-    pub(crate) normal_scale: f32,
-    pub(crate) occlusion_strength: f32,
-    pub(crate) use_color_texture: u32,
-    pub(crate) use_metal_roughness_texture: u32,
-    pub(crate) use_normal_texture: u32,
-    pub(crate) use_emissive_texture: u32,
-    pub(crate) use_occlusion_texture: u32,
-    pub(crate) pad: [u32;3],
+pub struct MaterialUniform {
+    pub color_factor: [f32; 4],
+    pub emissive_factor: [f32; 4],
+    pub roughness_factor: f32,
+    pub metallic_factor: f32,
+    pub normal_scale: f32,
+    pub occlusion_strength: f32,
+    pub use_color_texture: u32,
+    pub use_metal_roughness_texture: u32,
+    pub use_normal_texture: u32,
+    pub use_emissive_texture: u32,
+    pub use_occlusion_texture: u32,
+    pub pad: [u32;3],
 }
 

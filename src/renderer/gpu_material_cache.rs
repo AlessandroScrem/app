@@ -4,18 +4,18 @@ use slotmap::SecondaryMap;
 use wgpu::util::DeviceExt;
 
 #[derive(Default)]
-pub(crate) struct GpuMaterialCache {
+pub struct GpuMaterialCache {
     map: SecondaryMap<MaterialId, GpuMaterial>,
 }
 
 #[derive(Default)]
-pub(crate) struct GpuMaterial {
-    pub(crate) bind_group: Option<wgpu::BindGroup>,
-    pub(crate) uniform_buffer: Option<wgpu::Buffer>,
+pub struct GpuMaterial {
+    pub bind_group: Option<wgpu::BindGroup>,
+    pub uniform_buffer: Option<wgpu::Buffer>,
 }
 
 impl GpuMaterialCache {
-    pub(crate) fn ensure(
+    pub fn ensure(
         &mut self,
         id: MaterialId,
         gpu_texture_cache: &mut GpuTextureCache,
@@ -30,18 +30,18 @@ impl GpuMaterialCache {
         }
     }
 
-    pub(crate) fn retain(&mut self, assets: &MaterialAssets) {
+    pub fn retain(&mut self, assets: &MaterialAssets) {
         // Sync cleanup
         self.map.retain(|id, _| assets.contains_key(id));
     }
 
-    pub(crate) fn remove(&mut self, id: &MaterialId) {
+    pub fn remove(&mut self, id: &MaterialId) {
         if self.map.contains_key(*id) {
             self.map.remove(*id);
         }
     }
 
-    pub(crate) fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
+    pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
         if let Some(material) = self.map.get(*id) {
             if let Some(buffer) = &material.uniform_buffer {
                 queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
@@ -49,7 +49,7 @@ impl GpuMaterialCache {
         }
     }
 
-    pub(crate) fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
+    pub fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
         self.map.get(*id)
     }
     

@@ -8,7 +8,7 @@ use super::*;
 use crate::assets::vertexdata::LinesVertexData;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
-pub(crate) enum LayoutKind {
+pub enum LayoutKind {
     Camera,
     PerFrame,
     Lines,
@@ -37,21 +37,21 @@ impl LayoutCache {
     }
 }
 
-pub(crate) struct GpuManager {
-    pub(crate) globals_uniform_buffer: wgpu::Buffer,
-    pub(crate) camera_uniform_buffer: wgpu::Buffer,
-    pub(crate) light_uniform_buffer: wgpu::Buffer,
-    pub(crate) camera_bind_group: wgpu::BindGroup,
-    pub(crate) per_frame_bind_group: wgpu::BindGroup,
-    pub(crate) axis_vertexbuffer: wgpu::Buffer,
-    pub(crate) hdr_frame: HdrFrame,
-    pub(crate) entity_id_texture: IDTexture,
-    pub(crate) depth_view: wgpu::TextureView,
+pub struct GpuManager {
+    pub globals_uniform_buffer: wgpu::Buffer,
+    pub camera_uniform_buffer: wgpu::Buffer,
+    pub light_uniform_buffer: wgpu::Buffer,
+    pub camera_bind_group: wgpu::BindGroup,
+    pub per_frame_bind_group: wgpu::BindGroup,
+    pub axis_vertexbuffer: wgpu::Buffer,
+    pub hdr_frame: HdrFrame,
+    pub entity_id_texture: IDTexture,
+    pub depth_view: wgpu::TextureView,
     layout_cache: LayoutCache,
 }
 
 impl GpuManager {
-    pub(crate) fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let layout_cache = LayoutCache::new(device);
 
         let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -129,11 +129,11 @@ impl GpuManager {
         }
     }
 
-    pub(crate) fn get_layout(&self, kind: LayoutKind) -> &wgpu::BindGroupLayout {
+    pub fn get_layout(&self, kind: LayoutKind) -> &wgpu::BindGroupLayout {
         self.layout_cache.get(kind)
     }
 
-    pub(crate) fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+    pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.hdr_frame = HdrFrame::new(&device, self.get_layout(LayoutKind::Hdr), width, height);
         self.entity_id_texture = IDTexture::new(
             &device,

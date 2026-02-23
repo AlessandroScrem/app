@@ -13,7 +13,7 @@ mod entity_hash {
     use super::*;
     // use std::hash::Hasher;
 
-    pub(crate) trait Hash {
+    pub trait Hash {
         fn fast_hash(&self) -> u64;
     }
 
@@ -39,8 +39,8 @@ mod entity_hash {
     }
 }
 
-use app_wgpu::entities::EntityRawU64;
-pub(crate) trait FastHash {
+use app_wgpu:: entities::EntityRawU64;
+pub trait FastHash {
     fn fast_hash2(&self) -> u64;
     fn fast_hash3(&self) -> u64;
 }

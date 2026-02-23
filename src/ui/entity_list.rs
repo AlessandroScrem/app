@@ -2,7 +2,7 @@ use super::*;
 use imgui::*;
 use legion::Entity;
 
-pub(crate) struct EntityListUi {}
+pub struct EntityListUi {}
 
 impl Layer for EntityListUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {

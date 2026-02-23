@@ -7,11 +7,11 @@ use wgpu::DepthStencilState;
 /// A description of a render pipeline.
 /// Note: You can call `default()` to get a base implementation.
 #[derive(Debug, Hash, Clone)]
-pub(crate) struct PipelineDesc {
-    pub(crate) primitive: wgpu::PrimitiveState,
-    pub(crate) multisample: wgpu::MultisampleState,
-    pub(crate) depth_stencil: Option<DepthStencilState>,
-    pub(crate) blend: Option<wgpu::BlendState>,
+pub struct PipelineDesc {
+    pub primitive: wgpu::PrimitiveState,
+    pub multisample: wgpu::MultisampleState,
+    pub depth_stencil: Option<DepthStencilState>,
+    pub blend: Option<wgpu::BlendState>,
 }
 impl Default for PipelineDesc {
     fn default() -> Self {
@@ -42,7 +42,7 @@ impl Default for PipelineDesc {
     }
 }
 impl PipelineDesc {
-    pub(crate) fn build_pipeline(
+    pub fn build_pipeline(
         self,
         label: &str,
         device: &wgpu::Device,
@@ -82,10 +82,10 @@ impl PipelineDesc {
 }
 
 #[derive(Debug, Hash, Clone)]
-pub(crate) struct PipelineExt {
-    pub(crate) primitive: wgpu::PrimitiveState,
-    pub(crate) multisample: wgpu::MultisampleState,
-    pub(crate) depth_stencil: Option<DepthStencilState>,
+pub struct PipelineExt {
+    pub primitive: wgpu::PrimitiveState,
+    pub multisample: wgpu::MultisampleState,
+    pub depth_stencil: Option<DepthStencilState>,
 }
 impl Default for PipelineExt {
     fn default() -> Self {
@@ -116,7 +116,7 @@ impl Default for PipelineExt {
 }
 
 impl PipelineExt {
-    pub(crate) fn build_pipeline(
+    pub fn build_pipeline(
         self,
         label: &str,
         device: &wgpu::Device,
@@ -155,7 +155,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
-pub(crate) enum PipelineKind {
+pub enum PipelineKind {
     BlinnPhong,
     Lines,
     Pbr,
@@ -165,14 +165,14 @@ pub(crate) enum PipelineKind {
     Outline,
 }
 
-pub(crate) struct PipelineManager {
+pub struct PipelineManager {
     pipelines: Vec<wgpu::RenderPipeline>,
 }
 
 impl PipelineManager {
     const  HDR_FORMAT:wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
-    pub(crate) fn new(
+    pub fn new(
         device: &wgpu::Device,
         gpu_resource_manager: &GpuManager,
         final_format: wgpu::TextureFormat,
@@ -188,7 +188,7 @@ impl PipelineManager {
         }
     }
 
-    pub(crate) fn get_render_pipeline(&self, kind: PipelineKind) -> &wgpu::RenderPipeline {
+    pub fn get_render_pipeline(&self, kind: PipelineKind) -> &wgpu::RenderPipeline {
         &self.pipelines[kind as usize]
     }
 }

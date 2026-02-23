@@ -2,11 +2,12 @@ use crate::prelude::*;
 use crate::input::Input;
 use legion::Entity;
 use legion::EntityStore;
+use crate::app::App;
 
 
 impl App {
 
-    pub(crate) fn update_camera(&mut self, input: &Input) {
+    pub fn update_camera(&mut self, input: &Input) {
         // move away from here
 
         if input.is_mouse_button_down(crate::input::MouseButton::Left) {
@@ -24,7 +25,7 @@ impl App {
         }
     }
 
-    pub(crate) fn recenter_camera(&mut self) {
+    pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
         let selected = self.selected;

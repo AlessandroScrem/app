@@ -7,19 +7,19 @@ use crate::app::{Application, HasAssetMgr};
 use crate::engine::{Engine, RuntimeEvent};
 
 #[derive(Default)]
-pub (crate) struct MyApplication<A: Application> {
+pub  struct MyApplication<A: Application> {
     engine: Engine<A>,
     size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl <A: Application + Default + HasAssetMgr> MyApplication<A> {
-    pub(crate) fn new_with_size(width: u32, height: u32) -> Self {
+    pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: winit::dpi::PhysicalSize::new(width, height),
             ..Default::default()
         }
     }
-    pub(crate) fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
         let event_loop = winit::event_loop::EventLoop::new()?;
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
         event_loop.run_app(&mut self)?;
@@ -27,7 +27,7 @@ impl <A: Application + Default + HasAssetMgr> MyApplication<A> {
     }
 }
 
-pub(crate) trait CenterWindow {
+pub trait CenterWindow {
     fn try_fit_center_to_monitor(self) -> Self;
 }
 

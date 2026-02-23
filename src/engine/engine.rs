@@ -11,13 +11,13 @@ use super::{RunningApp};
 use super::winit_bridge::CenterWindow;
 
 #[derive(Default)]
-pub(crate) struct Engine<A: Application> {
-    pub(crate) app: A,
-    pub(crate) runtime: Option<RunningApp>,
+pub struct Engine<A: Application> {
+    pub app: A,
+    pub runtime: Option<RunningApp>,
 }
 
 impl <A: Application + HasAssetMgr> Engine<A> {
-    pub(crate) fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
+    pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
         if self.runtime.is_some() {
             return;
         };

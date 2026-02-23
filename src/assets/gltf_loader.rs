@@ -13,21 +13,21 @@ use crate::{
     prelude::*,
 };
 
-pub(crate) struct LoadedScene {
-    pub(crate) meshes: Vec<MeshId>,
-    pub(crate) materials: Vec<MaterialId>,
-    pub(crate) nodes: Vec<NodeData>,
-    pub(crate) roots: Vec<usize>, // indici dei nodi root
+pub struct LoadedScene {
+    pub meshes: Vec<MeshId>,
+    pub materials: Vec<MaterialId>,
+    pub nodes: Vec<NodeData>,
+    pub roots: Vec<usize>, // indici dei nodi root
 }
 
-pub(crate) struct NodeData {
-    pub(crate) name: String,
-    pub(crate) local_transform: TransformComponent,
-    pub(crate) mesh: Option<usize>,  // index in meshes
-    pub(crate) children: Vec<usize>, // index in nodes
+pub struct NodeData {
+    pub name: String,
+    pub local_transform: TransformComponent,
+    pub mesh: Option<usize>,  // index in meshes
+    pub children: Vec<usize>, // index in nodes
 }
 
-pub(crate) fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
+pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
 
     struct Mikkt<'a> {
@@ -166,7 +166,7 @@ fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
 }
 
 #[derive(Debug)]
-pub(crate) enum ImportError {
+pub enum ImportError {
     Io(std::io::Error),
     Gltf(gltf::Error),
     MissingPositions,
@@ -250,7 +250,7 @@ fn print_gltf_document(document: &gltf::Document) {
 //          Y
 //   spawn_scene ECS
 
-pub(crate) fn load_gltf<P: AsRef<Path>>(
+pub fn load_gltf<P: AsRef<Path>>(
     path: P,
     asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
@@ -431,7 +431,7 @@ fn create_material<P: AsRef<Path>>(
         .get_or_create(material_desc.key.clone(), || material_desc)
 }
 
-pub(crate) fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
+pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
 
     // 1️⃣ crea tutte le entity

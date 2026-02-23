@@ -3,7 +3,7 @@ use crate::engine::RunningApp;
 
 use crate::prelude::*;
 
-pub(crate) trait HasAssetMgr {
+pub trait HasAssetMgr {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager;
 }
 

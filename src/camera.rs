@@ -1,7 +1,7 @@
 use crate::math::*;
 
 #[rustfmt::skip]
-pub(crate) const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
+pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 0.5, 0.0,
@@ -9,7 +9,7 @@ pub(crate) const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
 );
 
 #[derive(Clone, Debug)]
-pub(crate) struct Camera {
+pub struct Camera {
     position: Vec3,
     aspect: f32,
     fov: Rad<f32>,
@@ -20,7 +20,7 @@ pub(crate) struct Camera {
     focal_point: Vec3,
     distance: f32,
     view_matrix: Mat4,
-    pub(crate) recenter_request: bool,
+    pub recenter_request: bool,
 }
 
 impl Default for Camera {
@@ -31,7 +31,7 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub(crate) fn new<F: Into<Rad<f32>> + std::marker::Copy>(
+    pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(
         fov: F,
         aspect: f32,
         near: f32,
@@ -54,7 +54,7 @@ impl Camera {
         camera
     }
 
-    pub(crate) fn update_view(&mut self) {
+    pub fn update_view(&mut self) {
         self.position = self.calculate_position();
         let orientation = self.get_orientation();
         let translation = Mat4::from_translation(self.position);
@@ -62,7 +62,7 @@ impl Camera {
     }
 
     // move camera in screen asis [left/right] [up/bottom]
-    pub(crate) fn pan(&mut self, delta: (f64, f64)) {
+    pub fn pan(&mut self, delta: (f64, f64)) {
         let dx = delta.0 as f32;
         let dy = delta.1 as f32;
         let speed = 0.003 * (self.fov * 0.5).tan() * self.distance;
@@ -73,7 +73,7 @@ impl Camera {
     }
 
     // Orbit the camera
-    pub(crate) fn orbit(&mut self, delta: (f64, f64)) {
+    pub fn orbit(&mut self, delta: (f64, f64)) {
         const SPEED: f32 = 0.003;
         let dx = delta.0 as f32;
         let dy = delta.1 as f32;
@@ -85,7 +85,7 @@ impl Camera {
     }
 
     // move camera position [back/forward] to focal_point
-    pub(crate) fn zoom(&mut self, delta: f32) {
+    pub fn zoom(&mut self, delta: f32) {
         const GAIN: f32 = 0.1;
 
         self.distance = (self.distance * (1.0 - delta * GAIN)).max(0.001);
@@ -94,62 +94,62 @@ impl Camera {
     }
 
     // getters
-    pub(crate) fn get_view_mat(&self) -> Mat4 {
+    pub fn get_view_mat(&self) -> Mat4 {
         self.view_matrix
     }
 
     // La matrice di cgmath è RH e OpenGL-style (z in NDC tra -1 e 1)
     // (OPENGL_TO_WGPU_MATRIX) corregge lo z NDC da opengl [-1, 1] a Vulkan(wgpu) Z [0, 1]
     // TODO: implementare una projection LH con z [0, 1]
-    pub(crate) fn get_projection_mat(&self) -> Mat4 {
+    pub fn get_projection_mat(&self) -> Mat4 {
         OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
     }
 
-    pub(crate) fn get_position(&self) -> Point3f {
+    pub fn get_position(&self) -> Point3f {
         EuclideanSpace::from_vec(self.position)
     }
 
-    pub(crate) fn get_focal_point(&self) -> Point3f {
+    pub fn get_focal_point(&self) -> Point3f {
         EuclideanSpace::from_vec(self.focal_point)
     }
 
-    pub(crate) fn get_yaw_pitch(&self) -> (f32, f32) {
+    pub fn get_yaw_pitch(&self) -> (f32, f32) {
         (self.yaw, self.pitch)
     }
 
-    pub(crate) fn get_distance(&self) -> f32 {
+    pub fn get_distance(&self) -> f32 {
         self.distance
     }
-    pub(crate) fn get_aspect(&self) -> f32 {
+    pub fn get_aspect(&self) -> f32 {
         self.aspect
     }
-    pub(crate) fn get_fov(&self) -> Rad<f32> {
+    pub fn get_fov(&self) -> Rad<f32> {
         self.fov
     }
-    pub(crate) fn get_near_far(&self) -> (f32, f32) {
+    pub fn get_near_far(&self) -> (f32, f32) {
         (self.near, self.far)
     }
 
     // setters
-    pub(crate) fn set_distance(&mut self, distance: f32) {
+    pub fn set_distance(&mut self, distance: f32) {
         self.distance = distance;
         self.update_view();
     }
 
-    pub(crate) fn set_aspect(&mut self, aspect: f32) {
+    pub fn set_aspect(&mut self, aspect: f32) {
         self.aspect = aspect;
     }
 
-    pub(crate) fn set_fov(&mut self, fov: Rad<f32>) {
+    pub fn set_fov(&mut self, fov: Rad<f32>) {
         self.fov = fov;
     }
 
-    pub(crate) fn set_near_far(&mut self, near_far: (f32, f32)) {
+    pub fn set_near_far(&mut self, near_far: (f32, f32)) {
         self.near = near_far.0;
         self.far = near_far.1;
     }
 
-    pub(crate) fn set_focal_point(&mut self, new_focal_point: Vec3) {
+    pub fn set_focal_point(&mut self, new_focal_point: Vec3) {
         self.focal_point = new_focal_point;
         self.update_view();
     }

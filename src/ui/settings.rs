@@ -5,7 +5,7 @@ use imgui::*;
 use crate::{DomainEvent, Globals, camera::Camera, text_fmt};
 
 #[derive(Default)]
-pub(crate) struct SettimgsUi {
+pub struct SettimgsUi {
     demo_open: bool,
 }
 

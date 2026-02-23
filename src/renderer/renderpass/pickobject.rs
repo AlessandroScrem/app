@@ -1,14 +1,14 @@
-pub(crate) use super::*;
+use super::*;
 
 #[derive(Default)]
-pub(crate) struct PickObjectPass {
+pub struct PickObjectPass {
     enable: bool,
     mouse_pos_x: u32,
     mouse_pos_y: u32,
 }
 
 impl PickObjectPass {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }

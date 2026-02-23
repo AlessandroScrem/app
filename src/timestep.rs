@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 #[derive(Clone)]
-pub(crate) struct Timestep {
+pub struct Timestep {
     time: Duration,     // durata frame corrente (smoothed)
     last: Instant,      // istante ultimo frame
     fps: f32,           // fps istantaneo (calcolato ogni secondo)
@@ -14,7 +14,7 @@ pub(crate) struct Timestep {
 }
 
 impl Timestep {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             time: Duration::from_secs_f32(0.0),
             last: Instant::now(),
@@ -29,7 +29,7 @@ impl Timestep {
         }
     }
 
-    pub(crate) fn update(&mut self) {
+    pub fn update(&mut self) {
         let now = Instant::now();
         let dt = now - self.last;
         self.last = now;
@@ -75,15 +75,15 @@ impl Timestep {
         }
     }
 
-    pub(crate) fn delta(&self) -> Duration {
+    pub fn delta(&self) -> Duration {
         self.time
     }
 
-    pub(crate) fn average(&self) -> Duration {
+    pub fn average(&self) -> Duration {
         self.avg_time
     }
 
-    pub(crate) fn average_fps(&self) -> u32 {
+    pub fn average_fps(&self) -> u32 {
         self.avg_fps as u32
     }
 
