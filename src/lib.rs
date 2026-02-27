@@ -15,6 +15,7 @@ mod timer;
 pub(crate) mod timestep;
 mod transform;
 pub(crate) mod ui;
+pub(crate) mod error;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,
@@ -43,6 +44,7 @@ pub(crate) mod prelude {
     pub(crate) use log::{debug, error, info, trace, warn};
     pub(crate) use crate::assets::MaterialDesc;
     pub use timer::Timer;
+    pub use error::*;
 }
 
 pub(crate) use prelude::*;

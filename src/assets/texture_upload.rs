@@ -42,22 +42,6 @@ pub trait TextureUploadSource {
     fn get_texture_asset(&self, id: TextureId) -> Option<&TextureAsset>;
 }
 
-#[derive(Debug)]
-pub enum TextureError {
-    #[allow(dead_code)]
-    String(String),
-    // Io(std::io::Error),
-    // Image(image::ImageError),
-    // FallbackWhite,
-    // DecodeError,
-}
-
-impl From<String> for TextureError {
-    fn from(value: String) -> Self {
-        TextureError::String(value)
-    }
-}
-
 pub fn load_cpu_textures_par<'a>(
     textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>,
 ) -> Vec<(TextureId, Result<UploadPayload, TextureError>)> {
