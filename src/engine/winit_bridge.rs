@@ -7,7 +7,7 @@ use crate::app::{Application, HasAssetMgr};
 use crate::engine::{Engine, RuntimeEvent};
 
 #[derive(Default)]
-pub struct MyApplication<A: Application> {
+pub  struct MyApplication<A: Application> {
     engine: Engine<A>,
     size: winit::dpi::PhysicalSize<u32>,
 }

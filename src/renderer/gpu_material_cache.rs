@@ -35,12 +35,6 @@ impl GpuMaterialCache {
         self.map.retain(|id, _| assets.contains_key(id));
     }
 
-    pub fn remove(&mut self, id: &MaterialId) {
-        if self.map.contains_key(*id) {
-            self.map.remove(*id);
-        }
-    }
-
     pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
         if let Some(material) = self.map.get(*id) {
             if let Some(buffer) = &material.uniform_buffer {

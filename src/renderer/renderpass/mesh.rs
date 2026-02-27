@@ -1,4 +1,4 @@
-pub use super::*;
+use super::*;
 use crate::renderer::{GpuMesh, renderer::GpuCache};
 
 struct MeshDrawable<'a> {

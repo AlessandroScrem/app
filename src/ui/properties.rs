@@ -1,4 +1,5 @@
 use super::*;
+use crate::material_asset::MaterialTextureSlot;
 use imgui::*;
 use imgui::{Drag, TreeNodeFlags};
 
@@ -6,7 +7,6 @@ use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::MaterialDesc,
-    material_asset::MaterialTextureSlot,
     renderer::{UiTexture, UiTextureResolver},
 };
 

@@ -2,6 +2,7 @@ use crate::prelude::*;
 use crate::input::Input;
 use legion::Entity;
 use legion::EntityStore;
+use crate::app::App;
 
 
 impl App {

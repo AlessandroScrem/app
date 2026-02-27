@@ -1,14 +1,14 @@
-pub mod components;
-pub mod light;
+pub(crate) mod components;
+pub(crate) mod light;
 
-pub use components::*;
+pub(crate) use components::*;
 
 use legion::{Entity, EntityStore};
 use log::warn;
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EntityId(pub u64);
+pub(crate) struct EntityId(pub(crate) u64);
 
 pub trait EntityRawU64 {
     fn as_raw_u64(&self) -> u64;
@@ -43,21 +43,22 @@ impl From<EntityId> for Entity {
     }
 }
 
-use std::hash::{Hash, Hasher};
 
 use crate::assets::MaterialTextureSlot;
-pub trait EntityHash {
-    /// Restituisce un hash `u64` deterministico
-    fn entity_hash(&self) -> u64;
-}
 
-impl EntityHash for Entity {
-    fn entity_hash(&self) -> u64 {
-        let mut hasher = std::hash::DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
-}
+// use std::hash::{Hash, Hasher};
+// pub(crate) trait EntityHash {
+//     /// Restituisce un hash `u64` deterministico
+//     fn entity_hash(&self) -> u64;
+// }
+
+// impl EntityHash for Entity {
+//     fn entity_hash(&self) -> u64 {
+//         let mut hasher = std::hash::DefaultHasher::new();
+//         self.hash(&mut hasher);
+//         hasher.finish()
+//     }
+// }
 
 fn collect_entity_from_root(entity: Entity, world: &mut legion::World) -> Vec<Entity> {
     let mut entities = Vec::new();
@@ -95,7 +96,7 @@ fn is_root(entity: Entity, world: &legion::World) -> bool {
     hierarchy.parent.is_none()
 }
 
-pub fn add_parent(entity: Entity, world: &mut legion::World) {
+pub(crate) fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if !is_root(entity, world) {
         warn!("{:?} Not Root: Add Parent abort", entity);
@@ -165,7 +166,7 @@ fn collect_asset_ids_from_entity(
     }
 }
 
-pub fn remove_entity_from_all(
+pub(crate) fn remove_entity_from_all(
     asset_mgr: &mut crate::AssetManager,
     entity: Entity,
     world: &mut legion::World,

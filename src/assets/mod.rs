@@ -3,33 +3,33 @@ use std::{collections::HashMap, path::PathBuf};
 use slotmap::SlotMap;
 use slotmap::new_key_type;
 
-pub mod asset_manager;
-pub mod file;
-pub mod gltf_loader;
-pub mod material_asset;
-pub mod texture_asset;
-pub mod mesh_asset;
-pub mod vertexdata;
-pub mod texture_upload;
-pub mod image_decoder;
+pub(crate) mod asset_manager;
+pub(crate) mod file;
+pub(crate) mod gltf_loader;
+pub(crate) mod material_asset;
+pub(crate) mod texture_asset;
+pub(crate) mod mesh_asset;
+pub(crate) mod vertexdata;
+pub(crate) mod texture_upload;
+pub(crate) mod image_decoder;
 
 new_key_type! {
-    pub struct TextureId;
-    pub struct MaterialId;
-    pub struct MeshId;
+    pub(crate) struct TextureId;
+    pub(crate) struct MaterialId;
+    pub(crate) struct MeshId;
 }
 
-pub use crate::assets::vertexdata::MeshVertexData;
-pub use texture_asset::*;
-pub use mesh_asset::*;
-pub use material_asset::*;
-pub use crate::prelude::*;
+pub(crate) use crate::assets::vertexdata::MeshVertexData;
+pub(crate) use texture_asset::*;
+pub(crate) use mesh_asset::*;
+pub(crate) use material_asset::*;
+pub(crate) use crate::prelude::*;
 
 #[test]
 fn sync_add_remove_reuse() {
     use slotmap::{SlotMap, SecondaryMap, new_key_type};
 
-    new_key_type! { pub struct MeshId; }
+    new_key_type! { pub(crate) struct MeshId; }
 
     // Asset storage (AssetManager side)
     let mut storage: SlotMap<MeshId, u32> = SlotMap::with_key();

@@ -4,7 +4,8 @@ use super::*;
 use std::cell::Cell;
 
 impl TextureId {
-    pub fn white(assets: &TextureAssets) -> TextureId {
+    #[allow(dead_code)]
+    fn white(assets: &TextureAssets) -> TextureId {
         assets.white()
     }
 }
@@ -26,6 +27,7 @@ pub enum TextureUsage {
     Emissive,
     Occlusion,
     HDR16,
+    #[allow(dead_code)]
     HDR32,
 }
 
@@ -169,14 +171,16 @@ impl Default for TextureAssets {
 }
 
 impl TextureAssets {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         TextureAssets::default()
     }
-
+    
     pub fn white(&self) -> TextureId {
         self.white
     }
-
+    
+    #[allow(dead_code)]
     pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
         self.storage.get(id)?.desc.as_ref()
     }

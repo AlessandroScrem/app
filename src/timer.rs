@@ -1,10 +1,10 @@
 use std::time::{Duration, Instant};
 
 pub struct Timer {
-    pub clock: Instant,    // timer since application start
-    pub delta_time: f32,   //time since last frame
-    pub elapsed_time: f32, //timer since last update
-    pub frame_time: f32,   //time taken to render last frame
+    clock: Instant,    // timer since application start
+    delta_time: f32,   //time since last frame
+    elapsed_time: f32, //timer since last update
+    frame_time: f32,   //time taken to render last frame
     last_trigger: Instant, // last time the every() callback was triggered
 }
 
@@ -21,14 +21,16 @@ impl Timer {
     }
 
     /// Returns the time in seconds since the last call to frametime() and updates the internal timer.
+    #[allow(dead_code)]
     pub fn frametime(&mut self) -> f32 {
         let frametime = self.clock.elapsed().as_secs_f32() - self.elapsed_time;
         self.frame_time = frametime * 1000.0;
         frametime
     }
-
+    
     /// Update the timer with the given frametime.
     /// Clamps the delta_time to FIXED_TIMESTEP to avoid large timesteps.
+    #[allow(dead_code)]
     pub fn tick(&mut self, frametime: f32) -> f32 {
         self.delta_time = f32::min(frametime, Self::FIXED_TIMESTEP);
         self.elapsed_time += self.delta_time;
@@ -46,6 +48,7 @@ impl Timer {
     ///     // Run fixed timestep update with dt
     /// }
     /// ```
+    #[allow(dead_code)]
     pub fn tick_step_iter(&mut self) -> impl Iterator<Item = f32> + '_ {
         let mut remaining = self.frametime();
         std::iter::from_fn(move || {

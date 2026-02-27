@@ -1,6 +1,7 @@
 use super::*;
 use crate::{assets::asset_manager::AssetManager, renderer::UiTextureResolver};
 use legion::*;
+use crate::prelude::*;
 
 pub struct HierarchyNode {
     pub name: String,

@@ -36,24 +36,6 @@ pub struct RenderContext<'a> {
     pub target: &'a wgpu::TextureView,
 }
 
-pub struct GpuView<'a> {
-    pub device: &'a Device,
-    pub queue: &'a Queue,
-    pub pickobject: &'a PickObject,
-    pub gpu_mgr: &'a GpuManager,
-    pub pip_mgr: &'a PipelineManager,
-    pub skb_mgr: &'a SkyboxManager,
-    pub light_mgr: &'a LightManager,
-    pub bbox_mgr: &'a BBoxManager,
-}
-
-pub struct GpuDevice<'a> {
-    pub device: &'a wgpu::Device,
-    pub queue: &'a Queue,
-    pub gpu_mgr: &'a GpuManager,
-    pub skb_mgr: &'a mut SkyboxManager,
-}
-
 #[derive(Default)]
 pub struct GpuCache {
     pub mesh: GpuMeshCache,
@@ -200,40 +182,10 @@ impl Renderer {
         self.pickobject.poll_readback(&self.device)
     }
 
-    pub fn get_encoder(&self) -> wgpu::CommandEncoder {
-        self.device.create_command_encoder(&Default::default())
-    }
-
     pub fn get_frame(&self) -> wgpu::SurfaceTexture {
         self.surface
             .get_current_texture()
             .expect("Failed to get current texture")
-    }
-
-    pub fn get_gpu_view(&mut self) -> GpuView<'_> {
-        GpuView {
-            device: &self.device,
-            queue: &self.queue,
-            pickobject: &self.pickobject,
-            gpu_mgr: &self.gpu_mgr,
-            pip_mgr: &self.pipeline_mgr,
-            skb_mgr: &self.skybox_mgr,
-            light_mgr: &self.light_mgr,
-            bbox_mgr: &self.bbox_mgr,
-        }
-    }
-
-    pub fn get_gpu_mut(&mut self) -> GpuDevice<'_> {
-        GpuDevice {
-            device: &self.device,
-            queue: &self.queue,
-            gpu_mgr: &self.gpu_mgr,
-            skb_mgr: &mut self.skybox_mgr,
-        }
-    }
-
-    pub fn get_texture_registry(&self) -> &ImGuiTextureRegistry {
-        &self.imgui_render.registry
     }
 
     pub fn sync_imgui_texture(&mut self) {
@@ -283,8 +235,13 @@ impl Renderer {
         });
     }
 
-    pub fn upload_textures(&mut self, source: &mut impl texture_upload::TextureUploadSource) {
-        self.gpu_cache.textures.upload_textures(source, &self.device, &self.queue);
+    pub fn upload_textures(
+        &mut self,
+        source: &mut impl texture_upload::TextureUploadSource,
+    ) {
+        self.gpu_cache
+            .textures
+            .upload_textures(source, &self.device, &self.queue);
     }
 
     fn sync_caches(&mut self, asset_mgr: &AssetManager) {

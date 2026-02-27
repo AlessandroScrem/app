@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 use wgpu::RequestAdapterOptions;
 
 static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
+#[allow(dead_code)]
 pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
@@ -32,6 +33,7 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 /// # Returns
 /// * `Ok(())` on success, or an error if something went wrong
 ///
+#[allow(dead_code)]
 pub fn save_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -194,6 +196,7 @@ pub fn save_texture(
 /// # Returns
 /// * `Ok(())` on success, or an error if something went wrong
 ///
+#[allow(dead_code)]
 pub fn save_cubemap_cross(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

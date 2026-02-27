@@ -44,11 +44,12 @@ pub trait TextureUploadSource {
 
 #[derive(Debug)]
 pub enum TextureError {
-    Io(std::io::Error),
+    #[allow(dead_code)]
     String(String),
-    Image(image::ImageError),
-    FallbackWhite,
-    DecodeError,
+    // Io(std::io::Error),
+    // Image(image::ImageError),
+    // FallbackWhite,
+    // DecodeError,
 }
 
 impl From<String> for TextureError {

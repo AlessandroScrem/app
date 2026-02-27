@@ -1,6 +1,6 @@
-pub use super::*;
-pub use crate::math::*;
-pub use crate::renderer::bbox_manager::BBoxVertexData;
+use super::*;
+use crate::math::*;
+use crate::renderer::bbox_manager::BBoxVertexData;
 
 struct GpuBoxFrame {
     pub boundingbox: BoundingBoxComponent,

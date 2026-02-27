@@ -1,7 +1,7 @@
 pub struct HdrFrame {
     pub _texture: wgpu::Texture,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
+    pub _sampler: wgpu::Sampler,
     pub hdr_bind_group: wgpu::BindGroup,
 }
 
@@ -52,19 +52,19 @@ impl HdrFrame {
         Self {
             _texture: hdr_texture,
             view: hdr_view,
-            sampler: hdr_sampler,
+            _sampler: hdr_sampler,
             hdr_bind_group
         }
     }
 }
 
-pub struct IDTexture {
+pub struct ObjectIDTexture {
     pub _texture: wgpu::Texture,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
+    pub _sampler: wgpu::Sampler,
     pub id_bind_group: wgpu::BindGroup,
 }
-impl IDTexture {
+impl ObjectIDTexture {
     pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, width: u32, height: u32) -> Self {
         let id_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("entity_id_sampler"),
@@ -111,7 +111,7 @@ impl IDTexture {
         Self {
             _texture: id_texture,
             view: id_view,
-            sampler: id_sampler,
+            _sampler: id_sampler,
             id_bind_group
         }
     }

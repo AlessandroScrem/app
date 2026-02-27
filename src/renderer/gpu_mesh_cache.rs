@@ -45,12 +45,6 @@ impl GpuMeshCache {
         }
     }
 
-    pub fn remove(&mut self, id: &MeshId) {
-        if self.map.contains_key(*id) {
-            self.map.remove(*id);
-        }
-    }
-
     pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
         self.map.get(*id)
     }
@@ -58,16 +52,12 @@ impl GpuMeshCache {
     pub fn keys(&self) -> impl Iterator<Item = MeshId> {
         self.map.keys()
     }
-
-    pub fn values(&self) -> impl Iterator<Item = &GpuMesh> {
-        self.map.values()
-    }
 }
 
 pub struct GpuMesh {
     pub vertexbuffer: wgpu::Buffer,
     pub indexbuffer: wgpu::Buffer,
-    pub indexcount: u32,
+    _indexcount: u32,
     pub model_bind_group: wgpu::BindGroup,
     pub model_uniform: wgpu::Buffer,
 }
@@ -112,6 +102,6 @@ fn create_gpu_mesh(
         indexbuffer,
         model_uniform,
         model_bind_group,
-        indexcount,
+        _indexcount: indexcount,
     }
 }

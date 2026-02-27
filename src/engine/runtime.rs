@@ -6,7 +6,7 @@ use crate::app::Application;
 use crate::Renderer;
 use crate::UiLayer;
 use crate::input::Input;
-use crate::timer::Timer;
+use crate::prelude::*;
 
 pub struct RunningApp {
     pub window: Arc<Window>,
@@ -44,7 +44,6 @@ impl RunningApp {
             self.handle_runtime_event(app, event);
         }
 
-        // let dt = self.timer.tick();
         app.update(self);
 
         // Render

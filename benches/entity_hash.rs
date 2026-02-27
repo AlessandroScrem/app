@@ -39,7 +39,7 @@ mod entity_hash {
     }
 }
 
-use app_wgpu::entities::EntityRawU64;
+use app_wgpu:: entities::EntityRawU64;
 pub trait FastHash {
     fn fast_hash2(&self) -> u64;
     fn fast_hash3(&self) -> u64;

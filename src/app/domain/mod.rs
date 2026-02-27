@@ -1,5 +1,3 @@
-pub mod events;
-pub mod handlers;
-
-pub use events::*;
-pub use handlers::*;
+pub(crate) mod events;
+pub(crate) mod handlers;
+pub(crate) use events::*;

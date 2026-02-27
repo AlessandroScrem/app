@@ -87,6 +87,7 @@ impl BoundingBox {
 }
 
 impl BoundingBoxComponent {
+    #[allow(dead_code)]
     pub fn new(bbox: BoundingBox) -> Self {
         Self {
             bounding_box: bbox.clone(),

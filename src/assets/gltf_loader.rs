@@ -15,9 +15,9 @@ use crate::{
 
 pub struct LoadedScene {
     pub meshes: Vec<MeshId>,
-    pub materials: Vec<MaterialId>,
+    _materials: Vec<MaterialId>,
     pub nodes: Vec<NodeData>,
-    pub roots: Vec<usize>, // indici dei nodi root
+    _roots: Vec<usize>, // indici dei nodi root
 }
 
 pub struct NodeData {
@@ -165,6 +165,7 @@ fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ImportError {
     Io(std::io::Error),
@@ -329,10 +330,10 @@ pub fn load_gltf<P: AsRef<Path>>(
         .collect();
 
     let scene = LoadedScene {
-        materials,
+        _materials: materials,
         meshes,
         nodes,
-        roots,
+        _roots: roots,
     };
 
     Ok(scene)
@@ -525,7 +526,7 @@ mod tests {
 
         let e = load_gltf(path, &mut asset_mgr).unwrap();
 
-        assert_eq!(e.materials.len(), 1);
+        assert_eq!(e._materials.len(), 1);
     }
 
     #[test]

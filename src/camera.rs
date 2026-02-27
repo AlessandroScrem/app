@@ -20,7 +20,6 @@ pub struct Camera {
     focal_point: Vec3,
     distance: f32,
     view_matrix: Mat4,
-    pub recenter_request: bool,
 }
 
 impl Default for Camera {
@@ -48,7 +47,6 @@ impl Camera {
             focal_point: Vec3::new(0.0, 0.0, 0.0),
             distance: 20.0,
             view_matrix: Mat4::identity(),
-            recenter_request: true,
         };
         camera.update_view();
         camera

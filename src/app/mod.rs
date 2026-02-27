@@ -1,10 +1,10 @@
-pub mod application;
-pub mod app_impl;
-pub mod app;
-pub mod domain;
-pub mod ui;
-pub mod camera_logic;
+pub(crate) mod application;
+pub(crate) mod app_impl;
+pub(crate) mod app;
+pub(crate) mod domain;
+pub(crate) mod ui;
+pub(crate) mod camera_logic;
 
-pub use application::Application;
-pub use app_impl::HasAssetMgr;
-pub use app::App;
+pub(crate) use application::Application;
+pub(crate) use app_impl::HasAssetMgr;
+pub(crate) use app::App;

@@ -9,6 +9,7 @@ pub struct MeshDesc {
 
 pub struct SubMesh {
     pub index_range: std::ops::Range<u32>,
+    #[allow(dead_code)]
     pub base_vertex: u32,
     pub material: MaterialId,
 }
@@ -19,12 +20,14 @@ pub enum MeshSource {
         path: PathBuf,
         index: usize, // submesh index nel file
     },
+    #[allow(dead_code)]
     Generated {
         shape: Primitive,
         params: [u32; 4],
     },
 }
 
+#[allow(dead_code)]
 #[derive(Hash, Eq, PartialEq)]
 pub enum Primitive {
     Cube,

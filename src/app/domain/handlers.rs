@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use legion::*;
 use crate::prelude::*;
-use crate::App;
+use crate::app::*;
 
 
 impl App {

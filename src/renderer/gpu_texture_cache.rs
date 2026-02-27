@@ -51,12 +51,6 @@ impl GpuTextureCache {
         self.map.contains_key(*id)
     }
 
-    pub fn remove(&mut self, id: &TextureId) {
-        if self.map.contains_key(*id) {
-            self.map.remove(*id);
-        }
-    }
-
     pub fn ensure(&mut self, id: TextureId, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.get_or_fallback(id, device, queue);
     }
