@@ -45,7 +45,7 @@ pub struct GpuManager {
     pub per_frame_bind_group: wgpu::BindGroup,
     pub axis_vertexbuffer: wgpu::Buffer,
     pub hdr_frame: HdrFrame,
-    pub entity_id_texture: IDTexture,
+    pub entity_id_texture: ObjectIDTexture,
     pub depth_view: wgpu::TextureView,
     layout_cache: LayoutCache,
 }
@@ -104,7 +104,7 @@ impl GpuManager {
         });
 
         let hdr_frame = HdrFrame::new(&device, layout_cache.get(LayoutKind::Hdr), width, height);
-        let entity_id_texture = IDTexture::new(
+        let entity_id_texture = ObjectIDTexture::new(
             &device,
             layout_cache.get(LayoutKind::EntityId),
             width,
@@ -135,7 +135,7 @@ impl GpuManager {
 
     pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.hdr_frame = HdrFrame::new(&device, self.get_layout(LayoutKind::Hdr), width, height);
-        self.entity_id_texture = IDTexture::new(
+        self.entity_id_texture = ObjectIDTexture::new(
             &device,
             self.get_layout(LayoutKind::EntityId),
             width,

@@ -15,7 +15,7 @@ pub(crate) mod uniform;
 
 pub(crate) use bbox_manager::BBoxManager;
 pub(crate) use gpu_manager::{GpuManager, LayoutKind};
-pub(crate) use hdr_frame::{HdrFrame, IDTexture};
+pub(crate) use hdr_frame::{HdrFrame, ObjectIDTexture};
 pub(crate) use light_manager::LightManager;
 pub(crate) use pipeline_manager::PipelineManager;
 pub(crate) use skybox_manager::SkyboxManager;

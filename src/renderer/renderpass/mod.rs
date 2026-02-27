@@ -115,6 +115,7 @@ impl RenderPass for RenderPassEnum {
 }
 
 pub(crate) trait RenderPass {
+    #[allow(dead_code)]
     fn name(&self) -> &'static str;
 
     fn prepare(

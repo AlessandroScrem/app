@@ -8,6 +8,7 @@ pub struct DomainEvents {
     pub queue: VecDeque<DomainEvent>,
 }
 
+#[allow(dead_code)]
 pub enum DomainEvent {
     Scene(SceneEvent),
     Camera(CameraEvent),

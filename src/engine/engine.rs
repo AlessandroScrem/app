@@ -6,7 +6,6 @@ use crate::input::Input;
 use crate::prelude::*;
 
 use crate::app::{Application, HasAssetMgr};
-use crate::timer::Timer;
 use super::{RunningApp};
 use super::winit_bridge::CenterWindow;
 

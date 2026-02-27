@@ -16,7 +16,6 @@ pub(crate) use debug::*;
 pub(crate) use snapshot::*;
 pub(crate) use crate::*;
 
-pub(crate) use imgui::Ui;
 
 pub(crate) use ui_layer::Layer;
 pub(crate) use renderer::UiTexture;

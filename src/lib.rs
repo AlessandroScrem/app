@@ -41,26 +41,14 @@ pub(crate) mod prelude {
     pub(crate) use crate::renderer::uniform;
     pub(crate) use crate::ui::*;
     pub(crate) use log::{debug, error, info, trace, warn};
+    pub(crate) use crate::assets::MaterialDesc;
+    pub use timer::Timer;
 }
 
 pub(crate) use prelude::*;
 
+#[allow(unused_imports)]
 pub(crate) mod math {
-    pub fn vec3_min(a: &Vec3, b: &Vec3) -> Vec3 {
-        Vec3 {
-            x: a.x.min(b.x),
-            y: a.y.min(b.y),
-            z: a.z.min(b.z),
-        }
-    }
-
-    pub fn vec3_max(a: &Vec3, b: &Vec3) -> Vec3 {
-        Vec3 {
-            x: a.x.max(b.x),
-            y: a.y.max(b.y),
-            z: a.z.max(b.z),
-        }
-    }
     use cgmath::*;
     pub type Mat4 = Matrix4<f32>;
     pub type Vec2 = Vector2<f32>;
@@ -74,19 +62,34 @@ pub(crate) mod math {
         num_traits::{one, zero},
         perspective, vec3, vec4,
     };
+
+    // pub fn vec3_min(a: &Vec3, b: &Vec3) -> Vec3 {
+    //     Vec3 {
+    //         x: a.x.min(b.x),
+    //         y: a.y.min(b.y),
+    //         z: a.z.min(b.z),
+    //     }
+    // }
+
+    // pub fn vec3_max(a: &Vec3, b: &Vec3) -> Vec3 {
+    //     Vec3 {
+    //         x: a.x.max(b.x),
+    //         y: a.y.max(b.y),
+    //         z: a.z.max(b.z),
+    //     }
+    // }
 }
 
-use crate::assets::MaterialDesc;
 
 pub(crate) mod colors {
-    pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
     pub const CYAN_COLOR: [f32; 3] = [0.0, 1.0, 1.0];
-    pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
-    pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
-    pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
-    pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
-    pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
-    pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
+    // pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
+    // pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
+    // pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
+    // pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
+    // pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
+    // pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
+    // pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 
 #[derive(Clone, Debug)]

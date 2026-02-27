@@ -4,6 +4,7 @@ use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
 
+#[allow(dead_code)]
 pub enum UiTexture {
     Engine(TextureId),         // la texture viene dall’engine
     Builtin(imgui::TextureId), // icone, font, ecc.
@@ -46,14 +47,16 @@ impl ImguiRender {
         let hidpi_factor = window.scale_factor();
         let font_size = (9.0 * hidpi_factor) as f32;
 
-        context.fonts().add_font(&[imgui::FontSource::DefaultFontData {
-            config: Some(imgui::FontConfig {
-                oversample_h: 1,
-                pixel_snap_h: true,
-                size_pixels: font_size,
-                ..Default::default()
-            }),
-        }]);
+        context
+            .fonts()
+            .add_font(&[imgui::FontSource::DefaultFontData {
+                config: Some(imgui::FontConfig {
+                    oversample_h: 1,
+                    pixel_snap_h: true,
+                    size_pixels: font_size,
+                    ..Default::default()
+                }),
+            }]);
 
         let renderer = imgui_wgpu::Renderer::new(context, &device, &queue, renderer_config);
         let registry = ImGuiTextureRegistry::new();

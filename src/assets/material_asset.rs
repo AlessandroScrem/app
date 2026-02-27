@@ -10,13 +10,13 @@ pub enum ShaderId {
 }
 
 pub const MATERIAL_TEXTURE_COUNT: usize = 5;
-pub const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
-    MaterialTextureSlot::BaseColor,
-    MaterialTextureSlot::Normal,
-    MaterialTextureSlot::MetallicRoughness,
-    MaterialTextureSlot::Emissive,
-    MaterialTextureSlot::Occlusion,
-];
+// pub const MATERIAL_TEXTURE_SLOTS: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
+//     MaterialTextureSlot::BaseColor,
+//     MaterialTextureSlot::Normal,
+//     MaterialTextureSlot::MetallicRoughness,
+//     MaterialTextureSlot::Emissive,
+//     MaterialTextureSlot::Occlusion,
+// ];
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
 pub struct MaterialKey {

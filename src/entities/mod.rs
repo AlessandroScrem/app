@@ -43,21 +43,22 @@ impl From<EntityId> for Entity {
     }
 }
 
-use std::hash::{Hash, Hasher};
 
 use crate::assets::MaterialTextureSlot;
-pub(crate) trait EntityHash {
-    /// Restituisce un hash `u64` deterministico
-    fn entity_hash(&self) -> u64;
-}
 
-impl EntityHash for Entity {
-    fn entity_hash(&self) -> u64 {
-        let mut hasher = std::hash::DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
-}
+// use std::hash::{Hash, Hasher};
+// pub(crate) trait EntityHash {
+//     /// Restituisce un hash `u64` deterministico
+//     fn entity_hash(&self) -> u64;
+// }
+
+// impl EntityHash for Entity {
+//     fn entity_hash(&self) -> u64 {
+//         let mut hasher = std::hash::DefaultHasher::new();
+//         self.hash(&mut hasher);
+//         hasher.finish()
+//     }
+// }
 
 fn collect_entity_from_root(entity: Entity, world: &mut legion::World) -> Vec<Entity> {
     let mut entities = Vec::new();
