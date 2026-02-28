@@ -1,7 +1,9 @@
 use super::*;
-use crate::{assets::asset_manager::AssetManager, renderer::UiTextureResolver};
-use legion::*;
+use crate::assets::HasStats;
+use crate::assets::asset_manager::{AssetManager, ResourceStats};
 use crate::prelude::*;
+use crate::renderer::{GpuInternalCounters, InternalCounter, UiTextureResolver};
+use legion::*;
 
 pub struct HierarchyNode {
     pub name: String,
@@ -21,6 +23,13 @@ pub struct RootSnapshot {
     pub lights_nodes: RootNodes,
 }
 
+#[derive(Default)]
+pub struct AssetsStats {
+    pub texture: ResourceStats,
+    pub mesh: ResourceStats,
+    pub material: ResourceStats,
+}
+
 pub struct UiSnapshot<'a> {
     pub resolver: &'a dyn UiTextureResolver,
     pub camera: &'a Camera,
@@ -31,6 +40,8 @@ pub struct UiSnapshot<'a> {
     pub hovered: Option<Entity>,
     pub hdr_texture_id: assets::TextureId,
     pub debug_texture_id: Option<assets::TextureId>,
+    pub stats: AssetsStats,
+    pub gpu_counters: GpuInternalCounters,
 }
 
 /// UiComponentView is a per-frame snapshot.
@@ -85,6 +96,7 @@ impl<'a> UiSnapshot<'a> {
         camera: &'a Camera,
         globals: &'a Globals,
         resolver: &'a dyn UiTextureResolver,
+        internal_counter: & 'a dyn InternalCounter,
         debug_texture_id: Option<assets::TextureId>,
     ) -> Self {
         let root_snapshot = RootSnapshot {
@@ -92,8 +104,15 @@ impl<'a> UiSnapshot<'a> {
             lights_nodes: get_lights_roots(world),
         };
 
+        let stats = AssetsStats {
+            texture: asset_mgr.textures.get_stats(),
+            mesh: asset_mgr.meshes.get_stats(),
+            material: asset_mgr.materials.get_stats(),
+        };
+
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
         let hdr_texture_id = asset_mgr.skybox.get_id();
+        let gpu_counters = internal_counter.internal_counter();
 
         Self {
             resolver,
@@ -105,6 +124,8 @@ impl<'a> UiSnapshot<'a> {
             hovered: None,
             hdr_texture_id,
             debug_texture_id,
+            stats,
+            gpu_counters
         }
     }
 }
@@ -150,7 +171,7 @@ fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> 
                 parent,
                 entity,
                 children: Vec::new(),
-            }
+            };
         }
     };
 

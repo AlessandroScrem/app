@@ -29,6 +29,10 @@ impl CpuTexture {
             pixels: vec![255, 255, 255, 255],
         }
     }
+
+    pub fn estimated_size(&self) ->usize {
+        self.pixels.len()
+    }
 }
 
 pub enum UploadPayload {

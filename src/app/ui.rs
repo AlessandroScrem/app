@@ -14,7 +14,8 @@ impl App {
             &self.asset_mgr,
             &self.camera,
             &self.globals,
-            renderer,
+            renderer, //resolver trait
+            renderer, // internalcounter trait
             None,
         );
 

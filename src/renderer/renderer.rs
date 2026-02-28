@@ -22,6 +22,17 @@ impl UiTextureResolver for Renderer {
     }
 }
 
+impl InternalCounter for Renderer {
+    fn internal_counter(&self)->GpuInternalCounters {
+        GpuInternalCounters {
+            textures: self.gpu_cache.textures.get_stats(),
+            meshes: self.gpu_cache.mesh.get_stats(),
+            materials: self.gpu_cache.material.get_stats(),
+        }
+    }
+
+}
+
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub queue: &'a Queue,
@@ -291,6 +302,7 @@ impl Renderer {
             );
         }
     }
+
 
     /// update skybox
     /// sync GpuCache Ids with assets Ids (meshes materials textures)

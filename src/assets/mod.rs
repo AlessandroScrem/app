@@ -18,7 +18,7 @@ new_key_type! {
     pub(crate) struct MaterialId;
     pub(crate) struct MeshId;
 }
-
+pub(crate) use asset_manager::*;
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use texture_asset::*;
 pub(crate) use mesh_asset::*;

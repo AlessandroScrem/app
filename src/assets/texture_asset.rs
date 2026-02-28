@@ -19,6 +19,17 @@ pub enum ColorSpace {
     Rgba8,
 }
 
+impl ColorSpace {
+    pub fn bpp(&self) -> usize {
+        match self {
+            ColorSpace::Rgbaf32 => 16,
+            ColorSpace::Rgbaf16 => 8,
+            ColorSpace::Srgba8 => 4,
+            ColorSpace::Rgba8 => 4,
+        }
+    }
+}
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum TextureUsage {
     Albedo,
@@ -121,6 +132,15 @@ pub enum TextureState {
     Fallback,              // errore → fallback
 }
 
+impl TextureState {
+    pub fn estimated_size(&self) -> usize {
+        match self {
+            TextureState::CpuReady(i) => i.byte_size,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct TextureAsset {
     pub state: TextureState,
@@ -143,14 +163,21 @@ pub struct TextureAssets {
     lookup: HashMap<TextureKey, TextureId>,
     white: TextureId,
     dirty_textures: Vec<(TextureId, UploadPayload)>,
+    stats: ResourceStats,
+}
+
+impl HasStats for TextureAssets {
+    fn get_stats(&self) -> ResourceStats {
+        self.stats.clone()
+    }
 }
 
 impl Default for TextureAssets {
     fn default() -> Self {
         let mut storage = SlotMap::with_key();
         let mut lookup = HashMap::new();
+        let mut stats = ResourceStats::default();
 
-        
         let white_cpu = CpuTexture::white();
 
         let white_id = storage.insert(TextureAsset {
@@ -160,12 +187,14 @@ impl Default for TextureAssets {
         });
 
         lookup.insert(TextureKey::White, white_id);
+        stats.add(white_cpu.estimated_size());
 
         Self {
             storage,
             lookup,
             white: white_id,
             dirty_textures: vec![(white_id, UploadPayload::Ready(white_cpu))],
+            stats,
         }
     }
 }
@@ -175,11 +204,11 @@ impl TextureAssets {
     pub fn new() -> Self {
         TextureAssets::default()
     }
-    
+
     pub fn white(&self) -> TextureId {
         self.white
     }
-    
+
     #[allow(dead_code)]
     pub fn get_desc(&self, id: TextureId) -> Option<&TextureDesc> {
         self.storage.get(id)?.desc.as_ref()
@@ -204,11 +233,13 @@ impl TextureAssets {
 
             if count > 1 {
                 asset.ref_count.set(count - 1);
+                self.stats.remove_sahred();
             } else {
                 // remove from storage
                 if let Some(removed) = self.storage.remove(id) {
                     if let Some(TextureDesc::File { key, .. }) = removed.desc {
                         self.lookup.remove(&key);
+                        self.stats.remove(removed.state.estimated_size());
                     }
                 }
             }
@@ -225,6 +256,7 @@ impl TextureAssets {
                 Some(&id) => {
                     let tex = &self.storage[id];
                     tex.ref_count.set(tex.ref_count.get() + 1);
+                    self.stats.add_shared();
                     id
                 }
 
@@ -271,6 +303,7 @@ impl TextureAssets {
                     Ok(upload) => match upload {
                         UploadPayload::Ready(cpu) => {
                             asset.state = TextureState::CpuReady(TextureInfo::from(&cpu));
+                            self.stats.add(cpu.estimated_size());
                             self.dirty_textures.push((id, UploadPayload::Ready(cpu)));
                             trace!("Asset Load Texture {:?} {:?}", id, asset.state);
                         }
@@ -350,5 +383,43 @@ mod tests {
         // now will remove ..
         textures.remove(id);
         assert!(textures.get_desc(id).is_none());
+    }
+
+    #[test]
+    fn should_have_stats() {
+        fn assert_impl<T: HasStats>() {}
+        assert_impl::<TextureAssets>();
+    }
+
+    #[test]
+    fn should_increment_stats_on_add() {
+        let mut textures = TextureAssets::new();
+        let initial_stats = textures.get_stats();
+
+        const PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/white.png");
+        let _ = textures.from_file(PATH, TextureUsage::Albedo);
+        textures.load_cpu_textures();
+
+        let new_stats = textures.get_stats();
+
+        assert!(new_stats.count > initial_stats.count);
+        assert!(new_stats.estimated_bytes > initial_stats.estimated_bytes);
+    }
+
+    #[test]
+    fn should_decrements_stats_on_remove() {
+        let mut textures = TextureAssets::new();
+        let initial_stats = textures.get_stats();
+
+        const PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/white.png");
+        let id = textures.from_file(PATH, TextureUsage::Albedo);
+        textures.load_cpu_textures();
+
+        textures.remove(id);
+
+        let new_stats = textures.get_stats();
+
+        assert_eq!(new_stats.count, initial_stats.count);
+        assert_eq!(new_stats.estimated_bytes, initial_stats.estimated_bytes);
     }
 }

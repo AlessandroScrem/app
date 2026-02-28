@@ -6,6 +6,13 @@ use slotmap::SecondaryMap;
 #[derive(Default)]
 pub struct GpuTextureCache {
     map: SecondaryMap<TextureId, GpuTexture>,
+    stats: GpuResourceStats,
+}
+
+impl HasGpuStats for GpuTextureCache {
+    fn get_stats(&self) -> GpuResourceStats {
+        self.stats.clone()
+    }
 }
 
 impl GpuTextureCache {
@@ -17,7 +24,9 @@ impl GpuTextureCache {
     ) -> &GpuTexture {
         self.map.entry(id).unwrap().or_insert_with(|| {
             info!("GpuTextureCache create Fallback Texture with id {:?}", id);
-            GpuTexture::white_texture(device, queue)
+            let texture = GpuTexture::white_texture(device, queue);
+            self.stats.add(texture.estimated_size);
+            texture
         })
     }
 
@@ -28,23 +37,29 @@ impl GpuTextureCache {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) -> &GpuTexture {
-        self.map
-            .entry(id)
-            .unwrap()
-            .or_insert_with(|| GpuTexture::from_cpu(payload, device, queue))
+        self.map.entry(id).unwrap().or_insert_with(|| {
+            let texture = GpuTexture::from_cpu(payload, device, queue);
+            self.stats.add(texture.estimated_size);
+            texture
+        })
     }
 
     pub fn retain(&mut self, assets: &TextureAssets) {
         // Sync cleanup
-        self.map.retain(|id, _| assets.contains_key(id));
+        self.map.retain(|id, tex| {
+            if assets.contains_key(id) {
+                true //mantain
+            } else {
+                // update stats
+                self.stats.remove(tex.estimated_size);
+                trace!("removed gpu tex {:?}", id);
+                false // remove
+            }
+        });
     }
 
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
-        &self
-            .map
-            .get(id)
-            .expect("unable to get texture")
-            .view
+        &self.map.get(id).expect("unable to get texture").view
     }
 
     pub fn contains_key(&self, id: &TextureId) -> bool {

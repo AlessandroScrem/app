@@ -5,6 +5,13 @@ use wgpu::util::DeviceExt;
 #[derive(Default)]
 pub struct GpuMeshCache {
     map: SecondaryMap<MeshId, GpuMesh>,
+    stats: GpuResourceStats,
+}
+
+impl HasGpuStats for GpuMeshCache {
+    fn get_stats(&self) -> GpuResourceStats {
+        self.stats.clone()
+    }
 }
 
 impl GpuMeshCache {
@@ -16,14 +23,24 @@ impl GpuMeshCache {
         device: &wgpu::Device,
     ) {
         if !self.map.contains_key(id) {
-            let value = Self::create_gpu_mesh(id, assets, gpu_mgr, device);
-            self.map.insert(id, value);
+            let mesh = Self::create_gpu_mesh(id, assets, gpu_mgr, device);
+            self.stats.add(mesh.estimated_size);
+            self.map.insert(id, mesh);
         }
     }
 
     pub fn retain(&mut self, assets: &MeshAssets) {
         // Sync cleanup
-        self.map.retain(|id, _| assets.contains_key(id));
+        self.map.retain(|id, mesh| {
+            if assets.contains_key(id) {
+                true //mantain
+            } else {
+                // update stats
+                self.stats.remove(mesh.estimated_size);
+                trace!("removed gpu mesh {:?}", id);
+                false // remove
+            }
+        });
     }
 
     pub fn create_gpu_mesh(
@@ -60,6 +77,7 @@ pub struct GpuMesh {
     _indexcount: u32,
     pub model_bind_group: wgpu::BindGroup,
     pub model_uniform: wgpu::Buffer,
+    estimated_size: usize,
 }
 
 fn create_gpu_mesh(
@@ -96,6 +114,7 @@ fn create_gpu_mesh(
     });
 
     let indexcount = indices.len() as u32;
+    let estimated_size = vertices.len() + indices.len() + size_of::<ModelUniform>();
 
     GpuMesh {
         vertexbuffer,
@@ -103,5 +122,6 @@ fn create_gpu_mesh(
         model_uniform,
         model_bind_group,
         _indexcount: indexcount,
+        estimated_size,
     }
 }

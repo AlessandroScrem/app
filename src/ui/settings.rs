@@ -2,7 +2,35 @@ use super::*;
 use cgmath::{Deg, Rad, num_traits::zero};
 use imgui::*;
 
-use crate::{DomainEvent, Globals, camera::Camera, text_fmt};
+use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
+use crate::renderer::GpuResourceStats;
+
+use std::fmt;
+
+impl fmt::Display for ResourceStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const BYTES_TO_MB: f32 = 1.0 / (1024.0 * 1024.0);
+        write!(
+            f,
+            "{} total | {} shared | {:.2} MB",
+            self.count,
+            self.shared,
+            self.estimated_bytes as f32 * BYTES_TO_MB
+        )
+    }
+}
+
+impl fmt::Display for GpuResourceStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const BYTES_TO_MB: f32 = 1.0 / (1024.0 * 1024.0);
+        write!(
+            f,
+            "{} total | {:.2} MB",
+            self.count,
+            self.estimated_bytes as f32 * BYTES_TO_MB
+        )
+    }
+}
 
 #[derive(Default)]
 pub struct SettimgsUi {
@@ -19,6 +47,8 @@ impl Layer for SettimgsUi {
         let hdr_texture_id = ctx.snapshot.hdr_texture_id;
         let timestep = &ctx.timestep;
         let resolver = &ctx.snapshot.resolver;
+        let stats = &ctx.snapshot.stats;
+        let gpu_counters = &ctx.snapshot.gpu_counters;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -34,12 +64,18 @@ impl Layer for SettimgsUi {
                     text_fmt!(ui, "Selected Entity ID: {:?}", selected_entity,);
                     ui.separator();
                     tools::disabled(ui, || {
-                        text_fmt!(ui, "NumShaders         : {}", 0);
-                        text_fmt!(ui, "NumTextures        : {}", 0);
-                        text_fmt!(ui, "NumUniqueTextures  : {}", 0);
-                        text_fmt!(ui, "Texture Memory Size: {}", 0);
-                        text_fmt!(ui, "Memory Allocations : {}", 0);
-                        text_fmt!(ui, "Memory Size        : {}", 0);
+                        text_fmt!(ui, "Asset Textures     : {}", stats.texture);
+                        text_fmt!(ui, "Asset Meshes       : {}", stats.mesh);
+                        text_fmt!(ui, "Asset Materials    : {}", stats.material);
+                        text_fmt!(ui, "Gpu Textures       : {}", gpu_counters.textures);
+                        text_fmt!(ui, "Gpu Materials      : {}", gpu_counters.materials);
+                        text_fmt!(ui, "Gpu Meshes         : {}", gpu_counters.meshes);
+                        text_fmt!(ui, "Gpu int Buffers    : {}", 0);
+                        text_fmt!(ui, "Gpu VB             : {}", 0);
+                        text_fmt!(ui, "Gpu FB             : {}", 0);
+                        text_fmt!(ui, "Gpu Mem            : {}", 0);
+                        text_fmt!(ui, "GPU Shaders        : {}", 0);
+                        text_fmt!(ui, "Draw               : {}", 0);
                     });
                 }
                 if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {

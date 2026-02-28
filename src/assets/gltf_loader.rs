@@ -289,7 +289,7 @@ pub fn load_gltf<P: AsRef<Path>>(
         let mesh_key = MeshKey {
             source: crate::assets::MeshSource::File {
                 path: path.as_ref().into(),
-                index: g_mesh.index(),
+                submesh_index: g_mesh.index(),
             },
         };
 

@@ -1,5 +1,5 @@
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MeshVertexData {
     pub position: [f32; 3],
     pub normal: [f32; 3],

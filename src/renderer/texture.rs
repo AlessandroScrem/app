@@ -10,6 +10,7 @@ pub struct GpuTexture {
     pub view: Arc<wgpu::TextureView>,
     pub extent: wgpu::Extent3d,
     pub _format: TextureFormat,
+    pub estimated_size: usize, 
 }
 
 impl GpuTexture {
@@ -71,12 +72,14 @@ impl GpuTexture {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let estimated_size = pixels.len();
 
         Self {
             extent,
             inner: Arc::new(texture),
             view: Arc::new(view),
             _format: format,
+            estimated_size,
         }
     }
 }
