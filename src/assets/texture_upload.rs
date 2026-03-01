@@ -11,6 +11,7 @@ use super::image_decoder::{
     decode_image_rgbaf32, decode_stb_image_rgaba8, decode_stb_image_rgbaf16,
 };
 
+
 #[derive(Clone)]
 pub struct CpuTexture {
     pub width: u32,

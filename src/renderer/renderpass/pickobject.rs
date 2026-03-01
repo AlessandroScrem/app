@@ -45,7 +45,7 @@ impl RenderPass for PickObjectPass {
 
         if self.enable {
             let aligned_bytes_per_row = 256; // minimo richiesto
-            let size = gpu_manager.entity_id_texture._texture.size();
+            let size = gpu_manager.get_framebuffer_texture(FramebufferKind::EntityId).size();
             let mouse_pos_x = self.mouse_pos_x;
             let mouse_pos_y = self.mouse_pos_y;
             let x = mouse_pos_x.clamp(0, size.width - 1);
@@ -53,7 +53,7 @@ impl RenderPass for PickObjectPass {
 
             encoder.copy_texture_to_buffer(
                 wgpu::TexelCopyTextureInfo {
-                    texture: &gpu_manager.entity_id_texture._texture,
+                    texture: gpu_manager.get_framebuffer_texture(FramebufferKind::EntityId),
                     mip_level: 0,
                     origin: wgpu::Origin3d { x, y, z: 0 },
                     aspect: wgpu::TextureAspect::All,

@@ -65,8 +65,8 @@ impl RenderPass for OutlinePass {
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Outline);
 
         renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.entity_id_texture.id_bind_group, &[]);
-        renderpass.set_bind_group(1, &gpu_manager.per_frame_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_framebuffer_bg(FramebufferKind::EntityId), &[]);
+        renderpass.set_bind_group(1, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.draw(0..3, 0..1);
     }
 }

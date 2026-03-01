@@ -979,7 +979,7 @@ mod tests {
     #[test]
     fn should_crate_cubetexture_rgba16f_from_equirectangular() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let mut texture_cache = GpuTextureCache::default();
+        let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures
@@ -1010,7 +1010,7 @@ mod tests {
     #[test]
     fn should_create_prefilter_rgba16f_cubemap() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let mut texture_cache = GpuTextureCache::default();
+        let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures
@@ -1042,7 +1042,7 @@ mod tests {
     #[test]
     fn should_crate_irradiance_cubetexture_rgba16f() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let mut texture_cache = GpuTextureCache::default();
+        let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures
@@ -1075,7 +1075,7 @@ mod tests {
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
         let gpu_manager = GpuManager::new(&device, 32, 32);
-        let mut texture_cache = GpuTextureCache::default();
+        let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures

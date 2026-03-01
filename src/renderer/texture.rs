@@ -25,7 +25,7 @@ impl GpuTexture {
         Self::from_cpu_texture(&device, &queue, CpuTexture::white())
     }
 
-    fn from_cpu_texture(device: &wgpu::Device, queue: &wgpu::Queue, cpu_data: CpuTexture) -> Self {
+    pub fn from_cpu_texture(device: &wgpu::Device, queue: &wgpu::Queue, cpu_data: CpuTexture) -> Self {
         let width = cpu_data.width;
         let height = cpu_data.height;
         let format = wgpu::TextureFormat::from(cpu_data.format);

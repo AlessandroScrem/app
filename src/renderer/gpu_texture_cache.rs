@@ -1,11 +1,22 @@
-use crate::{assets::texture_upload::UploadPayload, renderer::texture::GpuTexture};
+use crate::{
+    assets::texture_upload::{CpuTexture, UploadPayload, load_cpu_textures_par},
+    renderer::texture::GpuTexture,
+};
 
 use super::*;
 use slotmap::SecondaryMap;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+use wgpu::{Device, Queue};
 
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum TextureSlot {
+    LightIcon,
+}
+
 pub struct GpuTextureCache {
     map: SecondaryMap<TextureId, GpuTexture>,
+    builtin: Vec<GpuTexture>,
     stats: GpuResourceStats,
 }
 
@@ -14,8 +25,22 @@ impl HasGpuStats for GpuTextureCache {
         self.stats.clone()
     }
 }
-
 impl GpuTextureCache {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        let builtin: Vec<GpuTexture> = TextureSlot::iter()
+            .map(|slot| Self::create_builtin(device, queue, slot))
+            .collect();
+
+        Self {
+            map: SecondaryMap::new(),
+            stats: GpuResourceStats::default(),
+            builtin,
+        }
+    }
+    pub fn get_builtin(&self, slot: TextureSlot) -> &GpuTexture {
+        &self.builtin[slot as usize]
+    }
+
     pub fn get_or_fallback(
         &mut self,
         id: TextureId,
@@ -102,6 +127,36 @@ impl From<ColorSpace> for wgpu::TextureFormat {
     }
 }
 
+impl GpuTextureCache {
+    fn create_builtin(device: &Device, queue: &Queue, slot: TextureSlot) -> GpuTexture {
+        match slot {
+            TextureSlot::LightIcon => {
+                static LIGHT_BULB_BYTES: &[u8] = include_bytes!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/assets/core/lightbulb-icon32.png"
+                ));
+                let (pixels, width, height) = image_decoder::decode_stb_image_rgaba8(
+                    &LIGHT_BULB_BYTES,
+                )
+                .unwrap_or_else(|_| {
+                    (
+                        CpuTexture::white().pixels,
+                        CpuTexture::white().width,
+                        CpuTexture::white().height,
+                    )
+                });
+                let cpu_data = CpuTexture {
+                    pixels,
+                    width,
+                    height,
+                    format: ColorSpace::Rgba8,
+                };
+                GpuTexture::from_cpu_texture(device, queue, cpu_data)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,7 +168,8 @@ mod tests {
 
     #[test]
     fn should_create_gpu_texture_cache() {
-        let gpu_texture_cache = GpuTextureCache::default();
+        let (device, queue) = test_utils::get_device_and_queue();
+        let gpu_texture_cache = GpuTextureCache::new(device, queue);
 
         assert!(gpu_texture_cache.map.is_empty());
     }
@@ -121,9 +177,9 @@ mod tests {
     #[test]
     fn should_load_hdr_texture_rgba32float() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let mut gpu_texture_cache = GpuTextureCache::default();
+        let mut gpu_texture_cache = GpuTextureCache::new(device, queue);
         let mut texture_assets = TextureAssets::new();
-
+        
         let key = TextureKey::File {
             path: HDR_PATH.into(),
             color_space: ColorSpace::Rgbaf32,
@@ -134,12 +190,23 @@ mod tests {
             sampler: SamplerDesc::Linear,
             mipmaps: false,
         };
-
+        
         let texture_id = texture_assets.get_or_create(desc);
-
+        
         texture_assets.load_cpu_textures();
         gpu_texture_cache.upload_textures(&mut texture_assets, device, queue);
-
+        
         assert!(gpu_texture_cache.map.contains_key(texture_id));
+    }
+    
+    #[test]
+    fn should_contain_builtin() {
+        let (device, queue) = test_utils::get_device_and_queue();
+        let gpu_texture_cache = GpuTextureCache::new(&device, &queue);
+
+        let _texture = gpu_texture_cache.get_builtin(TextureSlot::LightIcon);
+
+        #[cfg(feature = "save_tests")]
+        test_utils::save_texture(device, queue, "texture.png", &_texture.inner, 0).unwrap()
     }
 }

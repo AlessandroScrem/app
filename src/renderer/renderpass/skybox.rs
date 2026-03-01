@@ -49,7 +49,7 @@ impl RenderPass for SkyboxPass {
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Skybox Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &gpu_manager.hdr_frame.view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
@@ -57,7 +57,7 @@ impl RenderPass for SkyboxPass {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &gpu_manager.depth_view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
@@ -72,7 +72,7 @@ impl RenderPass for SkyboxPass {
         let skybox_bind_group = skybox_manager.get_skybox();
 
         renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(1, skybox_bind_group, &[]);
         renderpass.draw(0..36, 0..1);
     }

@@ -91,7 +91,7 @@ impl RenderPass for BBoxPass {
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Axis Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &gpu_manager.hdr_frame.view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
@@ -106,7 +106,7 @@ impl RenderPass for BBoxPass {
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Lines);
 
         renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.camera_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Camera), &[]);
 
         renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
         renderpass.draw(0..count, 0..1);

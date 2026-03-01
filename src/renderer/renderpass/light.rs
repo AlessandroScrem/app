@@ -17,7 +17,7 @@ impl LightPass {
         let gpu_mgr = ctx.gpu_mgr;
 
         for light in self.lights.iter() {
-            queue.write_buffer(&gpu_mgr.light_uniform_buffer, 0, bytemuck::bytes_of(light));
+            queue.write_buffer(gpu_mgr.get_buffer(BufferKind::Light), 0, bytemuck::bytes_of(light));
         }
     }
 }
@@ -68,7 +68,7 @@ impl RenderPass for LightPass {
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Light Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &gpu_manager.hdr_frame.view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
@@ -76,7 +76,7 @@ impl RenderPass for LightPass {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &gpu_manager.depth_view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
@@ -90,7 +90,7 @@ impl RenderPass for LightPass {
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
 
         renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
 
         for _light in lights.iter() {

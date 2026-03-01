@@ -112,7 +112,7 @@ impl RenderPass for MeshPass {
             label: Some("Mesh Render Pass"),
             color_attachments: &[
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &gpu_manager.hdr_frame.view,
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear_color),
@@ -120,7 +120,7 @@ impl RenderPass for MeshPass {
                     },
                 }),
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &gpu_manager.entity_id_texture.view,
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -129,7 +129,7 @@ impl RenderPass for MeshPass {
                 }),
             ],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &gpu_manager.depth_view,
+                view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -143,7 +143,7 @@ impl RenderPass for MeshPass {
         let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);
 
         renderpass.set_pipeline(render_pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.per_frame_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
         for mesh in drawables(asset_mgr, ctx.gpu_cache) {

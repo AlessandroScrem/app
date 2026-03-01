@@ -55,8 +55,8 @@ impl RenderPass for LinearizePass {
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Hdr);
 
         renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, &gpu_manager.hdr_frame.hdr_bind_group, &[]);
-        renderpass.set_bind_group(1, &gpu_manager.per_frame_bind_group, &[]);
+        renderpass.set_bind_group(0, gpu_manager.get_framebuffer_bg(FramebufferKind::Hdr), &[]);
+        renderpass.set_bind_group(1, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.draw(0..3, 0..1);
     }
 }

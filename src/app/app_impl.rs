@@ -28,6 +28,7 @@ impl Application for App {
             .textures
             .from_file(hdrpath, renderer::TextureUsage::HDR16);
         self.asset_mgr.skybox = assets::asset_manager::SkyboxHandle::new(hdr_id);
+        self.asset_mgr.textures.load_cpu_textures();
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
 

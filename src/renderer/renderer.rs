@@ -23,14 +23,13 @@ impl UiTextureResolver for Renderer {
 }
 
 impl InternalCounter for Renderer {
-    fn internal_counter(&self)->GpuInternalCounters {
+    fn internal_counter(&self) -> GpuInternalCounters {
         GpuInternalCounters {
             textures: self.gpu_cache.textures.get_stats(),
             meshes: self.gpu_cache.mesh.get_stats(),
             materials: self.gpu_cache.material.get_stats(),
         }
     }
-
 }
 
 pub struct RenderContext<'a> {
@@ -46,7 +45,7 @@ pub struct RenderContext<'a> {
     pub target: &'a wgpu::TextureView,
 }
 
-#[derive(Default)]
+
 pub struct GpuCache {
     pub mesh: GpuMeshCache,
     pub material: GpuMaterialCache,
@@ -117,12 +116,7 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        let light_icon_id = asset_mgr
-            .textures
-            .from_file(light_manager::LIGHT_BULB_PATH, TextureUsage::Albedo);
-        asset_mgr.textures.load_cpu_textures();
-
-        let mut texture_cache = GpuTextureCache::default();
+        let mut texture_cache = GpuTextureCache::new(&device, &queue);
         texture_cache.upload_textures(&mut asset_mgr.textures, &device, &queue);
 
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
@@ -130,6 +124,7 @@ impl Renderer {
         let pickobject = PickObject::new(&device);
 
         // lightmanager initialization
+        let light_icon_id = TextureId::light_bulb(&asset_mgr.textures);
         let light_icon_texture = texture_cache.get_or_fallback(light_icon_id, &device, &queue);
         let light_mgr = LightManager::new(&light_icon_texture, &gpu_mgr, &device);
 
@@ -161,7 +156,8 @@ impl Renderer {
 
         let gpu_cache = GpuCache {
             textures: texture_cache,
-            ..Default::default()
+            material: GpuMaterialCache::default(),
+            mesh: GpuMeshCache::default(),
         };
 
         Self {
@@ -242,10 +238,7 @@ impl Renderer {
         });
     }
 
-    pub fn upload_textures(
-        &mut self,
-        source: &mut impl texture_upload::TextureUploadSource,
-    ) {
+    pub fn upload_textures(&mut self, source: &mut impl texture_upload::TextureUploadSource) {
         self.gpu_cache
             .textures
             .upload_textures(source, &self.device, &self.queue);
@@ -298,7 +291,6 @@ impl Renderer {
             );
         }
     }
-
 
     /// update skybox
     /// sync GpuCache Ids with assets Ids (meshes materials textures)
@@ -397,12 +389,12 @@ impl Renderer {
         };
 
         self.queue.write_buffer(
-            &self.gpu_mgr.camera_uniform_buffer,
+            self.gpu_mgr.get_buffer(BufferKind::Camera),
             0,
             bytemuck::bytes_of(&updated_camera_uniform),
         );
         self.queue.write_buffer(
-            &self.gpu_mgr.globals_uniform_buffer,
+            self.gpu_mgr.get_buffer(BufferKind::Globals),
             0,
             bytemuck::bytes_of(&updated_globals_uniform),
         );

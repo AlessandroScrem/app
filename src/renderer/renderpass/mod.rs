@@ -30,6 +30,7 @@ use crate::{
 pub(crate) use legion::query::IntoQuery;
 pub(crate) use legion::{Entity, Resources, World};
 use wgpu::IndexFormat;
+pub (crate) use crate::renderer::gpu_manager::*;
 
 pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),

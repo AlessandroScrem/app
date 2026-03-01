@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
 
@@ -6,6 +8,21 @@ use strum_macros::EnumIter;
 
 use super::*;
 use crate::assets::vertexdata::LinesVertexData;
+
+const fn axis() -> [LinesVertexData; 6] {
+    const RED: [f32; 3] = [1.0, 0.0, 0.0];
+    const GREEN: [f32; 3] = [0.0, 1.0, 0.0];
+    const BLUE: [f32; 3] = [0.0, 0.0, 1.0];
+    #[rustfmt::skip] let vertices = [
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: RED},
+        LinesVertexData{position: [10.0, 0.0, 0.0], color: RED},   //X  
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: GREEN},
+        LinesVertexData{position: [0.0, 10.0, 0.0], color: GREEN}, //Y
+        LinesVertexData{position: [0.0, 0.0, 0.0], color: BLUE},
+        LinesVertexData{position: [0.0, 0.0, 10.0], color: BLUE},  //Z
+    ];
+    vertices
+}
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum LayoutKind {
@@ -18,6 +35,7 @@ pub enum LayoutKind {
     Model,
     Skybox,
     Hdr,
+    Depth,
     EntityId,
 }
 
@@ -27,9 +45,9 @@ struct LayoutCache {
 impl LayoutCache {
     fn new(device: &wgpu::Device) -> Self {
         let layouts: Vec<BindGroupLayout> = LayoutKind::iter()
-            .map(|kind| create_layout(device, kind))
+            .map(|kind| Self::create_layout(device, kind))
             .collect();
-        LayoutCache { layouts }
+        Self { layouts }
     }
 
     fn get(&self, kind: LayoutKind) -> &wgpu::BindGroupLayout {
@@ -37,95 +55,122 @@ impl LayoutCache {
     }
 }
 
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum FramebufferKind {
+    Hdr,
+    EntityId,
+    Depth,
+}
+
+pub struct Framebuffer {
+    texture: GpuTexture,
+    bind_group: wgpu::BindGroup,
+}
+
+struct FramebufferCache {
+    framebuffers: Vec<Framebuffer>,
+}
+impl FramebufferCache {
+    fn new(device: &wgpu::Device, layouts: &LayoutCache, width: u32, height: u32) -> Self {
+        let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
+            .map(|kind| Self::create(device, layouts, kind, width, height))
+            .collect();
+        Self { framebuffers }
+    }
+
+    fn resize(&mut self, device: &wgpu::Device, layouts: &LayoutCache, width: u32, height: u32) {
+        let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
+            .map(|kind| Self::create(device, layouts, kind, width, height))
+            .collect();
+        self.framebuffers = framebuffers;
+    }
+
+    fn get_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
+        &self.framebuffers[kind as usize].texture.inner
+    }
+    fn get_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
+        &self.framebuffers[kind as usize].texture.view
+    }
+    fn get_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
+        &self.framebuffers[kind as usize].bind_group
+    }
+}
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum BindgroupKind {
+    Camera,
+    Perframe,
+    // LightTexture,
+}
+
+struct BindgroupCache {
+    bg: Vec<wgpu::BindGroup>,
+}
+
+impl BindgroupCache {
+    fn new(
+        device: &wgpu::Device,
+        buffer_cache: &BufferCache,
+        layouts: &LayoutCache,
+    ) -> Self {
+        let bg: Vec<wgpu::BindGroup> = BindgroupKind::iter()
+            .map(|kind| Self::create(device, buffer_cache, layouts, kind))
+            .collect();
+        Self { bg }
+    }
+    fn get(&self, kind: BindgroupKind) -> &wgpu::BindGroup {
+        &self.bg[kind as usize]
+    }
+}
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum BufferKind {
+    Camera,
+    Globals,
+    Light,
+    Axis,
+}
+
+struct BufferCache {
+    buffers: Vec<wgpu::Buffer>,
+}
+
+impl BufferCache {
+    fn new(device: &wgpu::Device) -> Self {
+        let buffer: Vec<wgpu::Buffer> = BufferKind::iter()
+            .map(|kind| Self::create(device, kind))
+            .collect();
+        Self { buffers: buffer }
+    }
+
+    fn get(&self, kind: BufferKind) -> &wgpu::Buffer {
+        &self.buffers[kind as usize]
+    }
+}
+
 pub struct GpuManager {
-    pub globals_uniform_buffer: wgpu::Buffer,
-    pub camera_uniform_buffer: wgpu::Buffer,
-    pub light_uniform_buffer: wgpu::Buffer,
-    pub camera_bind_group: wgpu::BindGroup,
-    pub per_frame_bind_group: wgpu::BindGroup,
-    pub axis_vertexbuffer: wgpu::Buffer,
-    pub hdr_frame: HdrFrame,
-    pub entity_id_texture: ObjectIDTexture,
-    pub depth_view: wgpu::TextureView,
     layout_cache: LayoutCache,
+    framebuffer_cache: FramebufferCache,
+    buffer_cache: BufferCache,
+    bindgroup_cache: BindgroupCache,
 }
 
 impl GpuManager {
-    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> Self {
         let layout_cache = LayoutCache::new(device);
-
-        let camera_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[CameraUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let globals_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Globals Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[GlobalUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let light_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[LightUniform::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: layout_cache.get(LayoutKind::Camera),
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Camera Bind Group"),
-        });
-
-        let per_frame_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: layout_cache.get(LayoutKind::PerFrame),
-            entries: &[
-                // Camera
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_uniform_buffer.as_entire_binding(),
-                },
-                // GLobals
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: globals_uniform_buffer.as_entire_binding(),
-                },
-                // Light
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: light_uniform_buffer.as_entire_binding(),
-                },
-            ],
-            label: Some("Globals Bind Group"),
-        });
-
-        let hdr_frame = HdrFrame::new(&device, layout_cache.get(LayoutKind::Hdr), width, height);
-        let entity_id_texture = ObjectIDTexture::new(
-            &device,
-            layout_cache.get(LayoutKind::EntityId),
-            width,
-            height,
-        );
-
-        let depth_view = create_depth_view(device, width, height);
-
-        let axis_vertexbuffer = create_axis_buffer(device);
+        let buffer_cache = BufferCache::new(device);
+        let framebuffer_cache = FramebufferCache::new(device, &layout_cache, width, height);
+        let bindgroup_cache = BindgroupCache::new(device, &buffer_cache, &layout_cache);
 
         Self {
-            camera_uniform_buffer,
-            globals_uniform_buffer,
-            camera_bind_group,
-            light_uniform_buffer,
-            per_frame_bind_group,
-            axis_vertexbuffer,
-            hdr_frame,
-            depth_view,
-            entity_id_texture,
             layout_cache,
+            framebuffer_cache,
+            buffer_cache,
+            bindgroup_cache,
         }
     }
 
@@ -133,108 +178,301 @@ impl GpuManager {
         self.layout_cache.get(kind)
     }
 
+    pub fn get_framebuffer_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
+        self.framebuffer_cache.get_view(kind)
+    }
+
+    pub fn get_framebuffer_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
+        self.framebuffer_cache.get_texture(kind)
+    }
+    pub fn get_framebuffer_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
+        self.framebuffer_cache.get_bg(kind)
+    }
+
     pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
-        self.hdr_frame = HdrFrame::new(&device, self.get_layout(LayoutKind::Hdr), width, height);
-        self.entity_id_texture = ObjectIDTexture::new(
-            &device,
-            self.get_layout(LayoutKind::EntityId),
-            width,
-            height,
-        );
-        self.depth_view = create_depth_view(device, width, height);
+        self.framebuffer_cache
+            .resize(device, &self.layout_cache, width, height);
+    }
+
+    pub fn get_bindgroup(&self, kind: BindgroupKind) -> &wgpu::BindGroup {
+        self.bindgroup_cache.get(kind)
+    }
+    pub fn get_buffer(&self, kind: BufferKind) -> &wgpu::Buffer {
+        self.buffer_cache.get(kind)
     }
 }
 
-fn create_depth_view(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
-    let depth_texture = {
-        device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("depth_texture"),
-            size: wgpu::Extent3d {
-                width: width,
-                height: height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        })
-    };
-    depth_texture.create_view(&Default::default())
-}
-
-fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
-    match kind {
-        LayoutKind::Camera => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Camera Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        }),
-        LayoutKind::PerFrame => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Globals Bind Group Layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    // Camera
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    // Globls
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    // Ligth
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::Lines => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Lines Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                // Camera
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        }),
-        LayoutKind::LightTexture => {
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Light Texture_bind_group_layout"),
+impl LayoutCache {
+    fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
+        match kind {
+            LayoutKind::Camera => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Camera Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                })
+            }
+            LayoutKind::PerFrame => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Globals Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            // Camera
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            // Globls
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            // Ligth
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Lines => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Lines Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        // Camera
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                })
+            }
+            LayoutKind::LightTexture => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Light Texture_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // main
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Ibl => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Light Ibl_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // irradiance texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::Cube,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        // prefiltered texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::Cube,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        // brdf_lut texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Material => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Material_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // main
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        // normal map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // metallic roughness map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // emissive map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 4,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // occlusion map
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 5,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // material Uniform buffer
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 6,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Model => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Model Bind Group Layout"),
+                    entries: &[
+                        //model
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Skybox => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Skybox bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // main
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::Cube,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::Hdr => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Hdr_Texture_bind_group_layout"),
                 entries: &[
                     // sampler
                     wgpu::BindGroupLayoutEntry {
@@ -243,7 +481,7 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
-                    // main
+                    // hdr texture
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
@@ -255,237 +493,364 @@ fn create_layout(device: &wgpu::Device, kind: LayoutKind) -> BindGroupLayout {
                         count: None,
                     },
                 ],
-            })
+            }),
+            LayoutKind::Depth => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Depth_Texture_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // depth texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Depth,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            LayoutKind::EntityId => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("ID_Texture_bind_group_layout"),
+                    entries: &[
+                        // entity_id sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                            count: None,
+                        },
+                        // entity_id texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Uint,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
         }
-        LayoutKind::Ibl => {
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Light Ibl_bind_group_layout"),
-                entries: &[
-                    // sampler
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // irradiance texture
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::Cube,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    // prefiltered texture
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::Cube,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    // brdf_lut texture
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                ],
-            })
-        }
-        LayoutKind::Material => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Material_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // main
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                // normal map
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // metallic roughness map
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // emissive map
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // occlusion map
-                wgpu::BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // material Uniform buffer
-                wgpu::BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::Model => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Model Bind Group Layout"),
-            entries: &[
-                //model
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::Skybox => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Skybox bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // main
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::Cube,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::Hdr => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Hdr_Texture_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // hdr texture
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-            ],
-        }),
-        LayoutKind::EntityId => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("ID_Texture_bind_group_layout"),
-            entries: &[
-                // entity_id sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-                // entity_id texture
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Uint,
-                    },
-                    count: None,
-                },
-            ],
-        }),
     }
 }
 
-fn create_axis_buffer(device: &wgpu::Device) -> wgpu::Buffer {
-    const RED: [f32; 3] = [1.0, 0.0, 0.0];
-    const GREEN: [f32; 3] = [0.0, 1.0, 0.0];
-    const BLUE: [f32; 3] = [0.0, 0.0, 1.0];
-    #[rustfmt::skip] let vertices = [
-        LinesVertexData{position: [0.0, 0.0, 0.0], color: RED},
-        LinesVertexData{position: [10.0, 0.0, 0.0], color: RED},   //X  
-        LinesVertexData{position: [0.0, 0.0, 0.0], color: GREEN},
-        LinesVertexData{position: [0.0, 10.0, 0.0], color: GREEN}, //Y
-        LinesVertexData{position: [0.0, 0.0, 0.0], color: BLUE},
-        LinesVertexData{position: [0.0, 0.0, 10.0], color: BLUE},  //Z
-    ];
+impl FramebufferCache {
+    fn create(
+        device: &wgpu::Device,
+        layouts: &LayoutCache,
+        kind: FramebufferKind,
+        width: u32,
+        height: u32,
+    ) -> Framebuffer {
+        match kind {
+            FramebufferKind::Hdr => {
+                let layout = layouts.get(LayoutKind::Hdr);
+                let format = wgpu::TextureFormat::Rgba16Float;
+                let size = wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                };
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("hdr_sampler"),
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Nearest,
+                    min_filter: wgpu::FilterMode::Nearest,
+                    mipmap_filter: wgpu::FilterMode::Nearest,
+                    ..Default::default()
+                });
+                let texture = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Hdr_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                });
+                let view = texture.create_view(&Default::default());
 
-    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("Lines Vertex Buffer"),
-        contents: bytemuck::cast_slice(&vertices),
-        usage: wgpu::BufferUsages::VERTEX,
-    })
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Hdr_bind_group"),
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                    ],
+                });
+
+                let estimated_size =
+                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
+
+                let texture = GpuTexture {
+                    _format: format,
+                    inner: Arc::new(texture),
+                    view: Arc::new(view),
+                    extent: size,
+                    estimated_size,
+                };
+
+                Framebuffer {
+                    texture,
+                    bind_group,
+                }
+            }
+
+            FramebufferKind::EntityId => {
+                let layout = layouts.get(LayoutKind::EntityId);
+                let format = wgpu::TextureFormat::Rg32Uint;
+                let size = wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                };
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("entity_id_sampler"),
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Nearest,
+                    min_filter: wgpu::FilterMode::Nearest,
+                    mipmap_filter: wgpu::FilterMode::Nearest,
+                    ..Default::default()
+                });
+
+                let texture = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("entity_id_texture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::COPY_SRC,
+                    view_formats: &[],
+                });
+                let view = texture.create_view(&Default::default());
+
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("entity_id_bind_group"),
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                    ],
+                });
+                let estimated_size =
+                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
+
+                let texture = GpuTexture {
+                    _format: format,
+                    inner: Arc::new(texture),
+                    view: Arc::new(view),
+                    extent: size,
+                    estimated_size,
+                };
+
+                Framebuffer {
+                    texture,
+                    bind_group,
+                }
+            }
+            FramebufferKind::Depth => {
+                let layout = layouts.get(LayoutKind::Depth);
+                let format = wgpu::TextureFormat::Depth32Float;
+                let size = wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                };
+
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    label: Some("deth_sampler"),
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Nearest,
+                    min_filter: wgpu::FilterMode::Nearest,
+                    mipmap_filter: wgpu::FilterMode::Nearest,
+                    ..Default::default()
+                });
+
+                let texture = {
+                    device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("depth_texture"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING
+                            | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        view_formats: &[],
+                    })
+                };
+                let view = texture.create_view(&Default::default());
+
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("depth_bind_group"),
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                    ],
+                });
+                let estimated_size =
+                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
+
+                let texture = GpuTexture {
+                    _format: format,
+                    inner: Arc::new(texture),
+                    view: Arc::new(view),
+                    extent: size,
+                    estimated_size,
+                };
+
+                Framebuffer {
+                    texture,
+                    bind_group,
+                }
+            }
+        }
+    }
+}
+impl BindgroupCache {
+    fn create(
+        device: &wgpu::Device,
+        buffer_cache: &BufferCache,
+        layouts: &LayoutCache,
+        kind: BindgroupKind,
+    ) -> wgpu::BindGroup {
+        match kind {
+            BindgroupKind::Camera => device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: layouts.get(LayoutKind::Camera),
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer_cache.get(BufferKind::Camera).as_entire_binding(),
+                }],
+                label: Some("Camera Bind Group"),
+            }),
+            BindgroupKind::Perframe => {
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: layouts.get(LayoutKind::PerFrame),
+                    entries: &[
+                        // Camera
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: buffer_cache.get(BufferKind::Camera).as_entire_binding(),
+                        },
+                        // GLobals
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: buffer_cache.get(BufferKind::Globals).as_entire_binding(),
+                        },
+                        // Light
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: buffer_cache.get(BufferKind::Light).as_entire_binding(),
+                        },
+                    ],
+                    label: Some("PerFrame Bind Group"),
+                })
+            }
+            // BindgroupKind::LightTexture => {
+            //     let (pixels, width, height) =
+            //         image_decoder::decode_stb_image_rgaba8(LIGHT_BULB_BYTES).unwrap_or_else(|_| {
+            //             let fallback = CpuTexture::white();
+            //             (fallback.pixels, fallback.width, fallback.height)
+            //         });
+            //     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            //         address_mode_u: wgpu::AddressMode::Repeat,
+            //         address_mode_v: wgpu::AddressMode::Repeat,
+            //         address_mode_w: wgpu::AddressMode::Repeat,
+            //         mag_filter: wgpu::FilterMode::Linear,
+            //         min_filter: wgpu::FilterMode::Linear,
+            //         mipmap_filter: wgpu::FilterMode::Linear,
+            //         ..Default::default()
+            //     });
+
+            //     device.create_bind_group(&wgpu::BindGroupDescriptor {
+            //         layout: layouts.get(LayoutKind::LightTexture),
+            //         entries: &[
+            //             wgpu::BindGroupEntry {
+            //                 binding: 0,
+            //                 resource: wgpu::BindingResource::Sampler(&sampler),
+            //             },
+            //             wgpu::BindGroupEntry {
+            //                 binding: 1,
+            //                 resource: wgpu::BindingResource::TextureView(&light_texture.view),
+            //             },
+            //         ],
+            //         label: Some("light texture_bind_group"),
+            //     })
+            // }
+        }
+    }
+}
+
+impl BufferCache {
+    fn create(device: &wgpu::Device, kind: BufferKind) -> wgpu::Buffer {
+        match kind {
+            BufferKind::Camera => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[CameraUniform::default()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }),
+            BufferKind::Globals => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Globals Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[GlobalUniform::default()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }),
+            BufferKind::Axis => {
+                let vertices = axis();
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Lines Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                })
+            }
+            BufferKind::Light => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Light Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[LightUniform::default()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }),
+        }
+    }
 }
