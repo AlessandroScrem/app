@@ -51,7 +51,6 @@ impl From<([f32; 3], [f32; 3])> for BoundingBox {
 }
 
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

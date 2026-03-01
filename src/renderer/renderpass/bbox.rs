@@ -1,17 +1,11 @@
 use super::*;
-use crate::math::*;
-use crate::renderer::bbox_manager::BBoxVertexData;
-
-struct GpuBoxFrame {
-    pub boundingbox: BoundingBoxComponent,
-    pub matrix: Mat4,
-}
+use crate::entities::bounding_box_impl::{BBoxVertexData, VERTICES};
 
 #[derive(Default)]
 pub struct BBoxPass {
     enable: bool,
-    axis_aligned: bool,
-    bboxes: Vec<GpuBoxFrame>,
+    vertexbuffer: Option<wgpu::Buffer>,
+    count: u32,
 }
 
 impl BBoxPass {
@@ -21,25 +15,16 @@ impl BBoxPass {
 }
 
 impl BBoxPass {
-    fn update_to_gpu(&mut self, ctx: &mut RenderContext) {
-        let device = ctx.device;
-        let bbox_mgr = &mut ctx.bbox_mgr;
+    fn create_buffer(&mut self, device: &wgpu::Device, vertices: Vec<BBoxVertexData>) {
+        use wgpu::util::DeviceExt;
+        let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("BBox Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
-        // recreate vertices every frame
-        if self.enable {
-            let vertices = self
-                .bboxes
-                .iter()
-                .map(|b| {
-                    if self.axis_aligned {
-                        b.boundingbox.gen_aabb_vertices()
-                    } else {
-                        b.boundingbox.gen_obb_vertices(&b.matrix)
-                    }
-                })
-                .collect::<Vec<BBoxVertexData>>();
-            bbox_mgr.create_buffer(&device, &vertices);
-        };
+        self.count = (vertices.len() * VERTICES) as u32;
+        self.vertexbuffer = Some(vertexbuffer);
     }
 }
 
@@ -59,20 +44,29 @@ impl RenderPass for BBoxPass {
         _input: &Input,
         ctx: &mut RenderContext,
     ) {
-        self.bboxes.clear();
+        if !globals.axis_enable {
+            return;
+        }
+
         self.enable = globals.bbox_enable;
-        self.axis_aligned = globals.bbox_axis_aligned;
+        let axis_aligned = globals.bbox_axis_aligned;
 
         // -------- BoundingBox --------
         let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
 
-        for (boundingbox, global_model) in bbox_query.iter(world) {
-            self.bboxes.push(GpuBoxFrame {
-                boundingbox: boundingbox.clone(),
-                matrix: global_model.mat,
-            });
-        }
-        self.update_to_gpu(ctx);
+        let vertexdata = bbox_query
+            .iter(world)
+            .map(|(bbox, global_model)| {
+                if axis_aligned {
+                    bbox.gen_aabb_vertices()
+                } else {
+                    bbox.gen_obb_vertices(&global_model.mat)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // create unique vb every pass
+        self.create_buffer(ctx.device, vertexdata);
     }
 
     fn execute(
@@ -81,15 +75,17 @@ impl RenderPass for BBoxPass {
         ctx: &mut RenderContext,
         _asset_mgr: &AssetManager,
     ) {
-        let enable = self.enable;
-
-        if !enable {
+        if !self.enable {
             return;
         }
 
+        let Some(vertexbuffer) = self.vertexbuffer.as_ref() else {
+            return;
+        };
+
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let bbox_mgr = &ctx.bbox_mgr;
+        let count = self.count;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -112,8 +108,6 @@ impl RenderPass for BBoxPass {
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, &gpu_manager.camera_bind_group, &[]);
 
-        let vertexbuffer = &bbox_mgr.get_vertexbuffer();
-        let count = bbox_mgr.get_count();
         renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
         renderpass.draw(0..count, 0..1);
     }

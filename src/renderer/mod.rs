@@ -1,4 +1,3 @@
-pub(crate) mod bbox_manager;
 pub(crate) mod gpu_manager;
 pub(crate) mod gpu_material_cache;
 pub(crate) mod gpu_mesh_cache;
@@ -13,7 +12,6 @@ pub(crate) mod skybox_manager;
 pub(crate) mod texture;
 pub(crate) mod uniform;
 
-pub(crate) use bbox_manager::BBoxManager;
 pub(crate) use gpu_manager::{GpuManager, LayoutKind};
 pub(crate) use hdr_frame::{HdrFrame, ObjectIDTexture};
 pub(crate) use light_manager::LightManager;

@@ -1,5 +1,6 @@
 pub(crate) mod components;
 pub(crate) mod light;
+pub(crate) mod bounding_box_impl;
 
 pub(crate) use components::*;
 

@@ -42,7 +42,6 @@ pub struct RenderContext<'a> {
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
     pub light_mgr: &'a LightManager,
-    pub bbox_mgr: &'a mut BBoxManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
 }
@@ -64,7 +63,6 @@ pub struct Renderer {
     pipeline_mgr: PipelineManager,
     light_mgr: LightManager,
     skybox_mgr: SkyboxManager,
-    bbox_mgr: BBoxManager,
     imgui_render: ImguiRender,
 
     pickobject: PickObject,
@@ -129,7 +127,6 @@ impl Renderer {
 
         let gpu_mgr = GpuManager::new(&device, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
-        let bbox_mgr = BBoxManager::new();
         let pickobject = PickObject::new(&device);
 
         // lightmanager initialization
@@ -177,7 +174,6 @@ impl Renderer {
             pipeline_mgr,
             light_mgr,
             skybox_mgr,
-            bbox_mgr,
             pickobject,
             imgui_render,
             passes,
@@ -340,7 +336,6 @@ impl Renderer {
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
             light_mgr: &self.light_mgr,
-            bbox_mgr: &mut self.bbox_mgr,
             pickobject: &self.pickobject,
             target: &target,
         };
