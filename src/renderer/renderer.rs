@@ -119,7 +119,7 @@ impl Renderer {
         let mut texture_cache = GpuTextureCache::new(&device, &queue);
         texture_cache.upload_textures(&mut asset_mgr.textures, &device, &queue);
 
-        let gpu_mgr = GpuManager::new(&device, size.width, size.height);
+        let gpu_mgr = GpuManager::new(&device, &queue, size.width, size.height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
         let pickobject = PickObject::new(&device);
 

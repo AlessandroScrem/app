@@ -1074,7 +1074,7 @@ mod tests {
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_manager = GpuManager::new(&device, 32, 32);
+        let gpu_manager = GpuManager::new(&device, queue, 32, 32);
         let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr

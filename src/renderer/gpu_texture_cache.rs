@@ -1,5 +1,5 @@
 use crate::{
-    assets::texture_upload::{CpuTexture, UploadPayload, load_cpu_textures_par},
+    assets::texture_upload::{CpuTexture, UploadPayload},
     renderer::texture::GpuTexture,
 };
 

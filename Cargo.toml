@@ -62,3 +62,6 @@ smol = "1.2"
 #
 anyhow = "1.0.99"
 thiserror = "2.0.18"
+
+[build-dependencies]
+image = "0.25.6"
