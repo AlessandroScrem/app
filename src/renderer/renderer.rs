@@ -40,7 +40,6 @@ pub struct RenderContext<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub skb_mgr: &'a SkyboxManager,
-    pub light_mgr: &'a LightManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
 }
@@ -60,7 +59,6 @@ pub struct Renderer {
     _adapter: Adapter,
     gpu_mgr: GpuManager,
     pipeline_mgr: PipelineManager,
-    light_mgr: LightManager,
     skybox_mgr: SkyboxManager,
     imgui_render: ImguiRender,
 
@@ -123,14 +121,9 @@ impl Renderer {
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, surface_config.format);
         let pickobject = PickObject::new(&device);
 
-        // lightmanager initialization
-        let light_icon_id = TextureId::light_bulb(&asset_mgr.textures);
-        let light_icon_texture = texture_cache.get_or_fallback(light_icon_id, &device, &queue);
-        let light_mgr = LightManager::new(&light_icon_texture, &gpu_mgr, &device);
-
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
-        let hdr = texture_cache.get_or_fallback(hdr_id, &device, &queue);
+        let hdr = texture_cache.get_or_fallback(hdr_id, /* &device, &queue */);
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
         // -----
 
@@ -168,7 +161,6 @@ impl Renderer {
             surface_config,
             gpu_mgr,
             pipeline_mgr,
-            light_mgr,
             skybox_mgr,
             pickobject,
             imgui_render,
@@ -246,22 +238,20 @@ impl Renderer {
 
     fn sync_caches(&mut self, asset_mgr: &AssetManager) {
         // Sync cleanup
+
         self.gpu_cache.mesh.retain(&asset_mgr.meshes);
         self.gpu_cache.material.retain(&asset_mgr.materials);
         self.gpu_cache.textures.retain(&asset_mgr.textures);
-
+        
+        // Sync Textures: are already on sync after upload, or fallback
+        
         // Sync Meshes
         for (id, _value) in asset_mgr.meshes.iter() {
             self.gpu_cache
                 .mesh
                 .ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &self.device);
         }
-        // Sync Textures
-        for (id, _asset) in asset_mgr.textures.iter() {
-            self.gpu_cache
-                .textures
-                .ensure(id, &self.device, &self.queue);
-        }
+
         // Sync Materials (crate also textures)
         for (id, _value) in asset_mgr.materials.iter() {
             self.gpu_cache.material.ensure(
@@ -270,7 +260,6 @@ impl Renderer {
                 &asset_mgr,
                 &self.gpu_mgr,
                 &self.device,
-                &self.queue,
             );
         }
     }
@@ -279,8 +268,8 @@ impl Renderer {
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
             let hdr_texture = self.gpu_cache.textures.get_or_fallback(
                 asset_mgr.skybox.get_id(),
-                &self.device,
-                &self.queue,
+                // &self.device,
+                // &self.queue,
             );
             self.skybox_mgr.update_skybox(
                 asset_mgr.skybox.get_id(),
@@ -327,7 +316,6 @@ impl Renderer {
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
             skb_mgr: &self.skybox_mgr,
-            light_mgr: &self.light_mgr,
             pickobject: &self.pickobject,
             target: &target,
         };

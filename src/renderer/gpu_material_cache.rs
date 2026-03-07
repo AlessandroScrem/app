@@ -35,11 +35,10 @@ impl GpuMaterialCache {
         assets: &AssetManager,
         gpu_mgr: &GpuManager,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
     ) {
         if !self.map.contains_key(id) {
             let value =
-                Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device, queue);
+                Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device);
             self.map.insert(id, value);
             self.stats.add(GpuMaterial::estimated_size());
         }
@@ -77,14 +76,12 @@ impl GpuMaterialCache {
         asset_manager: &AssetManager,
         gpu_manager: &GpuManager,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
     ) -> GpuMaterial {
         let material_desc = asset_manager.materials.get_desc(material_id).unwrap();
         let uniform_buffer = create_uniform_from_desc(device, material_desc);
 
         let bindgroup = create_bindgroup_from_desc(
             device,
-            queue,
             asset_manager,
             texture_cache,
             material_desc,
@@ -120,7 +117,6 @@ fn resolve_texture_id(
 
 fn create_bindgroup_from_desc(
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
     asset_manager: &AssetManager,
     texture_cache: &mut GpuTextureCache,
     material_desc: &MaterialDesc,
@@ -146,11 +142,6 @@ fn create_bindgroup_from_desc(
     let emissive_id = resolve_texture_id(Emissive, material_desc, &asset_manager.textures);
     let occlusion_id = resolve_texture_id(Occlusion, material_desc, &asset_manager.textures);
 
-    texture_cache.ensure(base_id, device, queue);
-    texture_cache.ensure(normal_id, device, queue);
-    texture_cache.ensure(met_rough_id, device, queue);
-    texture_cache.ensure(emissive_id, device, queue);
-    texture_cache.ensure(occlusion_id, device, queue);
 
     let base_view = texture_cache.view(base_id);
     let normal_view = texture_cache.view(normal_id);

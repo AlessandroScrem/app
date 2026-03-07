@@ -61,7 +61,6 @@ impl RenderPass for LightPass {
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let light_manager = ctx.light_mgr;
         let lights = &self.lights;
 
         // Render pass
@@ -88,10 +87,11 @@ impl RenderPass for LightPass {
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
+        let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
 
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(1, &light_manager.light_texture_bind_group, &[]);
+        renderpass.set_bind_group(1, light_texture_bind_group, &[]);
 
         for _light in lights.iter() {
             renderpass.draw(0..6, 0..1);

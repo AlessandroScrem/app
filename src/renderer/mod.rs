@@ -3,16 +3,15 @@ pub(crate) mod gpu_material_cache;
 pub(crate) mod gpu_mesh_cache;
 pub(crate) mod gpu_texture_cache;
 pub(crate) mod imgui_renderer;
-pub(crate) mod light_manager;
 pub(crate) mod pipeline_manager;
 pub(crate) mod renderer;
 pub(crate) mod renderpass;
 pub(crate) mod skybox_manager;
 pub(crate) mod texture;
 pub(crate) mod uniform;
+pub(crate) mod static_textures;
 
 pub(crate) use gpu_manager::{GpuManager, LayoutKind};
-pub(crate) use light_manager::LightManager;
 pub(crate) use pipeline_manager::PipelineManager;
 pub(crate) use skybox_manager::SkyboxManager;
 
@@ -24,6 +23,7 @@ pub(crate) use imgui_renderer::{ImguiRender, UiTexture, UiTextureResolver};
 pub(crate) use texture::GpuTexture;
 
 pub use renderer::Renderer;
+pub use static_textures::*;
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform, MaterialUniform, ModelUniform};
 
 pub trait InternalCounter {

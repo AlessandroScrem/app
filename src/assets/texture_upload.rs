@@ -13,7 +13,7 @@ use super::image_decoder::{
 
 
 #[derive(Clone)]
-pub struct CpuTexture {
+pub struct TextureData {
     pub width: u32,
     pub height: u32,
     pub pixels: Vec<u8>,
@@ -21,7 +21,7 @@ pub struct CpuTexture {
 }
 
 /// --- White texture 1x1 RGBA8 
-impl CpuTexture {
+impl TextureData {
     pub fn white() -> Self {
         Self {
             width: 1,
@@ -37,7 +37,7 @@ impl CpuTexture {
 }
 
 pub enum UploadPayload {
-    Ready(CpuTexture),
+    Ready(TextureData),
     Fallback,
 }
 
@@ -99,7 +99,7 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
         ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
     };
 
-    Ok(UploadPayload::Ready(CpuTexture {
+    Ok(UploadPayload::Ready(TextureData {
         format: color_space.clone(),
         width,
         height,

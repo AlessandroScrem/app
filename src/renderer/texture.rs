@@ -1,41 +1,72 @@
+use super::static_textures::StaticTexture;
 use crate::{
-    assets::texture_upload::{CpuTexture, UploadPayload},
+    assets::texture_upload::TextureData,
     prelude::*,
 };
 use std::sync::Arc;
-use wgpu::{TextureAspect, TextureDimension, TextureFormat, TextureUsages};
+use wgpu::TextureFormat;
 
-pub struct GpuTexture {
-    pub inner: Arc<wgpu::Texture>,
-    pub view: Arc<wgpu::TextureView>,
-    pub extent: wgpu::Extent3d,
-    pub _format: TextureFormat,
-    pub estimated_size: usize, 
+pub enum TextureSource<'a> {
+    Cpu(TextureData),
+    Static(&'a StaticTexture),
 }
 
-impl GpuTexture {
-    pub fn from_cpu(payload: UploadPayload, device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        match payload {
-            UploadPayload::Ready(cpu) => Self::from_cpu_texture(device, queue, cpu),
-            UploadPayload::Fallback => Self::white_texture(device, queue),
+pub struct GpuTextureBuilder<'a> {
+    source: TextureSource<'a>,
+    sampler: Option<wgpu::SamplerDescriptor<'a>>,
+    label: Option<&'a str>,
+}
+
+impl<'a> GpuTextureBuilder<'a> {
+    fn from_source(source: TextureSource<'a>) -> Self {
+        Self {
+            source,
+            sampler: None,
+            label: None,
         }
     }
 
-    pub fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        Self::from_cpu_texture(&device, &queue, CpuTexture::white())
+    pub fn from_cpu(data: TextureData) -> GpuTextureBuilder<'static> {
+        GpuTextureBuilder {
+            source: TextureSource::Cpu(data),
+            label: None,
+            sampler: None,
+        }
     }
 
-    pub fn from_cpu_texture(device: &wgpu::Device, queue: &wgpu::Queue, cpu_data: CpuTexture) -> Self {
-        let width = cpu_data.width;
-        let height = cpu_data.height;
-        let format = wgpu::TextureFormat::from(cpu_data.format);
-        let pixels = &cpu_data.pixels;
+    pub fn from_static(tex: &'static StaticTexture) -> GpuTextureBuilder<'static> {
+        GpuTextureBuilder {
+            source: TextureSource::Static(tex),
+            label: None,
+            sampler: None,
+        }
+    }
 
-        let pixel_size = match cpu_data.format {
+    pub fn label(mut self, label: &'a str) -> Self {
+        self.label = Some(label);
+        self
+    }
+
+    pub fn sampler(mut self, sampler: wgpu::SamplerDescriptor<'a>) -> Self {
+        self.sampler = Some(sampler);
+        self
+    }
+}
+
+impl<'a> GpuTextureBuilder<'a> {
+    pub fn build(self, device: &wgpu::Device, queue: &wgpu::Queue) -> GpuTexture {
+        let (width, height, pixels, format) = match self.source {
+            TextureSource::Cpu(data) => (data.width, data.height, data.pixels, data.format),
+            TextureSource::Static(tex) => (tex.width, tex.height, tex.pixels.to_vec(), tex.format),
+        };
+
+        let pixel_size = match format {
             assets::ColorSpace::Rgba8 | assets::ColorSpace::Srgba8 => 4,
             assets::ColorSpace::Rgbaf16 => 8,
             assets::ColorSpace::Rgbaf32 => 16,
         };
+
+        let format = wgpu::TextureFormat::from(format);
 
         let extent = wgpu::Extent3d {
             width,
@@ -44,24 +75,21 @@ impl GpuTexture {
         };
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
+            label: self.label,
             size: extent,
             mip_level_count: 1,
             sample_count: 1,
-            dimension: TextureDimension::D2,
+            dimension: wgpu::TextureDimension::D2,
             format,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
+
         queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                aspect: TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
+            texture.as_image_copy(),
             &pixels,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
@@ -71,10 +99,14 @@ impl GpuTexture {
             extent,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        // let sampler = device.create_sampler(
+        //     &self.sampler.unwrap_or(wgpu::SamplerDescriptor::default())
+        // );
+
+        let view = texture.create_view(&Default::default());
         let estimated_size = pixels.len();
 
-        Self {
+        GpuTexture {
             extent,
             inner: Arc::new(texture),
             view: Arc::new(view),
@@ -82,4 +114,12 @@ impl GpuTexture {
             estimated_size,
         }
     }
+}
+
+pub struct GpuTexture {
+    pub inner: Arc<wgpu::Texture>,
+    pub view: Arc<wgpu::TextureView>,
+    pub extent: wgpu::Extent3d,
+    pub _format: TextureFormat,
+    pub estimated_size: usize,
 }

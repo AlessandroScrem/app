@@ -23,19 +23,19 @@ fn main() {
         let data = img.into_raw();
 
         output.push_str(&format!(
-            "pub const {name}_WIDTH: u32 = {w};\n",
+            "const {name}_WIDTH: u32 = {w};\n",
             name = var_name,
             w = width
         ));
 
         output.push_str(&format!(
-            "pub const {name}_HEIGHT: u32 = {h};\n",
+            "const {name}_HEIGHT: u32 = {h};\n",
             name = var_name,
             h = height
         ));
 
         output.push_str(&format!(
-            "pub const {name}: &[u8] = &[\n",
+            "const {name}: &[u8] = &[\n",
             name = var_name
         ));
 

@@ -1,24 +1,13 @@
-use slotmap::KeyData;
-
-use crate::assets::texture_upload::{CpuTexture, TextureUploadSource, UploadPayload};
+use crate::assets::texture_upload::{TextureData, TextureUploadSource, UploadPayload};
 
 use super::*;
 use std::cell::Cell;
 
-pub const LIGHT_BULB_PATH: &'static str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/assets/core/lightbulb-icon32.png"
-);
 
 impl TextureId {
     #[allow(dead_code)]
     pub fn white(assets: &TextureAssets) -> TextureId {
         assets.white()
-    }
-
-    #[allow(dead_code)]
-    pub fn light_bulb(assets: &TextureAssets) -> TextureId {
-        assets.light_bulb
     }
 }
 
@@ -126,8 +115,8 @@ pub struct TextureInfo {
     pub byte_size: usize,
 }
 
-impl From<&CpuTexture> for TextureInfo {
-    fn from(value: &CpuTexture) -> Self {
+impl From<&TextureData> for TextureInfo {
+    fn from(value: &TextureData) -> Self {
         Self {
             width: value.width,
             height: value.height,
@@ -174,7 +163,6 @@ pub struct TextureAssets {
     storage: SlotMap<TextureId, TextureAsset>,
     lookup: HashMap<TextureKey, TextureId>,
     white: TextureId,
-    light_bulb: TextureId,
     dirty_textures: Vec<(TextureId, UploadPayload)>,
     stats: ResourceStats,
 }
@@ -193,7 +181,7 @@ impl Default for TextureAssets {
 
 
         // add white texture
-        let white_cpu = CpuTexture::white();
+        let white_cpu = TextureData::white();
         let white_id = storage.insert(TextureAsset {
             state: TextureState::CpuReady(TextureInfo::from(&white_cpu)),
             desc: None,
@@ -211,11 +199,7 @@ impl Default for TextureAssets {
             white: white_id,
             dirty_textures,
             stats,
-            light_bulb: TextureId(KeyData::default()),
         };
-
-        let light_bulb_id = asset.from_file(LIGHT_BULB_PATH, TextureUsage::Emissive);
-        asset.light_bulb = light_bulb_id;
         
         asset.load_cpu_textures();
 
@@ -378,15 +362,6 @@ mod tests {
         let texture_assets = TextureAssets::new();
 
         let id = TextureId::white(&texture_assets);
-
-        assert!(texture_assets.contains_key(id))
-    }
-
-    #[test]
-    fn should_contain_light_bulb_texture_id() {
-        let texture_assets = TextureAssets::new();
-
-        let id = TextureId::light_bulb(&texture_assets);
 
         assert!(texture_assets.contains_key(id))
     }

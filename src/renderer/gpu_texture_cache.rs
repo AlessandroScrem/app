@@ -1,6 +1,6 @@
 use crate::{
-    assets::texture_upload::{CpuTexture, UploadPayload},
-    renderer::texture::GpuTexture,
+    assets::texture_upload::UploadPayload,
+    renderer::texture::{GpuTexture, GpuTextureBuilder},
 };
 
 use super::*;
@@ -11,12 +11,44 @@ use wgpu::{Device, Queue};
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum TextureSlot {
-    LightIcon,
+    White,
+    Normal,
+}
+
+struct GpuBuiltinTextures {
+    builtin: Vec<GpuTexture>,
+}
+
+impl GpuBuiltinTextures {
+    fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        let builtin: Vec<GpuTexture> = TextureSlot::iter()
+            .map(|slot| Self::create(device, queue, slot))
+            .collect();
+
+        Self { builtin }
+    }
+
+    fn get(&self, slot: TextureSlot) -> &GpuTexture {
+        &self.builtin[slot as usize]
+    }
+
+    fn create(device: &Device, queue: &Queue, slot: TextureSlot) -> GpuTexture {
+        match slot {
+            TextureSlot::White => {
+                GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .build(device, queue)
+            }
+            TextureSlot::Normal => {
+                GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE)
+                    .build(device, queue)
+            }
+        }
+    }
 }
 
 pub struct GpuTextureCache {
     map: SecondaryMap<TextureId, GpuTexture>,
-    builtin: Vec<GpuTexture>,
+    builtin: GpuBuiltinTextures,
     stats: GpuResourceStats,
 }
 
@@ -27,9 +59,7 @@ impl HasGpuStats for GpuTextureCache {
 }
 impl GpuTextureCache {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let builtin: Vec<GpuTexture> = TextureSlot::iter()
-            .map(|slot| Self::create_builtin(device, queue, slot))
-            .collect();
+        let builtin = GpuBuiltinTextures::new(device, queue);
 
         Self {
             map: SecondaryMap::new(),
@@ -37,36 +67,27 @@ impl GpuTextureCache {
             builtin,
         }
     }
-    pub fn get_builtin(&self, slot: TextureSlot) -> &GpuTexture {
-        &self.builtin[slot as usize]
+
+    pub fn get_or_fallback(&self, id: TextureId) -> &GpuTexture {
+        self.map
+            .get(id)
+            .unwrap_or(self.builtin.get(TextureSlot::White))
     }
 
-    pub fn get_or_fallback(
-        &mut self,
-        id: TextureId,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> &GpuTexture {
-        self.map.entry(id).unwrap().or_insert_with(|| {
-            info!("GpuTextureCache create Fallback Texture with id {:?}", id);
-            let texture = GpuTexture::white_texture(device, queue);
-            self.stats.add(texture.estimated_size);
-            texture
-        })
-    }
-
-    pub fn create_from_cpu(
+    fn create_from_cpu(
         &mut self,
         id: TextureId,
         payload: UploadPayload,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> &GpuTexture {
-        self.map.entry(id).unwrap().or_insert_with(|| {
-            let texture = GpuTexture::from_cpu(payload, device, queue);
-            self.stats.add(texture.estimated_size);
-            texture
-        })
+    ) {
+        match payload {
+            UploadPayload::Ready(data) => {
+                let texture = GpuTextureBuilder::from_cpu(data).build(device, queue);
+                self.map.insert(id, texture);
+            }
+            UploadPayload::Fallback => {}
+        }
     }
 
     pub fn retain(&mut self, assets: &TextureAssets) {
@@ -84,15 +105,11 @@ impl GpuTextureCache {
     }
 
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
-        &self.map.get(id).expect("unable to get texture").view
+        &self.get_or_fallback(id).view
     }
 
     pub fn contains_key(&self, id: &TextureId) -> bool {
         self.map.contains_key(*id)
-    }
-
-    pub fn ensure(&mut self, id: TextureId, device: &wgpu::Device, queue: &wgpu::Queue) {
-        self.get_or_fallback(id, device, queue);
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
@@ -127,36 +144,6 @@ impl From<ColorSpace> for wgpu::TextureFormat {
     }
 }
 
-impl GpuTextureCache {
-    fn create_builtin(device: &Device, queue: &Queue, slot: TextureSlot) -> GpuTexture {
-        match slot {
-            TextureSlot::LightIcon => {
-                static LIGHT_BULB_BYTES: &[u8] = include_bytes!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/assets/core/lightbulb-icon32.png"
-                ));
-                let (pixels, width, height) = image_decoder::decode_stb_image_rgaba8(
-                    &LIGHT_BULB_BYTES,
-                )
-                .unwrap_or_else(|_| {
-                    (
-                        CpuTexture::white().pixels,
-                        CpuTexture::white().width,
-                        CpuTexture::white().height,
-                    )
-                });
-                let cpu_data = CpuTexture {
-                    pixels,
-                    width,
-                    height,
-                    format: ColorSpace::Rgba8,
-                };
-                GpuTexture::from_cpu_texture(device, queue, cpu_data)
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,7 +166,7 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let mut gpu_texture_cache = GpuTextureCache::new(device, queue);
         let mut texture_assets = TextureAssets::new();
-        
+
         let key = TextureKey::File {
             path: HDR_PATH.into(),
             color_space: ColorSpace::Rgbaf32,
@@ -190,23 +177,40 @@ mod tests {
             sampler: SamplerDesc::Linear,
             mipmaps: false,
         };
-        
+
         let texture_id = texture_assets.get_or_create(desc);
-        
+
         texture_assets.load_cpu_textures();
         gpu_texture_cache.upload_textures(&mut texture_assets, device, queue);
-        
+
         assert!(gpu_texture_cache.map.contains_key(texture_id));
     }
-    
+
     #[test]
     fn should_contain_builtin() {
         let (device, queue) = test_utils::get_device_and_queue();
         let gpu_texture_cache = GpuTextureCache::new(&device, &queue);
 
-        let _texture = gpu_texture_cache.get_builtin(TextureSlot::LightIcon);
+        let _fallback_texture = gpu_texture_cache.get_or_fallback(TextureId::default());
 
         #[cfg(feature = "save_tests")]
-        test_utils::save_texture(device, queue, "texture.png", &_texture.inner, 0).unwrap()
+        {
+            test_utils::save_texture(
+                device,
+                queue,
+                "fallback_texture.png",
+                &_fallback_texture.inner,
+                0,
+            )
+            .unwrap();
+            test_utils::save_texture(
+                device,
+                queue,
+                "fallback_texture.png",
+                &_fallback_texture.inner,
+                0,
+            )
+            .unwrap();
+        }
     }
 }

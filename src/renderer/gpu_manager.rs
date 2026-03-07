@@ -8,6 +8,7 @@ use strum_macros::EnumIter;
 
 use super::*;
 use crate::assets::vertexdata::LinesVertexData;
+use crate::renderer::texture::GpuTextureBuilder;
 
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];
@@ -100,7 +101,7 @@ impl FramebufferCache {
 pub enum BindgroupKind {
     Camera,
     Perframe,
-    // LightTexture,
+    LightTexture,
 }
 
 struct BindgroupCache {
@@ -108,9 +109,14 @@ struct BindgroupCache {
 }
 
 impl BindgroupCache {
-    fn new(device: &wgpu::Device, buffer_cache: &BufferCache, layouts: &LayoutCache) -> Self {
+    fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        buffer_cache: &BufferCache,
+        layouts: &LayoutCache,
+    ) -> Self {
         let bg: Vec<wgpu::BindGroup> = BindgroupKind::iter()
-            .map(|kind| Self::create(device, buffer_cache, layouts, kind))
+            .map(|kind| Self::create(device, queue, buffer_cache, layouts, kind))
             .collect();
         Self { bg }
     }
@@ -149,7 +155,6 @@ pub struct GpuManager {
     framebuffer_cache: FramebufferCache,
     buffer_cache: BufferCache,
     bindgroup_cache: BindgroupCache,
-    static_textures: StaticTextures,
 }
 
 impl GpuManager {
@@ -157,15 +162,13 @@ impl GpuManager {
         let layout_cache = LayoutCache::new(device);
         let buffer_cache = BufferCache::new(device);
         let framebuffer_cache = FramebufferCache::new(device, &layout_cache, width, height);
-        let bindgroup_cache = BindgroupCache::new(device, &buffer_cache, &layout_cache);
-        let static_textures = StaticTextures::new(device, queue);
+        let bindgroup_cache = BindgroupCache::new(device, queue, &buffer_cache, &layout_cache);
 
         Self {
             layout_cache,
             framebuffer_cache,
             buffer_cache,
             bindgroup_cache,
-            static_textures,
         }
     }
 
@@ -749,6 +752,7 @@ impl FramebufferCache {
 impl BindgroupCache {
     fn create(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         buffer_cache: &BufferCache,
         layouts: &LayoutCache,
         kind: BindgroupKind,
@@ -784,37 +788,35 @@ impl BindgroupCache {
                     ],
                     label: Some("PerFrame Bind Group"),
                 })
-            } // BindgroupKind::LightTexture => {
-              //     let (pixels, width, height) =
-              //         image_decoder::decode_stb_image_rgaba8(LIGHT_BULB_BYTES).unwrap_or_else(|_| {
-              //             let fallback = CpuTexture::white();
-              //             (fallback.pixels, fallback.width, fallback.height)
-              //         });
-              //     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-              //         address_mode_u: wgpu::AddressMode::Repeat,
-              //         address_mode_v: wgpu::AddressMode::Repeat,
-              //         address_mode_w: wgpu::AddressMode::Repeat,
-              //         mag_filter: wgpu::FilterMode::Linear,
-              //         min_filter: wgpu::FilterMode::Linear,
-              //         mipmap_filter: wgpu::FilterMode::Linear,
-              //         ..Default::default()
-              //     });
+            }
+            BindgroupKind::LightTexture => {
+                let texture = GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                .build(device, queue);
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::Repeat,
+                    address_mode_v: wgpu::AddressMode::Repeat,
+                    address_mode_w: wgpu::AddressMode::Repeat,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
 
-              //     device.create_bind_group(&wgpu::BindGroupDescriptor {
-              //         layout: layouts.get(LayoutKind::LightTexture),
-              //         entries: &[
-              //             wgpu::BindGroupEntry {
-              //                 binding: 0,
-              //                 resource: wgpu::BindingResource::Sampler(&sampler),
-              //             },
-              //             wgpu::BindGroupEntry {
-              //                 binding: 1,
-              //                 resource: wgpu::BindingResource::TextureView(&light_texture.view),
-              //             },
-              //         ],
-              //         label: Some("light texture_bind_group"),
-              //     })
-              // }
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: layouts.get(LayoutKind::LightTexture),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                        },
+                    ],
+                    label: Some("light texture_bind_group"),
+                })
+            }
         }
     }
 }
@@ -849,96 +851,18 @@ impl BufferCache {
     }
 }
 
-// Include del file generato da build.rs
-include!(concat!(env!("OUT_DIR"), "/static_textures.rs"));
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-// Esempio helper per creare tutte le texture statiche
-pub struct StaticTextures {
-    pub white: wgpu::Texture,
-    pub lightbulb: wgpu::Texture,
-    pub normal: wgpu::Texture,
-}
+//     #[test]
+//     fn should_contain_static_textures() {
+//         let (device, queue) = test_utils::get_device_and_queue();
+//         let gpu_mgr = GpuManager::new(&device, &queue, 32, 32);
 
-impl StaticTextures {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let white = create_static_texture(
-            device,
-            queue,
-            WHITE_TEXTURE_WIDTH,
-            WHITE_TEXTURE_HEIGHT,
-            WHITE_TEXTURE,
-            "white",
-        );
+//         let _texture = gpu_mgr.static_textures.lightbulb;
 
-        let black = create_static_texture(
-            device,
-            queue,
-            LIGHTBULB_TEXTURE_WIDTH,
-            LIGHTBULB_TEXTURE_HEIGHT,
-            LIGHTBULB_TEXTURE,
-            "lightbulb",
-        );
-
-        let normal = create_static_texture(
-            device,
-            queue,
-            NORMAL_TEXTURE_WIDTH,
-            NORMAL_TEXTURE_HEIGHT,
-            NORMAL_TEXTURE,
-            "normal",
-        );
-
-        Self {
-            white,
-            lightbulb: black,
-            normal,
-        }
-    }
-}
-
-fn create_static_texture(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    width: u32,
-    height: u32,
-    data: &[u8],
-    label: &str,
-) -> wgpu::Texture {
-    device.create_texture_with_data(
-        queue,
-        &wgpu::TextureDescriptor {
-            label: Some(label),
-            size: wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST
-                | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        },
-        wgpu::wgt::TextureDataOrder::LayerMajor,
-        data,
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_contain_static_textures() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_mgr = GpuManager::new(&device, &queue, 32, 32);
-
-        let _texture = gpu_mgr.static_textures.lightbulb;
-
-        // #[cfg(feature = "save_tests")]
-        test_utils::save_texture(device, queue, "texture.png", &_texture, 0).unwrap()
-    }
-}
+//         // #[cfg(feature = "save_tests")]
+//         test_utils::save_texture(device, queue, "texture.png", &_texture, 0).unwrap()
+//     }
+// }
