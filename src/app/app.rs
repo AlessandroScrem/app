@@ -26,7 +26,7 @@ impl App {
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};
         if input.is_cursor_moved() {
-            self.hovered = renderer.get_hovered();
+            self.hovered = renderer.get_hovered(&runtime.gpu_context);
         }
 
         if input.is_mouse_button_pressed(MouseButton::Left)

@@ -3,6 +3,7 @@ use super::*;
 use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
+use crate::assets::TextureId;
 
 #[allow(dead_code)]
 pub enum UiTexture {
@@ -95,6 +96,15 @@ impl ImguiRender {
             Err(e) => {
                 error!("Imgui Render failed: {:?}", e);
             }
+        }
+    }
+}
+
+impl UiTextureResolver for ImguiRender {
+    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
+        match tex {
+            UiTexture::Engine(id) => self.registry.ids.get(&id).cloned(),
+            UiTexture::Builtin(id) => Some(id),
         }
     }
 }

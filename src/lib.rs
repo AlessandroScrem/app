@@ -16,6 +16,7 @@ pub(crate) mod timestep;
 mod transform;
 pub(crate) mod ui;
 pub(crate) mod error;
+pub(crate) mod  gpu;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,

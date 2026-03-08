@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use winit::{event::Event, window::Window};
-use super::{RuntimeEvent};
-use crate::app::Application;
+use super::RuntimeEvent;
 use crate::Renderer;
 use crate::UiLayer;
+use crate::app::Application;
 use crate::input::Input;
 use crate::prelude::*;
+use winit::{event::Event, window::Window};
+use crate::gpu::{GpuContext, GpuSurface, ImguiRender};
 
 pub struct RunningApp {
     pub window: Arc<Window>,
@@ -16,6 +17,9 @@ pub struct RunningApp {
     pub timer: Timer,
     pub input: Input,
     pub events: Vec<RuntimeEvent>,
+    pub gpu_context: GpuContext,
+    pub gpu_surface: GpuSurface,
+    pub imgui_render: ImguiRender,
 }
 
 impl RunningApp {
@@ -53,12 +57,13 @@ impl RunningApp {
         self.input.clear();
     }
 
-    fn handle_runtime_event<A:Application>(&mut self, app: &mut A, event: RuntimeEvent) {
+    fn handle_runtime_event<A: Application>(&mut self, app: &mut A, event: RuntimeEvent) {
         match event {
             RuntimeEvent::Resize { width, height } => {
                 if width > 0 && height > 0 {
                     self.is_minimized = false;
-                    self.renderer.resize_frame(width, height);
+                    self.renderer.resize_frame(&self.gpu_context.device, width, height);
+                    self.gpu_surface.resize_frame(&self.gpu_context.device, width, height);
                     app.on_resize(width, height);
                 } else {
                     self.is_minimized = true;
@@ -69,5 +74,4 @@ impl RunningApp {
             }
         }
     }
-    
 }

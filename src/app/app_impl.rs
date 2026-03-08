@@ -45,14 +45,14 @@ impl Application for App {
         self.asset_mgr.textures.load_cpu_textures();
 
         // upload texture from cpu data to gpu 
-        runtime.renderer.upload_textures(&mut self.asset_mgr.textures);
+        runtime.renderer.upload_textures(&runtime.gpu_context, &mut self.asset_mgr.textures);
 
 
         // Esegue `callback` ogni secondo , in base al clock interno.
         runtime
             .timer
             .trigger_every(std::time::Duration::from_secs(1), || {
-                runtime.renderer.sync_imgui_texture();
+                runtime.renderer.sync_imgui_texture(&runtime.gpu_context, &mut runtime.imgui_render);
                 debug!("Sync_with_registry: ");
             });
 
@@ -68,6 +68,8 @@ impl Application for App {
     }
     fn render(&mut self, runtime: &mut RunningApp) {
         runtime.renderer.render(
+            &runtime.gpu_context,
+            &runtime.gpu_surface,
             &self.asset_mgr,
             &self.current_scene.world,
             &mut self.resources,
@@ -76,6 +78,7 @@ impl Application for App {
             self.selected,
             &runtime.input,
             runtime.uilayer.get_draw_data(),
+            &mut runtime.imgui_render,
         );
     }
     fn on_close(&mut self) {

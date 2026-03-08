@@ -1,13 +1,14 @@
-use std::sync::Arc;
-
-use winit::window::WindowAttributes;
-use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
-use crate::input::Input;
 use crate::prelude::*;
 
-use crate::app::{Application, HasAssetMgr};
-use super::{RunningApp};
+use crate::input::Input;
+use std::sync::Arc;
+use winit::window::WindowAttributes;
+use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
+
+use super::RunningApp;
 use super::winit_bridge::CenterWindow;
+use crate::app::{Application, HasAssetMgr};
+use crate::gpu::{GpuContext, GpuSurface, ImguiRender};
 
 #[derive(Default)]
 pub struct Engine<A: Application> {
@@ -15,8 +16,8 @@ pub struct Engine<A: Application> {
     pub runtime: Option<RunningApp>,
 }
 
-impl <A: Application + HasAssetMgr> Engine<A> {
-    pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32> ) {
+impl<A: Application + HasAssetMgr> Engine<A> {
+    pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) {
         if self.runtime.is_some() {
             return;
         };
@@ -40,11 +41,28 @@ impl <A: Application + HasAssetMgr> Engine<A> {
         self.app.init();
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
-        let mut context = imgui::Context::create();
+        let mut imgui_context = imgui::Context::create();
         let asset_mgr = self.app.asset_mgr_mut();
-        let renderer = Renderer::new(window.clone(), &mut context, asset_mgr);
-        let adapter_string = renderer.get_adapter_string();
-        let uilayer = UiLayer::new(&window, context, adapter_string);
+
+        // gpu resources
+        let gpu_context = GpuContext::default();
+        let gpu_surface = GpuSurface::new(
+            gpu_context.adapter(),
+            gpu_context.instance(),
+            window.clone(),
+        );
+        let imgui_render = ImguiRender::new(
+            &gpu_context.device,
+            &gpu_context.queue,
+            &window,
+            &mut imgui_context,
+            gpu_surface.get_config().format,
+        );
+
+        let renderer = Renderer::new(&gpu_context, &gpu_surface, asset_mgr);
+
+        let adapter_string = gpu_context.get_adapter_string();
+        let uilayer = UiLayer::new(&window, imgui_context, adapter_string);
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
@@ -56,9 +74,11 @@ impl <A: Application + HasAssetMgr> Engine<A> {
             is_minimized: false,
             timer: Timer::new(),
             events: Vec::new(),
+            gpu_context,
+            gpu_surface,
+            imgui_render
         });
 
         window.request_redraw();
-
     }
 }

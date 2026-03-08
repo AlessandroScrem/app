@@ -7,7 +7,6 @@ use crate::{
     BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
     TransformComponent,
     assets::MaterialDesc,
-    renderer::{UiTexture, UiTextureResolver},
 };
 
 pub struct PropertyUi {}
