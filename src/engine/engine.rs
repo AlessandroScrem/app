@@ -8,7 +8,8 @@ use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
-use crate::gpu::{GpuContext, GpuSurface, ImguiRender};
+use crate::gpu::{GpuContext, GpuSurface};
+use crate::renderer::ImguiRender;
 
 #[derive(Default)]
 pub struct Engine<A: Application> {
@@ -22,29 +23,24 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             return;
         };
 
-        let timer = std::time::Instant::now();
-        debug!("App resumed after  {} ms", timer.elapsed().as_millis());
+        debug!("App resumed");
 
-        let window = {
-            let wnd = event_loop
-                .create_window(
-                    WindowAttributes::default()
-                        .with_inner_size(size)
-                        .with_title("App"),
-                )
-                .map(|w| w.try_fit_center_to_monitor())
-                .expect("Failed to crate window");
+        let attrs = WindowAttributes::default()
+            .with_inner_size(size)
+            .with_title("App");
 
-            Arc::new(wnd)
-        };
+        let window = Arc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("Failed to create window")
+                .try_fit_center_to_monitor(),
+        );
 
         self.app.init();
-        debug!("App initialized in {} ms", timer.elapsed().as_millis());
 
-        let mut imgui_context = imgui::Context::create();
-        let asset_mgr = self.app.asset_mgr_mut();
-
+        
         // gpu resources
+        let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
         let gpu_surface = GpuSurface::new(
             gpu_context.adapter(),
@@ -58,13 +54,11 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &mut imgui_context,
             gpu_surface.get_config().format,
         );
-
+        // 
+        
+        let asset_mgr = self.app.asset_mgr_mut();
         let renderer = Renderer::new(&gpu_context, &gpu_surface, asset_mgr);
-
-        let adapter_string = gpu_context.get_adapter_string();
-        let uilayer = UiLayer::new(&window, imgui_context, adapter_string);
-
-        debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
+        let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
@@ -76,7 +70,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             events: Vec::new(),
             gpu_context,
             gpu_surface,
-            imgui_render
+            imgui_render,
         });
 
         window.request_redraw();

@@ -64,6 +64,7 @@ impl ImguiRender {
 
         Self { renderer, registry }
     }
+
     pub fn render(
         &mut self,
         draw_data: &imgui::DrawData,

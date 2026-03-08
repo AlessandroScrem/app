@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::Renderer;
 use crate::UiLayer;
 use crate::app::Application;
 use crate::input::Input;
 use crate::prelude::*;
 use winit::{event::Event, window::Window};
-use crate::gpu::{GpuContext, GpuSurface, ImguiRender};
+use crate::gpu::{GpuContext, GpuSurface};
+use crate::renderer::{Renderer, ImguiRender};
 
 pub struct RunningApp {
     pub window: Arc<Window>,

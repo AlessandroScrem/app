@@ -9,6 +9,7 @@ pub(crate) mod skybox_manager;
 pub(crate) mod texture;
 pub(crate) mod uniform;
 pub(crate) mod static_textures;
+pub (crate) mod imgui_renderer;
 
 pub(crate) use gpu_manager::{GpuManager, LayoutKind};
 pub(crate) use pipeline_manager::PipelineManager;
@@ -19,6 +20,7 @@ pub(crate) use gpu_material_cache::*;
 pub(crate) use gpu_mesh_cache::*;
 pub(crate) use gpu_texture_cache::*;
 pub(crate) use texture::GpuTexture;
+pub(crate) use imgui_renderer::{ImguiRender, UiTextureResolver};
 
 pub use renderer::Renderer;
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform, MaterialUniform, ModelUniform};

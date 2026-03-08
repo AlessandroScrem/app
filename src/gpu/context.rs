@@ -42,4 +42,8 @@ impl GpuContext {
     pub fn get_adapter_string(&self) -> String {
         self.adapter.get_info().name
     }
+
+    pub fn create_encoder(&mut self) -> CommandEncoder {
+        self.device.create_command_encoder(&Default::default())
+    }
 }

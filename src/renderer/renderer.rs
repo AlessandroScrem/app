@@ -2,11 +2,11 @@ use super::*;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
-use crate::gpu::{GpuContext, GpuSurface, ImguiRender};
+use crate::gpu::{GpuContext, GpuSurface};
 use crate::input::Input;
 
 use legion::{Entity, Resources, World};
-use wgpu::{Device, Queue, SurfaceConfiguration};
+use wgpu::{Device, Queue};
 
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
@@ -93,7 +93,6 @@ impl Renderer {
             RenderPassEnum::Linearize(LinearizePass::new()),
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),
-            // RenderPassEnum::Imgui(ImguiPass::new()),
         ];
         
         let gpu_cache = GpuCache {
@@ -226,7 +225,9 @@ impl Renderer {
     pub fn render(
         &mut self,
         gpu_context: &GpuContext,
-        gpu_surface: &GpuSurface,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        size: (u32, u32),
         asset_mgr: &AssetManager,
         world: &World,
         resources: &Resources,
@@ -234,8 +235,7 @@ impl Renderer {
         globals: &Globals,
         selected: Option<Entity>,
         input: &Input,
-        draw_data: &imgui::DrawData,
-        imgui_render: &mut ImguiRender,
+
     ) {
         // sync GpuCache Ids with assets Ids (meshes materials textures)
         self.prepare(gpu_context, asset_mgr);
@@ -246,12 +246,9 @@ impl Renderer {
             camera,
             globals,
             selected,
-            gpu_surface.get_config(),
+            size,
         );
 
-        let frame = gpu_surface.get_frame();
-
-        let target = frame.texture.create_view(&Default::default());
         let mut ctx = RenderContext {
             device: &gpu_context.device,
             queue: &gpu_context.queue,
@@ -271,26 +268,14 @@ impl Renderer {
             );
         }
 
-        // Render phase
-        let mut encoder = gpu_context
-            .device
-            .create_command_encoder(&Default::default());
+        // // Render phase
+        // let mut encoder = gpu_context
+        //     .device
+        //     .create_command_encoder(&Default::default());
 
         for pass in &mut self.passes {
-            pass.execute(&mut encoder, &mut ctx, &asset_mgr);
+            pass.execute(encoder, &mut ctx, &asset_mgr);
         }
-
-        // Render Imgui Pass
-        imgui_render.render(
-            draw_data,
-            &mut encoder,
-            &target,
-            &gpu_context.device,
-            &gpu_context.queue,
-        );
-
-        gpu_context.queue.submit([encoder.finish()]);
-        frame.present();
     }
 
     fn update_render_globals_to_gpu(
@@ -299,14 +284,14 @@ impl Renderer {
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
-        surface_config: &SurfaceConfiguration,
+        size: (u32, u32),
     ) {
         let entity_id = match selected {
             Some(id) => (&id).as_raw_u64(),
             None => 0,
         };
 
-        let screen_size = [surface_config.width as f32, surface_config.height as f32];
+        let screen_size = [size.0 as f32, size.1 as f32];
         let updated_camera_uniform = CameraUniform {
             view_position: camera.get_position().to_homogeneous().into(),
             view: camera.get_view_mat().into(),
