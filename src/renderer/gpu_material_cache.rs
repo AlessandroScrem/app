@@ -21,8 +21,8 @@ pub struct GpuMaterial {
     pub uniform_buffer: Option<wgpu::Buffer>,
 }
 impl GpuMaterial {
-    const MATERIAL_SIZE:usize = size_of::<MaterialUniform>();
-    fn estimated_size()->usize {
+    const MATERIAL_SIZE: usize = size_of::<MaterialUniform>();
+    fn estimated_size() -> usize {
         Self::MATERIAL_SIZE
     }
 }
@@ -37,8 +37,7 @@ impl GpuMaterialCache {
         device: &wgpu::Device,
     ) {
         if !self.map.contains_key(id) {
-            let value =
-                Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device);
+            let value = Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device);
             self.map.insert(id, value);
             self.stats.add(GpuMaterial::estimated_size());
         }
@@ -107,13 +106,35 @@ fn create_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc)
     uniform_buffer
 }
 
-fn resolve_texture_id(
-    slot: MaterialTextureSlot,
+
+use std::ops::Index;
+pub struct TextureViews<'a>(pub [&'a wgpu::TextureView; MATERIAL_TEXTURE_COUNT]);
+
+impl<'a> Index<MaterialTextureSlot> for TextureViews<'a> {
+    type Output = wgpu::TextureView;
+
+    fn index(&self, slot: MaterialTextureSlot) -> &Self::Output {
+        &self.0[slot as usize]
+    }
+}
+
+fn resolve_texture_views<'a>(
+    texture_cache: &'a GpuTextureCache,
     desc: &MaterialDesc,
     texture_assets: &TextureAssets,
-) -> TextureId {
-    desc.key.textures[slot as usize].unwrap_or_else(|| texture_assets.white())
+) -> TextureViews<'a>{
+    use crate::assets::material_asset::MaterialTextureSlot::*;
+    let fallback = texture_assets.white();
+
+    TextureViews([
+        texture_cache.view(desc.key[BaseColor].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.key[Normal].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.key[MetallicRoughness].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.key[Emissive].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.key[Occlusion].unwrap_or_else(|| fallback)),
+    ])
 }
+
 
 fn create_bindgroup_from_desc(
     device: &wgpu::Device,
@@ -132,25 +153,12 @@ fn create_bindgroup_from_desc(
         mipmap_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
-
     use crate::assets::material_asset::MaterialTextureSlot::*;
 
-    let base_id = resolve_texture_id(BaseColor, material_desc, &asset_manager.textures);
-    let normal_id = resolve_texture_id(Normal, material_desc, &asset_manager.textures);
-    let met_rough_id =
-        resolve_texture_id(MetallicRoughness, material_desc, &asset_manager.textures);
-    let emissive_id = resolve_texture_id(Emissive, material_desc, &asset_manager.textures);
-    let occlusion_id = resolve_texture_id(Occlusion, material_desc, &asset_manager.textures);
-
-
-    let base_view = texture_cache.view(base_id);
-    let normal_view = texture_cache.view(normal_id);
-    let met_rough_view = texture_cache.view(met_rough_id);
-    let emissive_view = texture_cache.view(emissive_id);
-    let occlusion_view = texture_cache.view(occlusion_id);
-
+    let views = resolve_texture_views(texture_cache, material_desc, &asset_manager.textures);
+    
     let texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::Material);
-
+    
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_bind_group_layout,
         label: Some("Material  bind_group"),
@@ -162,27 +170,27 @@ fn create_bindgroup_from_desc(
             // main texture
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(base_view),
+                resource: wgpu::BindingResource::TextureView(&views[BaseColor]),
             },
             // normal texture
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(normal_view),
+                resource: wgpu::BindingResource::TextureView(&views[Normal]),
             },
             // metallic_roughness texture
             wgpu::BindGroupEntry {
                 binding: 3,
-                resource: wgpu::BindingResource::TextureView(met_rough_view),
+                resource: wgpu::BindingResource::TextureView(&views[MetallicRoughness]),
             },
             // material emissive
             wgpu::BindGroupEntry {
                 binding: 4,
-                resource: wgpu::BindingResource::TextureView(emissive_view),
+                resource: wgpu::BindingResource::TextureView(&views[Emissive]),
             },
             // material occlusion
             wgpu::BindGroupEntry {
                 binding: 5,
-                resource: wgpu::BindingResource::TextureView(occlusion_view),
+                resource: wgpu::BindingResource::TextureView(&views[Occlusion]),
             },
             // uniform buffer
             wgpu::BindGroupEntry {

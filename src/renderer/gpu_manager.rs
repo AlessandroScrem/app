@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use wgpu::BindGroupLayout;
 use wgpu::util::DeviceExt;
 
@@ -8,7 +6,7 @@ use strum_macros::EnumIter;
 
 use super::*;
 use crate::assets::vertexdata::LinesVertexData;
-use crate::renderer::texture::GpuTextureBuilder;
+use crate::renderer::texture::{GpuTextureBuilder, GpuTextureUsage};
 
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];
@@ -557,34 +555,13 @@ impl FramebufferCache {
         match kind {
             FramebufferKind::Hdr => {
                 let layout = layouts.get(LayoutKind::Hdr);
-                let format = wgpu::TextureFormat::Rgba16Float;
-                let size = wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                };
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("hdr_sampler"),
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Nearest,
-                    min_filter: wgpu::FilterMode::Nearest,
-                    mipmap_filter: wgpu::FilterMode::Nearest,
-                    ..Default::default()
-                });
-                let texture = device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("Hdr_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING
-                        | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                });
-                let view = texture.create_view(&Default::default());
+
+                let texture = GpuTextureBuilder::from_empty(width, height)
+                    .format(ColorSpace::Rgbaf16)
+                    .usage(GpuTextureUsage::RenderTarget)
+                    .sampler(SamplerDesc::Nearest)
+                    .label("Hdr texture")
+                    .build(device, None);
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Hdr_bind_group"),
@@ -592,25 +569,14 @@ impl FramebufferCache {
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&view),
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                     ],
                 });
-
-                let estimated_size =
-                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
-
-                let texture = GpuTexture {
-                    _format: format,
-                    inner: Arc::new(texture),
-                    view: Arc::new(view),
-                    extent: size,
-                    estimated_size,
-                };
 
                 Framebuffer {
                     texture,
@@ -620,36 +586,12 @@ impl FramebufferCache {
 
             FramebufferKind::EntityId => {
                 let layout = layouts.get(LayoutKind::EntityId);
-                let format = wgpu::TextureFormat::Rg32Uint;
-                let size = wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                };
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("entity_id_sampler"),
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Nearest,
-                    min_filter: wgpu::FilterMode::Nearest,
-                    mipmap_filter: wgpu::FilterMode::Nearest,
-                    ..Default::default()
-                });
-
-                let texture = device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("entity_id_texture"),
-                    size,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING
-                        | wgpu::TextureUsages::RENDER_ATTACHMENT
-                        | wgpu::TextureUsages::COPY_SRC,
-                    view_formats: &[],
-                });
-                let view = texture.create_view(&Default::default());
+                let texture = GpuTextureBuilder::from_empty(width, height)
+                    .format(ColorSpace::Rg32ui)
+                    .usage(GpuTextureUsage::EntityId)
+                    .sampler(SamplerDesc::Nearest)
+                    .label("entity_id_texture")
+                    .build(device, None);
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("entity_id_bind_group"),
@@ -657,24 +599,14 @@ impl FramebufferCache {
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&view),
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                     ],
                 });
-                let estimated_size =
-                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
-
-                let texture = GpuTexture {
-                    _format: format,
-                    inner: Arc::new(texture),
-                    view: Arc::new(view),
-                    extent: size,
-                    estimated_size,
-                };
 
                 Framebuffer {
                     texture,
@@ -683,38 +615,13 @@ impl FramebufferCache {
             }
             FramebufferKind::Depth => {
                 let layout = layouts.get(LayoutKind::Depth);
-                let format = wgpu::TextureFormat::Depth32Float;
-                let size = wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                };
 
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    label: Some("deth_sampler"),
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Nearest,
-                    min_filter: wgpu::FilterMode::Nearest,
-                    mipmap_filter: wgpu::FilterMode::Nearest,
-                    ..Default::default()
-                });
-
-                let texture = {
-                    device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("depth_texture"),
-                        size,
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format,
-                        usage: wgpu::TextureUsages::TEXTURE_BINDING
-                            | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                        view_formats: &[],
-                    })
-                };
-                let view = texture.create_view(&Default::default());
+                let texture = GpuTextureBuilder::from_empty(width, height)
+                    .format(ColorSpace::Depth32f)
+                    .usage(GpuTextureUsage::DepthTarget)
+                    .sampler(SamplerDesc::Nearest)
+                    .label("depth_texture")
+                    .build(device, None);
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("depth_bind_group"),
@@ -722,24 +629,14 @@ impl FramebufferCache {
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&view),
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                     ],
                 });
-                let estimated_size =
-                    (width * height * format.target_pixel_byte_cost().unwrap_or(3)) as usize;
-
-                let texture = GpuTexture {
-                    _format: format,
-                    inner: Arc::new(texture),
-                    view: Arc::new(view),
-                    extent: size,
-                    estimated_size,
-                };
 
                 Framebuffer {
                     texture,
@@ -790,8 +687,9 @@ impl BindgroupCache {
                 })
             }
             BindgroupKind::LightTexture => {
-                let texture = GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                .build(device, queue);
+                let texture =
+                    GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                        .build(device, Some(queue));
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wgpu::AddressMode::Repeat,
                     address_mode_v: wgpu::AddressMode::Repeat,

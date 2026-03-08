@@ -3,7 +3,6 @@ use crate::assets::texture_upload::{TextureData, TextureUploadSource, UploadPayl
 use super::*;
 use std::cell::Cell;
 
-
 impl TextureId {
     #[allow(dead_code)]
     pub fn white(assets: &TextureAssets) -> TextureId {
@@ -11,13 +10,21 @@ impl TextureId {
     }
 }
 
-// Textures
+#[derive(Default, Clone, Debug)]
+pub enum SamplerDesc {
+    #[default]
+    Linear,
+    Nearest,
+}
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum ColorSpace {
     Rgbaf32,
     Rgbaf16,
     Srgba8,
     Rgba8,
+    Rg32ui,
+    Depth32f,
 }
 
 impl ColorSpace {
@@ -25,8 +32,10 @@ impl ColorSpace {
         match self {
             ColorSpace::Rgbaf32 => 16,
             ColorSpace::Rgbaf16 => 8,
+            ColorSpace::Depth32f => 4,
             ColorSpace::Srgba8 => 4,
             ColorSpace::Rgba8 => 4,
+            ColorSpace::Rg32ui => 2,
         }
     }
 }
@@ -82,12 +91,6 @@ impl From<wgpu::TextureFormat> for ColorSpace {
     }
 }
 
-#[derive(Default, Clone, Debug)]
-pub enum SamplerDesc {
-    #[default]
-    Linear,
-}
-
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub enum TextureKey {
     File {
@@ -106,6 +109,7 @@ pub enum TextureDesc {
         mipmaps: bool,
     },
 }
+
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TextureInfo {
@@ -177,33 +181,27 @@ impl Default for TextureAssets {
     fn default() -> Self {
         let mut storage = SlotMap::with_key();
         let mut lookup = HashMap::new();
-        let mut stats = ResourceStats::default();
+        let stats = ResourceStats::default();
 
-
-        // add white texture
-        let white_cpu = TextureData::white();
+        // add Fallback id texture
         let white_id = storage.insert(TextureAsset {
-            state: TextureState::CpuReady(TextureInfo::from(&white_cpu)),
+            state: TextureState::Fallback,
             desc: None,
             ref_count: Cell::new(1),
         });
 
         lookup.insert(TextureKey::White, white_id);
-        stats.add(white_cpu.estimated_size());
 
-        let dirty_textures = vec![(white_id, UploadPayload::Ready(white_cpu))];
+        let dirty_textures = vec![];
 
-        let mut asset = Self {
+        Self {
             storage,
             lookup,
             white: white_id,
             dirty_textures,
             stats,
-        };
-        
-        asset.load_cpu_textures();
+        }
 
-        asset
     }
 }
 
@@ -226,6 +224,7 @@ impl TextureAssets {
         self.storage.contains_key(id)
     }
 
+    #[allow(unused)]
     pub fn iter(&self) -> impl Iterator<Item = (TextureId, &TextureAsset)> {
         self.storage.iter()
     }
@@ -324,7 +323,7 @@ impl TextureAssets {
                     Err(e) => {
                         asset.state = TextureState::Fallback;
                         self.dirty_textures.push((id, UploadPayload::Fallback));
-                        warn!("{:?} for id {:?} desc {:?}", e, id, asset.desc);
+                        warn!("Fallback {:?} for id  \n{:?}", id, e);
                     }
                 })
                 .unwrap_or_else(|| warn!("TextureId {:?} not found", id));

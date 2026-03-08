@@ -1,6 +1,7 @@
 use super::*;
 use crate::{math::*, renderer::uniform::MaterialUniform};
 use std::{cell::Cell, path::PathBuf};
+use std::ops::{Index, IndexMut};
 use texture_asset::ColorSpace;
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
@@ -12,10 +13,24 @@ pub enum ShaderId {
 pub const MATERIAL_TEXTURE_COUNT: usize = 5;
 
 #[derive(Default, Hash, Eq, PartialEq, Clone)]
-pub struct MaterialKey {
+pub (crate) struct MaterialKey {
     pub name: String,
     pub shader: ShaderId,
     pub textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
+}
+
+impl Index<MaterialTextureSlot> for MaterialKey {
+    type Output = Option<TextureId>;
+
+    fn index(&self, slot: MaterialTextureSlot) -> &Self::Output {
+        &self.textures[slot as usize]
+    }
+}
+
+impl IndexMut<MaterialTextureSlot> for MaterialKey {
+    fn index_mut(&mut self, slot: MaterialTextureSlot) -> &mut Self::Output {
+        &mut self.textures[slot as usize]
+    }
 }
 
 #[repr(u8)]
@@ -39,6 +54,7 @@ impl MaterialTextureSlot {
         }
     }
 }
+
 
 impl MaterialTextureSlot {
     pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [

@@ -11,7 +11,6 @@ use super::image_decoder::{
     decode_image_rgbaf32, decode_stb_image_rgaba8, decode_stb_image_rgbaf16,
 };
 
-
 #[derive(Clone)]
 pub struct TextureData {
     pub width: u32,
@@ -20,17 +19,7 @@ pub struct TextureData {
     pub format: ColorSpace,
 }
 
-/// --- White texture 1x1 RGBA8 
 impl TextureData {
-    pub fn white() -> Self {
-        Self {
-            width: 1,
-            height: 1,
-            format: ColorSpace::Rgba8,
-            pixels: vec![255, 255, 255, 255],
-        }
-    }
-
     pub fn estimated_size(&self) ->usize {
         self.pixels.len()
     }
@@ -93,10 +82,10 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
 
     let (pixels, width, height) = match color_space {
         ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer)?,
-
         ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer)?,
-
         ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
+        ColorSpace::Rg32ui => unimplemented!(),
+        ColorSpace::Depth32f => unimplemented!(),
     };
 
     Ok(UploadPayload::Ready(TextureData {

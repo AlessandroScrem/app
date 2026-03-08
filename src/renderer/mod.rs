@@ -23,7 +23,6 @@ pub(crate) use imgui_renderer::{ImguiRender, UiTexture, UiTextureResolver};
 pub(crate) use texture::GpuTexture;
 
 pub use renderer::Renderer;
-pub use static_textures::*;
 pub use uniform::{CameraUniform, GlobalUniform, LightUniform, MaterialUniform, ModelUniform};
 
 pub trait InternalCounter {

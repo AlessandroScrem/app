@@ -36,11 +36,11 @@ impl GpuBuiltinTextures {
         match slot {
             TextureSlot::White => {
                 GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .build(device, queue)
+                    .build(device, Some(queue))
             }
             TextureSlot::Normal => {
                 GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE)
-                    .build(device, queue)
+                    .build(device, Some(queue))
             }
         }
     }
@@ -83,7 +83,7 @@ impl GpuTextureCache {
     ) {
         match payload {
             UploadPayload::Ready(data) => {
-                let texture = GpuTextureBuilder::from_cpu(data).build(device, queue);
+                let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
                 self.map.insert(id, texture);
             }
             UploadPayload::Fallback => {}
@@ -129,17 +129,6 @@ impl GpuTextureCache {
                 self.create_from_cpu(id, cpu_texture, device, queue);
                 trace!("Gpu Upload texture {:?} {:?} ", id, asset.state);
             }
-        }
-    }
-}
-
-impl From<ColorSpace> for wgpu::TextureFormat {
-    fn from(cs: ColorSpace) -> Self {
-        match cs {
-            ColorSpace::Rgba8 => wgpu::TextureFormat::Rgba8Unorm,
-            ColorSpace::Srgba8 => wgpu::TextureFormat::Rgba8UnormSrgb,
-            ColorSpace::Rgbaf16 => wgpu::TextureFormat::Rgba16Float,
-            ColorSpace::Rgbaf32 => wgpu::TextureFormat::Rgba32Float,
         }
     }
 }

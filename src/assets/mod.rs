@@ -6,28 +6,28 @@ use slotmap::new_key_type;
 pub(crate) mod asset_manager;
 pub(crate) mod file;
 pub(crate) mod gltf_loader;
-pub(crate) mod material_asset;
-pub(crate) mod texture_asset;
-pub(crate) mod mesh_asset;
-pub(crate) mod vertexdata;
-pub(crate) mod texture_upload;
 pub(crate) mod image_decoder;
+pub(crate) mod material_asset;
+pub(crate) mod mesh_asset;
+pub(crate) mod texture_asset;
+pub(crate) mod texture_upload;
+pub(crate) mod vertexdata;
 
 new_key_type! {
     pub(crate) struct TextureId;
     pub(crate) struct MaterialId;
     pub(crate) struct MeshId;
 }
-pub(crate) use asset_manager::*;
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
-pub(crate) use texture_asset::*;
-pub(crate) use mesh_asset::*;
-pub(crate) use material_asset::*;
 pub(crate) use crate::prelude::*;
+pub(crate) use asset_manager::*;
+pub(crate) use material_asset::*;
+pub(crate) use mesh_asset::*;
+pub(crate) use texture_asset::*;
 
 #[test]
 fn sync_add_remove_reuse() {
-    use slotmap::{SlotMap, SecondaryMap, new_key_type};
+    use slotmap::{SecondaryMap, SlotMap, new_key_type};
 
     new_key_type! { pub(crate) struct MeshId; }
 
@@ -77,4 +77,3 @@ fn sync_add_remove_reuse() {
     assert!(gpu_registry.contains_key(reused));
     assert!(!gpu_registry.contains_key(mesh)); // vecchia key resta invalida
 }
-
