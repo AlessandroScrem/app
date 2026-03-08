@@ -5,8 +5,10 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use super::*;
+use crate::assets::{ColorSpace, SamplerDesc};
 use crate::assets::vertexdata::LinesVertexData;
-use crate::renderer::texture::{GpuTextureBuilder, GpuTextureUsage};
+use crate::gpu::texture::{GpuTextureBuilder, GpuTextureUsage};
+use crate::uniform::{CameraUniform, GlobalUniform, LightUniform};
 
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];

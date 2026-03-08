@@ -6,10 +6,7 @@
 
 // #![allow(dead_code)]
 
-use crate::renderer::{
-    GpuTexture,
-    gpu_manager::{GpuManager, LayoutKind},
-};
+use super::*;
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
 mod utils {
@@ -950,7 +947,7 @@ impl SkyboxManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{assets::asset_manager::AssetManager, renderer::GpuTextureCache, test_utils};
+    use crate::{assets::asset_manager::AssetManager, test_utils};
 
     const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
     const CUBEMAP_SIZE: u32 = 512;

@@ -1,6 +1,13 @@
 use crate::{
-    assets::texture_upload::UploadPayload,
-    renderer::texture::{GpuTexture, GpuTextureBuilder},
+    assets::{
+        TextureAssets, TextureId,
+        texture_upload::{self, UploadPayload},
+    },
+    gpu::static_textures,
+    renderer::{
+        GpuResourceStats, HasGpuStats,
+        texture::{GpuTexture, GpuTextureBuilder},
+    },
 };
 
 use super::*;
@@ -137,7 +144,7 @@ impl GpuTextureCache {
 mod tests {
     use super::*;
     use crate::{
-        assets::{SamplerDesc, TextureKey},
+        assets::{ColorSpace, SamplerDesc, TextureDesc, TextureKey},
         test_utils,
     };
     const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");

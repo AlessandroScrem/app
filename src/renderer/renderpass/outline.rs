@@ -19,7 +19,6 @@ impl RenderPass for OutlinePass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _resources: &Resources,
         _camera: &Camera,
         _globals: &Globals,
         selected: Option<Entity>,

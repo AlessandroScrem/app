@@ -1,5 +1,6 @@
+use crate::gpu::{GpuCache, GpuMesh};
+
 use super::*;
-use crate::renderer::{GpuMesh, renderer::GpuCache};
 
 struct MeshDrawable<'a> {
     gpu_mesh: &'a GpuMesh,
@@ -81,7 +82,6 @@ impl RenderPass for MeshPass {
         &mut self,
         asset_mgr: &AssetManager,
         world: &World,
-        _resources: &Resources,
         _camera: &Camera,
         _globals: &Globals,
         _selected: Option<Entity>,

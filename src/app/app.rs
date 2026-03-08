@@ -21,7 +21,7 @@ pub struct App {
 impl App {
     pub fn update_selected(&mut self, runtime: &mut RunningApp) {
         let input = &runtime.input;
-        let renderer = &mut runtime.renderer;
+        let renderer = &mut runtime.scene_renderer;
         // update hovered entity_id from buffer
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};

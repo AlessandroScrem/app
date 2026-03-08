@@ -27,6 +27,17 @@ impl ImGuiTextureRegistry {
         }
     }
 }
+
+impl UiTextureResolver for ImguiRender {
+    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
+        match tex {
+            UiTexture::Engine(id) => self.registry.ids.get(&id).cloned(),
+            UiTexture::Builtin(id) => Some(id),
+        }
+    }
+}
+
+
 pub struct ImguiRender {
     pub renderer: imgui_wgpu::Renderer,
     pub registry: ImGuiTextureRegistry,
@@ -101,11 +112,57 @@ impl ImguiRender {
     }
 }
 
-impl UiTextureResolver for ImguiRender {
-    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId> {
-        match tex {
-            UiTexture::Engine(id) => self.registry.ids.get(&id).cloned(),
-            UiTexture::Builtin(id) => Some(id),
+impl ImguiRender {
+        pub fn sync_imgui_texture(
+        &mut self,
+        gpu_context: &GpuContext,
+        gpu_cache: &mut GpuCache,
+    ) {
+        let registry = &mut self.registry;
+        let renderer = &mut self.renderer;
+        let texture_cache = &gpu_cache.textures;
+        let device = &gpu_context.device;
+
+        debug!("Sync_with_registry: ");
+
+        // record new textures
+        use imgui_wgpu::RawTextureConfig;
+        for (gpu_id, tex) in texture_cache.iter() {
+            if !registry.ids.contains_key(&gpu_id) {
+                let texture_config = RawTextureConfig {
+                    label: None,
+                    sampler_desc: wgpu::SamplerDescriptor {
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::FilterMode::Linear,
+                        ..Default::default()
+                    },
+                };
+                let id = renderer
+                    .textures
+                    .insert(imgui_wgpu::Texture::from_raw_parts(
+                        device,
+                        renderer,
+                        tex.inner.clone(),
+                        tex.view.clone(),
+                        None,
+                        Some(&texture_config),
+                        tex.extent,
+                    ));
+                registry.ids.insert(gpu_id.clone(), id);
+                debug!("add to registry texture [no name] with id {}", id.id());
+            }
         }
+
+        // rimuove quelle che non esistono più nel texture manager
+        registry.ids.retain(|gpu_id, id| {
+            if !texture_cache.contains_key(gpu_id) {
+                renderer.textures.remove(*id);
+                debug!("remove from registry [no mame] with id {}", id.id());
+                false
+            } else {
+                true
+            }
+        });
     }
 }

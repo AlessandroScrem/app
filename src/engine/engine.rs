@@ -8,7 +8,7 @@ use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
-use crate::gpu::{GpuContext, GpuSurface};
+use crate::gpu::{GpuCache, GpuContext, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache};
 use crate::renderer::ImguiRender;
 
 #[derive(Default)]
@@ -57,20 +57,33 @@ impl<A: Application + HasAssetMgr> Engine<A> {
         // 
         
         let asset_mgr = self.app.asset_mgr_mut();
-        let renderer = Renderer::new(&gpu_context, &gpu_surface, asset_mgr);
+
+        // gpu Cache resources
+        let mut texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+        texture_cache.upload_textures(&mut asset_mgr.textures, &gpu_context.device, &gpu_context.queue);
+        let mut gpu_cache = GpuCache {
+            textures: texture_cache,
+            material: GpuMaterialCache::default(),
+            mesh: GpuMeshCache::default(),
+        };
+        //
+
+        let scene_renderer = SceneRenderer::new(&gpu_context, &gpu_surface, &mut gpu_cache, asset_mgr);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
+
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
             input: Input::new(),
-            renderer,
+            scene_renderer,
+            imgui_render,
             uilayer,
             is_minimized: false,
             timer: Timer::new(),
             events: Vec::new(),
             gpu_context,
             gpu_surface,
-            imgui_render,
+            gpu_cache,
         });
 
         window.request_redraw();

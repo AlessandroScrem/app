@@ -5,8 +5,8 @@ use super::app::App;
 impl App {
     pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
         let uilayer = &mut runtime.uilayer;
-        let renderer = &mut runtime.renderer;
         let window = &runtime.window;
+        let counter_trait = &runtime.gpu_cache;
 
         let snapshot = UiSnapshot::from_world(
             &self.current_scene.world,
@@ -15,7 +15,7 @@ impl App {
             &self.camera,
             &self.globals,
             &runtime.imgui_render, //resolver trait
-            renderer,              // internalcounter trait
+            counter_trait,         // internalcounter trait
             None,
         );
 

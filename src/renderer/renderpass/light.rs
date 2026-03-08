@@ -30,7 +30,6 @@ impl RenderPass for LightPass {
         &mut self,
         _asset_mgr: &AssetManager,
         world: &World,
-        _resources: &Resources,
         _camera: &Camera,
         _globals: &Globals,
         _selected: Option<Entity>,

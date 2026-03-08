@@ -4,24 +4,15 @@ use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
 use crate::gpu::{GpuContext, GpuSurface};
 use crate::input::Input;
+use crate::uniform::{CameraUniform, GlobalUniform};
 
-use legion::{Entity, Resources, World};
+use legion::{Entity, World};
 use wgpu::{Device, Queue};
 
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
 use crate::Globals;
-
-impl InternalCounter for Renderer {
-    fn internal_counter(&self) -> GpuInternalCounters {
-        GpuInternalCounters {
-            textures: self.gpu_cache.textures.get_stats(),
-            meshes: self.gpu_cache.mesh.get_stats(),
-            materials: self.gpu_cache.material.get_stats(),
-        }
-    }
-}
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
@@ -35,29 +26,20 @@ pub struct RenderContext<'a> {
     pub target: &'a wgpu::TextureView,
 }
 
-pub struct GpuCache {
-    pub mesh: GpuMeshCache,
-    pub material: GpuMaterialCache,
-    pub textures: GpuTextureCache,
-}
-
-pub struct Renderer {
+pub struct SceneRenderer {
     gpu_mgr: GpuManager,
     pipeline_mgr: PipelineManager,
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
     passes: Vec<RenderPassEnum>,
-
-    gpu_cache: GpuCache,
 }
 
-impl Renderer {
+impl SceneRenderer {
     pub fn new(
         gpu_context: &GpuContext,
         gpu_surface: &GpuSurface,
-        // window: Arc<Window>,
-        // imgui_ctx: &mut imgui::Context,
+        gpu_cache: &mut GpuCache,
         asset_mgr: &mut AssetManager,
     ) -> Self {
         let timer = std::time::Instant::now();
@@ -69,21 +51,18 @@ impl Renderer {
         let height = gpu_surface.get_config().height;
         let format = gpu_surface.get_config().format;
 
-        let mut texture_cache = GpuTextureCache::new(&device, &queue);
-        texture_cache.upload_textures(&mut asset_mgr.textures, &device, &queue);
-        
         let gpu_mgr = GpuManager::new(&device, &queue, width, height);
         let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, format);
         let pickobject = PickObject::new(&device);
-        
+
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
-        let hdr = texture_cache.get_or_fallback(hdr_id /* &device, &queue */);
+        let hdr = gpu_cache.textures.get_or_fallback(hdr_id);
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
         // -----
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
-        
+
         let passes = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
             RenderPassEnum::Light(LightPass::new()),
@@ -94,12 +73,6 @@ impl Renderer {
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),
         ];
-        
-        let gpu_cache = GpuCache {
-            textures: texture_cache,
-            material: GpuMaterialCache::default(),
-            mesh: GpuMeshCache::default(),
-        };
 
         Self {
             gpu_mgr,
@@ -107,7 +80,6 @@ impl Renderer {
             skybox_mgr,
             pickobject,
             passes,
-            gpu_cache,
         }
     }
 
@@ -115,96 +87,17 @@ impl Renderer {
         self.pickobject.poll_readback(&gpu_context.device)
     }
 
-    pub fn sync_imgui_texture(&mut self, gpu_context: &GpuContext, imgui_render: &mut ImguiRender) {
-        let registry = &mut imgui_render.registry;
-        let renderer = &mut imgui_render.renderer;
-        let texture_cache = &self.gpu_cache.textures;
-        let device = &gpu_context.device;
 
-        // record new textures
-        use imgui_wgpu::RawTextureConfig;
-        for (gpu_id, tex) in texture_cache.iter() {
-            if !registry.ids.contains_key(&gpu_id) {
-                let texture_config = RawTextureConfig {
-                    label: None,
-                    sampler_desc: wgpu::SamplerDescriptor {
-                        mag_filter: wgpu::FilterMode::Linear,
-                        min_filter: wgpu::FilterMode::Linear,
-                        mipmap_filter: wgpu::FilterMode::Linear,
-                        ..Default::default()
-                    },
-                };
-                let id = renderer
-                    .textures
-                    .insert(imgui_wgpu::Texture::from_raw_parts(
-                        device,
-                        renderer,
-                        tex.inner.clone(),
-                        tex.view.clone(),
-                        None,
-                        Some(&texture_config),
-                        tex.extent,
-                    ));
-                registry.ids.insert(gpu_id.clone(), id);
-                debug!("add to registry texture [no name] with id {}", id.id());
-            }
-        }
-
-        // rimuove quelle che non esistono più nel texture manager
-        registry.ids.retain(|gpu_id, id| {
-            if !texture_cache.contains_key(gpu_id) {
-                renderer.textures.remove(*id);
-                debug!("remove from registry [no mame] with id {}", id.id());
-                false
-            } else {
-                true
-            }
-        });
-    }
-
-    pub fn upload_textures(
+    fn sync_skybox(
         &mut self,
+        gpu_cache: &mut GpuCache,
         gpu_context: &GpuContext,
-        source: &mut impl texture_upload::TextureUploadSource,
+        asset_mgr: &AssetManager,
     ) {
-        self.gpu_cache
-            .textures
-            .upload_textures(source, &gpu_context.device, &gpu_context.queue);
-    }
-
-    fn sync_caches(&mut self, gpu_context: &GpuContext, asset_mgr: &AssetManager) {
-        // Sync cleanup
-
-        self.gpu_cache.mesh.retain(&asset_mgr.meshes);
-        self.gpu_cache.material.retain(&asset_mgr.materials);
-        self.gpu_cache.textures.retain(&asset_mgr.textures);
-
-        // Sync Textures: are already on sync after upload, or fallback
-
-        // Sync Meshes
-        for (id, _value) in asset_mgr.meshes.iter() {
-            self.gpu_cache
-                .mesh
-                .ensure(id, &asset_mgr.meshes, &self.gpu_mgr, &gpu_context.device);
-        }
-
-        // Sync Materials (crate also textures)
-        for (id, _value) in asset_mgr.materials.iter() {
-            self.gpu_cache.material.ensure(
-                id,
-                &mut self.gpu_cache.textures,
-                &asset_mgr,
-                &self.gpu_mgr,
-                &gpu_context.device,
-            );
-        }
-    }
-
-    fn sync_skybox(&mut self, gpu_context: &GpuContext, asset_mgr: &AssetManager) {
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
-            let hdr_texture = self.gpu_cache.textures.get_or_fallback(
-                asset_mgr.skybox.get_id(),
-            );
+            let hdr_texture = gpu_cache
+                .textures
+                .get_or_fallback(asset_mgr.skybox.get_id());
             self.skybox_mgr.update_skybox(
                 asset_mgr.skybox.get_id(),
                 hdr_texture,
@@ -217,42 +110,40 @@ impl Renderer {
 
     /// update skybox
     /// sync GpuCache Ids with assets Ids (meshes materials textures)
-    pub fn prepare(&mut self, gpu_context: &GpuContext, asset_mgr: &AssetManager) {
-        self.sync_skybox(gpu_context, asset_mgr);
-        self.sync_caches(gpu_context, asset_mgr);
+    pub fn prepare(
+        &mut self,
+        gpu_cache: &mut GpuCache,
+        gpu_context: &GpuContext,
+        asset_mgr: &AssetManager,
+    ) {
+        self.sync_skybox(gpu_cache, gpu_context, asset_mgr);
+        gpu_cache.sync_caches(gpu_context, &self.gpu_mgr, asset_mgr);
     }
 
     pub fn render(
         &mut self,
         gpu_context: &GpuContext,
+        gpu_cache: &mut GpuCache,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         size: (u32, u32),
         asset_mgr: &AssetManager,
         world: &World,
-        resources: &Resources,
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
         input: &Input,
-
     ) {
         // sync GpuCache Ids with assets Ids (meshes materials textures)
-        self.prepare(gpu_context, asset_mgr);
+        self.prepare(gpu_cache, gpu_context, asset_mgr);
 
         // update global data (uniform) to GPU
-        self.update_render_globals_to_gpu(
-            gpu_context,
-            camera,
-            globals,
-            selected,
-            size,
-        );
+        self.update_render_globals_to_gpu(gpu_context, camera, globals, selected, size);
 
         let mut ctx = RenderContext {
             device: &gpu_context.device,
             queue: &gpu_context.queue,
-            gpu_cache: &self.gpu_cache,
+            gpu_cache: &gpu_cache,
 
             gpu_mgr: &self.gpu_mgr,
             pip_mgr: &self.pipeline_mgr,
@@ -264,14 +155,9 @@ impl Renderer {
         // Update world buffer data to gpu
         for pass in &mut self.passes {
             pass.prepare(
-                asset_mgr, world, resources, camera, globals, selected, input, &mut ctx,
+                asset_mgr, world, camera, globals, selected, input, &mut ctx,
             );
         }
-
-        // // Render phase
-        // let mut encoder = gpu_context
-        //     .device
-        //     .create_command_encoder(&Default::default());
 
         for pass in &mut self.passes {
             pass.execute(encoder, &mut ctx, &asset_mgr);

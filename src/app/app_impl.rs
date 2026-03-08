@@ -45,18 +45,19 @@ impl Application for App {
         self.asset_mgr.textures.load_cpu_textures();
 
         // upload texture from cpu data to gpu
-        runtime
-            .renderer
-            .upload_textures(&runtime.gpu_context, &mut self.asset_mgr.textures);
+        runtime.gpu_cache.textures.upload_textures(
+            &mut self.asset_mgr.textures,
+            &runtime.gpu_context.device,
+            &runtime.gpu_context.queue,
+        );
 
         // Esegue `callback` ogni secondo , in base al clock interno.
         runtime
             .timer
             .trigger_every(std::time::Duration::from_secs(1), || {
                 runtime
-                    .renderer
-                    .sync_imgui_texture(&runtime.gpu_context, &mut runtime.imgui_render);
-                debug!("Sync_with_registry: ");
+                    .imgui_render
+                    .sync_imgui_texture(&runtime.gpu_context, &mut runtime.gpu_cache);
             });
 
         self.update_camera(&runtime.input);
@@ -78,14 +79,14 @@ impl Application for App {
             runtime.gpu_surface.get_config().height,
         );
 
-        runtime.renderer.render(
+        runtime.scene_renderer.render(
             &runtime.gpu_context,
+            &mut runtime.gpu_cache,
             &mut encoder,
             &target,
             size,
             &self.asset_mgr,
             &self.current_scene.world,
-            &mut self.resources,
             &self.camera,
             &self.globals,
             self.selected,

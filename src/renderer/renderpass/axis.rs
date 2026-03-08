@@ -20,7 +20,6 @@ impl RenderPass for AxisPass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _resources: &Resources,
         _camera: &Camera,
         globals: &Globals,
         _selected: Option<Entity>,

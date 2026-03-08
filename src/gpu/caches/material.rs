@@ -1,3 +1,5 @@
+use crate::{assets::{MATERIAL_TEXTURE_COUNT, MaterialAssets, MaterialId, MaterialTextureSlot, TextureAssets}, renderer::{GpuResourceStats, HasGpuStats}, uniform::MaterialUniform};
+
 use super::*;
 
 use slotmap::SecondaryMap;

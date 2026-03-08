@@ -39,7 +39,7 @@ pub(crate) mod prelude {
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
     pub use crate::entities::components::*;
-    pub use crate::renderer::Renderer;
+    pub use crate::renderer::SceneRenderer;
     pub(crate) use crate::renderer::uniform;
     pub(crate) use crate::ui::*;
     pub(crate) use log::{debug, error, info, trace, warn};

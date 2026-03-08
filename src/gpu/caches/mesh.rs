@@ -1,3 +1,5 @@
+use crate::{assets::{MeshAssets, MeshId, MeshVertexData}, renderer::{GpuResourceStats, HasGpuStats}, uniform::ModelUniform};
+
 use super::*;
 use slotmap::SecondaryMap;
 use wgpu::util::DeviceExt;

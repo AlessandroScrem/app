@@ -1,7 +1,7 @@
-use crate::{
-    assets::vertexdata::LinesVertexData,
-    renderer::gpu_manager::{GpuManager, LayoutKind},
-};
+
+use crate::assets::vertexdata::LinesVertexData;
+
+use super::*;
 use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
