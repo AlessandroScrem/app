@@ -1,7 +1,17 @@
 use super::{App, Application};
 use crate::engine::RunningApp;
 
+use crate::gpu::{GpuCache, GpuContext, GpuManager, PipelineManager};
+use crate::input::Input;
 use crate::prelude::*;
+
+pub struct RuntimeContext<'a> {
+    pub gpu_context: &'a GpuContext,
+    pub gpu_manager: &'a GpuManager,
+    pub pipeline_manager: &'a PipelineManager,
+    pub gpu_cache: &'a mut GpuCache,
+    pub input: &'a mut Input,
+}
 
 pub trait HasAssetMgr {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager;
@@ -70,6 +80,7 @@ impl Application for App {
         let aspect = width.max(1) as f32 / height.max(1) as f32;
         self.camera.set_aspect(aspect);
     }
+
     fn render(&mut self, runtime: &mut RunningApp) {
         let mut encoder = runtime.gpu_context.create_encoder();
         let frame = runtime.gpu_surface.get_frame();
@@ -79,9 +90,26 @@ impl Application for App {
             runtime.gpu_surface.get_config().height,
         );
 
-        runtime.scene_renderer.render(
-            &runtime.gpu_context,
-            &mut runtime.gpu_cache,
+        let RunningApp {
+            scene_renderer,
+            gpu_context,
+            gpu_manager,
+            pipeline_manager,
+            gpu_cache,
+            input,
+            ..
+        } = runtime;
+
+        let mut context = RuntimeContext {
+            gpu_context,
+            gpu_manager,
+            pipeline_manager,
+            gpu_cache,
+            input,
+        };
+
+        scene_renderer.render(
+            &mut context,
             &mut encoder,
             &target,
             size,
@@ -90,7 +118,6 @@ impl Application for App {
             &self.camera,
             &self.globals,
             self.selected,
-            &runtime.input,
         );
 
         runtime.imgui_render.render(
@@ -109,3 +136,4 @@ impl Application for App {
         info!("The close button was pressed; App stopping");
     }
 }
+

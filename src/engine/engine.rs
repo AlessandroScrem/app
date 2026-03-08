@@ -1,3 +1,4 @@
+use crate::gpu::pipeline_manager::PipelineManager;
 use crate::prelude::*;
 
 use crate::input::Input;
@@ -8,7 +9,9 @@ use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
-use crate::gpu::{GpuCache, GpuContext, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache};
+use crate::gpu::{
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+};
 use crate::renderer::ImguiRender;
 
 #[derive(Default)]
@@ -38,7 +41,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
 
         self.app.init();
 
-        
         // gpu resources
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
@@ -54,23 +56,36 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &mut imgui_context,
             gpu_surface.get_config().format,
         );
-        // 
-        
+        //
+
         let asset_mgr = self.app.asset_mgr_mut();
 
-        // gpu Cache resources
+        // gpu resources
         let mut texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
-        texture_cache.upload_textures(&mut asset_mgr.textures, &gpu_context.device, &gpu_context.queue);
+        texture_cache.upload_textures(
+            &mut asset_mgr.textures,
+            &gpu_context.device,
+            &gpu_context.queue,
+        );
         let mut gpu_cache = GpuCache {
             textures: texture_cache,
             material: GpuMaterialCache::default(),
             mesh: GpuMeshCache::default(),
         };
+
+        let gpu_manager = GpuManager::new(
+            &gpu_context.device,
+            &gpu_context.queue,
+            gpu_surface.get_config().width,
+            gpu_surface.get_config().height,
+        );
+
+        let pipeline_manager = PipelineManager::new(&gpu_context.device, &gpu_manager, gpu_surface.get_config().format);
         //
 
-        let scene_renderer = SceneRenderer::new(&gpu_context, &gpu_surface, &mut gpu_cache, asset_mgr);
+        let scene_renderer =
+            SceneRenderer::new(&gpu_context, &gpu_manager, &mut gpu_cache, asset_mgr);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
-
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
@@ -84,6 +99,8 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_context,
             gpu_surface,
             gpu_cache,
+            gpu_manager,
+            pipeline_manager,
         });
 
         window.request_redraw();

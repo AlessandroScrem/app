@@ -1,9 +1,9 @@
 use super::*;
 
+use crate::app::app_impl::RuntimeContext;
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
-use crate::gpu::{GpuContext, GpuSurface};
-use crate::input::Input;
+use crate::gpu::GpuContext;
 use crate::uniform::{CameraUniform, GlobalUniform};
 
 use legion::{Entity, World};
@@ -27,8 +27,6 @@ pub struct RenderContext<'a> {
 }
 
 pub struct SceneRenderer {
-    gpu_mgr: GpuManager,
-    pipeline_mgr: PipelineManager,
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
@@ -38,7 +36,7 @@ pub struct SceneRenderer {
 impl SceneRenderer {
     pub fn new(
         gpu_context: &GpuContext,
-        gpu_surface: &GpuSurface,
+        gpu_manager: &GpuManager,
         gpu_cache: &mut GpuCache,
         asset_mgr: &mut AssetManager,
     ) -> Self {
@@ -47,18 +45,12 @@ impl SceneRenderer {
 
         let device = &gpu_context.device;
         let queue = &gpu_context.queue;
-        let width = gpu_surface.get_config().width;
-        let height = gpu_surface.get_config().height;
-        let format = gpu_surface.get_config().format;
-
-        let gpu_mgr = GpuManager::new(&device, &queue, width, height);
-        let pipeline_mgr = PipelineManager::new(&device, &gpu_mgr, format);
         let pickobject = PickObject::new(&device);
 
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
         let hdr = gpu_cache.textures.get_or_fallback(hdr_id);
-        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_mgr);
+        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
         // -----
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
@@ -75,8 +67,6 @@ impl SceneRenderer {
         ];
 
         Self {
-            gpu_mgr,
-            pipeline_mgr,
             skybox_mgr,
             pickobject,
             passes,
@@ -87,9 +77,9 @@ impl SceneRenderer {
         self.pickobject.poll_readback(&gpu_context.device)
     }
 
-
     fn sync_skybox(
         &mut self,
+        gpu_manager: &GpuManager,
         gpu_cache: &mut GpuCache,
         gpu_context: &GpuContext,
         asset_mgr: &AssetManager,
@@ -103,27 +93,15 @@ impl SceneRenderer {
                 hdr_texture,
                 &gpu_context.device,
                 &gpu_context.queue,
-                &self.gpu_mgr,
+                &gpu_manager,
             );
         }
     }
 
-    /// update skybox
-    /// sync GpuCache Ids with assets Ids (meshes materials textures)
-    pub fn prepare(
-        &mut self,
-        gpu_cache: &mut GpuCache,
-        gpu_context: &GpuContext,
-        asset_mgr: &AssetManager,
-    ) {
-        self.sync_skybox(gpu_cache, gpu_context, asset_mgr);
-        gpu_cache.sync_caches(gpu_context, &self.gpu_mgr, asset_mgr);
-    }
-
+    
     pub fn render(
         &mut self,
-        gpu_context: &GpuContext,
-        gpu_cache: &mut GpuCache,
+        runtime: &mut RuntimeContext,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         size: (u32, u32),
@@ -132,21 +110,38 @@ impl SceneRenderer {
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
-        input: &Input,
     ) {
+        let RuntimeContext {
+            gpu_context,
+            gpu_manager,
+            pipeline_manager,
+            gpu_cache,
+            input,
+        } = runtime;
+        
         // sync GpuCache Ids with assets Ids (meshes materials textures)
-        self.prepare(gpu_cache, gpu_context, asset_mgr);
+        // update skybox
+        self.sync_skybox(gpu_manager, gpu_cache, gpu_context, asset_mgr);
+        gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
 
         // update global data (uniform) to GPU
-        self.update_render_globals_to_gpu(gpu_context, camera, globals, selected, size);
+        // TODO! move out of here
+        self.update_render_globals_to_gpu(
+            gpu_context,
+            gpu_manager,
+            camera,
+            globals,
+            selected,
+            size,
+        );
 
         let mut ctx = RenderContext {
             device: &gpu_context.device,
             queue: &gpu_context.queue,
             gpu_cache: &gpu_cache,
-
-            gpu_mgr: &self.gpu_mgr,
-            pip_mgr: &self.pipeline_mgr,
+            
+            gpu_mgr: &gpu_manager,
+            pip_mgr: &pipeline_manager,
             skb_mgr: &self.skybox_mgr,
             pickobject: &self.pickobject,
             target: &target,
@@ -154,9 +149,7 @@ impl SceneRenderer {
 
         // Update world buffer data to gpu
         for pass in &mut self.passes {
-            pass.prepare(
-                asset_mgr, world, camera, globals, selected, input, &mut ctx,
-            );
+            pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
         }
 
         for pass in &mut self.passes {
@@ -164,9 +157,11 @@ impl SceneRenderer {
         }
     }
 
+    // TODO! move out of here
     fn update_render_globals_to_gpu(
         &self,
         gpu_context: &GpuContext,
+        gpu_manager: &GpuManager,
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
@@ -177,40 +172,7 @@ impl SceneRenderer {
             None => 0,
         };
 
-        let screen_size = [size.0 as f32, size.1 as f32];
-        let updated_camera_uniform = CameraUniform {
-            view_position: camera.get_position().to_homogeneous().into(),
-            view: camera.get_view_mat().into(),
-            proj: camera.get_projection_mat().into(),
-            screen_size,
-            ..Default::default()
-        };
-
-        let updated_globals_uniform = GlobalUniform {
-            ibl_enable: globals.ibl_enable as u32,
-            skybox_enable: globals.skybox_enable as u32,
-            exposure: globals.exposure,
-            ibl_intensity: globals.ibl_intensity,
-            tonemap_filter: globals.tonemap_filter,
-            entity_id,
-            debug: globals.debug_code,
-            ..Default::default()
-        };
-
-        gpu_context.queue.write_buffer(
-            self.gpu_mgr.get_buffer(BufferKind::Camera),
-            0,
-            bytemuck::bytes_of(&updated_camera_uniform),
-        );
-        gpu_context.queue.write_buffer(
-            self.gpu_mgr.get_buffer(BufferKind::Globals),
-            0,
-            bytemuck::bytes_of(&updated_globals_uniform),
-        );
-    }
-
-    pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
-        // resize gpu_manager
-        self.gpu_mgr.resize_frame(device, width, height);
+        gpu_manager.update_camera(&gpu_context.queue, &CameraUniform::from_camera_size(camera, size));
+        gpu_manager.update_globals(&gpu_context.queue, &GlobalUniform::from_global_id(globals, entity_id));
     }
 }

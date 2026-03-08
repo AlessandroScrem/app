@@ -22,7 +22,6 @@ impl RenderPass for PickObjectPass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _camera: &Camera,
         _globals: &Globals,
         _selected: Option<Entity>,
         input: &Input,

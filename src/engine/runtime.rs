@@ -3,8 +3,9 @@ use std::sync::Arc;
 use super::RuntimeEvent;
 use crate::UiLayer;
 use crate::app::Application;
+use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    GpuCache, GpuContext, GpuInternalCounters, GpuSurface, HasGpuStats, InternalCounter,
+    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter
 };
 use crate::input::Input;
 use crate::prelude::*;
@@ -26,6 +27,8 @@ pub struct RunningApp {
     pub gpu_context: GpuContext,
     pub gpu_surface: GpuSurface,
     pub gpu_cache: GpuCache,
+    pub gpu_manager: GpuManager,
+    pub pipeline_manager: PipelineManager,
 
     pub uilayer: UiLayer,
     pub is_minimized: bool,
@@ -77,7 +80,7 @@ impl RunningApp {
             RuntimeEvent::Resize { width, height } => {
                 if width > 0 && height > 0 {
                     self.is_minimized = false;
-                    self.scene_renderer
+                    self.gpu_manager
                         .resize_frame(&self.gpu_context.device, width, height);
                     self.gpu_surface
                         .resize_frame(&self.gpu_context.device, width, height);

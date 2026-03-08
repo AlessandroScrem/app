@@ -19,7 +19,6 @@ impl RenderPass for SkyboxPass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _camera: &Camera,
         globals: &Globals,
         _selected: Option<Entity>,
         _input: &Input,

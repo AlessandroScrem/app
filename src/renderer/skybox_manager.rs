@@ -254,7 +254,7 @@ impl BRDFLUTBuilder {
     const TEXTURE_SIZE: u32 = 512;
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/brdflut.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/brdflut.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "BRDFLUT Pipeline");
         let size = Self::TEXTURE_SIZE;
         let mip_level_count = 1;
@@ -321,7 +321,7 @@ impl PrefilerMapResources {
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
         let roughness_buffer = Self::create_roughness_buffer(device);
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/prefilter_map.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/prefilter_map.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "Prefilter Pipeline");
 
         let layout = pipeline.get_bind_group_layout(0);
@@ -441,7 +441,7 @@ impl EquirectResources {
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
         let shader = device.create_shader_module(wgpu::include_wgsl!(
-            "shaders/equirectangular_to_cubemap.wgsl"
+            "../gpu/shaders/equirectangular_to_cubemap.wgsl"
         ));
         let pipeline = utils::create_pipeline(device, format, shader, "Equirect Pipeline");
         let layout = pipeline.get_bind_group_layout(0);
@@ -540,7 +540,7 @@ impl IrradianceResources {
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
         let shader =
-            device.create_shader_module(wgpu::include_wgsl!("shaders/irradiance_convolution.wgsl"));
+            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/irradiance_convolution.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "Irradiance Pipeline");
         let layout = pipeline.get_bind_group_layout(0);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);

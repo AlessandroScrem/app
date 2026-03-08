@@ -17,7 +17,6 @@ impl RenderPass for LinearizePass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _camera: &Camera,
         _globals: &Globals,
         _selected: Option<Entity>,
         _input: &Input,

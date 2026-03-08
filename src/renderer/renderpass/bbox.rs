@@ -37,7 +37,6 @@ impl RenderPass for BBoxPass {
         &mut self,
         _asset_mgr: &AssetManager,
         world: &World,
-        _camera: &Camera,
         globals: &Globals,
         _selected: Option<Entity>,
         _input: &Input,

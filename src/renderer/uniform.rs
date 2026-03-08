@@ -25,6 +25,34 @@ impl Default for CameraUniform {
     }
 }
 
+impl CameraUniform {
+    pub fn from_camera_size(camera: &super::Camera, size: (u32, u32)) -> Self {
+        let screen_size = [size.0 as f32, size.1 as f32];
+        Self {
+            view_position: camera.get_position().to_homogeneous().into(),
+            view: camera.get_view_mat().into(),
+            proj: camera.get_projection_mat().into(),
+            screen_size,
+            ..Default::default()
+        }
+    }
+}
+
+impl GlobalUniform {
+    pub fn from_global_id(globals: &super::Globals, entity_id: u64) ->Self {
+            Self {
+            ibl_enable: globals.ibl_enable as u32,
+            skybox_enable: globals.skybox_enable as u32,
+            exposure: globals.exposure,
+            ibl_intensity: globals.ibl_intensity,
+            tonemap_filter: globals.tonemap_filter,
+            entity_id,
+            debug: globals.debug_code,
+            ..Default::default()
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct Mat4x3 {
@@ -98,6 +126,8 @@ pub struct GlobalUniform {
     pub tonemap_filter: u32,
     pub debug: u32,
 }
+
+
 
 ///shader: [pbr, blinnphong, light]
 #[repr(C, align(16))]
