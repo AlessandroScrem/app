@@ -33,7 +33,7 @@ fn init_logger(verbose_count: u64) {
     env_logger::Builder::new()
         // Imposta filtri per crate specifici
         .filter_module("app_wgpu", level) // tuo crate
-        .filter_module("wgpu", LevelFilter::Info) // wgpu log
+        .filter_module("wgpu", LevelFilter::Warn) // wgpu log
         .filter_module("naga", LevelFilter::Warn) // silenzia info/debug di naga
         .format(|buf, record| {
             use std::io::Write;
