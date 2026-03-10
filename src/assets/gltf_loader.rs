@@ -27,12 +27,22 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
+pub fn generate_mikktspace_tangents(
+    vertices: &mut [MeshVertexData],
+    indices: &[u32],
+    base_vertex: u32,
+) {
     use mikktspace::{Geometry, generate_tangents};
+
+    debug_assert!(
+        indices
+            .iter()
+            .all(|&i| i - base_vertex < vertices.len() as u32)
+    );
 
     struct Mikkt<'a> {
         vertices: &'a mut [MeshVertexData],
-        indices: &'a [u32],
+        indices: Vec<u32>,
     }
 
     impl Geometry for Mikkt<'_> {
@@ -62,86 +72,78 @@ pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[
             _bitangent: [f32; 3],
             _f_mag_s: f32,
             _f_mag_t: f32,
-            b_is_orientation_preserving: bool,
+            orientation: bool,
             face: usize,
             vert: usize,
         ) {
-            let sign = if b_is_orientation_preserving {
-                1.0
-            } else {
-                -1.0
-            };
+            let sign = if orientation { 1.0 } else { -1.0 };
             let idx = self.indices[face * 3 + vert] as usize;
 
             self.vertices[idx].tangent = [tangent[0], tangent[1], tangent[2], sign];
         }
     }
 
-    let mut geom = Mikkt { vertices, indices };
+    let local_indices: Vec<u32> = indices.iter().map(|i| i - base_vertex).collect();
+
+    let mut geom = Mikkt {
+        vertices,
+        indices: local_indices,
+    };
+
     generate_tangents(&mut geom);
 }
 
-fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>, indices: &mut Vec<u32>)
+fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>, indices: &mut Vec<u32>, base_vertex: u32)
 where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
-    let base_vertex = indices.len() as u32;
     if let Some(read_indices) = reader.read_indices() {
         for i in read_indices.into_u32() {
-            indices.push(base_vertex + i)
+            indices.push(base_vertex + i);
         }
     } else {
-        // non indexed primitive
         let count = reader.read_positions().expect("position missing").len() as u32;
         indices.extend(base_vertex..base_vertex + count);
     }
 }
 
-fn extract_vertices<'a, F>(
-    reader: &Reader<'a, 'a, F>,
-    indices: &Vec<u32>,
-    vertices: &mut Vec<MeshVertexData>,
-) where
+fn extract_vertices<'a, F>(reader: &Reader<'a, 'a, F>, vertices: &mut Vec<MeshVertexData>) -> usize
+where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
+    let base = vertices.len();
     let positions = reader.read_positions().expect("Missing positions");
 
     for position in positions {
-        let normal = [0.0, 1.0, 0.0];
-        let uv = [0.0, 0.0];
-        let tangent = [0.0, 0.0, 0.0, 0.0];
-
         vertices.push(MeshVertexData {
             position,
-            normal,
-            tangent,
-            uv,
+            normal: [0.0, 1.0, 0.0],
+            tangent: [0.0; 4],
+            uv: [0.0; 2],
         });
     }
 
+    let count = vertices.len() - base;
+
     if let Some(normals) = reader.read_normals() {
-        normals.enumerate().for_each(|(i, normal)| {
-            vertices[i].normal = normal;
-        });
-    } else {
-        warn!("Missing Texture Normal");
+        for (i, normal) in normals.enumerate() {
+            vertices[base + i].normal = normal;
+        }
     }
 
     if let Some(uvs) = reader.read_tex_coords(0) {
-        uvs.into_f32().enumerate().for_each(|(i, uv)| {
-            vertices[i].uv = uv;
-        });
-    } else {
-        warn!("Missing UV Coords");
+        for (i, uv) in uvs.into_f32().enumerate() {
+            vertices[base + i].uv = uv;
+        }
     }
 
-    if let Some(tangent) = reader.read_tangents() {
-        tangent.enumerate().for_each(|(i, t)| {
-            vertices[i].tangent = t;
-        });
-    } else {
-        generate_mikktspace_tangents(vertices, &indices);
+    if let Some(tangents) = reader.read_tangents() {
+        for (i, t) in tangents.enumerate() {
+            vertices[base + i].tangent = t;
+        }
     }
+
+    count
 }
 
 fn extract_bbox(mesh: &gltf::Mesh) -> BoundingBox {
@@ -269,18 +271,42 @@ pub fn load_gltf<P: AsRef<Path>>(
 
             let reader = primitive.reader(|b| Some(&buffers[b.index()]));
             let base_vertex = vertices.len() as u32;
-            let index_start = indices.len() as u32;
+            let index_start = indices.len();
 
-            extract_indices(&reader, &mut indices);
-            extract_vertices(&reader, &indices, &mut vertices);
+            // assert che non ci siano set UV > 0
+            use gltf::mesh::Semantic;
+            debug_assert!(
+                primitive.attributes().all(|(semantic, _)| {
+                    match semantic {
+                        Semantic::TexCoords(set) => set == 0,
+                        _ => true,
+                    }
+                }),
+                "Primitive {} set UV > 0 not yet supported",
+                primitive.index()
+            );
 
-            let index_end = indices.len() as u32;
+            let vertex_count = extract_vertices(&reader, &mut vertices);
+            extract_indices(&reader, &mut indices, base_vertex);
+
+            let index_end = indices.len();
+
+            if reader.read_tangents().is_none() {
+                let vertex_slice =
+                    &mut vertices[base_vertex as usize..base_vertex as usize + vertex_count];
+
+                generate_mikktspace_tangents(
+                    vertex_slice,
+                    &indices[index_start..index_end],
+                    base_vertex,
+                );
+            }
 
             let material_id = create_material(&primitive.material(), asset_mgr, &images, &path);
             materials.push(material_id);
 
             submeshes.push(SubMesh {
-                index_range: index_start..index_end,
+                index_range: index_start as u32..index_end as u32,
                 base_vertex,
                 material: material_id,
             });
