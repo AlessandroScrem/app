@@ -145,18 +145,41 @@ impl RenderPass for MeshPass {
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
-        for mesh in drawables(asset_mgr, ctx.gpu_cache) {
-            let MeshDrawable {
-                gpu_mesh,
-                material_bg,
-                index_range,
-            } = mesh;
 
-            renderpass.set_bind_group(2, &gpu_mesh.model_bind_group, &[]);
-            renderpass.set_bind_group(1, material_bg, &[]);
-            renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
-            renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
-            renderpass.draw_indexed((*index_range).clone(), 0, 0..1);
+        // Draw per submesh (Default)
+        // for mesh in drawables(asset_mgr, ctx.gpu_cache) {
+        //     let MeshDrawable {
+        //         gpu_mesh,
+        //         material_bg,
+        //         index_range,
+        //     } = mesh;
+
+        //     renderpass.set_bind_group(2, &gpu_mesh.model_bind_group, &[]);
+        //     renderpass.set_bind_group(1, material_bg, &[]);
+        //     renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
+        //     renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
+        //     renderpass.draw_indexed((*index_range).clone(), 0, 0..1);
+        // }
+
+        // Draw per material (reduce drawcall number)
+        let mut drawables: Vec<_> = drawables(asset_mgr, ctx.gpu_cache).collect();
+        drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
+
+        let mut current_material: Option<*const _> = None;
+
+        for mesh in drawables {
+            let mat_ptr = mesh.material_bg as *const _;
+
+            if current_material != Some(mat_ptr) {
+                renderpass.set_bind_group(1, mesh.material_bg, &[]);
+                current_material = Some(mat_ptr);
+            }
+
+            renderpass.set_bind_group(2, &mesh.gpu_mesh.model_bind_group, &[]);
+            renderpass.set_index_buffer(mesh.gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
+            renderpass.set_vertex_buffer(0, mesh.gpu_mesh.vertexbuffer.slice(..));
+
+            renderpass.draw_indexed(mesh.index_range.clone(), 0, 0..1);
         }
     }
 }
