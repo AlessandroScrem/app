@@ -27,18 +27,10 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-pub fn generate_mikktspace_tangents(
-    vertices: &mut [MeshVertexData],
-    indices: &[u32],
-    base_vertex: u32,
-) {
+pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
 
-    debug_assert!(
-        indices
-            .iter()
-            .all(|&i| i - base_vertex < vertices.len() as u32)
-    );
+    debug_assert!(indices.iter().all(|&i| (i as usize) < vertices.len()));
 
     struct Mikkt<'a> {
         vertices: &'a mut [MeshVertexData],
@@ -79,22 +71,30 @@ pub fn generate_mikktspace_tangents(
             let sign = if orientation { 1.0 } else { -1.0 };
             let idx = self.indices[face * 3 + vert] as usize;
 
-            self.vertices[idx].tangent = [tangent[0], tangent[1], tangent[2], sign];
+            let v = &mut self.vertices[idx];
+
+            v.tangent[0] += tangent[0];
+            v.tangent[1] += tangent[1];
+            v.tangent[2] += tangent[2];
+            v.tangent[3] = sign;
         }
     }
 
-    let local_indices: Vec<u32> = indices.iter().map(|i| i - base_vertex).collect();
-
     let mut geom = Mikkt {
         vertices,
-        indices: local_indices,
+        indices: indices.to_vec(),
     };
 
     generate_tangents(&mut geom);
+
 }
 
-fn extract_indices<'a, F>(reader: &Reader<'a, 'a, F>, indices: &mut Vec<u32>, base_vertex: u32)
-where
+fn extract_indices<'a, F>(
+    reader: &Reader<'a, 'a, F>,
+    indices: &mut Vec<u32>,
+    base_vertex: u32,
+    vertex_count: usize,
+) where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
     if let Some(read_indices) = reader.read_indices() {
@@ -102,17 +102,24 @@ where
             indices.push(base_vertex + i);
         }
     } else {
-        let count = reader.read_positions().expect("position missing").len() as u32;
-        indices.extend(base_vertex..base_vertex + count);
+        warn!("Missing Indices, recalculating from vertices ...");
+        indices.extend(base_vertex..base_vertex + vertex_count as u32);
     }
 }
 
-fn extract_vertices<'a, F>(reader: &Reader<'a, 'a, F>, vertices: &mut Vec<MeshVertexData>) -> usize
+fn extract_vertices<'a, F>(
+    reader: &Reader<'a, 'a, F>,
+    vertices: &mut Vec<MeshVertexData>,
+) -> Result<usize, ImportError>
 where
     F: Clone + Fn(gltf::Buffer<'a>) -> Option<&'a [u8]>,
 {
     let base = vertices.len();
-    let positions = reader.read_positions().expect("Missing positions");
+
+    let positions = reader.read_positions().ok_or_else(|| {
+        warn!("Gltf: missing POSITION");
+        ImportError::MissingPositions
+    })?;
 
     for position in positions {
         vertices.push(MeshVertexData {
@@ -143,7 +150,7 @@ where
         }
     }
 
-    count
+    Ok(count)
 }
 
 fn extract_bbox(mesh: &gltf::Mesh) -> BoundingBox {
@@ -167,13 +174,12 @@ fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ImportError {
     Io(std::io::Error),
     Gltf(gltf::Error),
     MissingPositions,
-    MissingIndices,
+    #[allow(dead_code)]
     MeshLoadFailed,
 }
 
@@ -181,7 +187,6 @@ impl std::fmt::Display for ImportError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ImportError::MissingPositions => write!(f, "Missing POSITION"),
-            ImportError::MissingIndices => write!(f, "Missing INDICES"),
             ImportError::MeshLoadFailed => write!(f, "Failed to load mesh"),
             ImportError::Io(e) => write!(f, "IO error: {}", e),
             ImportError::Gltf(e) => write!(f, "glTF error: {}", e),
@@ -258,7 +263,7 @@ pub fn load_gltf<P: AsRef<Path>>(
     asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
-    let images: Vec<gltf::Image<'_>> = gltf.images().collect();
+    // let images: Vec<gltf::Image<'_>> = gltf.images().collect();
 
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
@@ -286,23 +291,16 @@ pub fn load_gltf<P: AsRef<Path>>(
                 primitive.index()
             );
 
-            let vertex_count = extract_vertices(&reader, &mut vertices);
-            extract_indices(&reader, &mut indices, base_vertex);
+            let vertex_count = extract_vertices(&reader, &mut vertices)?;
+            extract_indices(&reader, &mut indices, base_vertex, vertex_count);
 
             let index_end = indices.len();
 
             if reader.read_tangents().is_none() {
-                let vertex_slice =
-                    &mut vertices[base_vertex as usize..base_vertex as usize + vertex_count];
-
-                generate_mikktspace_tangents(
-                    vertex_slice,
-                    &indices[index_start..index_end],
-                    base_vertex,
-                );
+                generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
-            let material_id = create_material(&primitive.material(), asset_mgr, &images, &path);
+            let material_id = create_material(&primitive.material(), asset_mgr, &path);
             materials.push(material_id);
 
             submeshes.push(SubMesh {
@@ -365,19 +363,14 @@ pub fn load_gltf<P: AsRef<Path>>(
     Ok(scene)
 }
 
-fn resolve_image_uri(uri: &str, base_dir: &Path) -> Option<std::path::PathBuf> {
-    Some(base_dir.join(uri))
-}
 
 fn path_from_ginfo(
     info: gltf::texture::Info<'_>,
     base_dir: &Path,
-    images: &[gltf::Image<'_>],
 ) -> Option<std::path::PathBuf> {
-    let image = images.get(info.texture().index())?;
 
-    match image.source() {
-        gltf::image::Source::Uri { uri, .. } => resolve_image_uri(uri, base_dir),
+    match info.texture().source().source() {
+        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
         _ => None,
     }
 }
@@ -387,7 +380,7 @@ fn path_from_gtexture(
     base_dir: &Path,
 ) -> Option<std::path::PathBuf> {
     match texture.source().source() {
-        gltf::image::Source::Uri { uri, .. } => resolve_image_uri(uri, base_dir),
+        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
         _ => None,
     }
 }
@@ -395,7 +388,6 @@ fn path_from_gtexture(
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     asset_mgr: &mut AssetManager,
-    images: &Vec<gltf::Image<'_>>,
     path: P,
 ) -> MaterialId {
     use material_asset::MaterialTextureSlot::*;
@@ -435,21 +427,21 @@ fn create_material<P: AsRef<Path>>(
         material_desc.set_texture(
             texture_asset,
             BaseColor,
-            path_from_ginfo(color_info, parent_path, &images),
+            path_from_ginfo(color_info, parent_path),
         );
     }
     if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
         material_desc.set_texture(
             texture_asset,
             MetallicRoughness,
-            path_from_ginfo(met_rough_info, parent_path, &images),
+            path_from_ginfo(met_rough_info, parent_path),
         );
     }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
         material_desc.set_texture(
             texture_asset,
             Emissive,
-            path_from_ginfo(emissive_info, parent_path, &images),
+            path_from_ginfo(emissive_info, parent_path),
         );
     }
 

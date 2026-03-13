@@ -78,6 +78,8 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
         },
     };
 
+    trace!("read texture {:?}", &path.as_path());
+
     let buffer = file::read_bytes(path)?;
 
     let (pixels, width, height) = match color_space {
