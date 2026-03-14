@@ -90,9 +90,10 @@ fn vs_main(
 
 /// Fragment shader
 ///
-const NUM_LIGHTS: u32 = 1;
-const True:u32 = 1;
-const False:u32 = 0;
+const NUM_LIGHTS             : u32 = 1;
+const MAX_REFLECTION_LOD     : f32 = 4.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
+const True                   : u32 = 1;
+const False                  : u32 = 0;
 
 const DebugNone              : u32 = 0; 
 const DebugBaseColor         : u32 = 1; 
@@ -105,7 +106,6 @@ const DebugMetallic          : u32 = 7;
 const DebugRoughness         : u32 = 8; 
 const DebugOcclusion         : u32 = 9; 
 const DebugEmissive          : u32 = 10; 
-const DebugColorFixed        : u32 = 11; 
 
 // Material
 @group(1) @binding(0) var tex_sampler: sampler;
@@ -120,7 +120,7 @@ const DebugColorFixed        : u32 = 11;
 // Ibl 
 @group(3) @binding(0) var ibl_sampler: sampler;
 @group(3) @binding(1) var irradiance_map: texture_cube<f32>;
-@group(3) @binding(2) var prefilter_map: texture_cube<f32>;
+@group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 
 fn CalculateLight(
@@ -223,8 +223,10 @@ fn CalculateAmbient(
 
     let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
 
-    let MAX_REFLECTION_LOD: f32 = 4.0;
-    let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, roughness * MAX_REFLECTION_LOD).rgb;
+    // Filament version
+    var lod = roughness * roughness * MAX_REFLECTION_LOD;
+
+    let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, lod).rgb;
     let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
     let diffuse = irradiance * albedo * globals.ibl_intensity;
@@ -251,6 +253,7 @@ fn get_metallic(uv: vec2<f32>) ->f32 {
     var metallic = material.metallic_factor;
     if material.use_metal_roughness_texture == True {
         metallic *= textureSample(orm_map, tex_sampler, uv).b;
+        metallic = select(0.0, metallic, metallic > 0.06);
     }
     return clamp(metallic, 0.0, 1.0);
 }
@@ -295,17 +298,6 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
 fn fs_main(in: VertexOutput) -> FSOutput {
     var out: FSOutput;
 
-    // --- DEBUG EARLY EXIT ---
-    switch globals.debug {
-        case DebugColorFixed: {
-            out.color = vec4<f32>(1.0, 0.0, 0.0, 1.0); // rosso fisso
-            out.entity_id = vec2<u32>(model.entity_id_low, model.entity_id_high);
-            return out; // esce subito senza leggere texture o calcolare lighting
-        }
-        // puoi fare lo stesso per un wireframe o altri debug leggeri
-        default: {;}
-    }
-
     let albedo_color = get_color(in.uv);
     let normal_texture = get_normal_texture(in.uv);
     let metallic = get_metallic(in.uv);
@@ -327,7 +319,7 @@ fn fs_main(in: VertexOutput) -> FSOutput {
 
     let lo = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
     let ambient = CalculateAmbient(Nws, V, albedo_color, metallic, roughness) * ao;
-    
+
     var color = lo + ambient + emissive; 
     switch globals.debug {
         case DebugBaseColor         : { color = albedo_color; }
