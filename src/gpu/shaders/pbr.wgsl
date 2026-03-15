@@ -294,6 +294,18 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     return normal_ts;
 }
 
+fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
+    var result: vec3<f32>;
+    for (var i: u32 = 0u; i < 3u; i = i + 1u) {
+        if (c[i] <= 0.04045) {
+            result[i] = c[i] / 12.92;
+        } else {
+            result[i] = pow((c[i] + 0.055) / 1.055, 2.4);
+        }
+    }
+    return result;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> FSOutput {
     var out: FSOutput;
@@ -323,14 +335,14 @@ fn fs_main(in: VertexOutput) -> FSOutput {
     var color = lo + ambient + emissive; 
     switch globals.debug {
         case DebugBaseColor         : { color = albedo_color; }
-        case DebugNormalTexture     : { color = (normal_texture + 1.0) / 2.0;}
-        case DebugGeometryNormal    : { color = (N + 1.0) / 2.0;}
-        case DebugGeometryTangent   : { color = (T + 1.0) / 2.0;}
-        case DebugGeometryBitangent : { color = (B + 1.0) / 2.0;}
-        case DebugGeometryTangentW  : { color = vec3(in.tangent.w + 1.0) / 2.0;}
-        case DebugRoughness         : { color = vec3(roughness);}
-        case DebugMetallic          : { color = vec3(metallic);}
-        case DebugOcclusion         : { color = vec3(ao);}
+        case DebugNormalTexture     : { color = inverse_srgb((normal_texture + 1.0) / 2.0);}
+        case DebugGeometryNormal    : { color = inverse_srgb((N + 1.0) / 2.0);}
+        case DebugGeometryTangent   : { color = inverse_srgb((T + 1.0) / 2.0);}
+        case DebugGeometryBitangent : { color = inverse_srgb((B + 1.0) / 2.0);}
+        case DebugGeometryTangentW  : { color = inverse_srgb(vec3(in.tangent.w + 1.0) / 2.0);}
+        case DebugRoughness         : { color = inverse_srgb(vec3(roughness));}
+        case DebugMetallic          : { color = inverse_srgb(vec3(metallic));}
+        case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}
         case DebugEmissive          : { color = emissive;}
         default: {;} 
     }
@@ -340,6 +352,7 @@ fn fs_main(in: VertexOutput) -> FSOutput {
 
     return out;
 }
+
 
     // debug normal
     // color = -N * 0.5 + 0.5;

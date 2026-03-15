@@ -83,6 +83,9 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 ///
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    if globals.debug != 0 {
+        discard;
+    }
     
     // flip asse X
     let dir = vec3<f32>(-input.frag_pos.x, input.frag_pos.y, input.frag_pos.z);

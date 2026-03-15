@@ -101,6 +101,9 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    if globals.debug != 0 {
+        discard;
+    }
 
 
     let edgeFactor = compute_outline_soft(uv, outlineThickness, outlineSoftness);
