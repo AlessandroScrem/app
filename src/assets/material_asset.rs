@@ -42,6 +42,25 @@ pub enum MaterialTextureSlot {
     Occlusion = 4,
 }
 
+
+impl std::fmt::Display for MaterialTextureSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+impl MaterialTextureSlot {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BaseColor => "Base Color",
+            Self::Normal => "Normal",
+            Self::MetallicRoughness => "Metallic Roughness",
+            Self::Emissive => "Emissive",
+            Self::Occlusion => "Occlusion",
+        }
+    }
+}
+
+
 impl MaterialTextureSlot {
     pub fn color_space(self) -> ColorSpace {
         match self {

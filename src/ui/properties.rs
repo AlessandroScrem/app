@@ -56,13 +56,15 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
         f.draw_ui(ui);
     }
 
-    if let Some((desc_updated, mat_id)) = draw_materials(ui, &cv.materials, resolver) {
-        trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
-        ctx.write
-            .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(
-                mat_id,
-                desc_updated,
-            )));
+    if let Some(materials) = &cv.materials {
+        if let Some((desc_updated, mat_id)) = draw_materials(ui, materials, resolver) {
+            trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
+            ctx.write
+                .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(
+                    mat_id,
+                    desc_updated,
+                )));
+        }
     }
 
     if let Some(f) = &mut cv.light.clone() {
@@ -96,6 +98,110 @@ thread_local! {
     static SELECTED_INDEX: RefCell<MaterialId> = RefCell::new(MaterialId::default());
 }
 
+impl MaterialDesc {
+    fn draw_ui_slot(
+        &mut self,
+        ui: &imgui::Ui,
+        // material: &mut MaterialDesc,
+        slot: MaterialTextureSlot,
+        resolver: &dyn UiTextureResolver,
+    ) -> bool {
+        let mut dirty = false;
+        let label = slot.as_str();
+        let iconsize = [ui.text_line_height(), ui.text_line_height()];
+        let material = self;
+
+        if let Some(id) = material.get_texture_slot(slot) {
+            ui.text(label);
+
+            let mut use_texture = material.slot_get(slot);
+
+            if ui.checkbox(&format!("Use##{}", label), &mut use_texture) {
+                material.slot_set(slot, use_texture);
+                dirty = true;
+            }
+
+            if use_texture {
+                ui.same_line();
+                draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)), iconsize);
+            } else {
+                dirty |= slot.draw_ui(ui, material);
+            }
+        } else {
+            ui.disabled(true, || {
+                ui.text(label);
+            });
+        }
+        dirty
+    }
+}
+
+impl MaterialTextureSlot {
+    fn draw_ui(self, ui: &Ui, material: &mut MaterialDesc) -> bool {
+        match self {
+            MaterialTextureSlot::BaseColor => {
+                let mut color: [f32; 4] = material.base_color_factor.into();
+                ui.same_line();
+
+                let changed = ui
+                    .color_edit4_config("##BaseColor", &mut color)
+                    .inputs(false)
+                    .build();
+
+                if changed {
+                    material.base_color_factor = color.into();
+                }
+
+                changed
+            }
+            MaterialTextureSlot::Emissive => {
+                let mut color: [f32; 4] = material.emissive_factor.into();
+                ui.same_line();
+
+                let changed = ui
+                    .color_edit4_config("##Emissive", &mut color)
+                    .inputs(false)
+                    .build();
+
+                if changed {
+                    material.emissive_factor = color.into();
+                }
+
+                changed
+            }
+            MaterialTextureSlot::Normal => {
+                let changed = Drag::new("##Normal")
+                    .speed(0.01)
+                    .range(0.0, 1.0)
+                    .build(ui, &mut material.normal_scale);
+                changed
+            }
+            MaterialTextureSlot::MetallicRoughness => {
+                let mut changed = false;
+
+                changed |= Drag::new("Met")
+                    .speed(0.01)
+                    .range(0.01, 1.0)
+                    .build(ui, &mut material.metallic_factor);
+
+                changed |= Drag::new("Rough")
+                    .speed(0.01)
+                    .range(0.01, 1.0)
+                    .build(ui, &mut material.roughness_factor);
+
+                changed
+            }
+            MaterialTextureSlot::Occlusion => {
+                let changed = Drag::new("##Occlusion")
+                    .speed(0.01)
+                    .range(0.0, 1.0)
+                    .build(ui, &mut material.occlusion_strength);
+                changed
+            }
+        }
+    }
+}
+
 fn draw_materials(
     ui: &Ui,
     materials: &HashMap<MaterialId, MaterialDesc>,
@@ -113,36 +219,32 @@ fn draw_materials(
             return None;
         }
 
-        // ordine stabile per la listbox
-        let mut keys: Vec<MaterialId> = materials.keys().cloned().collect();
-        keys.sort();
-
         if let Some(_t) = ui.begin_table("", 2) {
-            
             // -- Left column: Material list  ---
             ui.table_next_column();
+
             SELECTED_INDEX.with(|id_cell| {
                 let mut selected_id = *id_cell.borrow();
 
-                // select first material if not exist
+                let mut keys: Vec<MaterialId> = materials.keys().cloned().collect();
+                keys.sort();
+
+                // select first id if not exist
                 if !materials.contains_key(&selected_id) {
                     selected_id = keys[0];
                 }
-
-                // crea i label direttamente dagli id
-                let labels: Vec<String> = keys.iter().map(|id| id.to_string()).collect();
 
                 let listbox_height = materials.len() as f32 * ui.text_line_height_with_spacing();
                 ui.child_window("##Material list")
                     .size([0.0, listbox_height])
                     .build(|| {
-                        for (idx, id) in keys.iter().enumerate() {
-                            let label = &labels[idx];
-                            let is_selected = *id == selected_id;
+                        for id in keys {
+                            let label = id.to_string();
+                            let is_selected = id == selected_id;
 
                             // highlight selection if selected
                             if ui.selectable_config(label).selected(is_selected).build() {
-                                selected_id = *id;
+                                selected_id = id;
                             }
 
                             // initial focus
@@ -155,171 +257,27 @@ fn draw_materials(
                 *id_cell.borrow_mut() = selected_id;
             });
 
-            
             // --- Right column: material controls ---
             ui.table_next_column();
             SELECTED_INDEX.with(|idx_cell| {
                 let selected_id = *idx_cell.borrow();
 
                 use MaterialTextureSlot::*;
-                let iconsize = [ui.text_line_height(), ui.text_line_height()];
 
                 if let Some(mut material) = materials.get(&selected_id).cloned() {
                     let name = material.get_name();
 
                     if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF)
                     {
-                        ui.text("Color");
-                        {
-                            let mut use_texture = material.slot_get(BaseColor);
-                            if let Some(id) = material.get_texture_slot(BaseColor) {
-                                dirty |= ui.checkbox("Use##_ct", &mut use_texture);
-                                if use_texture {
-                                    ui.same_line();
-                                    draw_ui_texture_icon(
-                                        ui,
-                                        resolver.resolve(UiTexture::Engine(id)),
-                                        iconsize,
-                                    );
-                                } else {
-                                    let mut color: [f32; 4] = material.base_color_factor.into();
-                                    ui.same_line();
-                                    if ui
-                                        .color_edit4_config("##Base Color", &mut color)
-                                        .inputs(false)
-                                        .build()
-                                    {
-                                        material.base_color_factor = color.into();
-                                        dirty = true;
-                                    }
-                                }
-                                material.slot_set(BaseColor, use_texture);
-                            } else {
-                                ui.same_line();
-                                ui.text("Disabled");
-                            }
-                        }
+                        dirty |= material.draw_ui_slot(ui, BaseColor, resolver);
                         ui.separator();
-                        
-                        {
-                            ui.text("Emissive");
-                            let mut use_texture = material.slot_get(Emissive);
-                            if let Some(id) = material.get_texture_slot(Emissive) {
-                                dirty |= ui.checkbox("Use##_em", &mut use_texture);
-                                if use_texture {
-                                    ui.same_line();
-                                    draw_ui_texture_icon(
-                                        ui,
-                                        resolver.resolve(UiTexture::Engine(id)),
-                                        iconsize,
-                                    );
-                                } else {
-                                    let mut color: [f32; 4] = material.emissive_factor.into();
-                                    ui.same_line();
-                                    if ui
-                                    .color_edit4_config("##Emissive", &mut color)
-                                    .inputs(false)
-                                    .build()
-                                    {
-                                        material.emissive_factor = color.into();
-                                        dirty = true;
-                                    }
-                                }
-                                material.slot_set(Emissive, use_texture);
-                            } else {
-                                ui.same_line();
-                                ui.text("Disabled");
-                            }
-                        }
+                        dirty |= material.draw_ui_slot(ui, Emissive, resolver);
                         ui.separator();
-
-                        {
-                            ui.text("Occlusion");
-                            let mut use_texture = material.slot_get(Occlusion);
-                            if let Some(id) = material.get_texture_slot(Occlusion) {
-                                dirty |= ui.checkbox("Use##_occ", &mut use_texture);
-                                if use_texture {
-                                    ui.same_line();
-                                    draw_ui_texture_icon(
-                                        ui,
-                                        resolver.resolve(UiTexture::Engine(id)),
-                                        iconsize,
-                                    );
-                                } else {
-                                    ui.same_line();
-                                }
-                                material.slot_set(Occlusion, use_texture);
-                            } else {
-                                ui.same_line();
-                                ui.text("Disabled");
-                            }
-                            ui.disabled(use_texture, || {
-                                dirty |= Drag::new("##Occlusion")
-                                    .speed(0.01)
-                                    .range(0.0, 1.0)
-                                    .build(ui, &mut material.occlusion_strength);
-                            });
-                        }
+                        dirty |= material.draw_ui_slot(ui, Occlusion, resolver);
                         ui.separator();
-
-                        {
-                            ui.text("Metallic Roughness");
-                            let mut use_texture = material.slot_get(MetallicRoughness);
-                            if let Some(id) = material.get_texture_slot(MetallicRoughness) {
-                                dirty |= ui.checkbox("Use##_mr", &mut use_texture);
-                                if use_texture {
-                                    ui.same_line();
-                                    draw_ui_texture_icon(
-                                        ui,
-                                        resolver.resolve(UiTexture::Engine(id)),
-                                        iconsize,
-                                    );
-                                }
-
-                                material.slot_set(MetallicRoughness, use_texture);
-                            } else {
-                                ui.same_line();
-                                ui.text("Disabled");
-                            }
-
-                            ui.disabled(use_texture, || {
-                                dirty |= Drag::new("Met")
-                                    .speed(0.01)
-                                    .range(0.01, 1.0)
-                                    .build(ui, &mut material.metallic_factor);
-                                dirty |= Drag::new("Rough")
-                                    .speed(0.01)
-                                    .range(0.01, 1.0)
-                                    .build(ui, &mut material.roughness_factor);
-                            });
-                        }
+                        dirty |= material.draw_ui_slot(ui, MetallicRoughness, resolver);
                         ui.separator();
-
-                        {
-                            ui.text("Normal");
-                            let mut use_texture = material.slot_get(Normal);
-                            if let Some(id) = material.get_texture_slot(Normal) {
-                                dirty |= ui.checkbox("Use##_normal_texture", &mut use_texture);
-                                if use_texture {
-                                    ui.same_line();
-                                    draw_ui_texture_icon(
-                                        ui,
-                                        resolver.resolve(UiTexture::Engine(id)),
-                                        iconsize,
-                                    );
-                                }
-                                material.slot_set(Normal, use_texture);
-                                ui.disabled(use_texture, || {
-                                    dirty |= Drag::new("##Normal")
-                                        .speed(0.01)
-                                        .range(0.0, 1.0)
-                                        .build(ui, &mut material.normal_scale);
-                                });
-                            } else {
-                                ui.same_line();
-                                ui.text("Disabled");
-                            }
-                        }
+                        dirty |= material.draw_ui_slot(ui, Normal, resolver);
                     }
 
                     if dirty {
@@ -373,10 +331,7 @@ impl BoundingBoxComponent {
         let bbox = &self.bounding_box;
         let gbbox = &self.global_bounding_box;
 
-        if ui.collapsing_header(
-            "BoundingBoxComponent",
-            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-        ) {
+        if ui.collapsing_header("BoundingBoxComponent", TreeNodeFlags::ALLOW_ITEM_OVERLAP) {
             ui.text("Local");
             ui.text(format!("Min: {:?}", bbox.min));
             ui.text(format!("Max: {:?}", bbox.max));
@@ -391,10 +346,7 @@ impl BoundingBoxComponent {
 
 impl MeshComponent {
     fn draw_ui(&mut self, ui: &Ui) -> bool {
-        if ui.collapsing_header(
-            "MeshComponent",
-            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-        ) {}
+        if ui.collapsing_header("MeshComponent", TreeNodeFlags::ALLOW_ITEM_OVERLAP) {}
         false
     }
 }

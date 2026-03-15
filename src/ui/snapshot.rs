@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::assets::{HasStats, MaterialId};
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
+use crate::assets::{HasStats, MaterialId};
 use crate::prelude::*;
 use crate::renderer::{GpuInternalCounters, InternalCounter, UiTextureResolver};
 use legion::*;
@@ -46,7 +46,6 @@ pub struct UiSnapshot<'a> {
     pub gpu_counters: GpuInternalCounters,
 }
 
-
 /// UiComponentView is a per-frame snapshot.
 /// It must never be stored or reused across frames.
 #[derive(Default)]
@@ -55,7 +54,7 @@ pub struct UiComponentState {
     pub mesh: Option<MeshComponent>,
     pub transform: Option<TransformComponent>,
     pub bounding_box: Option<BoundingBoxComponent>,
-    pub materials: HashMap<MaterialId, MaterialDesc>,
+    pub materials: Option<HashMap<MaterialId, MaterialDesc>>,
     pub light: Option<LightComponent>,
 }
 
@@ -79,11 +78,18 @@ impl UiComponentState {
             state.mesh = Some(mesh.clone());
 
             if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                for sm in mesh_desc.submeshes.iter() {
-                    if let Some(mat) = asset_mgr.materials.get_desc(sm.material) {
-                        state.materials.insert(sm.material, mat.clone());
-                    }
-                }
+                let materials: HashMap<MaterialId, MaterialDesc> = mesh_desc
+                    .submeshes
+                    .iter()
+                    .filter_map(|sm| {
+                        asset_mgr
+                            .materials
+                            .get_desc(sm.material)
+                            .map(|mat| (sm.material, mat.clone()))
+                    })
+                    .collect();
+
+                state.materials = Some(materials);
             }
         }
 
@@ -99,7 +105,7 @@ impl<'a> UiSnapshot<'a> {
         camera: &'a Camera,
         globals: &'a Globals,
         resolver: &'a dyn UiTextureResolver,
-        internal_counter: & 'a dyn InternalCounter,
+        internal_counter: &'a dyn InternalCounter,
         debug_texture_id: Option<assets::TextureId>,
     ) -> Self {
         let root_snapshot = RootSnapshot {
@@ -128,7 +134,7 @@ impl<'a> UiSnapshot<'a> {
             hdr_texture_id,
             debug_texture_id,
             stats,
-            gpu_counters
+            gpu_counters,
         }
     }
 }
