@@ -83,6 +83,31 @@ impl MaterialTextureSlot {
     ];
 }
 
+#[repr(u8)]
+#[derive(Default, Copy, Clone, Debug)]
+pub enum AlphaMode {
+    #[default]
+    Opaque,
+    Mask{alpha_cutoff: f32},
+    Blend,
+}
+
+impl PartialEq for AlphaMode {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (AlphaMode::Opaque, AlphaMode::Opaque) => true,
+            (AlphaMode::Blend, AlphaMode::Blend) => true,
+            (AlphaMode::Mask { alpha_cutoff: a }, AlphaMode::Mask { alpha_cutoff: b }) => {
+                a.to_bits() == b.to_bits()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for AlphaMode {}
+
+
 #[derive(Clone)]
 pub struct MaterialDesc {
     name: String,
@@ -92,6 +117,7 @@ pub struct MaterialDesc {
     pub texture_set: TestureSet,
     use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
 
+    pub alpha_mode: AlphaMode,
     pub base_color_factor: Vec4,
     pub emissive_factor: Vec4,
     pub roughness_factor: f32,
@@ -105,6 +131,7 @@ impl PartialEq for MaterialDesc {
     fn eq(&self, other: &Self) -> bool {
         self.texture_set.textures == other.texture_set.textures
             && self.use_texture_slot == other.use_texture_slot
+            && self.alpha_mode == other.alpha_mode
             && self
                 .base_color_factor
                 .abs_diff_eq(&other.base_color_factor, Default::default())
@@ -127,6 +154,7 @@ impl Default for MaterialDesc {
 
             use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
 
+            alpha_mode: AlphaMode::default(),
             base_color_factor: Vec4::from_value(one()),
             emissive_factor: Vec4::from_value(zero()),
             roughness_factor: one(),

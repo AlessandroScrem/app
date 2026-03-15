@@ -370,10 +370,24 @@ fn create_material<P: AsRef<Path>>(
 
     // gltf pbr material
     let pbr = gltf_material.pbr_metallic_roughness();
-
+    
     let mut material_desc = MaterialDesc::default();
-
+    
+    let alpha_mode = match gltf_material.alpha_mode() {
+        gltf::material::AlphaMode::Blend => {
+            material_asset::AlphaMode::Blend
+        }
+        gltf::material::AlphaMode::Mask => {
+            let alpha_cutoff = gltf_material.alpha_cutoff().unwrap_or_default();
+            material_asset::AlphaMode::Mask { alpha_cutoff }
+        }
+        gltf::material::AlphaMode::Opaque => {
+            material_asset::AlphaMode::Opaque
+        }
+    };
+    
     material_desc.set_name(name);
+    material_desc.alpha_mode = alpha_mode;
     material_desc.base_color_factor = pbr.base_color_factor().into();
     material_desc.roughness_factor = pbr.roughness_factor();
     material_desc.metallic_factor = pbr.metallic_factor();
