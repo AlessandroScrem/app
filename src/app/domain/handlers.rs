@@ -90,9 +90,6 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
                 }
             }
         }
-        EntityEvent::UpdateMaterial(material_id, c) => {
-            app.asset_mgr.materials.update(material_id, &c);
-        }
         EntityEvent::UpdateLight(entity, c) => {
             if let Ok(mut e) = world.entry_mut(entity) {
                 if let Ok(light) = e.get_component_mut::<LightComponent>() {
@@ -105,6 +102,9 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
 
 pub fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut VecDeque<DomainEvent>) {
     match event {
+        AssetEvent::UpdateMaterial(material_id, c) => {
+            app.asset_mgr.materials.update(material_id, &c);
+        }
         AssetEvent::LoadGltf(path) => {
             if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 crate::assets::gltf_loader::spawn_scene(

@@ -57,9 +57,9 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some((desc_updated, mat_id)) = draw_materials(ui, &cv.materials, resolver) {
-        trace!("Add EntityEvent::UpdateMaterial for id{}", mat_id);
+        trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
         ctx.write
-            .push(DomainEvent::Entity(EntityEvent::UpdateMaterial(
+            .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(
                 mat_id,
                 desc_updated,
             )));

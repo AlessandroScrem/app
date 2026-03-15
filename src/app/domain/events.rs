@@ -26,14 +26,13 @@ pub enum SelectionEvent {
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     ChangeSkybox(PathBuf),
-
+    UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {
     RemoveEntity(Entity),
     AddParent(Entity),
     UpdateTag(Entity, TagComponent),
     UpdateTransform(Entity, TransformComponent),
-    UpdateMaterial(MaterialId, MaterialDesc),
     UpdateLight(Entity, LightComponent),
     
 }

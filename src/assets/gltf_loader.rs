@@ -86,7 +86,6 @@ pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[
     };
 
     generate_tangents(&mut geom);
-
 }
 
 fn extract_indices<'a, F>(
@@ -174,26 +173,6 @@ fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     }
 }
 
-#[derive(Debug)]
-pub enum ImportError {
-    Io(std::io::Error),
-    Gltf(gltf::Error),
-    MissingPositions,
-    #[allow(dead_code)]
-    MeshLoadFailed,
-}
-
-impl std::fmt::Display for ImportError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ImportError::MissingPositions => write!(f, "Missing POSITION"),
-            ImportError::MeshLoadFailed => write!(f, "Failed to load mesh"),
-            ImportError::Io(e) => write!(f, "IO error: {}", e),
-            ImportError::Gltf(e) => write!(f, "glTF error: {}", e),
-        }
-    }
-}
-
 impl From<std::io::Error> for ImportError {
     fn from(e: std::io::Error) -> Self {
         ImportError::Io(e)
@@ -257,13 +236,11 @@ fn print_gltf_document(document: &gltf::Document) {
 //          |
 //          Y
 //   spawn_scene ECS
-
 pub fn load_gltf<P: AsRef<Path>>(
     path: P,
     asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
-    // let images: Vec<gltf::Image<'_>> = gltf.images().collect();
 
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
@@ -279,11 +256,11 @@ pub fn load_gltf<P: AsRef<Path>>(
             let index_start = indices.len();
 
             // assert che non ci siano set UV > 0
-            use gltf::mesh::Semantic;
             debug_assert!(
                 primitive.attributes().all(|(semantic, _)| {
+                    use gltf::mesh::Semantic::TexCoords;
                     match semantic {
-                        Semantic::TexCoords(set) => set == 0,
+                        TexCoords(set) => set == 0,
                         _ => true,
                     }
                 }),
@@ -363,12 +340,7 @@ pub fn load_gltf<P: AsRef<Path>>(
     Ok(scene)
 }
 
-
-fn path_from_ginfo(
-    info: gltf::texture::Info<'_>,
-    base_dir: &Path,
-) -> Option<std::path::PathBuf> {
-
+fn path_from_ginfo(info: gltf::texture::Info<'_>, base_dir: &Path) -> Option<std::path::PathBuf> {
     match info.texture().source().source() {
         gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
         _ => None,
@@ -445,9 +417,7 @@ fn create_material<P: AsRef<Path>>(
         );
     }
 
-    asset_mgr
-        .materials
-        .get_or_create(material_desc)
+    asset_mgr.materials.get_or_create(material_desc)
 }
 
 pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
