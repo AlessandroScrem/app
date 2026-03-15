@@ -166,13 +166,14 @@ fn tonemap(hdr: vec3<f32>) ->vec3<f32> {
 @fragment
 fn fs_main(vs: VertexOutput) -> @location(0) vec4<f32> {
     var hdr = textureSample(hdr_image, hdr_sampler, vs.uv);
-    hdr = hdr * globals.exposure;
     
     // Se siamo in debug, bypass tonemap/gamma
     if globals.debug != 0u {
         return vec4(hdr.rgb, hdr.a);
     }
 
+    hdr = hdr * globals.exposure;
+    
     let sdr = tonemap(hdr.rgb);
     return vec4(sdr, hdr.a);
 }
