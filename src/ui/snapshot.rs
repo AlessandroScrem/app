@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use super::*;
-use crate::assets::HasStats;
+use crate::assets::{HasStats, MaterialId};
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
 use crate::prelude::*;
 use crate::renderer::{GpuInternalCounters, InternalCounter, UiTextureResolver};
@@ -44,6 +46,7 @@ pub struct UiSnapshot<'a> {
     pub gpu_counters: GpuInternalCounters,
 }
 
+
 /// UiComponentView is a per-frame snapshot.
 /// It must never be stored or reused across frames.
 #[derive(Default)]
@@ -52,7 +55,7 @@ pub struct UiComponentState {
     pub mesh: Option<MeshComponent>,
     pub transform: Option<TransformComponent>,
     pub bounding_box: Option<BoundingBoxComponent>,
-    pub material: Option<MaterialDesc>,
+    pub materials: HashMap<MaterialId, MaterialDesc>,
     pub light: Option<LightComponent>,
 }
 
@@ -76,9 +79,9 @@ impl UiComponentState {
             state.mesh = Some(mesh.clone());
 
             if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                if let Some(submesh) = mesh_desc.submeshes.first() {
-                    if let Some(mat) = asset_mgr.materials.get_desc(submesh.material) {
-                        state.material = Some(mat.clone());
+                for sm in mesh_desc.submeshes.iter() {
+                    if let Some(mat) = asset_mgr.materials.get_desc(sm.material) {
+                        state.materials.insert(sm.material, mat.clone());
                     }
                 }
             }

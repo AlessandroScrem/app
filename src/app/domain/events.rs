@@ -1,5 +1,5 @@
 use std::{collections::VecDeque, path::PathBuf};
-use crate::prelude::*;
+use crate::{assets::MaterialId, prelude::*};
 
 use legion::Entity;
 
@@ -33,7 +33,7 @@ pub enum EntityEvent {
     AddParent(Entity),
     UpdateTag(Entity, TagComponent),
     UpdateTransform(Entity, TransformComponent),
-    UpdateMaterial(Entity, MaterialDesc),
+    UpdateMaterial(MaterialId, MaterialDesc),
     UpdateLight(Entity, LightComponent),
     
 }

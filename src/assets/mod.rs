@@ -13,17 +13,26 @@ pub(crate) mod texture_asset;
 pub(crate) mod texture_upload;
 pub(crate) mod vertexdata;
 
-new_key_type! {
-    pub(crate) struct TextureId;
-    pub(crate) struct MaterialId;
-    pub(crate) struct MeshId;
-}
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use crate::prelude::*;
 pub(crate) use asset_manager::*;
 pub(crate) use material_asset::*;
 pub(crate) use mesh_asset::*;
 pub(crate) use texture_asset::*;
+
+
+new_key_type! {
+    pub(crate) struct TextureId;
+    pub(crate) struct MaterialId;
+    pub(crate) struct MeshId;
+}
+// implementazione Display
+impl std::fmt::Display for MaterialId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // MaterialId è un wrapper int interno
+        write!(f, "{:?}", self)
+    }
+}
 
 #[test]
 fn sync_add_remove_reuse() {

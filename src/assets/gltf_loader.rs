@@ -393,7 +393,7 @@ fn create_material<P: AsRef<Path>>(
     use material_asset::MaterialTextureSlot::*;
     let texture_asset = &mut asset_mgr.textures;
 
-    let name = gltf_material.name().unwrap_or("material_no_name");
+    let name = gltf_material.name().unwrap_or_default();
     let parent_path = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
 
     // gltf pbr material
@@ -447,7 +447,7 @@ fn create_material<P: AsRef<Path>>(
 
     asset_mgr
         .materials
-        .get_or_create(material_desc.key.clone(), || material_desc)
+        .get_or_create(material_desc)
 }
 
 pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {

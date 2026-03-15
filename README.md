@@ -27,6 +27,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Outline selection
 - [x] Hierarchy entity
 - [x] Import gltf with hierarchy
+- [x] Material Editor per Submesh
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 

@@ -129,11 +129,11 @@ fn resolve_texture_views<'a>(
     let fallback = texture_assets.white();
 
     TextureViews([
-        texture_cache.view(desc.key[BaseColor].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.key[Normal].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.key[MetallicRoughness].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.key[Emissive].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.key[Occlusion].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture_set[BaseColor].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture_set[Normal].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture_set[MetallicRoughness].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture_set[Emissive].unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture_set[Occlusion].unwrap_or_else(|| fallback)),
     ])
 }
 

@@ -90,8 +90,8 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
                 }
             }
         }
-        EntityEvent::UpdateMaterial(_entity, c) => {
-            app.asset_mgr.materials.update(&c);
+        EntityEvent::UpdateMaterial(material_id, c) => {
+            app.asset_mgr.materials.update(material_id, &c);
         }
         EntityEvent::UpdateLight(entity, c) => {
             if let Ok(mut e) = world.entry_mut(entity) {
