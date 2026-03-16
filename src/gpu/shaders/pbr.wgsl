@@ -47,6 +47,8 @@ struct Material {
     use_normal_texture: u32,
     use_emissive_texture: u32,
     use_occlusion_texture: u32,
+    alpha_mode: u32,
+    alpha_cutoff: f32,
 }
 
 struct VertexInput {
@@ -94,6 +96,8 @@ const NUM_LIGHTS             : u32 = 1;
 const MAX_REFLECTION_LOD     : f32 = 4.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
 const True                   : u32 = 1;
 const False                  : u32 = 0;
+
+const AlphaMask              : u32 = 1; 
 
 const DebugNone              : u32 = 0; 
 const DebugBaseColor         : u32 = 1; 
@@ -249,6 +253,10 @@ fn get_color(uv: vec2<f32>) ->vec3<f32> {
     return albedo_color;
 }
 
+fn get_alpha(uv: vec2<f32>) ->f32 {
+    return textureSample(albedo_map, tex_sampler, uv).a;
+}
+
 fn get_metallic(uv: vec2<f32>) ->f32 {
     var metallic = material.metallic_factor;
     if material.use_metal_roughness_texture == True {
@@ -310,12 +318,17 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
 fn fs_main(in: VertexOutput) -> FSOutput {
     var out: FSOutput;
 
+    let alpha = get_alpha(in.uv);
     let albedo_color = get_color(in.uv);
     let normal_texture = get_normal_texture(in.uv);
     let metallic = get_metallic(in.uv);
     let roughness = get_roughness(in.uv);
     let emissive = get_emissive(in.uv);
     let ao = get_occlusion(in.uv);
+
+    if material.alpha_mode == AlphaMask  && alpha < material.alpha_cutoff {
+        discard;
+    }
 
     let N = normalize(in.normal);
     let T = normalize(in.tangent.xyz);

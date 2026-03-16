@@ -42,7 +42,6 @@ pub enum MaterialTextureSlot {
     Occlusion = 4,
 }
 
-
 impl std::fmt::Display for MaterialTextureSlot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
@@ -59,7 +58,6 @@ impl MaterialTextureSlot {
         }
     }
 }
-
 
 impl MaterialTextureSlot {
     pub fn color_space(self) -> ColorSpace {
@@ -88,8 +86,20 @@ impl MaterialTextureSlot {
 pub enum AlphaMode {
     #[default]
     Opaque,
-    Mask{alpha_cutoff: f32},
+    Mask {
+        alpha_cutoff: f32,
+    },
     Blend,
+}
+
+impl AlphaMode {
+    pub fn to_uniform(&self) -> (u32, f32) {
+        match *self {
+            AlphaMode::Opaque => (0, 0.0),
+            AlphaMode::Mask { alpha_cutoff } => (1, alpha_cutoff),
+            AlphaMode::Blend => (2, 0.0),
+        }
+    }
 }
 
 impl PartialEq for AlphaMode {
@@ -106,7 +116,6 @@ impl PartialEq for AlphaMode {
 }
 
 impl Eq for AlphaMode {}
-
 
 #[derive(Clone)]
 pub struct MaterialDesc {
@@ -311,6 +320,7 @@ impl MaterialAssets {
 
 impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
+        let (alpha_mode, alpha_cutoff) = value.alpha_mode.to_uniform();
         Self {
             color_factor: value.base_color_factor.into(),
             emissive_factor: value.emissive_factor.into(),
@@ -328,6 +338,8 @@ impl From<&MaterialDesc> for MaterialUniform {
                 as u32,
             use_occlusion_texture: value.use_texture_slot[MaterialTextureSlot::Occlusion as usize]
                 as u32,
+            alpha_mode,
+            alpha_cutoff,
             ..Default::default()
         }
     }

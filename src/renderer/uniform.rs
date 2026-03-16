@@ -168,6 +168,8 @@ pub struct MaterialUniform {
     pub use_normal_texture: u32,
     pub use_emissive_texture: u32,
     pub use_occlusion_texture: u32,
-    pub pad: [u32;3],
+    pub alpha_mode: u32,
+    pub alpha_cutoff: f32,
+    pub pad: [u32;1],
 }
 
