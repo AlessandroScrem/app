@@ -390,7 +390,7 @@ pub struct PrefilterMap {}
 
 impl PrefilterMap {
     const TEXTURE_SIZE: u32 = 128;
-    const MIP_LEVELS: u32 = 5; // cap to 5 mip levels
+    const MIP_LEVELS: u32 = 8;
 
     fn build(
         device: &wgpu::Device,
@@ -1025,7 +1025,7 @@ mod tests {
         assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(prefilter.height(), PrefilterMap::TEXTURE_SIZE);
         assert_eq!(prefilter.width(), PrefilterMap::TEXTURE_SIZE);
-        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS); // cup to 5 mip levels 
+        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS); 
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 

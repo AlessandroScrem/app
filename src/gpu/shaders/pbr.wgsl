@@ -93,7 +93,7 @@ fn vs_main(
 /// Fragment shader
 ///
 const NUM_LIGHTS             : u32 = 1;
-const MAX_REFLECTION_LOD     : f32 = 4.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
+const MAX_REFLECTION_LOD     : f32 = 7.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
 const True                   : u32 = 1;
 const False                  : u32 = 0;
 
@@ -227,8 +227,7 @@ fn CalculateAmbient(
 
     let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
 
-    // Filament version
-    var lod = roughness * roughness * MAX_REFLECTION_LOD;
+    var lod = roughness * MAX_REFLECTION_LOD;
 
     let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, lod).rgb;
     let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
@@ -271,7 +270,7 @@ fn get_roughness(uv: vec2<f32>) ->f32 {
     if material.use_metal_roughness_texture == True {
         roughness *= textureSample(orm_map, tex_sampler, uv).g;
     }
-    return clamp(roughness, 0.05, 1.0);
+    return clamp(roughness, 0.08, 1.0);
 }
 
 fn get_occlusion(uv: vec2<f32>) ->f32 {
@@ -297,7 +296,13 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     if material.use_normal_texture == True {
         normal_ts = textureSample(normal_map, tex_sampler, uv).rgb;
         normal_ts =  normal_ts * 2.0 - 1.0;            // map to [-1, 1.0]
-        normal_ts *= material.normal_scale;
+
+        normal_ts = vec3<f32>( 
+            normal_ts.xy * material.normal_scale, 
+            normal_ts.z
+        );
+
+        normal_ts = normalize(normal_ts);
     }
     return normal_ts;
 }
