@@ -42,11 +42,8 @@ struct Material {
     metallic_factor: f32,
     normal_scale: f32,
     occlusion_strength: f32,
-    use_color_texture: u32,
-    use_metal_roughness_texture: u32,
-    use_normal_texture: u32,
-    use_emissive_texture: u32,
-    use_occlusion_texture: u32,
+
+    texture_flags: u32,
     alpha_mode: u32,
     alpha_cutoff: f32,
 }
@@ -90,10 +87,18 @@ fn vs_main(
     return out;
 }
 
+
 /// Fragment shader
 ///
 const NUM_LIGHTS             : u32 = 1;
 const MAX_REFLECTION_LOD     : f32 = 7.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
+
+const COLOR_TEXTURE          : u32 = 1u << 0u;
+const NORMAL_TEXTURE         : u32 = 1u << 1u;
+const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
+const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
+const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
+
 const True                   : u32 = 1;
 const False                  : u32 = 0;
 
@@ -243,14 +248,19 @@ struct FSOutput {
     @location(1) entity_id : vec2<u32>,
 }
 
+fn has_flag(flags: u32, bit: u32) -> bool {
+    return (flags & bit) != 0u;
+}
+
 
 fn get_color(uv: vec2<f32>) ->vec3<f32> {
     var albedo_color = material.color.rgb;
-    if material.use_color_texture == True  {
+    if has_flag(material.texture_flags, COLOR_TEXTURE)  {
         albedo_color *= textureSample(albedo_map, tex_sampler, uv).rgb;
     }
     return albedo_color;
 }
+
 
 fn get_alpha(uv: vec2<f32>) ->f32 {
     return textureSample(albedo_map, tex_sampler, uv).a;
@@ -258,7 +268,7 @@ fn get_alpha(uv: vec2<f32>) ->f32 {
 
 fn get_metallic(uv: vec2<f32>) ->f32 {
     var metallic = material.metallic_factor;
-    if material.use_metal_roughness_texture == True {
+    if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
         metallic *= textureSample(orm_map, tex_sampler, uv).b;
         metallic = select(0.0, metallic, metallic > 0.06);
     }
@@ -267,7 +277,7 @@ fn get_metallic(uv: vec2<f32>) ->f32 {
 
 fn get_roughness(uv: vec2<f32>) ->f32 {
     var roughness = material.roughness_factor;
-    if material.use_metal_roughness_texture == True {
+    if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
         roughness *= textureSample(orm_map, tex_sampler, uv).g;
     }
     return clamp(roughness, 0.08, 1.0);
@@ -275,7 +285,7 @@ fn get_roughness(uv: vec2<f32>) ->f32 {
 
 fn get_occlusion(uv: vec2<f32>) ->f32 {
     var ao:f32 = 1.0;
-    if material.use_occlusion_texture == True {
+    if has_flag(material.texture_flags, OCCLUSION_TEXTURE) {
         let occlusion_texture = textureSample(occlusion_map, tex_sampler, uv).r;
         ao = 1.0 + material.occlusion_strength * (occlusion_texture - 1.0);
     }
@@ -284,7 +294,7 @@ fn get_occlusion(uv: vec2<f32>) ->f32 {
 
 fn get_emissive(uv: vec2<f32>) ->vec3<f32> {
     var emissive = vec3<f32>(0.0);
-    if material.use_emissive_texture == True {
+    if has_flag(material.texture_flags, EMISSIVE_TEXTURE) {
         let emissive_texture = textureSample(emissive_map, tex_sampler, uv).rgb;
         emissive = emissive_texture * material.emissive.rgb;
     }
@@ -293,7 +303,7 @@ fn get_emissive(uv: vec2<f32>) ->vec3<f32> {
 
 fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     var normal_ts = vec3<f32>(0.0);
-    if material.use_normal_texture == True {
+    if has_flag(material.texture_flags, NORMAL_TEXTURE) {
         normal_ts = textureSample(normal_map, tex_sampler, uv).rgb;
         normal_ts =  normal_ts * 2.0 - 1.0;            // map to [-1, 1.0]
 
@@ -340,7 +350,7 @@ fn fs_main(in: VertexOutput) -> FSOutput {
     let B = in.tangent.w * normalize(cross(N, T));
 
     var Nws = N;
-    if material.use_normal_texture == True {
+    if has_flag(material.texture_flags, NORMAL_TEXTURE) {
         let TBN = mat3x3<f32>(T, B, N);
         Nws = normalize(TBN * normal_texture);
     }

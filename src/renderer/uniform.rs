@@ -39,8 +39,8 @@ impl CameraUniform {
 }
 
 impl GlobalUniform {
-    pub fn from_global_id(globals: &super::Globals, entity_id: u64) ->Self {
-            Self {
+    pub fn from_global_id(globals: &super::Globals, entity_id: u64) -> Self {
+        Self {
             ibl_enable: globals.ibl_enable as u32,
             skybox_enable: globals.skybox_enable as u32,
             exposure: globals.exposure,
@@ -127,8 +127,6 @@ pub struct GlobalUniform {
     pub debug: u32,
 }
 
-
-
 ///shader: [pbr, blinnphong, light]
 #[repr(C, align(16))]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -163,13 +161,9 @@ pub struct MaterialUniform {
     pub metallic_factor: f32,
     pub normal_scale: f32,
     pub occlusion_strength: f32,
-    pub use_color_texture: u32,
-    pub use_metal_roughness_texture: u32,
-    pub use_normal_texture: u32,
-    pub use_emissive_texture: u32,
-    pub use_occlusion_texture: u32,
+
+    pub texture_flags: u32,
     pub alpha_mode: u32,
     pub alpha_cutoff: f32,
-    pub pad: [u32;1],
+    pub pad: [u32; 1],
 }
-

@@ -60,6 +60,13 @@ impl MaterialTextureSlot {
 }
 
 impl MaterialTextureSlot {
+    #[inline]
+    pub const fn bit(self) -> u32 {
+        1 << (self as u32)
+    }
+}
+
+impl MaterialTextureSlot {
     pub fn color_space(self) -> ColorSpace {
         match self {
             MaterialTextureSlot::BaseColor | MaterialTextureSlot::Emissive => ColorSpace::Srgba8,
@@ -117,6 +124,47 @@ impl PartialEq for AlphaMode {
 
 impl Eq for AlphaMode {}
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct TextureFlags {
+    flags: u32,
+}
+impl TextureFlags {
+    pub fn new() -> Self {
+        Self { flags: 0 }
+    }
+
+    #[inline]
+    pub fn get(&self, slot: MaterialTextureSlot) -> bool {
+        (self.flags & slot.bit()) != 0
+    }
+
+    #[inline]
+    pub fn set(&mut self, slot: MaterialTextureSlot, enabled: bool) {
+        if enabled {
+            self.flags |= slot.bit();
+        } else {
+            self.flags &= !slot.bit();
+        }
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn clear(&mut self) {
+        self.flags = 0;
+    }
+
+    #[inline]
+    pub fn raw(&self) -> u32 {
+        self.flags
+    }
+
+    #[allow(unused)]
+    #[inline]
+    pub fn from_raw(flags: u32) -> Self {
+        Self { flags }
+    }
+}
+
 #[derive(Clone)]
 pub struct MaterialDesc {
     name: String,
@@ -124,7 +172,7 @@ pub struct MaterialDesc {
     shader: ShaderId,
 
     pub texture_set: TestureSet,
-    use_texture_slot: [bool; MATERIAL_TEXTURE_COUNT],
+    texture_flags: TextureFlags,
 
     pub alpha_mode: AlphaMode,
     pub base_color_factor: Vec4,
@@ -139,7 +187,7 @@ pub struct MaterialDesc {
 impl PartialEq for MaterialDesc {
     fn eq(&self, other: &Self) -> bool {
         self.texture_set.textures == other.texture_set.textures
-            && self.use_texture_slot == other.use_texture_slot
+            && self.texture_flags == other.texture_flags
             && self.alpha_mode == other.alpha_mode
             && self
                 .base_color_factor
@@ -160,8 +208,7 @@ impl Default for MaterialDesc {
             texture_set: TestureSet::default(),
             name: String::new(),
             shader: ShaderId::default(),
-
-            use_texture_slot: [const { false }; MATERIAL_TEXTURE_COUNT],
+            texture_flags: TextureFlags::new(),
 
             alpha_mode: AlphaMode::default(),
             base_color_factor: Vec4::from_value(one()),
@@ -187,10 +234,10 @@ impl MaterialDesc {
     }
 
     pub fn slot_get(&self, slot: MaterialTextureSlot) -> bool {
-        self.use_texture_slot[slot as usize]
+        self.texture_flags.get(slot)
     }
-    pub fn slot_set(&mut self, slot: MaterialTextureSlot, flag: bool) {
-        self.use_texture_slot[slot as usize] = flag;
+    pub fn slot_set(&mut self, slot: MaterialTextureSlot, enabled: bool) {
+        self.texture_flags.set(slot, enabled);
     }
 
     pub fn get_name(&self) -> &str {
@@ -219,7 +266,7 @@ impl MaterialDesc {
             };
             let id = texture_asset.get_or_create(desc);
             self.texture_set.textures[slot as usize] = Some(id);
-            self.use_texture_slot[slot as usize] = true;
+            self.texture_flags.set(slot, true);
         }
     }
 }
@@ -328,16 +375,7 @@ impl From<&MaterialDesc> for MaterialUniform {
             roughness_factor: value.roughness_factor,
             normal_scale: value.normal_scale,
             occlusion_strength: value.occlusion_strength,
-            use_color_texture: value.use_texture_slot[MaterialTextureSlot::BaseColor as usize]
-                as u32,
-            use_normal_texture: value.use_texture_slot[MaterialTextureSlot::Normal as usize] as u32,
-            use_metal_roughness_texture: value.use_texture_slot
-                [MaterialTextureSlot::MetallicRoughness as usize]
-                as u32,
-            use_emissive_texture: value.use_texture_slot[MaterialTextureSlot::Emissive as usize]
-                as u32,
-            use_occlusion_texture: value.use_texture_slot[MaterialTextureSlot::Occlusion as usize]
-                as u32,
+            texture_flags: value.texture_flags.raw(),
             alpha_mode,
             alpha_cutoff,
             ..Default::default()

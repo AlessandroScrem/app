@@ -1,4 +1,10 @@
-use crate::{assets::{MATERIAL_TEXTURE_COUNT, MaterialAssets, MaterialId, MaterialTextureSlot, TextureAssets}, renderer::{GpuResourceStats, HasGpuStats}, uniform::MaterialUniform};
+use crate::{
+    assets::{
+        MATERIAL_TEXTURE_COUNT, MaterialAssets, MaterialId, MaterialTextureSlot, TextureAssets,
+    },
+    renderer::{GpuResourceStats, HasGpuStats},
+    uniform::MaterialUniform,
+};
 
 use super::*;
 
@@ -108,7 +114,6 @@ fn create_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc)
     uniform_buffer
 }
 
-
 use std::ops::Index;
 pub struct TextureViews<'a>(pub [&'a wgpu::TextureView; MATERIAL_TEXTURE_COUNT]);
 
@@ -124,7 +129,7 @@ fn resolve_texture_views<'a>(
     texture_cache: &'a GpuTextureCache,
     desc: &MaterialDesc,
     texture_assets: &TextureAssets,
-) -> TextureViews<'a>{
+) -> TextureViews<'a> {
     use crate::assets::material_asset::MaterialTextureSlot::*;
     let fallback = texture_assets.white();
 
@@ -136,7 +141,6 @@ fn resolve_texture_views<'a>(
         texture_cache.view(desc.texture_set[Occlusion].unwrap_or_else(|| fallback)),
     ])
 }
-
 
 fn create_bindgroup_from_desc(
     device: &wgpu::Device,
@@ -158,9 +162,9 @@ fn create_bindgroup_from_desc(
     use crate::assets::material_asset::MaterialTextureSlot::*;
 
     let views = resolve_texture_views(texture_cache, material_desc, &asset_manager.textures);
-    
+
     let texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::Material);
-    
+
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_bind_group_layout,
         label: Some("Material  bind_group"),
