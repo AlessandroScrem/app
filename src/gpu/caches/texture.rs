@@ -19,6 +19,7 @@ use wgpu::{Device, Queue};
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum TextureSlot {
     White,
+    Black,
     Normal,
 }
 
@@ -43,6 +44,10 @@ impl GpuBuiltinTextures {
         match slot {
             TextureSlot::White => {
                 GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .build(device, Some(queue))
+            }
+            TextureSlot::Black => {
+                GpuTextureBuilder::from_static(&static_textures::BLACK_STATIC_TEXTURE)
                     .build(device, Some(queue))
             }
             TextureSlot::Normal => {
@@ -75,10 +80,16 @@ impl GpuTextureCache {
         }
     }
 
-    pub fn get_or_fallback(&self, id: TextureId) -> &GpuTexture {
+    pub fn get_or_fallback_white(&self, id: TextureId) -> &GpuTexture {
         self.map
             .get(id)
             .unwrap_or(self.builtin.get(TextureSlot::White))
+    }
+
+    pub fn view_or(&self, id: Option<TextureId>, slot: TextureSlot) -> &wgpu::TextureView {
+        &id.and_then(|id| self.map.get(id))
+            .unwrap_or_else(|| self.builtin.get(slot))
+            .view
     }
 
     fn create_from_cpu(
@@ -112,7 +123,7 @@ impl GpuTextureCache {
     }
 
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
-        &self.get_or_fallback(id).view
+        &self.get_or_fallback_white(id).view
     }
 
     pub fn contains_key(&self, id: &TextureId) -> bool {
@@ -187,7 +198,7 @@ mod tests {
         let (device, queue) = test_utils::get_device_and_queue();
         let gpu_texture_cache = GpuTextureCache::new(&device, &queue);
 
-        let _fallback_texture = gpu_texture_cache.get_or_fallback(TextureId::default());
+        let _fallback_texture = gpu_texture_cache.get_or_fallback_white(TextureId::default());
 
         #[cfg(feature = "save_tests")]
         {

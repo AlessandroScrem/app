@@ -985,7 +985,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id, /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1016,7 +1016,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id, /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1048,7 +1048,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1080,7 +1080,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
     }

@@ -49,7 +49,7 @@ impl SceneRenderer {
 
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
-        let hdr = gpu_cache.textures.get_or_fallback(hdr_id);
+        let hdr = gpu_cache.textures.get_or_fallback_white(hdr_id);
         let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
         // -----
 
@@ -87,7 +87,7 @@ impl SceneRenderer {
         if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
             let hdr_texture = gpu_cache
                 .textures
-                .get_or_fallback(asset_mgr.skybox.get_id());
+                .get_or_fallback_white(asset_mgr.skybox.get_id());
             self.skybox_mgr.update_skybox(
                 asset_mgr.skybox.get_id(),
                 hdr_texture,
