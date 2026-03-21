@@ -198,6 +198,17 @@ impl MaterialTextureSlot {
                     .build(ui, &mut material.occlusion_strength);
                 changed
             }
+            MaterialTextureSlot::Transmission => {
+                if let Some(mut factor) = material.transmission.factor {
+                    let changed = Drag::new("##Transmission")
+                        .speed(0.01)
+                        .range(0.0, 1.0)
+                        .build(ui, &mut factor);
+                    changed
+                } else {
+                    false
+                }
+            }
         }
     }
 }

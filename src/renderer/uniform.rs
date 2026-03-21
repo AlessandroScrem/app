@@ -157,6 +157,7 @@ impl Default for LightUniform {
 pub struct MaterialUniform {
     pub color_factor: [f32; 4],
     pub emissive_factor: [f32; 4],
+
     pub roughness_factor: f32,
     pub metallic_factor: f32,
     pub normal_scale: f32,
@@ -165,5 +166,7 @@ pub struct MaterialUniform {
     pub texture_flags: u32,
     pub alpha_mode: u32,
     pub alpha_cutoff: f32,
-    pub pad: [u32; 1],
+    pub transmission_factor: f32,
+
+    // pub pad: [u32; 3],
 }

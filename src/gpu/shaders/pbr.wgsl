@@ -38,6 +38,7 @@ struct Model {
 struct Material {
     color: vec4<f32>,
     emissive: vec4<f32>,
+
     roughness_factor: f32,
     metallic_factor: f32,
     normal_scale: f32,
@@ -46,6 +47,7 @@ struct Material {
     texture_flags: u32,
     alpha_mode: u32,
     alpha_cutoff: f32,
+    transmission_factor: f32
 }
 
 struct VertexInput {
@@ -117,14 +119,14 @@ const DebugOcclusion         : u32 = 9;
 const DebugEmissive          : u32 = 10; 
 
 // Material
-@group(1) @binding(0) var tex_sampler: sampler;
-@group(1) @binding(1) var albedo_map: texture_2d<f32>;
-@group(1) @binding(2) var normal_map: texture_2d<f32>;
-// Occlusion (R), Roughness (G), Metallic (B) https://github.com/KhronosGroup/glTF/issues/857
-@group(1) @binding(3) var orm_map: texture_2d<f32>; 
-@group(1) @binding(4) var emissive_map: texture_2d<f32>; 
-@group(1) @binding(5) var occlusion_map: texture_2d<f32>; 
-@group(1) @binding(6) var <uniform> material: Material;
+@group(1) @binding(0) var <uniform> material: Material;
+@group(1) @binding(1) var tex_sampler: sampler;
+@group(1) @binding(2) var albedo_map: texture_2d<f32>;
+@group(1) @binding(3) var normal_map: texture_2d<f32>;
+@group(1) @binding(4) var orm_map: texture_2d<f32>;         // Occlusion (R), Roughness (G), Metallic (B) https://github.com/KhronosGroup/glTF/issues/857
+@group(1) @binding(5) var emissive_map: texture_2d<f32>; 
+@group(1) @binding(6) var occlusion_map: texture_2d<f32>; 
+@group(1) @binding(7) var transmission_map: texture_2d<f32>; 
 
 // Ibl 
 @group(3) @binding(0) var ibl_sampler: sampler;
