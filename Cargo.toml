@@ -37,7 +37,7 @@ legion = {version = "0.4.0", features = ["extended-tuple-impls"]}
 cgmath = "0.18.0"
 bytemuck = { version = "1.16", features = [ "derive" ] }
 #
-gltf = "1.4.1"
+gltf = {version = "1.4.1", features = ["KHR_materials_transmission"]}
 image = "0.25.6"
 stb_image = "0.3.0"
 half = "2.6.0"

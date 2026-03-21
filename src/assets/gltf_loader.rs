@@ -370,22 +370,18 @@ fn create_material<P: AsRef<Path>>(
 
     // gltf pbr material
     let pbr = gltf_material.pbr_metallic_roughness();
-    
+
     let mut material_desc = MaterialDesc::default();
-    
+
     let alpha_mode = match gltf_material.alpha_mode() {
-        gltf::material::AlphaMode::Blend => {
-            material_asset::AlphaMode::Blend
-        }
+        gltf::material::AlphaMode::Blend => material_asset::AlphaMode::Blend,
         gltf::material::AlphaMode::Mask => {
             let alpha_cutoff = gltf_material.alpha_cutoff().unwrap_or_default();
             material_asset::AlphaMode::Mask { alpha_cutoff }
         }
-        gltf::material::AlphaMode::Opaque => {
-            material_asset::AlphaMode::Opaque
-        }
+        gltf::material::AlphaMode::Opaque => material_asset::AlphaMode::Opaque,
     };
-    
+
     material_desc.set_name(name);
     material_desc.alpha_mode = alpha_mode;
     material_desc.base_color_factor = pbr.base_color_factor().into();
@@ -393,12 +389,26 @@ fn create_material<P: AsRef<Path>>(
     material_desc.metallic_factor = pbr.metallic_factor();
     material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
 
+    if let Some(color_info) = pbr.base_color_texture() {
+        material_desc.set_texture(
+            texture_asset,
+            BaseColor,
+            path_from_ginfo(color_info, parent_path),
+        );
+    }
     if let Some(normal_tex) = gltf_material.normal_texture() {
         material_desc.normal_scale = normal_tex.scale();
         material_desc.set_texture(
             texture_asset,
             Normal,
             path_from_gtexture(normal_tex.texture(), parent_path),
+        );
+    }
+    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
+        material_desc.set_texture(
+            texture_asset,
+            MetallicRoughness,
+            path_from_ginfo(met_rough_info, parent_path),
         );
     }
     if let Some(occl_tex) = gltf_material.occlusion_texture() {
@@ -409,20 +419,6 @@ fn create_material<P: AsRef<Path>>(
             path_from_gtexture(occl_tex.texture(), parent_path),
         )
     }
-    if let Some(color_info) = pbr.base_color_texture() {
-        material_desc.set_texture(
-            texture_asset,
-            BaseColor,
-            path_from_ginfo(color_info, parent_path),
-        );
-    }
-    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
-        material_desc.set_texture(
-            texture_asset,
-            MetallicRoughness,
-            path_from_ginfo(met_rough_info, parent_path),
-        );
-    }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
         material_desc.set_texture(
             texture_asset,
@@ -430,8 +426,22 @@ fn create_material<P: AsRef<Path>>(
             path_from_ginfo(emissive_info, parent_path),
         );
     }
-
+    if let Some(transmission) = gltf_material.transmission() {
+        let factor =  transmission.transmission_factor();
+            material_desc.transmission = Some( assets::Transmission { factor });
+            
+        if let Some(transmission_texture) = transmission.transmission_texture() {
+            material_desc.set_texture(
+                texture_asset,
+                Transmission,
+                path_from_ginfo(transmission_texture, parent_path),
+            );
+        }
+    }
+    
+    println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
+
 }
 
 pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {

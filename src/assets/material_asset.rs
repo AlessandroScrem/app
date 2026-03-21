@@ -32,7 +32,7 @@ impl IndexMut<MaterialTextureSlot> for TestureSet {
 
 pub const MATERIAL_TEXTURE_COUNT: usize = MaterialTextureSlot::Transmission as usize + 1;
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum MaterialTextureSlot {
     BaseColor = 0,
     Normal = 1,
@@ -42,11 +42,7 @@ pub enum MaterialTextureSlot {
     Transmission = 5,
 }
 
-impl std::fmt::Display for MaterialTextureSlot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
+
 impl MaterialTextureSlot {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -99,8 +95,8 @@ pub enum AlphaMode {
     Blend,
 }
 impl AlphaMode {
-    pub fn to_uniform(&self) -> (u32, f32) {
-        match *self {
+    pub fn to_uniform(mode: Self) -> (u32, f32) {
+        match mode {
             AlphaMode::Opaque => (0, 0.0),
             AlphaMode::Mask { alpha_cutoff } => (1, alpha_cutoff),
             AlphaMode::Blend => (2, 0.0),
@@ -122,18 +118,20 @@ impl PartialEq for AlphaMode {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Transmission {
-    pub factor: Option<f32>,
+    pub factor: f32,
 }
 
 impl PartialEq for Transmission {
     fn eq(&self, other: &Self) -> bool {
-        match (self.factor, other.factor) {
-            (Some(a), Some(b)) => a.to_bits() == b.to_bits(),
-            (None, None) => true,
-            _ => false, // // None != Some(x)
-        }
+        self.factor.to_bits() == other.factor.to_bits()
+    }
+}
+
+impl Transmission {
+    pub fn to_uniform(opt: Option<Self>) -> f32 {
+        opt.map_or(0.0, |t| t.factor)
     }
 }
 
@@ -141,6 +139,36 @@ impl PartialEq for Transmission {
 pub struct TextureFlags {
     flags: u32,
 }
+
+impl std::fmt::Debug for TextureFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let slots = [
+            MaterialTextureSlot::BaseColor,
+            MaterialTextureSlot::Normal,
+            MaterialTextureSlot::MetallicRoughness,
+            MaterialTextureSlot::Emissive,
+            MaterialTextureSlot::Occlusion,
+            MaterialTextureSlot::Transmission,
+        ];
+
+        for (i, slot) in slots.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+
+            let bit = 1 << (*slot as u32);
+
+            if self.flags & bit != 0 {
+                write!(f, "{:?}", slot)?; // stampa nome enum
+            } else {
+                write!(f, "None")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl TextureFlags {
     pub fn new() -> Self {
         Self { flags: 0 }
@@ -178,7 +206,7 @@ impl TextureFlags {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MaterialDesc {
     name: String,
     #[allow(unused)]
@@ -194,7 +222,7 @@ pub struct MaterialDesc {
     pub metallic_factor: f32,
     pub normal_scale: f32,
     pub occlusion_strength: f32,
-    pub transmission: Transmission,
+    pub transmission: Option<Transmission>,
 }
 
 // PartialEq ignore: name , shader
@@ -220,19 +248,19 @@ impl PartialEq for MaterialDesc {
 impl Default for MaterialDesc {
     fn default() -> Self {
         MaterialDesc {
-            texture_set: TestureSet::default(),
             name: String::new(),
             shader: ShaderId::default(),
+            texture_set: TestureSet::default(),
             texture_flags: TextureFlags::new(),
 
             alpha_mode: AlphaMode::default(),
             base_color_factor: Vec4::from_value(one()),
-            emissive_factor: Vec4::from_value(zero()),
-            roughness_factor: one(),
             metallic_factor: one(),
+            roughness_factor: one(),
+            emissive_factor: Vec4::from_value(zero()),
             normal_scale: one(),
             occlusion_strength: one(),
-            transmission: Transmission::default(),
+            transmission: None,
         }
     }
 }
@@ -383,8 +411,8 @@ impl MaterialAssets {
 
 impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
-        let (alpha_mode, alpha_cutoff) = value.alpha_mode.to_uniform();
-        let transmission_factor = value.transmission.factor.unwrap_or_default();
+        let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
+        let transmission_factor = Transmission::to_uniform(value.transmission);
         Self {
             color_factor: value.base_color_factor.into(),
             emissive_factor: value.emissive_factor.into(),
