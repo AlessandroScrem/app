@@ -12,7 +12,7 @@ pub enum ShaderId {
 }
 
 #[derive(Debug, Default, Hash, Eq, PartialEq, Clone)]
-pub(crate) struct TestureSet {
+pub struct TestureSet {
     textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
 }
 

@@ -22,11 +22,11 @@ impl SkyboxHandle {
         }
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn get_intensity(&self) -> f32 {
         self.intensity
     }
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub fn set_intensity(&mut self, intensity: f32) {
         self.intensity = intensity;
     }

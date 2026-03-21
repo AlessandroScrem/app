@@ -22,10 +22,11 @@ pub(crate) use texture_asset::*;
 
 
 new_key_type! {
-    pub(crate) struct TextureId;
-    pub(crate) struct MaterialId;
-    pub(crate) struct MeshId;
+    pub struct TextureId;
+    pub struct MaterialId;
+    pub struct MeshId;
 }
+
 // implementazione Display
 impl std::fmt::Display for MaterialId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

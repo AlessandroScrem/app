@@ -85,6 +85,7 @@ impl UiLayer {
         let timestep = Timestep::new();
 
         let mut ui = UiStack::new();
+        ui.push(MenuBarUi {});
         ui.push(SettimgsUi::default());
         ui.push(EntityListUi {});
         ui.push(PropertyUi {});
@@ -157,6 +158,7 @@ impl UiLayer {
 
         {
             let ui = self.context.frame();
+
             ui.dockspace_over_main_viewport();
 
             self.stack.build(ui, &mut ctx);

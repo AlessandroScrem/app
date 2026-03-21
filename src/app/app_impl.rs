@@ -27,14 +27,7 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        // const LANTERN: &str = "./assets/Lantern/Lantern.gltf";
-        const LANTERN: &str = "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
         const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-
-        self.domain_events
-            .queue
-            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(LANTERN.into())));
-
         let hdr_id = self
             .asset_mgr
             .textures

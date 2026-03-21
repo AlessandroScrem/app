@@ -106,8 +106,9 @@ pub fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut Vec
             app.asset_mgr.materials.update(material_id, &c);
         }
         AssetEvent::LoadGltf(path) => {
-            if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
-                crate::assets::gltf_loader::spawn_scene(
+            if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
+
+                entities::spawn_scene(
                     &mut app.current_scene.world,
                     &loaded,
                     &app.asset_mgr,
