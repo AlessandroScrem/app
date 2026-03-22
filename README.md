@@ -60,7 +60,7 @@ cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |
 | :---:    | :---:    | :---                                                                       |
-| `todo`   |   High   | Panic if click on bbox ui if no meshes in scene                            |    
 | `todo`   |   Low    | Background color is influenced by final filtering (gamma,  color filtering)|    
+| `fixed`  |   High   | Panic if click on bbox ui if no meshes in scene                            |    
 | `fixed`  |   Low    | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes|    
 

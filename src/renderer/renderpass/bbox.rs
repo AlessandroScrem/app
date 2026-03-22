@@ -45,7 +45,10 @@ impl RenderPass for BBoxPass {
         if !globals.axis_enable {
             return;
         }
-
+        
+        // create unique vb every pass
+        self.vertexbuffer = None;
+        
         self.enable = globals.bbox_enable;
         let axis_aligned = globals.bbox_axis_aligned;
 
@@ -63,8 +66,10 @@ impl RenderPass for BBoxPass {
             })
             .collect::<Vec<_>>();
 
-        // create unique vb every pass
-        self.create_buffer(ctx.device, vertexdata);
+        if !vertexdata.is_empty() {
+            self.create_buffer(ctx.device, vertexdata);
+        }
+
     }
 
     fn execute(
