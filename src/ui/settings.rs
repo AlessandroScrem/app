@@ -130,7 +130,7 @@ impl Globals {
             "Exponential",
         ];
 
-        const DEBUG_CODE: [&str; 11] = [
+        const DEBUG_CODE: [&str; 12] = [
             "None",
             "Base Color",
             "Normal Texture",
@@ -140,8 +140,9 @@ impl Globals {
             "Geometry Tangent W",
             "Metallic",
             "Roughness",
-            "Occlusion",
             "Emissive",
+            "Occlusion",
+            "Transmission",
         ];
 
         tools::disabled(ui, || {

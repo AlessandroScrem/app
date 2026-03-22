@@ -131,6 +131,7 @@ impl MaterialDesc {
             ui.disabled(true, || {
                 ui.text(label);
             });
+            dirty |= slot.draw_ui(ui, material);
         }
         dirty
     }

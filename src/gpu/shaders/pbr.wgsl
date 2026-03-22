@@ -100,6 +100,7 @@ const NORMAL_TEXTURE         : u32 = 1u << 1u;
 const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
 const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
 const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
+const TRANSMISSION_TEXTURE   : u32 = 1u << 5u;
 
 const True                   : u32 = 1;
 const False                  : u32 = 0;
@@ -115,8 +116,9 @@ const DebugGeometryBitangent : u32 = 5;
 const DebugGeometryTangentW  : u32 = 6; 
 const DebugMetallic          : u32 = 7; 
 const DebugRoughness         : u32 = 8; 
-const DebugOcclusion         : u32 = 9; 
-const DebugEmissive          : u32 = 10; 
+const DebugEmissive          : u32 = 9; 
+const DebugOcclusion         : u32 = 10; 
+const DebugTransmission      : u32 = 11; 
 
 // Material
 @group(1) @binding(0) var <uniform> material: Material;
@@ -319,6 +321,14 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     return normal_ts;
 }
 
+fn get_transmission(uv: vec2<f32>) ->f32 {
+    var transmission = material.transmission_factor;
+    if has_flag(material.texture_flags, TRANSMISSION_TEXTURE) {
+        transmission *= textureSample(transmission_map, tex_sampler, uv).r;
+    }
+    return transmission;
+}
+
 fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
     var result: vec3<f32>;
     for (var i: u32 = 0u; i < 3u; i = i + 1u) {
@@ -334,12 +344,12 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs_main(
     in: VertexOutput, 
-    @builtin(front_facing) is_front: bool
+    @builtin(front_facing) is_front_facing: bool
 ) -> FSOutput {
     var out: FSOutput;
 
     let alpha = get_alpha(in.uv);
-    if material.alpha_mode == AlphaMask  && alpha < material.alpha_cutoff {
+    if material.alpha_mode == AlphaMask  && alpha < material.alpha_cutoff && globals.debug == False  {
         discard;
     }
 
@@ -349,21 +359,22 @@ fn fs_main(
     let roughness = get_roughness(in.uv);
     let emissive = get_emissive(in.uv);
     let ao = get_occlusion(in.uv);
+    let transmission =  get_transmission(in.uv);
 
 
     let N = normalize(in.normal);
     let T = normalize(in.tangent.xyz);
     let B = in.tangent.w * normalize(cross(N, T));
 
-    // convert ormal to  world space
+    // Convert normal to world space
     var Nws = N;
     if has_flag(material.texture_flags, NORMAL_TEXTURE) {
         let TBN = mat3x3<f32>(T, B, N);
         Nws = normalize(TBN * normal_texture);
     }
 
-    // check if frontfacing (alpha mask surfaces, reversed from camera)
-    Nws = select(-Nws, Nws, is_front);
+    // Check frontfacing: (fix alpha mask surfaces, fix faces reversed from camera view)
+    Nws = select(-Nws, Nws, is_front_facing);
 
     let V = normalize(camera.view_pos - in.world_pos);
 
@@ -378,10 +389,11 @@ fn fs_main(
         case DebugGeometryTangent   : { color = inverse_srgb((T + 1.0) * 0.5 );}
         case DebugGeometryBitangent : { color = inverse_srgb((B + 1.0) * 0.5 );}
         case DebugGeometryTangentW  : { color = inverse_srgb(vec3(in.tangent.w + 1.0) * 0.5);}
-        case DebugRoughness         : { color = inverse_srgb(vec3(roughness));}
         case DebugMetallic          : { color = inverse_srgb(vec3(metallic));}
-        case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}
+        case DebugRoughness         : { color = inverse_srgb(vec3(roughness));}
         case DebugEmissive          : { color = emissive;}
+        case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}
+        case DebugTransmission      : { color = vec3(transmission);}
         default: {;} 
     }
     
