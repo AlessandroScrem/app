@@ -86,6 +86,7 @@ pub(crate) mod math {
 
 pub(crate) mod colors {
     pub const CYAN_COLOR: [f32; 3] = [0.0, 1.0, 1.0];
+    // pub const BACKGROUND_COLOR: [f32; 3] = [0.188, 0.208, 0.259]; // from GltfViewer
     // pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
     // pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
     // pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
@@ -97,8 +98,10 @@ pub(crate) mod colors {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Globals {
+    pub light_enable: bool,
     pub ibl_enable: bool,
     pub skybox_enable: bool,
+    pub skybox_enable_blur: bool,
     pub exposure: f32,
     pub ibl_intensity: f32,
     pub tonemap_filter: u32,
@@ -107,12 +110,16 @@ pub(crate) struct Globals {
     pub bbox_axis_aligned: bool,
     pub debug_code: u32,
 }
+
 impl Default for Globals {
     fn default() -> Self {
         Self {
+            light_enable: false,
             ibl_enable: true,
             skybox_enable: true,
+            skybox_enable_blur: true,
             exposure: 1.0,
+
             ibl_intensity: 1.0,
             tonemap_filter: 0,
             axis_enable: true,

@@ -141,19 +141,41 @@ fn exponential(color: vec3<f32>) ->vec3<f32>{
   return  vec3(1.0) - exp(-color /* * exposure */); 
 }
 
+fn toneMap_KhronosPbrNeutral(in_color: vec3<f32> ) ->vec3<f32>
+{
+    var color:vec3<f32> = in_color;
+    let startCompression :f32 = 0.8 - 0.04;
+    let desaturation     :f32 = 0.15;
+
+    let x      :f32 = min(color.r, min(color.g, color.b));
+    let offset :f32 = select(0.04, x - 6.25 * x * x, x < 0.08); //select(false_value, true_value, condition)
+    color -= offset;
+
+    let peak :f32 = max(color.r, max(color.g, color.b));
+    if (peak < startCompression) { return color; }
+
+    let d       :f32 = 1. - startCompression;
+    let newPeak :f32 = 1. - d * d / (peak + d - startCompression);
+    color *= newPeak / peak;
+
+    let g :f32 = 1. - 1. / (desaturation * (peak - newPeak) + 1.);
+    return mix(color, newPeak * vec3(1, 1, 1), g);
+}
+
 
 // let tonemap_filters = ["ACES", "Filmic", "Lottes", "Reinhard", "Reinhard2", "Uchimura", "Uncharted2", "Exponential"];
 fn tonemap(hdr: vec3<f32>) ->vec3<f32> {
     switch globals.tonemap_filter 
     {
-        case 0u: { return aces(hdr);}
-        case 1u: { return filmic(hdr);}
-        case 2u: { return lottes(hdr);}
-        case 3u: { return reinhard(hdr);}
-        case 4u: { return reinhard2(hdr);}
-        case 5u: { return uchimura(hdr);}
-        case 6u: { return uncharted2(hdr);}
-        case 7u: { return exponential(hdr);}
+        case 0u: { return toneMap_KhronosPbrNeutral(hdr);}
+        case 1u: { return aces(hdr);}
+        case 2u: { return filmic(hdr);}
+        case 3u: { return lottes(hdr);}
+        case 4u: { return reinhard(hdr);}
+        case 5u: { return reinhard2(hdr);}
+        case 6u: { return uchimura(hdr);}
+        case 7u: { return uncharted2(hdr);}
+        case 8u: { return exponential(hdr);}
         default: { return aces(hdr); }
     }
 }

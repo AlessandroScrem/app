@@ -377,6 +377,13 @@ impl LightComponent {
                 .build_array(ui, &mut data.position);
             dirty |= ui.color_edit3("Color", &mut data.color);
             {
+                let mut enabled = data.enabled != 0;
+                if ui.checkbox("Enabled", &mut enabled) {
+                    data.enabled = enabled as u32;
+                    dirty = true;
+                }
+            }
+            {
                 let mut directional = data.directional != 0;
                 if ui.checkbox("Directional", &mut directional) {
                     data.directional = directional as u32;

@@ -34,11 +34,14 @@ pub enum EntityEvent {
     UpdateTag(Entity, TagComponent),
     UpdateTransform(Entity, TransformComponent),
     UpdateLight(Entity, LightComponent),
+    EnableAllLight(bool),
     
 }
 pub enum GlobalEvent {
+    LightEnable(bool),
     IblEnable(bool),
     SkyboxEnable(bool),
+    SkyboxEnableBlur(bool),
     AxisEnable(bool),
     BboxEnable(bool),
     BboxAxisAligned(bool),

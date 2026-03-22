@@ -122,6 +122,7 @@ pub struct GlobalUniform {
     pub skybox_enable: u32,
     pub exposure: f32,
     pub ibl_intensity: f32,
+
     pub entity_id: u64,
     pub tonemap_filter: u32,
     pub debug: u32,
@@ -136,17 +137,19 @@ pub struct LightUniform {
     pub position: [f32; 3],
     pub cast_shadow: u32,
     pub entity_id: u64,
-    pub pad2: [i32; 2],
+    pub enabled: u32,
+    pub pad2: [i32; 1],
 }
 impl Default for LightUniform {
     fn default() -> Self {
         Self {
             color: [1.0, 1.0, 1.0],
+            enabled: 1,
             cast_shadow: 0,
             directional: 1,
             position: [0.0, 0.0, -1.0],
             entity_id: 0,
-            pad2: [0, 0],
+            pad2: [0],
         }
     }
 }

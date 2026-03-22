@@ -119,7 +119,8 @@ impl Globals {
     fn draw_ui(&self, ui: &Ui) -> Option<DomainEvent> {
         let mut command: Option<DomainEvent> = None;
 
-        const TONEMAP_FILTERS: [&str; 8] = [
+        const TONEMAP_FILTERS: [&str; 9] = [
+            "Khronos PBR Neutral",
             "ACES",
             "Filmic",
             "Lottes",
@@ -150,16 +151,27 @@ impl Globals {
             ui.checkbox("Vsync", &mut mode);
         });
 
+        let mut light_enable = self.light_enable;
         let mut ibl_enable = self.ibl_enable;
         let mut skybox_enable = self.skybox_enable;
         let mut axis_enable = self.axis_enable;
         let mut bbox_enable = self.bbox_enable;
         use GlobalEvent::*;
+        if ui.checkbox("light enable", &mut light_enable) {
+            command = Some(DomainEvent::Global(LightEnable(light_enable)));
+        }
         if ui.checkbox("Ibl enable", &mut ibl_enable) {
             command = Some(DomainEvent::Global(IblEnable(ibl_enable)));
         }
         if ui.checkbox("Skybox enable", &mut skybox_enable) {
             command = Some(DomainEvent::Global(SkyboxEnable(skybox_enable)));
+        }
+        if self.skybox_enable {
+            let mut skybox_enable_blur = self.skybox_enable_blur;
+            ui.same_line();
+            if ui.checkbox("Blur", &mut skybox_enable_blur) {
+                command = Some(DomainEvent::Global(SkyboxEnableBlur(skybox_enable_blur)));
+            }
         }
         if ui.checkbox("Axis enable", &mut axis_enable) {
             command = Some(DomainEvent::Global(AxisEnable(axis_enable)));

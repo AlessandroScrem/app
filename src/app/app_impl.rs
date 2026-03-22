@@ -27,7 +27,8 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        // const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/Cannon_Exterior.hdr");
         let hdr_id = self
             .asset_mgr
             .textures

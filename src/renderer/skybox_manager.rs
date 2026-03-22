@@ -254,7 +254,8 @@ impl BRDFLUTBuilder {
     const TEXTURE_SIZE: u32 = 512;
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/brdflut.wgsl"));
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/brdflut.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "BRDFLUT Pipeline");
         let size = Self::TEXTURE_SIZE;
         let mip_level_count = 1;
@@ -321,7 +322,8 @@ impl PrefilerMapResources {
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
         let roughness_buffer = Self::create_roughness_buffer(device);
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/prefilter_map.wgsl"));
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/prefilter_map.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "Prefilter Pipeline");
 
         let layout = pipeline.get_bind_group_layout(0);
@@ -539,8 +541,9 @@ impl IrradianceResources {
         format: wgpu::TextureFormat,
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
-        let shader =
-            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/irradiance_convolution.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!(
+            "../gpu/shaders/irradiance_convolution.wgsl"
+        ));
         let pipeline = utils::create_pipeline(device, format, shader, "Irradiance Pipeline");
         let layout = pipeline.get_bind_group_layout(0);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
@@ -756,6 +759,7 @@ pub struct Skybox {
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
     pub bind_group: wgpu::BindGroup,
+    pub bind_group_blur: wgpu::BindGroup,
 }
 
 pub struct SkyboxManager {
@@ -872,8 +876,12 @@ impl SkyboxManager {
         })
     }
 
-    pub fn get_skybox(&self) -> &wgpu::BindGroup {
-        &self.skybox.bind_group
+    pub fn get_skybox(&self, blur: bool) -> &wgpu::BindGroup {
+        if blur {
+            &self.skybox.bind_group_blur
+        } else {
+            &self.skybox.bind_group
+        }
     }
     pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
         &self.ibl_bind_group
@@ -931,6 +939,21 @@ impl SkyboxManager {
             ..Default::default()
         });
 
+        let bind_group_blur = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&irradiance_view),
+                },
+            ],
+            label: Some("skybox_bind_group_blur"),
+        });
+
         Skybox {
             hdr_id,
             _cube_map: cube_map,
@@ -940,6 +963,7 @@ impl SkyboxManager {
             _prefilter_map,
             prefilter_view,
             bind_group,
+            bind_group_blur,
         }
     }
 }
@@ -985,7 +1009,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback_white(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1016,7 +1040,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback_white(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1025,7 +1049,7 @@ mod tests {
         assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(prefilter.height(), PrefilterMap::TEXTURE_SIZE);
         assert_eq!(prefilter.width(), PrefilterMap::TEXTURE_SIZE);
-        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS); 
+        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS);
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 

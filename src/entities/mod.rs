@@ -1,6 +1,6 @@
+pub(crate) mod bounding_box_impl;
 pub(crate) mod components;
 pub(crate) mod light;
-pub(crate) mod bounding_box_impl;
 
 pub(crate) use components::*;
 
@@ -44,8 +44,10 @@ impl From<EntityId> for Entity {
     }
 }
 
-
-use crate::{AssetManager, assets::{MaterialTextureSlot, gltf_loader::LoadedScene}};
+use crate::{
+    AssetManager,
+    assets::{MaterialTextureSlot, gltf_loader::LoadedScene},
+};
 
 // use std::hash::{Hash, Hasher};
 // pub(crate) trait EntityHash {
@@ -190,19 +192,28 @@ pub(crate) fn remove_entity_from_all(
         asset_mgr.meshes.remove(mesh_id);
     }
 
-    // remove material from asset 
+    // remove material from asset
     // remove also textures from slot
     for mat_id in material_ids {
         asset_mgr.materials.remove(mat_id, &mut asset_mgr.textures);
     }
 
-    // remove texture from asset 
-    // texture slot are removed from materials.remove() 
+    // remove texture from asset
+    // texture slot are removed from materials.remove()
     for tex_id in texture_ids {
         asset_mgr.textures.remove(tex_id);
     }
 }
 
+pub(crate) fn enable_all_lights(enable: bool, world: &mut legion::World) {
+    use legion::query::IntoQuery;
+
+    let mut query = <&mut LightComponent>::query();
+
+    for light in query.iter_mut(world) {
+        light.data.enabled = enable as u32;
+    }
+}
 
 pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
@@ -262,7 +273,6 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

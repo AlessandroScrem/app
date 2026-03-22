@@ -21,11 +21,13 @@ struct Globals {
 struct Light {
     color: vec3<f32>,
     directional: u32,
+
     position: vec3<f32>,
     cast_shadow: u32,
+    
     entity_id_low: u32,
     entity_id_high: u32,
-    pad2: vec2<u32>,
+    enabled: u32,
 }
 
 struct Model {
@@ -151,16 +153,16 @@ fn CalculateLight(
     frag_pos: vec3<f32>,
 ) -> LightResult {
     let PI = 3.14159265359;
-    // -------------------------------
-    // Base reflectivity (F0)
-    // -------------------------------
-    let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
 
     var result: LightResult;
     result.diffuse = vec3<f32>(0.0);
     result.specular = vec3<f32>(0.0);
 
     for (var i: u32 = 0u; i < NUM_LIGHTS; i += 1u) {
+        if light.enabled == False {
+            continue;
+        }
+
         let L =  normalize(light.position - frag_pos);
         let H = normalize(V + L);
         let NdotV = max(dot(N, V), 0.0);
@@ -200,6 +202,9 @@ fn CalculateLight(
         let G2 = NdotL / (NdotL * (1.0 - k2) + k2 + 0.00001);
         let G = G1 * G2;
 
+        // Base reflectivity (F0)
+        let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
+        
         // -------------------
         // F (Fresnel)
         // -------------------
@@ -244,6 +249,7 @@ fn CalculateAmbient(
         return result;
     } 
 
+    // Base reflectivity (F0)
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
     let NdotV = max(dot(N, V), 0.0);
     let R = reflect(-V, N);
@@ -294,7 +300,7 @@ fn get_metallic(uv: vec2<f32>) ->f32 {
     var metallic = material.metallic_factor;
     if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
         metallic *= textureSample(orm_map, tex_sampler, uv).b;
-        metallic = select(0.0, metallic, metallic > 0.06);
+        metallic = select(0.0, metallic, metallic > 0.06); //select(false_value, true_value, condition)
     }
     return clamp(metallic, 0.0, 1.0);
 }
@@ -394,7 +400,7 @@ fn fs_main(
     }
 
     // Check frontfacing: (fix alpha mask surfaces, fix faces reversed from camera view)
-    Nws = select(-Nws, Nws, is_front_facing);
+    Nws = select(-Nws, Nws, is_front_facing); //select(false_value, true_value, condition)
 
     let V = normalize(camera.view_pos - in.world_pos);
 
