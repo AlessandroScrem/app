@@ -86,12 +86,7 @@ impl GpuTextureCache {
             .unwrap_or(self.builtin.get(TextureSlot::White))
     }
 
-    pub fn view_or(&self, id: Option<TextureId>, slot: TextureSlot) -> &wgpu::TextureView {
-        &id.and_then(|id| self.map.get(id))
-            .unwrap_or_else(|| self.builtin.get(slot))
-            .view
-    }
-
+    
     fn create_from_cpu(
         &mut self,
         id: TextureId,
@@ -107,7 +102,7 @@ impl GpuTextureCache {
             UploadPayload::Fallback => {}
         }
     }
-
+    
     pub fn retain(&mut self, assets: &TextureAssets) {
         // Sync cleanup
         self.map.retain(|id, tex| {
@@ -121,9 +116,15 @@ impl GpuTextureCache {
             }
         });
     }
-
+    
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self.get_or_fallback_white(id).view
+    }
+
+    pub fn view_or(&self, id: Option<TextureId>, slot: TextureSlot) -> &wgpu::TextureView {
+        &id.and_then(|id| self.map.get(id))
+            .unwrap_or_else(|| self.builtin.get(slot))
+            .view
     }
 
     pub fn contains_key(&self, id: &TextureId) -> bool {

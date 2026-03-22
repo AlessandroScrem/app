@@ -332,10 +332,17 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> FSOutput {
+fn fs_main(
+    in: VertexOutput, 
+    @builtin(front_facing) is_front: bool
+) -> FSOutput {
     var out: FSOutput;
 
     let alpha = get_alpha(in.uv);
+    if material.alpha_mode == AlphaMask  && alpha < material.alpha_cutoff {
+        discard;
+    }
+
     let albedo_color = get_color(in.uv);
     let normal_texture = get_normal_texture(in.uv);
     let metallic = get_metallic(in.uv);
@@ -343,33 +350,34 @@ fn fs_main(in: VertexOutput) -> FSOutput {
     let emissive = get_emissive(in.uv);
     let ao = get_occlusion(in.uv);
 
-    if material.alpha_mode == AlphaMask  && alpha < material.alpha_cutoff {
-        discard;
-    }
 
     let N = normalize(in.normal);
     let T = normalize(in.tangent.xyz);
     let B = in.tangent.w * normalize(cross(N, T));
 
+    // convert ormal to  world space
     var Nws = N;
     if has_flag(material.texture_flags, NORMAL_TEXTURE) {
         let TBN = mat3x3<f32>(T, B, N);
         Nws = normalize(TBN * normal_texture);
     }
 
+    // check if frontfacing (alpha mask surfaces, reversed from camera)
+    Nws = select(-Nws, Nws, is_front);
+
     let V = normalize(camera.view_pos - in.world_pos);
 
     let lo = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
     let ambient = CalculateAmbient(Nws, V, albedo_color, metallic, roughness) * ao;
-
     var color = lo + ambient + emissive; 
+
     switch globals.debug {
         case DebugBaseColor         : { color = albedo_color; }
-        case DebugNormalTexture     : { color = inverse_srgb((normal_texture + 1.0) / 2.0);}
-        case DebugGeometryNormal    : { color = inverse_srgb((N + 1.0) / 2.0);}
-        case DebugGeometryTangent   : { color = inverse_srgb((T + 1.0) / 2.0);}
-        case DebugGeometryBitangent : { color = inverse_srgb((B + 1.0) / 2.0);}
-        case DebugGeometryTangentW  : { color = inverse_srgb(vec3(in.tangent.w + 1.0) / 2.0);}
+        case DebugNormalTexture     : { color = inverse_srgb((normal_texture + 1.0) * 0.5);}
+        case DebugGeometryNormal    : { color = inverse_srgb((N + 1.0) * 0.5 );}
+        case DebugGeometryTangent   : { color = inverse_srgb((T + 1.0) * 0.5 );}
+        case DebugGeometryBitangent : { color = inverse_srgb((B + 1.0) * 0.5 );}
+        case DebugGeometryTangentW  : { color = inverse_srgb(vec3(in.tangent.w + 1.0) * 0.5);}
         case DebugRoughness         : { color = inverse_srgb(vec3(roughness));}
         case DebugMetallic          : { color = inverse_srgb(vec3(metallic));}
         case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}

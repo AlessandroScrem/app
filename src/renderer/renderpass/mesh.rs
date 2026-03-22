@@ -1,3 +1,5 @@
+use cgmath::SquareMatrix;
+
 use crate::gpu::{GpuCache, GpuMesh};
 
 use super::*;
@@ -56,6 +58,8 @@ impl MeshPass {
 
         for (entity, mesh, global) in mesh_query.iter(world) {
             // Model Uniform
+            assert!(global.mat.determinant() > 0.0 ,"matrix determinant is negative"); 
+
             let mut model = ModelUniform::new(global.mat);
             model.entity_id = entity.as_raw_u64();
             mesh_cache.update(&mesh.handle, queue, &model);

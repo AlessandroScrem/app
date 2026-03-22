@@ -42,7 +42,6 @@ pub enum MaterialTextureSlot {
     Transmission = 5,
 }
 
-
 impl MaterialTextureSlot {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -101,6 +100,10 @@ impl AlphaMode {
             AlphaMode::Mask { alpha_cutoff } => (1, alpha_cutoff),
             AlphaMode::Blend => (2, 0.0),
         }
+    }
+
+    pub fn mask_default() -> Self {
+        AlphaMode::Mask { alpha_cutoff: 0.5 }
     }
 }
 

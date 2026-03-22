@@ -1,6 +1,6 @@
+use super::*;
 use gltf::mesh::{Mode, Reader};
 use std::path::Path;
-use super::*;
 
 use crate::{
     TransformComponent,
@@ -27,10 +27,7 @@ pub struct NodeData {
 }
 
 // public wrapper manage error messages
-pub fn load_gltf<P: AsRef<Path>>(
-    path: P,
-    asset_mgr: &mut AssetManager,
-) -> Option<LoadedScene> {
+pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<LoadedScene> {
     match load_gltf_internal(&path, asset_mgr) {
         Ok(scene) => Some(scene),
         Err(e) => {
@@ -89,6 +86,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
             let index_end = indices.len();
 
             if reader.read_tangents().is_none() {
+                println!("generate tangent for {:?}", primitive.material().name());
                 generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
@@ -152,7 +150,6 @@ fn load_gltf_internal<P: AsRef<Path>>(
         _roots: roots,
     };
 
-
     Ok(scene)
 }
 
@@ -199,13 +196,16 @@ fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]
         ) {
             let sign = if orientation { 1.0 } else { -1.0 };
             let idx = self.indices[face * 3 + vert] as usize;
-
             let v = &mut self.vertices[idx];
 
             v.tangent[0] += tangent[0];
             v.tangent[1] += tangent[1];
             v.tangent[2] += tangent[2];
-            v.tangent[3] = sign;
+
+            // w = ±1 senza accumulo
+            // FIX: invert w 
+            v.tangent[3] = -sign;
+
         }
     }
 
@@ -389,10 +389,10 @@ fn create_material<P: AsRef<Path>>(
 
     let alpha_mode = match gltf_material.alpha_mode() {
         gltf::material::AlphaMode::Blend => material_asset::AlphaMode::Blend,
-        gltf::material::AlphaMode::Mask => {
-            let alpha_cutoff = gltf_material.alpha_cutoff().unwrap_or_default();
-            material_asset::AlphaMode::Mask { alpha_cutoff }
-        }
+        gltf::material::AlphaMode::Mask => gltf_material
+            .alpha_cutoff()
+            .map(|alpha_cutoff| AlphaMode::Mask { alpha_cutoff })
+            .unwrap_or(AlphaMode::mask_default()),
         gltf::material::AlphaMode::Opaque => material_asset::AlphaMode::Opaque,
     };
 
@@ -441,9 +441,9 @@ fn create_material<P: AsRef<Path>>(
         );
     }
     if let Some(transmission) = gltf_material.transmission() {
-        let factor =  transmission.transmission_factor();
-            material_desc.transmission = Some( assets::Transmission { factor });
-            
+        let factor = transmission.transmission_factor();
+        material_desc.transmission = Some(assets::Transmission { factor });
+
         if let Some(transmission_texture) = transmission.transmission_texture() {
             material_desc.set_texture(
                 texture_asset,
@@ -452,10 +452,9 @@ fn create_material<P: AsRef<Path>>(
             );
         }
     }
-    
+
     println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
-
 }
 
 #[cfg(test)]

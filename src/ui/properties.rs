@@ -289,6 +289,8 @@ fn draw_materials(
                         dirty |= material.draw_ui_slot(ui, MetallicRoughness, resolver);
                         ui.separator();
                         dirty |= material.draw_ui_slot(ui, Normal, resolver);
+                        ui.separator();
+                        dirty |= material.draw_ui_slot(ui, Transmission, resolver);
                     }
 
                     if dirty {
