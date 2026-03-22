@@ -93,7 +93,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             scene_renderer,
             imgui_render,
             uilayer,
-            is_minimized: false,
             timer: Timer::new(),
             events: Vec::new(),
             gpu_context,

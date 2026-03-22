@@ -71,7 +71,8 @@ impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
-        if runtime.is_minimized {
+
+        if runtime.window.is_minimized().unwrap_or(false) {
             return;
         }
 

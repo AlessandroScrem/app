@@ -5,7 +5,7 @@ use crate::UiLayer;
 use crate::app::Application;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter
+    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
 };
 use crate::input::Input;
 use crate::prelude::*;
@@ -31,7 +31,6 @@ pub struct RunningApp {
     pub pipeline_manager: PipelineManager,
 
     pub uilayer: UiLayer,
-    pub is_minimized: bool,
     pub timer: Timer,
     pub input: Input,
 
@@ -57,10 +56,7 @@ impl RunningApp {
     }
 
     pub fn tick<A: Application>(&mut self, app: &mut A) {
-        if self.is_minimized {
-            return;
-        }
-
+        
         let events = std::mem::take(&mut self.events);
         for event in events {
             self.handle_runtime_event(app, event);
@@ -78,16 +74,14 @@ impl RunningApp {
     fn handle_runtime_event<A: Application>(&mut self, app: &mut A, event: RuntimeEvent) {
         match event {
             RuntimeEvent::Resize { width, height } => {
-                if width > 0 && height > 0 {
-                    self.is_minimized = false;
-                    self.gpu_manager
-                        .resize_frame(&self.gpu_context.device, width, height);
-                    self.gpu_surface
-                        .resize_frame(&self.gpu_context.device, width, height);
-                    app.on_resize(width, height);
-                } else {
-                    self.is_minimized = true;
+                if width == 0 || height == 0 {
+                    return;
                 }
+                self.gpu_manager
+                    .resize_frame(&self.gpu_context.device, width, height);
+                self.gpu_surface
+                    .resize_frame(&self.gpu_context.device, width, height);
+                app.on_resize(width, height);
             }
             RuntimeEvent::CloseRequested => {
                 app.on_close();
