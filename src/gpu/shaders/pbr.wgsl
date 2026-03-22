@@ -136,6 +136,12 @@ const DebugTransmission      : u32 = 11;
 @group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 
+
+struct LightResult {
+    diffuse: vec3<f32>,
+    specular: vec3<f32>,
+};
+
 fn CalculateLight(
     N: vec3<f32>,
     V: vec3<f32>,
@@ -143,14 +149,17 @@ fn CalculateLight(
     metallic: f32,
     roughness: f32,
     frag_pos: vec3<f32>,
-) -> vec3<f32> {
+) -> LightResult {
     let PI = 3.14159265359;
     // -------------------------------
     // Base reflectivity (F0)
     // -------------------------------
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
 
-    var color = vec3<f32>(0.0);
+    var result: LightResult;
+    result.diffuse = vec3<f32>(0.0);
+    result.specular = vec3<f32>(0.0);
+
     for (var i: u32 = 0u; i < NUM_LIGHTS; i += 1u) {
         let L =  normalize(light.position - frag_pos);
         let H = normalize(V + L);
@@ -167,11 +176,13 @@ fn CalculateLight(
             radiance = light.color * attenuation;
         };
 
-       // -------------------------------
+        // -------------------------------
         // Cook–Torrance BRDF
         // -------------------------------
 
+        // -------------------
         // NDF - normal distribution
+        // -------------------
         let a  = roughness * roughness;
         let a2 = a * a;
         let NdotH = max(dot(N, H), 0.0);
@@ -180,37 +191,42 @@ fn CalculateLight(
         var denomD = (NdotH2 * (a2 - 1.0) + 1.0);
         let D = a2 / (PI * denomD * denomD + 0.00001);
 
+        // -------------------
         // Geometry (Smith)
+        // -------------------
         let k = (roughness + 1.0);
         let k2 = (k * k) / 8.0;
         let G1 = NdotV / (NdotV * (1.0 - k2) + k2 + 0.00001);
         let G2 = NdotL / (NdotL * (1.0 - k2) + k2 + 0.00001);
         let G = G1 * G2;
 
-        // Fresnel
+        // -------------------
+        // F (Fresnel)
+        // -------------------
         let F = F0 + (1.0 - F0) * pow(1.0 - HdotV, 5.0);
 
-        // Final specular
+        // -------------------
+        // Specular
+        // -------------------
         let numerator = D * G * F;
         let denom     = 4.0 * NdotV * NdotL + 0.00001;
         let specular  = numerator / denom;
 
         // -------------------------------
-        // Diffuse term (Lambert)
+        // Diffuse (Lambert)
         // -------------------------------
         let kS = F;
         let kD = (1.0 - kS) * (1.0 - metallic);
-
-        // Lambertian
         let diffuse = (albedo / PI);
 
         // -------------------------------
         // Final contribution
         // -------------------------------
-        color += (kD * diffuse + specular) * radiance * NdotL;  
+        result.diffuse  += kD * diffuse * radiance * NdotL;  
+        result.specular += specular * radiance * NdotL;  
     }
 
-    return color;
+    return result;
 }
 
 fn CalculateAmbient(
@@ -219,9 +235,13 @@ fn CalculateAmbient(
     albedo: vec3<f32>,
     metallic: f32,
     roughness: f32,
-) -> vec3<f32> {
+) -> LightResult {
+    var result: LightResult;
+    result.diffuse = vec3<f32>(0.0);
+    result.specular = vec3<f32>(0.0);
+    
     if globals.ibl_enable == False {
-        return vec3<f32> (0.0);
+        return result;
     } 
 
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
@@ -238,13 +258,13 @@ fn CalculateAmbient(
 
     var lod = roughness * MAX_REFLECTION_LOD;
 
-    let prefiltered_color = textureSampleLevel(prefilter_map, ibl_sampler, R, lod).rgb;
-    let env_brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
+    let prefiltered = textureSampleLevel(prefilter_map, ibl_sampler, R, lod).rgb;
+    let brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
-    let diffuse = irradiance * albedo * globals.ibl_intensity;
-    let specular = prefiltered_color * (F * env_brdf.x + env_brdf.y) * globals.ibl_intensity;
+    result.diffuse = irradiance * albedo * kD *  globals.ibl_intensity;
+    result.specular = prefiltered * (F * brdf.x + brdf.y) * globals.ibl_intensity;
 
-    return (kD * diffuse + specular);
+    return result;
 }
 
 struct FSOutput {
@@ -378,9 +398,12 @@ fn fs_main(
 
     let V = normalize(camera.view_pos - in.world_pos);
 
-    let lo = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
-    let ambient = CalculateAmbient(Nws, V, albedo_color, metallic, roughness) * ao;
-    var color = lo + ambient + emissive; 
+    let light_res = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
+    let ambient_res = CalculateAmbient(Nws, V, albedo_color, metallic, roughness);
+
+    let diffuse = light_res.diffuse + ambient_res.diffuse * ao;
+    let specular = light_res.specular + ambient_res.specular * ao;
+    var color = diffuse + specular + emissive; 
 
     switch globals.debug {
         case DebugBaseColor         : { color = albedo_color; }
