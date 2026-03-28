@@ -8,7 +8,7 @@ pub(crate) mod pickobject;
 pub(crate) mod skybox;
 
 pub(crate) use axis::AxisPass;
-pub(crate) use bbox::BBoxPass;
+pub(crate) use bbox::BoundingboxPass;
 pub(crate) use light::LightPass;
 pub(crate) use linearize::LinearizePass;
 pub(crate) use mesh::MeshPass;
@@ -41,20 +41,20 @@ pub(crate) trait RenderPass {
 
     fn prepare(
         &mut self,
-        asset_mgr: &AssetManager,
-        world: &World,
-        globals: &Globals,
-        selected: Option<Entity>,
-        input: &Input,
-        ctx: &mut RenderContext,
-    );
+        _asset_mgr: &AssetManager,
+        _world: &World,
+        _globals: &Globals,
+        _selected: Option<Entity>,
+        _input: &Input,
+        _ctx: &mut RenderContext,
+    ){}
 
     fn execute(
         &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        ctx: &mut RenderContext,
-        asset_mgr: &AssetManager,
-    );
+        _encoder: &mut wgpu::CommandEncoder,
+        _ctx: &mut RenderContext,
+        _asset_mgr: &AssetManager,
+    ){}
 }
 
 
@@ -63,7 +63,7 @@ pub(crate) enum RenderPassEnum {
     Light(LightPass),
     Skybox(SkyboxPass),
     Axis(AxisPass),
-    BBox(BBoxPass),
+    BBox(BoundingboxPass),
     Linearize(LinearizePass),
     Outline(OutlinePass),
     PickObject(PickObjectPass),

@@ -32,10 +32,10 @@ impl RenderPass for LightPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[LIGHTTEXTURE]
+        &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[HDRA, DEPTH]
+        &[ResourceId::HDRA, ResourceId::DEPTH]
     }
 
     fn prepare(

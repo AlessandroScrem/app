@@ -86,7 +86,7 @@ impl RenderPass for MeshPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[HDRA, ENTITY, DEPTH]
+        &[ResourceId::HDRA, ResourceId::ENTITY, ResourceId::DEPTH]
     }
 
     fn prepare(

@@ -20,7 +20,7 @@ impl RenderPass for AxisPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[HDRA]
+        &[ResourceId::HDRA]
     }
 
     fn prepare(

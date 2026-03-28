@@ -60,7 +60,7 @@ impl SceneRenderer {
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
-            RenderPassEnum::BBox(BBoxPass::new()),
+            RenderPassEnum::BBox(BoundingboxPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),

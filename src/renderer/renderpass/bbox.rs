@@ -2,19 +2,19 @@ use super::*;
 use crate::entities::bounding_box_impl::{BBoxVertexData, VERTICES};
 
 #[derive(Default)]
-pub struct BBoxPass {
+pub struct BoundingboxPass {
     enable: bool,
     vertexbuffer: Option<wgpu::Buffer>,
     count: u32,
 }
 
-impl BBoxPass {
+impl BoundingboxPass {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl BBoxPass {
+impl BoundingboxPass {
     fn create_buffer(&mut self, device: &wgpu::Device, vertices: Vec<BBoxVertexData>) {
         use wgpu::util::DeviceExt;
         let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -28,7 +28,7 @@ impl BBoxPass {
     }
 }
 
-impl RenderPass for BBoxPass {
+impl RenderPass for BoundingboxPass {
     fn name(&self) -> &'static str {
         "BoundingboxPass"
     }
@@ -37,7 +37,7 @@ impl RenderPass for BBoxPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[HDRA]
+        &[ResourceId::HDRA]
     }
 
     fn prepare(

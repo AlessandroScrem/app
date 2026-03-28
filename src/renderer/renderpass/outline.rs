@@ -16,10 +16,10 @@ impl RenderPass for OutlinePass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[ENTITY]
+        &[ResourceId::ENTITY]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[LDR]
+        &[ResourceId::LDR]
     }
 
     fn prepare(

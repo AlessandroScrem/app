@@ -19,10 +19,10 @@ impl RenderPass for PickObjectPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[ENTITY]
+        &[ResourceId::ENTITY]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[PICKBUFFER]
+        &[ResourceId::PICKBUFFER]
     }
 
     fn prepare(
