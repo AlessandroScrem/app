@@ -16,6 +16,14 @@ impl RenderPass for SkyboxPass {
     fn name(&self) -> &'static str {
         "SkyboxPass"
     }
+    
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[HDRA, DEPTH]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,

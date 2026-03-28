@@ -17,7 +17,11 @@ impl LightPass {
         let gpu_mgr = ctx.gpu_mgr;
 
         for light in self.lights.iter() {
-            queue.write_buffer(gpu_mgr.get_buffer(BufferKind::Light), 0, bytemuck::bytes_of(light));
+            queue.write_buffer(
+                gpu_mgr.get_buffer(BufferKind::Light),
+                0,
+                bytemuck::bytes_of(light),
+            );
         }
     }
 }
@@ -26,6 +30,14 @@ impl RenderPass for LightPass {
     fn name(&self) -> &'static str {
         "LightPass"
     }
+
+    fn reads(&self) -> &[ResourceId] {
+        &[LIGHTTEXTURE]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[HDRA, DEPTH]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,

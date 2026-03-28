@@ -82,6 +82,13 @@ impl RenderPass for MeshPass {
         "MeshPass"
     }
 
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[HDRA, ENTITY, DEPTH]
+    }
+
     fn prepare(
         &mut self,
         asset_mgr: &AssetManager,
@@ -187,3 +194,15 @@ impl RenderPass for MeshPass {
         }
     }
 }
+
+// impl RenderPassNode for MeshPass {
+//     fn name(&self) -> &str {
+//         "MeshPass"
+//     }
+//     fn reads(&self) -> &[ResourceId] {
+//         &[]
+//     }
+//     fn writes(&self) -> &[ResourceId] {
+//         &[HDRA, ENTITY, DEPTH]
+//     }
+// }

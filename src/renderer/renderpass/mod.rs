@@ -31,6 +31,33 @@ pub(crate) use legion::{Entity, World};
 use wgpu::IndexFormat;
 pub (crate) use crate::gpu::manager::*;
 
+pub (crate) use super::renderer::rendergraph::*;
+
+pub(crate) trait RenderPass {
+    #[allow(dead_code)]
+    fn name(&self) -> &'static str;
+    fn reads(&self) -> &[ResourceId];
+    fn writes(&self) -> &[ResourceId];
+
+    fn prepare(
+        &mut self,
+        asset_mgr: &AssetManager,
+        world: &World,
+        globals: &Globals,
+        selected: Option<Entity>,
+        input: &Input,
+        ctx: &mut RenderContext,
+    );
+
+    fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        asset_mgr: &AssetManager,
+    );
+}
+
+
 pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
     Light(LightPass),
@@ -53,6 +80,32 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.name(),
             RenderPassEnum::Outline(p) => p.name(),
             RenderPassEnum::PickObject(p) => p.name(),
+        }
+    }
+    
+    fn reads(&self) -> &[ResourceId] {
+        match self {
+            RenderPassEnum::Mesh(p) => p.reads(),
+            RenderPassEnum::Light(p) => p.reads(),
+            RenderPassEnum::Skybox(p) => p.reads(),
+            RenderPassEnum::Axis(p) => p.reads(),
+            RenderPassEnum::BBox(p) => p.reads(),
+            RenderPassEnum::Linearize(p) => p.reads(),
+            RenderPassEnum::Outline(p) => p.reads(),
+            RenderPassEnum::PickObject(p) => p.reads(),
+        }
+    }
+
+    fn writes(&self) -> &[ResourceId] {
+        match self {
+            RenderPassEnum::Mesh(p) => p.writes(),
+            RenderPassEnum::Light(p) => p.writes(),
+            RenderPassEnum::Skybox(p) => p.writes(),
+            RenderPassEnum::Axis(p) => p.writes(),
+            RenderPassEnum::BBox(p) => p.writes(),
+            RenderPassEnum::Linearize(p) => p.writes(),
+            RenderPassEnum::Outline(p) => p.writes(),
+            RenderPassEnum::PickObject(p) => p.writes(),
         }
     }
 
@@ -112,24 +165,3 @@ impl RenderPass for RenderPassEnum {
     }
 }
 
-pub(crate) trait RenderPass {
-    #[allow(dead_code)]
-    fn name(&self) -> &'static str;
-
-    fn prepare(
-        &mut self,
-        asset_mgr: &AssetManager,
-        world: &World,
-        globals: &Globals,
-        selected: Option<Entity>,
-        input: &Input,
-        ctx: &mut RenderContext,
-    );
-
-    fn execute(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        ctx: &mut RenderContext,
-        asset_mgr: &AssetManager,
-    );
-}

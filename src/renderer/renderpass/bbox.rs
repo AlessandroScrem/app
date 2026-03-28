@@ -33,6 +33,13 @@ impl RenderPass for BBoxPass {
         "BoundingboxPass"
     }
 
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[HDRA]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,
@@ -45,10 +52,10 @@ impl RenderPass for BBoxPass {
         if !globals.axis_enable {
             return;
         }
-        
+
         // create unique vb every pass
         self.vertexbuffer = None;
-        
+
         self.enable = globals.bbox_enable;
         let axis_aligned = globals.bbox_axis_aligned;
 
@@ -69,7 +76,6 @@ impl RenderPass for BBoxPass {
         if !vertexdata.is_empty() {
             self.create_buffer(ctx.device, vertexdata);
         }
-
     }
 
     fn execute(
