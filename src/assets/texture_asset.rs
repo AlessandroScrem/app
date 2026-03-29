@@ -28,14 +28,12 @@ pub enum ColorSpace {
 }
 
 impl ColorSpace {
-    pub fn bpp(&self) -> usize {
+    // pixel size (Bytes)
+    pub fn pixel_size(&self) -> u32 {
         match self {
-            ColorSpace::Rgbaf32 => 16,
-            ColorSpace::Rgbaf16 => 8,
-            ColorSpace::Depth32f => 4,
-            ColorSpace::Srgba8 => 4,
-            ColorSpace::Rgba8 => 4,
-            ColorSpace::Rg32ui => 2,
+            Self::Rgbaf32 => 16,
+            Self::Rgbaf16 | Self::Rg32ui => 8,
+            Self::Depth32f | Self::Srgba8 | Self::Rgba8 => 4,
         }
     }
 }

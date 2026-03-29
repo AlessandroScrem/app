@@ -199,21 +199,17 @@ impl<'a> GpuTextureBuilder<'a> {
         let mut estimated_size = 0;
 
         if let (Some(source), Some(queue)) = (self.source, queue) {
-            // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
-            let pixel_size = match self.format {
-                ColorSpace::Rgba8 | ColorSpace::Srgba8 => 4,
-                ColorSpace::Depth32f => 4,
-                ColorSpace::Rgbaf16 => 8,
-                ColorSpace::Rgbaf32 => 16,
-                ColorSpace::Rg32ui => 8,
-            };
-
+            
             let pixels = match source {
                 TextureSource::Cpu(data) => data.pixels.to_vec(),
                 TextureSource::Static(data) => data.pixels.to_vec(),
             };
+            
+            // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
+            let pixel_size = self.format.pixel_size();
 
             let face_size = (width * height * pixel_size) as usize;
+            
             assert_eq!(
                 pixels.len(),
                 face_size,

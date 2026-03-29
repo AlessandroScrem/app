@@ -90,6 +90,7 @@ impl RenderPass for RenderPassEnum {
     fn reads(&self) -> &[ResourceId] {
         match self {
             RenderPassEnum::Mesh(p) => p.reads(),
+            RenderPassEnum::Transmission(p) => p.reads(),
             RenderPassEnum::Light(p) => p.reads(),
             RenderPassEnum::Skybox(p) => p.reads(),
             RenderPassEnum::Axis(p) => p.reads(),
@@ -103,6 +104,7 @@ impl RenderPass for RenderPassEnum {
     fn writes(&self) -> &[ResourceId] {
         match self {
             RenderPassEnum::Mesh(p) => p.writes(),
+            RenderPassEnum::Transmission(p) => p.writes(),
             RenderPassEnum::Light(p) => p.writes(),
             RenderPassEnum::Skybox(p) => p.writes(),
             RenderPassEnum::Axis(p) => p.writes(),

@@ -228,12 +228,12 @@ impl GpuManager {
 
     // CHANGE ME!
     pub fn update_ibl_bind_group(&mut self, device: &wgpu::Device, entries: &Vec<wgpu::BindGroupEntry> ) {
-        let bg = create_bindgroup(device, LayoutKind::Ibl, &self.layout_cache, entries);
+        let bg = create_bindgroup(device, LayoutKind::Ibl, &self.layout_cache, &self.framebuffer_cache, entries);
         self.update_bindgroup(BindgroupKind::Ibl, bg);
     }
 
     pub fn update_transmission_bind_group(&mut self, device: &wgpu::Device, entries: &Vec<wgpu::BindGroupEntry> ) {
-        let bg = create_bindgroup(device, LayoutKind::Transmission, &self.layout_cache, entries);
+        let bg = create_bindgroup(device, LayoutKind::Transmission, &self.layout_cache, &self.framebuffer_cache, entries);
         self.update_bindgroup(BindgroupKind::Transmission, bg);
     }
 }
@@ -977,6 +977,7 @@ fn create_bindgroup(
     device: &wgpu::Device,
     layout: LayoutKind,
     layout_cache: &LayoutCache,
+    framebuffer_cache: &FramebufferCache,
     entries: &Vec<wgpu::BindGroupEntry>,
 ) -> wgpu::BindGroup {
     let label = match layout {
