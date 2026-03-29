@@ -36,7 +36,7 @@ pub struct SceneRenderer {
 impl SceneRenderer {
     pub fn new(
         gpu_context: &GpuContext,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
         gpu_cache: &mut GpuCache,
         asset_mgr: &mut AssetManager,
     ) -> Self {
@@ -50,7 +50,7 @@ impl SceneRenderer {
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
         let hdr = gpu_cache.textures.get_or_fallback_white(hdr_id);
-        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
+        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, gpu_manager);
         // -----
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
@@ -79,7 +79,7 @@ impl SceneRenderer {
 
     fn sync_skybox(
         &mut self,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
         gpu_cache: &mut GpuCache,
         gpu_context: &GpuContext,
         asset_mgr: &AssetManager,
@@ -93,7 +93,7 @@ impl SceneRenderer {
                 hdr_texture,
                 &gpu_context.device,
                 &gpu_context.queue,
-                &gpu_manager,
+                gpu_manager,
             );
         }
     }

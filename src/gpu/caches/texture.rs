@@ -97,6 +97,7 @@ impl GpuTextureCache {
         match payload {
             UploadPayload::Ready(data) => {
                 let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
+                self.stats.add(texture.estimated_size);
                 self.map.insert(id, texture);
             }
             UploadPayload::Fallback => {}

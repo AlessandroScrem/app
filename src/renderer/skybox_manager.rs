@@ -766,7 +766,7 @@ pub struct SkyboxManager {
     _brdf_lut: wgpu::Texture,
     _brdf_lut_view: wgpu::TextureView,
     skybox: Skybox,
-    ibl_bind_group: wgpu::BindGroup,
+    // ibl_bind_group: wgpu::BindGroup,
 }
 
 impl SkyboxManager {
@@ -775,7 +775,7 @@ impl SkyboxManager {
         hdr: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
     ) -> Self {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
@@ -798,11 +798,13 @@ impl SkyboxManager {
             &brdf_lut_view,
         );
 
+        gpu_manager.update_bindgroup(BindgroupKind::Ibl, ibl_bind_group);
+
         Self {
             _brdf_lut: brdf_lut,
             _brdf_lut_view: brdf_lut_view,
             skybox,
-            ibl_bind_group,
+            // ibl_bind_group,
         }
     }
 
@@ -812,7 +814,7 @@ impl SkyboxManager {
         hdr: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
     ) {
         if self.skybox.hdr_id == hdr_id {
             return;
@@ -826,13 +828,15 @@ impl SkyboxManager {
             gpu_manager.get_layout(LayoutKind::Skybox),
         );
 
-        self.ibl_bind_group = Self::create_ibl_bind_group(
+        let ibl_bind_group = Self::create_ibl_bind_group(
             device,
             gpu_manager.get_layout(LayoutKind::Ibl),
             &self.skybox.irradiance_view,
             &self.skybox.prefilter_view,
             &self._brdf_lut_view,
         );
+        gpu_manager.update_bindgroup(BindgroupKind::Ibl, ibl_bind_group);
+
     }
 
     fn create_ibl_bind_group(
@@ -883,9 +887,9 @@ impl SkyboxManager {
             &self.skybox.bind_group
         }
     }
-    pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
-        &self.ibl_bind_group
-    }
+    // pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
+    //     &self.ibl_bind_group
+    // }
     pub fn get_hdr_id(&self) -> crate::assets::TextureId {
         self.skybox.hdr_id
     }
@@ -1095,7 +1099,7 @@ mod tests {
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_manager = GpuManager::new(&device, queue, 32, 32);
+        let mut gpu_manager = GpuManager::new(&device, queue, 32, 32);
         let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
@@ -1106,7 +1110,7 @@ mod tests {
 
         let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
-        let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
+        let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &mut gpu_manager);
     }
 
     /// Utils

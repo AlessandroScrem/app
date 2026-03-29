@@ -103,6 +103,7 @@ pub enum BindgroupKind {
     Camera,
     Perframe,
     LightTexture,
+    Ibl,
 }
 
 struct BindgroupCache {
@@ -123,6 +124,9 @@ impl BindgroupCache {
     }
     fn get(&self, kind: BindgroupKind) -> &wgpu::BindGroup {
         &self.bg[kind as usize]
+    }
+    fn get_mut(&mut self, kind: BindgroupKind) -> &mut wgpu::BindGroup {
+        &mut self.bg[kind as usize]
     }
 }
 
@@ -200,8 +204,16 @@ impl GpuManager {
         self.buffer_cache.get(kind)
     }
 
+    pub fn update_bindgroup(&mut self, kind: BindgroupKind, bg: wgpu::BindGroup) {
+        *self.bindgroup_cache.get_mut(kind) = bg;
+    }
+
     pub fn update_camera(&self, queue: &wgpu::Queue, uniform: &CameraUniform) {
-        queue.write_buffer(self.get_buffer(BufferKind::Camera), 0, bytemuck::bytes_of(uniform));
+        queue.write_buffer(
+            self.get_buffer(BufferKind::Camera),
+            0,
+            bytemuck::bytes_of(uniform),
+        );
     }
 
     pub fn update_globals(&self, queue: &wgpu::Queue, uniform: &GlobalUniform) {
@@ -804,6 +816,52 @@ impl BindgroupCache {
                         },
                     ],
                     label: Some("light texture_bind_group"),
+                })
+            }
+            BindgroupKind::Ibl => {
+                let texture =
+                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                        .build(device, Some(queue));
+
+                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .dimension(gpu::texture::Dimension::Cube)
+                    .format(ColorSpace::Rgba8)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::Linear)
+                    .label("Cube white texture")
+                    .build(device, Some(queue));
+
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: layouts.get(LayoutKind::Ibl),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 3,
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                        },
+                    ],
+                    label: Some("Fake Ibl Bind Group"),
                 })
             }
         }

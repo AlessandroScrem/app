@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 pub struct RuntimeContext<'a> {
     pub gpu_context: &'a GpuContext,
-    pub gpu_manager: &'a GpuManager,
+    pub gpu_manager: &'a mut GpuManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
     pub input: &'a mut Input,

@@ -102,7 +102,7 @@ impl RenderPass for MeshPass {
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let skybox_manager = ctx.skb_mgr;
+        // let skybox_manager = ctx.skb_mgr;
 
         let clear_color = wgpu::Color {
             r: 0.1,
@@ -147,7 +147,8 @@ impl RenderPass for MeshPass {
 
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
+        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Ibl), &[]);
+        // renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
 
         // Draw per submesh (Default)
