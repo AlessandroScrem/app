@@ -3,6 +3,7 @@ pub(crate) mod bbox;
 pub(crate) mod light;
 pub(crate) mod linearize;
 pub(crate) mod mesh;
+pub(crate) mod transmission;
 pub(crate) mod outline;
 pub(crate) mod pickobject;
 pub(crate) mod skybox;
@@ -12,6 +13,7 @@ pub(crate) use bbox::BBoxPass;
 pub(crate) use light::LightPass;
 pub(crate) use linearize::LinearizePass;
 pub(crate) use mesh::MeshPass;
+pub(crate) use transmission::TransmissionPass;
 pub(crate) use outline::OutlinePass;
 pub(crate) use pickobject::PickObjectPass;
 pub(crate) use skybox::SkyboxPass;
@@ -33,6 +35,7 @@ pub (crate) use crate::gpu::manager::*;
 
 pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
+    Transmission(TransmissionPass),
     Light(LightPass),
     Skybox(SkyboxPass),
     Axis(AxisPass),
@@ -46,6 +49,7 @@ impl RenderPass for RenderPassEnum {
     fn name(&self) -> &'static str {
         match self {
             RenderPassEnum::Mesh(p) => p.name(),
+            RenderPassEnum::Transmission(p) => p.name(),
             RenderPassEnum::Light(p) => p.name(),
             RenderPassEnum::Skybox(p) => p.name(),
             RenderPassEnum::Axis(p) => p.name(),
@@ -67,6 +71,9 @@ impl RenderPass for RenderPassEnum {
     ) {
         match self {
             RenderPassEnum::Mesh(p) => {
+                p.prepare(asset_mgr, world, globals, selected, input, ctx)
+            }
+            RenderPassEnum::Transmission(p) => {
                 p.prepare(asset_mgr, world, globals, selected, input, ctx)
             }
             RenderPassEnum::Light(p) => {
@@ -101,6 +108,7 @@ impl RenderPass for RenderPassEnum {
     ) {
         match self {
             RenderPassEnum::Mesh(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::Transmission(p) => p.execute(encoder, ctx, asset_mgr),
             RenderPassEnum::Light(p) => p.execute(encoder, ctx, asset_mgr),
             RenderPassEnum::Skybox(p) => p.execute(encoder, ctx, asset_mgr),
             RenderPassEnum::Axis(p) => p.execute(encoder, ctx, asset_mgr),

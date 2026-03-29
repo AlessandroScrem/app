@@ -30,7 +30,8 @@ pub struct SceneRenderer {
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
-    passes: Vec<RenderPassEnum>,
+    default_pass: Vec<RenderPassEnum>,
+    transmission_pass: Vec<RenderPassEnum>,
 }
 
 impl SceneRenderer {
@@ -55,8 +56,20 @@ impl SceneRenderer {
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        let passes = vec![
+        let default_pass = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Skybox(SkyboxPass::new()),
+            RenderPassEnum::Axis(AxisPass::new()),
+            RenderPassEnum::BBox(BBoxPass::new()),
+            RenderPassEnum::Linearize(LinearizePass::new()),
+            RenderPassEnum::Outline(OutlinePass::new()),
+            RenderPassEnum::PickObject(PickObjectPass::new()),
+        ];
+  
+        let transmission_pass = vec![
+            RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Transmission(TransmissionPass::new()),
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
@@ -69,7 +82,8 @@ impl SceneRenderer {
         Self {
             skybox_mgr,
             pickobject,
-            passes,
+            default_pass,
+            transmission_pass
         }
     }
 
@@ -148,11 +162,11 @@ impl SceneRenderer {
         };
 
         // Update world buffer data to gpu
-        for pass in &mut self.passes {
+        for pass in &mut self.default_pass {
             pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
         }
 
-        for pass in &mut self.passes {
+        for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &asset_mgr);
         }
     }
