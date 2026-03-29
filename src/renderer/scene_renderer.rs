@@ -30,13 +30,14 @@ pub struct SceneRenderer {
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
-    passes: Vec<RenderPassEnum>,
+    default_pass: Vec<RenderPassEnum>,
+    transmission_pass: Vec<RenderPassEnum>,
 }
 
 impl SceneRenderer {
     pub fn new(
         gpu_context: &GpuContext,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
         gpu_cache: &mut GpuCache,
         asset_mgr: &mut AssetManager,
     ) -> Self {
@@ -50,12 +51,12 @@ impl SceneRenderer {
         // Skybox initialization
         let hdr_id = asset_mgr.skybox.get_id();
         let hdr = gpu_cache.textures.get_or_fallback_white(hdr_id);
-        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
+        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, gpu_manager);
         // -----
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        let passes = vec![
+        let default_pass = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
@@ -65,11 +66,24 @@ impl SceneRenderer {
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),
         ];
+  
+        let transmission_pass = vec![
+            RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Transmission(TransmissionPass::new()),
+            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Skybox(SkyboxPass::new()),
+            RenderPassEnum::Axis(AxisPass::new()),
+            RenderPassEnum::BBox(BBoxPass::new()),
+            RenderPassEnum::Linearize(LinearizePass::new()),
+            RenderPassEnum::Outline(OutlinePass::new()),
+            RenderPassEnum::PickObject(PickObjectPass::new()),
+        ];
 
         Self {
             skybox_mgr,
             pickobject,
-            passes,
+            default_pass,
+            transmission_pass
         }
     }
 
@@ -79,7 +93,7 @@ impl SceneRenderer {
 
     fn sync_skybox(
         &mut self,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
         gpu_cache: &mut GpuCache,
         gpu_context: &GpuContext,
         asset_mgr: &AssetManager,
@@ -93,7 +107,7 @@ impl SceneRenderer {
                 hdr_texture,
                 &gpu_context.device,
                 &gpu_context.queue,
-                &gpu_manager,
+                gpu_manager,
             );
         }
     }
@@ -148,11 +162,11 @@ impl SceneRenderer {
         };
 
         // Update world buffer data to gpu
-        for pass in &mut self.passes {
+        for pass in &mut self.default_pass {
             pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
         }
 
-        for pass in &mut self.passes {
+        for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &asset_mgr);
         }
     }

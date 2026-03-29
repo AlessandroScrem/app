@@ -159,6 +159,7 @@ pub enum PipelineKind {
     BlinnPhong,
     Lines,
     Pbr,
+    Transmission,
     Hdr,
     Light,
     Skybox,
@@ -292,6 +293,46 @@ fn create_pipeline(
 
             pipeline_desc.build_pipeline(
                 "Pbr Pipeline",
+                device,
+                render_pipeline_layout,
+                targets,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Transmission => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
+                gpu_resource_manager.get_layout(LayoutKind::Material), //1
+                gpu_resource_manager.get_layout(LayoutKind::Model),   //2
+                gpu_resource_manager.get_layout(LayoutKind::Transmission), //3
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Transmission Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/transmission.wgsl"));
+            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
+
+            let targets = &[
+                Some(wgpu::ColorTargetState {
+                    format: hdr_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+                Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rg32Uint,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+            ];
+
+            let pipeline_desc = PipelineExt::default();
+
+            pipeline_desc.build_pipeline(
+                "Transmission Pipeline",
                 device,
                 render_pipeline_layout,
                 targets,

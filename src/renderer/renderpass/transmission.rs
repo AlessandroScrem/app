@@ -41,9 +41,9 @@ fn drawables<'a>(
 }
 
 #[derive(Default)]
-pub struct MeshPass {}
+pub struct TransmissionPass {}
 
-impl MeshPass {
+impl TransmissionPass {
     pub fn new() -> Self {
         Self::default()
     }
@@ -77,16 +77,9 @@ impl MeshPass {
     }
 }
 
-impl RenderPass for MeshPass {
+impl RenderPass for TransmissionPass {
     fn name(&self) -> &'static str {
         "MeshPass"
-    }
-
-    fn reads(&self) -> &[ResourceId] {
-        &[]
-    }
-    fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::ENTITY, ResourceId::DEPTH]
     }
 
     fn prepare(
@@ -109,7 +102,6 @@ impl RenderPass for MeshPass {
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        // let skybox_manager = ctx.skb_mgr;
 
         let clear_color = wgpu::Color {
             r: 0.1,
@@ -155,25 +147,7 @@ impl RenderPass for MeshPass {
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Ibl), &[]);
-        // renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
-
-        // Draw per submesh (Default)
-        // for mesh in drawables(asset_mgr, ctx.gpu_cache) {
-        //     let MeshDrawable {
-        //         gpu_mesh,
-        //         material_bg,
-        //         index_range,
-        //     } = mesh;
-
-        //     renderpass.set_bind_group(2, &gpu_mesh.model_bind_group, &[]);
-        //     renderpass.set_bind_group(1, material_bg, &[]);
-        //     renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
-        //     renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
-        //     renderpass.draw_indexed((*index_range).clone(), 0, 0..1);
-        // }
-
-        // Draw per material (reduce drawcall number)
         let mut drawables: Vec<_> = drawables(asset_mgr, ctx.gpu_cache).collect();
         drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
 
@@ -195,15 +169,3 @@ impl RenderPass for MeshPass {
         }
     }
 }
-
-// impl RenderPassNode for MeshPass {
-//     fn name(&self) -> &str {
-//         "MeshPass"
-//     }
-//     fn reads(&self) -> &[ResourceId] {
-//         &[]
-//     }
-//     fn writes(&self) -> &[ResourceId] {
-//         &[HDRA, ENTITY, DEPTH]
-//     }
-// }

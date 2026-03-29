@@ -8,6 +8,11 @@ pub enum TextureSource<'a> {
     Static(&'a StaticTexture),
 }
 
+pub enum Dimension {
+    D2,
+    Cube,
+}
+
 pub struct GpuTexture {
     pub inner: Arc<wgpu::Texture>,
     pub view: Arc<wgpu::TextureView>,
@@ -23,6 +28,7 @@ pub struct GpuTextureBuilder<'a> {
     source: Option<TextureSource<'a>>,
     sampler: Option<SamplerDesc>,
     format: ColorSpace,
+    dimension: Dimension,
     usage: GpuTextureUsage,
     label: Option<&'a str>,
 }
@@ -101,6 +107,7 @@ impl<'a> GpuTextureBuilder<'a> {
             format: data.format.clone(),
             width: data.width,
             height: data.height,
+            dimension: Dimension::D2,
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Cpu(data)),
@@ -113,6 +120,7 @@ impl<'a> GpuTextureBuilder<'a> {
             format: data.format.clone(),
             width: data.width,
             height: data.height,
+            dimension: Dimension::D2,
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Static(data)),
@@ -124,6 +132,7 @@ impl<'a> GpuTextureBuilder<'a> {
             label: None,
             width,
             height,
+            dimension: Dimension::D2,
             format: ColorSpace::Rgba8,
             usage: GpuTextureUsage::RenderTarget,
             sampler: None,
@@ -133,6 +142,11 @@ impl<'a> GpuTextureBuilder<'a> {
 
     pub fn format(mut self, format: ColorSpace) -> Self {
         self.format = format;
+        self
+    }
+
+    pub fn dimension(mut self, dimension: Dimension) -> Self {
+        self.dimension = dimension;
         self
     }
 
@@ -154,10 +168,18 @@ impl<'a> GpuTextureBuilder<'a> {
 
 impl<'a> GpuTextureBuilder<'a> {
     pub fn build(self, device: &wgpu::Device, queue: Option<&wgpu::Queue>) -> GpuTexture {
+        let (layers, view_dimension) = match self.dimension {
+            Dimension::D2 => (1, wgpu::TextureViewDimension::D2),
+            Dimension::Cube => (6, wgpu::TextureViewDimension::Cube),
+        };
+
+        let width = self.width;
+        let height = self.height;
+
         let extent = wgpu::Extent3d {
-            width: self.width,
-            height: self.height,
-            depth_or_array_layers: 1,
+            width,
+            height,
+            depth_or_array_layers: layers,
         };
 
         let format = wgpu::TextureFormat::from(self.format);
@@ -177,11 +199,6 @@ impl<'a> GpuTextureBuilder<'a> {
         let mut estimated_size = 0;
 
         if let (Some(source), Some(queue)) = (self.source, queue) {
-            let pixels: Vec<u8> = match source {
-                TextureSource::Cpu(data) => data.pixels.to_vec(),
-                TextureSource::Static(data) => data.pixels.to_vec(),
-            };
-
             // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
             let pixel_size = match self.format {
                 ColorSpace::Rgba8 | ColorSpace::Srgba8 => 4,
@@ -191,13 +208,33 @@ impl<'a> GpuTextureBuilder<'a> {
                 ColorSpace::Rg32ui => 8,
             };
 
+            let pixels = match source {
+                TextureSource::Cpu(data) => data.pixels.to_vec(),
+                TextureSource::Static(data) => data.pixels.to_vec(),
+            };
+
+            let face_size = (width * height * pixel_size) as usize;
+            assert_eq!(
+                pixels.len(),
+                face_size,
+                "Data pixels does not match: pixel_size * (w * h) "
+            );
+
+            // extend in case of Cube texture (layers = 6)
+            let pixels: Vec<u8> = pixels
+                .iter()
+                .copied()
+                .cycle()
+                .take(face_size * layers as usize)
+                .collect();
+
             queue.write_texture(
                 texture.as_image_copy(),
                 &pixels,
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(pixel_size * self.width),
-                    rows_per_image: Some(self.height),
+                    bytes_per_row: Some(pixel_size * width),
+                    rows_per_image: Some(height),
                 },
                 extent,
             );
@@ -211,7 +248,10 @@ impl<'a> GpuTextureBuilder<'a> {
             None => device.create_sampler(&Default::default()),
         };
 
-        let view = texture.create_view(&Default::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(view_dimension),
+            ..Default::default()
+        });
 
         GpuTexture {
             extent,
