@@ -758,8 +758,8 @@ pub struct Skybox {
     _prefilter_map: wgpu::Texture,
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
-    pub bind_group: wgpu::BindGroup,
-    pub bind_group_blur: wgpu::BindGroup,
+    bind_group: wgpu::BindGroup,
+    bind_group_blur: wgpu::BindGroup,
 }
 
 pub struct SkyboxManager {
