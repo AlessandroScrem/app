@@ -4,8 +4,6 @@
 // CreateIrradiance(skybox);
 // CreatePrefilterMap(skybox);
 
-// #![allow(dead_code)]
-
 use super::*;
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
@@ -756,17 +754,49 @@ pub struct Skybox {
     _cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
     _prefilter_map: wgpu::Texture,
+    sampler: wgpu::Sampler,
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
+    brdf_lut_view: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
     bind_group_blur: wgpu::BindGroup,
+}
+
+impl Skybox {
+    fn to_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
+        let Skybox {
+            sampler,
+            irradiance_view,
+            prefilter_view,
+            brdf_lut_view,
+            ..
+        } = self;
+
+        vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(irradiance_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(prefilter_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(brdf_lut_view),
+            },
+        ]
+    }
 }
 
 pub struct SkyboxManager {
     _brdf_lut: wgpu::Texture,
     _brdf_lut_view: wgpu::TextureView,
     skybox: Skybox,
-    // ibl_bind_group: wgpu::BindGroup,
 }
 
 impl SkyboxManager {
@@ -785,26 +815,19 @@ impl SkyboxManager {
         let skybox = Self::create_skybox(
             hdr_id,
             hdr,
+            brdf_lut_view.clone(),
             device,
             queue,
             gpu_manager.get_layout(LayoutKind::Skybox),
         );
 
-        let ibl_bind_group = Self::create_ibl_bind_group(
-            device,
-            gpu_manager.get_layout(LayoutKind::Ibl),
-            &skybox.irradiance_view,
-            &skybox.prefilter_view,
-            &brdf_lut_view,
-        );
-
-        gpu_manager.update_bindgroup(BindgroupKind::Ibl, ibl_bind_group);
+        let entries = skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
 
         Self {
             _brdf_lut: brdf_lut,
             _brdf_lut_view: brdf_lut_view,
             skybox,
-            // ibl_bind_group,
         }
     }
 
@@ -823,61 +846,14 @@ impl SkyboxManager {
         self.skybox = Self::create_skybox(
             hdr_id,
             hdr,
+            self._brdf_lut_view.clone(),
             device,
             queue,
             gpu_manager.get_layout(LayoutKind::Skybox),
         );
 
-        let ibl_bind_group = Self::create_ibl_bind_group(
-            device,
-            gpu_manager.get_layout(LayoutKind::Ibl),
-            &self.skybox.irradiance_view,
-            &self.skybox.prefilter_view,
-            &self._brdf_lut_view,
-        );
-        gpu_manager.update_bindgroup(BindgroupKind::Ibl, ibl_bind_group);
-
-    }
-
-    fn create_ibl_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        irradiance: &wgpu::TextureView,
-        prefilter: &wgpu::TextureView,
-        brdf_lut: &wgpu::TextureView,
-    ) -> wgpu::BindGroup {
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Ibl Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(irradiance),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(prefilter),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(brdf_lut),
-                },
-            ],
-        })
+        let entries = self.skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
     }
 
     pub fn get_skybox(&self, blur: bool) -> &wgpu::BindGroup {
@@ -887,9 +863,7 @@ impl SkyboxManager {
             &self.skybox.bind_group
         }
     }
-    // pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
-    //     &self.ibl_bind_group
-    // }
+
     pub fn get_hdr_id(&self) -> crate::assets::TextureId {
         self.skybox.hdr_id
     }
@@ -897,6 +871,7 @@ impl SkyboxManager {
     fn create_skybox(
         hdr_id: crate::assets::TextureId,
         hdr: &GpuTexture,
+        brdf_lut_view: wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
@@ -966,6 +941,8 @@ impl SkyboxManager {
             irradiance_view,
             _prefilter_map,
             prefilter_view,
+            sampler,
+            brdf_lut_view,
             bind_group,
             bind_group_blur,
         }

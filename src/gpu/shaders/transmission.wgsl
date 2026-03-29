@@ -137,8 +137,8 @@ const DebugTransmission      : u32 = 11;
 @group(3) @binding(1) var irradiance_map: texture_cube<f32>;
 @group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
-@group(3) @binding(4) var scene_color: texture_2d<f32>;
-@group(3) @binding(5) var scene_sampler: sampler;
+@group(3) @binding(4) var scene_sampler: sampler;
+@group(3) @binding(5) var scene_color: texture_2d<f32>;
 
 struct LightResult {
     diffuse: vec3<f32>,
