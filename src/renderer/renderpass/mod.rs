@@ -7,6 +7,7 @@ pub(crate) mod transmission;
 pub(crate) mod outline;
 pub(crate) mod pickobject;
 pub(crate) mod skybox;
+pub(crate) mod hdr_mipmaps;
 
 pub(crate) use axis::AxisPass;
 pub(crate) use bbox::BoundingboxPass;
@@ -17,6 +18,7 @@ pub(crate) use transmission::TransmissionPass;
 pub(crate) use outline::OutlinePass;
 pub(crate) use pickobject::PickObjectPass;
 pub(crate) use skybox::SkyboxPass;
+pub(crate) use hdr_mipmaps::HdrMipmapsPass;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
@@ -70,6 +72,7 @@ pub(crate) enum RenderPassEnum {
     Linearize(LinearizePass),
     Outline(OutlinePass),
     PickObject(PickObjectPass),
+    HdrMipmaps(HdrMipmapsPass),
 }
 
 impl RenderPass for RenderPassEnum {
@@ -84,6 +87,7 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.name(),
             RenderPassEnum::Outline(p) => p.name(),
             RenderPassEnum::PickObject(p) => p.name(),
+            RenderPassEnum::HdrMipmaps(p) => p.name(),
         }
     }
     
@@ -98,6 +102,7 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.reads(),
             RenderPassEnum::Outline(p) => p.reads(),
             RenderPassEnum::PickObject(p) => p.reads(),
+            RenderPassEnum::HdrMipmaps(p) => p.reads(),
         }
     }
 
@@ -112,6 +117,7 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.writes(),
             RenderPassEnum::Outline(p) => p.writes(),
             RenderPassEnum::PickObject(p) => p.writes(),
+            RenderPassEnum::HdrMipmaps(p) => p.writes(),
         }
     }
 
@@ -152,6 +158,9 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::PickObject(p) => {
                 p.prepare(asset_mgr, world, globals, selected, input, ctx)
             }
+            RenderPassEnum::HdrMipmaps(p) => {
+                p.prepare(asset_mgr, world, globals, selected, input, ctx)
+            }
         }
     }
 
@@ -171,6 +180,7 @@ impl RenderPass for RenderPassEnum {
             RenderPassEnum::Linearize(p) => p.execute(encoder, ctx, asset_mgr),
             RenderPassEnum::Outline(p) => p.execute(encoder, ctx, asset_mgr),
             RenderPassEnum::PickObject(p) => p.execute(encoder, ctx, asset_mgr),
+            RenderPassEnum::HdrMipmaps(p) => p.execute(encoder, ctx, asset_mgr),
         }
     }
 }

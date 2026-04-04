@@ -164,6 +164,7 @@ pub enum PipelineKind {
     Light,
     Skybox,
     Outline,
+    BuildMipmaps,
 }
 
 pub struct PipelineManager {
@@ -467,6 +468,36 @@ fn create_pipeline(
                 device,
                 render_pipeline_layout,
                 final_format,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::BuildMipmaps => {
+            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
+                gpu_resource_manager.get_layout(LayoutKind::HdrWithMips),  //0
+            ];
+
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("BuildMipmaps Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    push_constant_ranges: &[],
+                });
+
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/build_mips.wgsl"));
+
+            let buffer_desc = &[];
+
+            let pipeline_desc = PipelineDesc {
+                depth_stencil: None,
+                ..Default::default()
+            };
+
+            pipeline_desc.build_pipeline(
+                "BuildMipmaps Pipeline",
+                device,
+                render_pipeline_layout,
+                hdr_format,
                 shader,
                 buffer_desc,
             )

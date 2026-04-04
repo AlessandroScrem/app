@@ -16,6 +16,7 @@ pub enum Dimension {
 pub struct GpuTexture {
     pub inner: Arc<wgpu::Texture>,
     pub view: Arc<wgpu::TextureView>,
+    pub view_mips: Arc<wgpu::TextureView>,
     pub extent: wgpu::Extent3d,
     pub sampler: wgpu::Sampler,
     pub _format: wgpu::TextureFormat,
@@ -25,6 +26,7 @@ pub struct GpuTexture {
 pub struct GpuTextureBuilder<'a> {
     width: u32,
     height: u32,
+    with_mips: bool,
     source: Option<TextureSource<'a>>,
     sampler: Option<SamplerDesc>,
     format: ColorSpace,
@@ -87,6 +89,15 @@ impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
                 mipmap_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
             },
+            SamplerDesc::LinearMipmap => wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            },
             SamplerDesc::Nearest => wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -111,6 +122,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Cpu(data)),
+            with_mips: false,
         }
     }
 
@@ -124,6 +136,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Static(data)),
+            with_mips: false,
         }
     }
 
@@ -137,6 +150,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::RenderTarget,
             sampler: None,
             source: None,
+            with_mips: false,
         }
     }
 
@@ -164,6 +178,11 @@ impl<'a> GpuTextureBuilder<'a> {
         self.sampler = Some(sampler);
         self
     }
+
+    pub fn with_mips(mut self) -> Self {
+        self.with_mips = true;
+        self
+    }
 }
 
 impl<'a> GpuTextureBuilder<'a> {
@@ -185,10 +204,16 @@ impl<'a> GpuTextureBuilder<'a> {
         let format = wgpu::TextureFormat::from(self.format);
         let usage = wgpu::TextureUsages::from(self.usage);
 
+        let mip_level_count = if self.with_mips {
+            (width.max(height) as f32).log2().floor() as u32 + 1
+        } else {
+            1
+        };
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: self.label,
             size: extent,
-            mip_level_count: 1,
+            mip_level_count,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
@@ -199,17 +224,16 @@ impl<'a> GpuTextureBuilder<'a> {
         let mut estimated_size = 0;
 
         if let (Some(source), Some(queue)) = (self.source, queue) {
-            
             let pixels = match source {
                 TextureSource::Cpu(data) => data.pixels.to_vec(),
                 TextureSource::Static(data) => data.pixels.to_vec(),
             };
-            
+
             // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
             let pixel_size = self.format.pixel_size();
 
             let face_size = (width * height * pixel_size) as usize;
-            
+
             assert_eq!(
                 pixels.len(),
                 face_size,
@@ -246,6 +270,13 @@ impl<'a> GpuTextureBuilder<'a> {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(view_dimension),
+            mip_level_count: Some(1),
+            ..Default::default()
+        });
+
+        let view_mips = texture.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(view_dimension),
+            mip_level_count: None, // all mips
             ..Default::default()
         });
 
@@ -253,6 +284,7 @@ impl<'a> GpuTextureBuilder<'a> {
             extent,
             inner: Arc::new(texture),
             view: Arc::new(view),
+            view_mips: Arc::new(view_mips),
             sampler: _sampler,
             _format: format,
             estimated_size,

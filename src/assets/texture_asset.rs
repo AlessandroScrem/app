@@ -14,6 +14,7 @@ impl TextureId {
 pub enum SamplerDesc {
     #[default]
     Linear,
+    LinearMipmap,
     Nearest,
 }
 

@@ -39,6 +39,7 @@ pub enum LayoutKind {
     Hdr,
     Depth,
     EntityId,
+    HdrWithMips,
 }
 
 struct LayoutCache {
@@ -96,6 +97,9 @@ impl FramebufferCache {
     }
     fn get_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
         &self.framebuffers[kind as usize].texture.view
+    }
+    fn get_view_mips(&self, kind: FramebufferKind) -> &wgpu::TextureView {
+        &self.framebuffers[kind as usize].texture.view_mips
     }
     fn get_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
         &self.framebuffers[kind as usize].bind_group
@@ -204,6 +208,10 @@ impl GpuManager {
 
     pub fn get_framebuffer_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
         self.framebuffer_cache.get_view(kind)
+    }
+
+    pub fn get_framebuffer_sampler(&self, kind: FramebufferKind) -> &wgpu::Sampler {
+        self.framebuffer_cache.get_sampler(kind)
     }
 
     pub fn get_framebuffer_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
@@ -699,6 +707,29 @@ impl LayoutCache {
                     ],
                 })
             }
+            LayoutKind::HdrWithMips => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Hdr_Texture_bind_group_layout"),
+                entries: &[
+                    // sampler
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    // hdr texture with mips
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                ],
+            }),
         }
     }
 }
@@ -744,9 +775,10 @@ impl FramebufferCache {
             FramebufferKind::HdrOpaque => {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rgbaf16)
-                    .usage(GpuTextureUsage::RenderTarget)
-                    .sampler(SamplerDesc::Nearest)
-                    .label("Hdr Opaque texture")
+                    .with_mips()
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::LinearMipmap)
+                    .label("Hdr Opaque texture_with_mips")
                     .build(device, None);
 
                 let layout = layouts.get(LayoutKind::Hdr);
@@ -1062,7 +1094,7 @@ fn create_bindgroup(
             let mut e = entries.clone();
 
             let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::HdrOpaque);
-            let hdr_t_view = framebuffer_cache.get_view(FramebufferKind::HdrOpaque);
+            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::HdrOpaque);
 
             e.extend([
                 wgpu::BindGroupEntry {

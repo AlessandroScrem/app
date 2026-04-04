@@ -374,29 +374,14 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
-fn computeTransmission(
-    ndc_xy: vec2<f32>,
-    normal: vec3<f32>,
-    transmission: f32,
-    roughness: f32,
-) -> vec3<f32> {
-
-    // Normalizza NDC
-    var uv = ndc_xy * 0.5 + vec2(0.5);
-    uv.y = 1.0 - uv.y; // inverti Y se necessario
-
-    // Offset semplice basato sulla normale (fake refraction)
-    let distortion_strength = 0.05;
-    let offset = normal.xy * distortion_strength * transmission;
-
-    let refracted_uv = uv + offset;
-
+fn blur(refracted_uv: vec2<f32>, roughness: f32) -> vec3<f32> {
+    var color = vec3<f32>(0.0);
+    var total = 0.0;
 
     // 🔥 blur radius controllato da roughness
     let radius = roughness * 0.03;
 
-    var color = vec3<f32>(0.0);
-    var total = 0.0;
+    var out_color = color;
 
     // kernel 5x5
     for (var x: i32 = -2; x <= 2; x++) {
@@ -414,21 +399,36 @@ fn computeTransmission(
     }
 
      return color / total;
+}
+
+fn computeTransmission(
+    ndc_xy: vec2<f32>,
+    normal: vec3<f32>,
+    transmission: f32,
+    roughness: f32,
+) -> vec3<f32> {
+
+    // Normalizza NDC
+    var uv = ndc_xy * 0.5 + vec2(0.5);
+    uv.y = 1.0 - uv.y; // inverti Y se necessario
+
+    // Offset semplice basato sulla normale (fake refraction)
+    let distortion_strength = 0.05;
+    let offset = normal.xy * distortion_strength * transmission;
+
+    let refracted_uv = uv + offset;
+
+    // lod calcuation based on screen size
+    let max_dim = max(camera.screen_size.x, camera.screen_size.y);
+    let max_lod = floor(log2(max_dim));
+    let lod = clamp(roughness * max_lod, 0.0, max_lod);
 
     // Sample scena dietro
-    // let transmitted_color = textureSample(scene_color, scene_sampler, refracted_uv).rgb;
-    // return transmitted_color;
+    let transmitted_color = textureSampleLevel(scene_color, scene_sampler, refracted_uv, lod).rgb;
+    return transmitted_color;
 
 }
 
-
-fn debugSceneMap(uv: vec2<f32>) -> vec3<f32> {
-    // Clamp per evitare valori fuori schermo
-    let clamped_uv = clamp(uv, vec2(0.0), vec2(1.0));
-    // Sample della scena dietro
-    let color = textureSample(scene_color, scene_sampler, clamped_uv).rgb;
-    return color;
-}
 
 @fragment
 fn fs_main(
@@ -496,8 +496,6 @@ fn fs_main(
         reflected * F +
         transmitted_tinted * (1.0 - F) * transmission +
         diffuse * (1.0 - transmission); // opzionale ma utile
-
-
 
 
     switch globals.debug {
