@@ -277,14 +277,22 @@ fn create_pipeline(
             let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
 
             let targets = &[
+                // 0:
                 Some(wgpu::ColorTargetState {
                     format: hdr_format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 }),
+                // 1:
                 Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rg32Uint,
                     blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+                // 2: Copy opaque color for transmission map
+                Some(wgpu::ColorTargetState {
+                    format: hdr_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 }),
             ];

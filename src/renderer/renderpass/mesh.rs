@@ -1,6 +1,6 @@
 use cgmath::SquareMatrix;
 
-use crate::gpu::{GpuCache, GpuMesh};
+use crate::gpu::{GpuCache, GpuMesh, material};
 
 use super::*;
 
@@ -27,6 +27,14 @@ fn drawables<'a>(
                     .into_iter() // stessa logica
                     .flat_map(move |mesh_desc| {
                         mesh_desc.submeshes.iter().filter_map(move |sub| {
+                            
+                            // Get material asset
+                            let material = assets.materials.get_desc(sub.material)?;
+                            // Filter material opaque
+                            if material.is_transmissive() {
+                                return None;
+                            }
+
                             let gpu_material = gpu_cache.material.get(&sub.material)?;
                             let bg = gpu_material.bind_group.as_ref()?;
                             Some(MeshDrawable {
@@ -121,6 +129,7 @@ impl RenderPass for MeshPass {
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Mesh Render Pass"),
             color_attachments: &[
+                // 0: opaque object
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                     resolve_target: None,
@@ -129,11 +138,21 @@ impl RenderPass for MeshPass {
                         store: wgpu::StoreOp::Store,
                     },
                 }),
+                // 1: entity ID
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                }),
+                // 2: copy opaque for transmission map
+                Some(wgpu::RenderPassColorAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::HdrOpaque),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
                     },
                 }),

@@ -868,6 +868,11 @@ impl SkyboxManager {
         self.skybox.hdr_id
     }
 
+    pub fn update_ibl_bind_group(&self, device: &wgpu::Device, gpu_manager: &mut GpuManager) {
+        let entries = self.skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
+    }
+
     fn create_skybox(
         hdr_id: crate::assets::TextureId,
         hdr: &GpuTexture,

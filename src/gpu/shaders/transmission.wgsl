@@ -71,6 +71,7 @@ struct VertexOutput {
     @location(1) normal              : vec3<f32>,
     @location(2) tangent             : vec4<f32>, // xyz = T, w = sign
     @location(3) uv                  : vec2<f32>,
+    @location(4) ndc_xy              : vec2<f32>, // <-- nuovo
 };
 
 @vertex
@@ -81,12 +82,17 @@ fn vs_main(
     var out: VertexOutput;
     let world_position = model.model * vec4<f32>(in.position, 1.0);
 
-    out.clip_position = camera.proj * camera.view * world_position;
+    let clip = camera.proj * camera.view * world_position;
+
+    out.clip_position = clip;
     out.world_pos = world_position.xyz;
 
     out.tangent = vec4(normalize(model.normal_matrix * in.tangent.xyz), in.tangent.w);
     out.normal  = normalize(model.normal_matrix * in.normal);
     out.uv =  in.uv;
+
+    // salva NDC
+    out.ndc_xy = clip.xy / clip.w; // [-1, 1]
 
     return out;
 }
@@ -137,8 +143,8 @@ const DebugTransmission      : u32 = 11;
 @group(3) @binding(1) var irradiance_map: texture_cube<f32>;
 @group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
-@group(3) @binding(4) var scene_sampler: sampler;
-@group(3) @binding(5) var scene_color: texture_2d<f32>;
+@group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
+@group(3) @binding(5) var scene_color: texture_2d<f32>;     // transmission input scene view
 
 struct LightResult {
     diffuse: vec3<f32>,
@@ -369,14 +375,15 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
 }
 
 fn computeTransmission(
-    clip_position: vec4<f32>,
+    ndc_xy: vec2<f32>,
     normal: vec3<f32>,
     transmission: f32,
-    screen_size: vec2<f32>,
+    roughness: f32,
 ) -> vec3<f32> {
 
-    // Screen UV (0-1)
-    let uv = clip_position.xy / screen_size;
+    // Normalizza NDC
+    var uv = ndc_xy * 0.5 + vec2(0.5);
+    uv.y = 1.0 - uv.y; // inverti Y se necessario
 
     // Offset semplice basato sulla normale (fake refraction)
     let distortion_strength = 0.05;
@@ -384,10 +391,43 @@ fn computeTransmission(
 
     let refracted_uv = uv + offset;
 
-    // Sample scena dietro
-    let transmitted_color = textureSample(scene_color, scene_sampler, refracted_uv).rgb;
 
-    return transmitted_color;
+    // 🔥 blur radius controllato da roughness
+    let radius = roughness * 0.03;
+
+    var color = vec3<f32>(0.0);
+    var total = 0.0;
+
+    // kernel 5x5
+    for (var x: i32 = -2; x <= 2; x++) {
+        for (var y: i32 = -2; y <= 2; y++) {
+
+            let offset_uv = vec2<f32>(f32(x), f32(y)) * radius;
+            let sample_uv = refracted_uv + offset_uv;
+
+            // peso gaussiano semplice
+            let weight = exp(-dot(offset_uv, offset_uv) * 50.0);
+
+            color += textureSample(scene_color, scene_sampler, sample_uv).rgb * weight;
+            total += weight;
+        }
+    }
+
+     return color / total;
+
+    // Sample scena dietro
+    // let transmitted_color = textureSample(scene_color, scene_sampler, refracted_uv).rgb;
+    // return transmitted_color;
+
+}
+
+
+fn debugSceneMap(uv: vec2<f32>) -> vec3<f32> {
+    // Clamp per evitare valori fuori schermo
+    let clamped_uv = clamp(uv, vec2(0.0), vec2(1.0));
+    // Sample della scena dietro
+    let color = textureSample(scene_color, scene_sampler, clamped_uv).rgb;
+    return color;
 }
 
 @fragment
@@ -436,12 +476,28 @@ fn fs_main(
     let specular = light_res.specular + ambient_res.specular * ao;
     var color = diffuse + specular + emissive; 
 
+    // Transmission 
+    var transmitted = computeTransmission(in.ndc_xy, Nws, transmission, roughness);
+    // Fresnel (IMPORTANTISSIMO per riflessi)
+    let NdotV = max(dot(Nws, V), 0.0);
+    let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
 
-    // Transmission
-    let transmitted = computeTransmission( in.clip_position, N, transmission, screen_size);
+    // componente riflessa (specular già calcolato sopra)
+    let reflected = specular;
 
-    // --- Final Mix  ---
-    color = color * (1.0 - transmission) + transmitted * transmission;
+    // trasmissione colorata (Beer-Lambert semplificato)
+    let transmitted_tinted = transmitted * albedo_color;
+
+    // energia conservata:
+    // - F → riflessione
+    // - (1-F) → trasmissione
+    color =
+        reflected * F +
+        transmitted_tinted * (1.0 - F) * transmission +
+        diffuse * (1.0 - transmission); // opzionale ma utile
+
+
 
 
     switch globals.debug {
@@ -458,8 +514,10 @@ fn fs_main(
         case DebugTransmission      : { color = vec3(transmission);}
         default: {;} 
     }
-    
+
+    // attachement 0:
     out.color = vec4<f32>(color, 1.0);
+    // attachement 1:
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
 
     return out;

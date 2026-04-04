@@ -79,6 +79,10 @@ impl RunningApp {
                 }
                 self.gpu_manager
                     .resize_frame(&self.gpu_context.device, width, height);
+
+                // update ibl bindgroup for opaque hdr (skybox needs update)
+                self.scene_renderer.update_ibl_bind_group(&mut self.gpu_manager, &self.gpu_context);
+
                 self.gpu_surface
                     .resize_frame(&self.gpu_context.device, width, height);
                 app.on_resize(width, height);

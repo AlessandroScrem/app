@@ -294,6 +294,12 @@ impl MaterialDesc {
         self.name = name.into();
     }
 
+
+    pub fn is_transmissive(&self) -> bool {
+        self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
+    }
+
+
     pub fn set_texture(
         &mut self,
         texture_asset: &mut TextureAssets,

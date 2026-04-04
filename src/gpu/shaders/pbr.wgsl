@@ -273,11 +273,6 @@ fn CalculateAmbient(
     return result;
 }
 
-struct FSOutput {
-    @location(0) color : vec4<f32>,
-    @location(1) entity_id : vec2<u32>,
-}
-
 fn has_flag(flags: u32, bit: u32) -> bool {
     return (flags & bit) != 0u;
 }
@@ -367,6 +362,13 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
+
+struct FSOutput {
+    @location(0) color : vec4<f32>,
+    @location(1) entity_id : vec2<u32>,
+    @location(2) color_t : vec4<f32>,
+}
+
 @fragment
 fn fs_main(
     in: VertexOutput, 
@@ -426,8 +428,14 @@ fn fs_main(
         default: {;} 
     }
     
+    // attachement 0:
     out.color = vec4<f32>(color, 1.0);
+    // attachement 1:
     out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
+    
+    // attachement 2:
+    // copy opaque color for transmission map
+    out.color_t =  vec4<f32>(color, 1.0);
 
     return out;
 }

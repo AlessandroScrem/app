@@ -66,12 +66,12 @@ impl SceneRenderer {
             RenderPassEnum::Outline(OutlinePass::new()),
             RenderPassEnum::PickObject(PickObjectPass::new()),
         ];
-  
+
         let transmission_pass = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::Transmission(TransmissionPass::new()),
             RenderPassEnum::Light(LightPass::new()),
-            RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::BBox(BoundingboxPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),
@@ -83,7 +83,7 @@ impl SceneRenderer {
             skybox_mgr,
             pickobject,
             default_pass,
-            transmission_pass
+            transmission_pass,
         }
     }
 
@@ -112,7 +112,16 @@ impl SceneRenderer {
         }
     }
 
-    
+    // CHANGEME!
+    pub fn update_ibl_bind_group(
+        &mut self,
+        gpu_manager: &mut GpuManager,
+        gpu_context: &GpuContext,
+    ) {
+        self.skybox_mgr
+            .update_ibl_bind_group(&gpu_context.device, gpu_manager);
+    }
+
     pub fn render(
         &mut self,
         runtime: &mut RuntimeContext,
@@ -132,7 +141,7 @@ impl SceneRenderer {
             gpu_cache,
             input,
         } = runtime;
-        
+
         // sync GpuCache Ids with assets Ids (meshes materials textures)
         // update skybox
         self.sync_skybox(gpu_manager, gpu_cache, gpu_context, asset_mgr);
@@ -153,7 +162,7 @@ impl SceneRenderer {
             device: &gpu_context.device,
             queue: &gpu_context.queue,
             gpu_cache: &gpu_cache,
-            
+
             gpu_mgr: &gpu_manager,
             pip_mgr: &pipeline_manager,
             skb_mgr: &self.skybox_mgr,
@@ -162,11 +171,11 @@ impl SceneRenderer {
         };
 
         // Update world buffer data to gpu
-        for pass in &mut self.default_pass {
+        for pass in &mut self.transmission_pass {
             pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
         }
 
-        for pass in &mut self.default_pass {
+        for pass in &mut self.transmission_pass {
             pass.execute(encoder, &mut ctx, &asset_mgr);
         }
     }
@@ -186,7 +195,13 @@ impl SceneRenderer {
             None => 0,
         };
 
-        gpu_manager.update_camera(&gpu_context.queue, &CameraUniform::from_camera_size(camera, size));
-        gpu_manager.update_globals(&gpu_context.queue, &GlobalUniform::from_global_id(globals, entity_id));
+        gpu_manager.update_camera(
+            &gpu_context.queue,
+            &CameraUniform::from_camera_size(camera, size),
+        );
+        gpu_manager.update_globals(
+            &gpu_context.queue,
+            &GlobalUniform::from_global_id(globals, entity_id),
+        );
     }
 }

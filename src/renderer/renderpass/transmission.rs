@@ -27,6 +27,13 @@ fn drawables<'a>(
                     .into_iter() // stessa logica
                     .flat_map(move |mesh_desc| {
                         mesh_desc.submeshes.iter().filter_map(move |sub| {
+                            // Get material asset
+                            let material = assets.materials.get_desc(sub.material)?;
+                            // Filter only material is trasmissive
+                            if !material.is_transmissive() {
+                                return None;
+                            }
+
                             let gpu_material = gpu_cache.material.get(&sub.material)?;
                             let bg = gpu_material.bind_group.as_ref()?;
                             Some(MeshDrawable {
@@ -58,7 +65,10 @@ impl TransmissionPass {
 
         for (entity, mesh, global) in mesh_query.iter(world) {
             // Model Uniform
-            assert!(global.mat.determinant() > 0.0 ,"matrix determinant is negative"); 
+            assert!(
+                global.mat.determinant() > 0.0,
+                "matrix determinant is negative"
+            );
 
             let mut model = ModelUniform::new(global.mat);
             model.entity_id = entity.as_raw_u64();
@@ -110,7 +120,6 @@ impl RenderPass for TransmissionPass {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
 
-
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Transmission Render Pass"),
             color_attachments: &[
@@ -147,7 +156,11 @@ impl RenderPass for TransmissionPass {
 
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Transmission), &[]);
+        renderpass.set_bind_group(
+            3,
+            gpu_manager.get_bindgroup(BindgroupKind::Transmission),
+            &[],
+        );
 
         let mut drawables: Vec<_> = drawables(asset_mgr, ctx.gpu_cache).collect();
         drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
