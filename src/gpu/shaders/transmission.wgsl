@@ -402,7 +402,7 @@ fn blur(refracted_uv: vec2<f32>, roughness: f32) -> vec3<f32> {
 }
 
 // transmission w refraction
-fn computeTransmission_(
+fn computeTransmission_refract(
     V:            vec3<f32>,
     ndc_xy:       vec2<f32>,
     normal:       vec3<f32>,
@@ -431,12 +431,19 @@ fn computeTransmission_(
 
 // transmission no refraction
 fn computeTransmission(
-    _V:         vec3<f32>,   // non serve più
-    ndc_xy:     vec2<f32>,
-    _normal:    vec3<f32>,   // non serve più
+    N:            vec3<f32>,   
+    V:            vec3<f32>,
+    albedo_color: vec3<f32>,   
     transmission: f32,
-    roughness:  f32,
+    metallic:     f32,
+    roughness:    f32,
+    ndc_xy:       vec2<f32>,
 ) -> vec3<f32> {
+
+    // Fresnel (F0)
+    let NdotV = max(dot(N, V), 0.0);
+    let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
 
     // Normalizza NDC in UV [0,1]
     var uv = ndc_xy * 0.5 + vec2(0.5);
@@ -447,9 +454,11 @@ fn computeTransmission(
 
     // Campiona con mip-level
     let color = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
+    let transmitted = color * transmission;
 
-    // Applica intensità della trasmissione
-    return color * transmission;
+    let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
+
+    return transmitted_tinted * (1.0 - F);
 }
 
 
@@ -497,25 +506,13 @@ fn fs_main(
 
     let diffuse = light_res.diffuse + ambient_res.diffuse * ao;
     let specular = light_res.specular + ambient_res.specular * ao;
-    var color = diffuse + specular + emissive; 
+    // var color = diffuse + specular + emissive; // opaque pass
 
-    // Transmission 
-    var transmitted = computeTransmission(V, in.ndc_xy, Nws, transmission, roughness);
+    // Transmission pass
+    var transmission_color = computeTransmission(Nws, V, albedo_color, transmission, metallic, roughness, in.ndc_xy);
 
-    // Fresnel (IMPORTANTISSIMO per riflessi)
-    let NdotV = max(dot(Nws, V), 0.0);
-    let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
-    let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
-
-    // evita vetro troppo saturo (problema comune)
-    let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
-
-    // energia conservata:
-    // - F → riflessione
-    // - (1-F) → trasmissione
-    color =
-        specular +
-        transmitted_tinted * (1.0 - F) * transmission +
+    var color = specular +
+        transmission_color * transmission +
         diffuse * (1.0 - transmission);
 
 
