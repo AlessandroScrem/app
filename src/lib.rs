@@ -98,6 +98,7 @@ pub(crate) mod colors {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Globals {
+    pub mips_cs: bool,
     pub light_enable: bool,
     pub ibl_enable: bool,
     pub skybox_enable: bool,
@@ -114,6 +115,7 @@ pub(crate) struct Globals {
 impl Default for Globals {
     fn default() -> Self {
         Self {
+            mips_cs: false, 
             light_enable: false,
             ibl_enable: true,
             skybox_enable: true,

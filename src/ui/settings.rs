@@ -156,7 +156,11 @@ impl Globals {
         let mut skybox_enable = self.skybox_enable;
         let mut axis_enable = self.axis_enable;
         let mut bbox_enable = self.bbox_enable;
+        let mut mips_cs = self.mips_cs;
         use GlobalEvent::*;
+        if ui.checkbox("Mips with CS", &mut mips_cs) {
+            command = Some(DomainEvent::Global(MipsCsEnable(mips_cs)));
+        }
         if ui.checkbox("light enable", &mut light_enable) {
             command = Some(DomainEvent::Global(LightEnable(light_enable)));
         }

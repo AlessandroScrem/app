@@ -49,6 +49,7 @@ pub enum GlobalEvent {
     Exposure(f32),
     IblIntensity(f32),
     TonemapFilter(u32),
+    MipsCsEnable(bool),
 }
 
 pub enum CameraEvent {

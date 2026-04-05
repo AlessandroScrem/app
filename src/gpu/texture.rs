@@ -41,6 +41,7 @@ pub enum GpuTextureUsage {
     RenderTarget,
     DepthTarget,
     SampledTexture,
+    SampledTextureStorage,
 }
 impl From<GpuTextureUsage> for wgpu::TextureUsages {
     fn from(tu: GpuTextureUsage) -> Self {
@@ -61,6 +62,13 @@ impl From<GpuTextureUsage> for wgpu::TextureUsages {
                     | wgpu::TextureUsages::COPY_DST
                     | wgpu::TextureUsages::COPY_SRC
                     | wgpu::TextureUsages::RENDER_ATTACHMENT
+            }
+            GpuTextureUsage::SampledTextureStorage => {
+                wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::STORAGE_BINDING
             }
         }
     }

@@ -1,7 +1,10 @@
 use super::*;
+use crate::renderer;
 
 #[derive(Default)]
-pub struct HdrMipmapsPass {}
+pub struct HdrMipmapsPass {
+    mips_enable: bool
+}
 
 impl HdrMipmapsPass {
     pub fn new() -> Self {
@@ -25,11 +28,12 @@ impl RenderPass for HdrMipmapsPass {
         &mut self,
         _asset_mgr: &AssetManager,
         _world: &World,
-        _globals: &Globals,
+        globals: &Globals,
         _selected: Option<Entity>,
         _input: &Input,
         _ctx: &mut RenderContext,
     ) {
+        self.mips_enable = globals.mips_cs;
     }
 
     fn execute(
@@ -38,20 +42,91 @@ impl RenderPass for HdrMipmapsPass {
         ctx: &mut RenderContext,
         _asset_mgr: &AssetManager,
     ) {
-        let device = ctx.device;
-        let pipeline = ctx.pip_mgr.get_render_pipeline(PipelineKind::BuildMipmaps);
-        let base_view = ctx.gpu_mgr.get_framebuffer_view(FramebufferKind::HdrOpaque);
-        let mip_texture = ctx
-            .gpu_mgr
-            .get_framebuffer_texture(FramebufferKind::HdrOpaque);
-        let sampler = ctx
-            .gpu_mgr
-            .get_framebuffer_sampler(FramebufferKind::HdrOpaque);
+        if self.mips_enable {
+            // create with compute pipeline
+            let device = ctx.device;
+            let texture = ctx
+                .gpu_mgr
+                .get_framebuffer_texture(FramebufferKind::HdrOpaque);
+            let cs_pipeline = ctx
+                .pip_mgr
+                .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
+            let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
 
-        generate_scene_mips(device, encoder, pipeline, base_view, mip_texture, sampler);
+            compute_mipmaps(device, texture, encoder, cs_pipeline, bg_layout);
+        } else {
+            // create with render pipeline
+            let device = ctx.device;
+            let pipeline = ctx.pip_mgr.get_render_pipeline(PipelineKind::BuildMipmaps);
+            let base_view = ctx.gpu_mgr.get_framebuffer_view(FramebufferKind::HdrOpaque);
+            let mip_texture = ctx
+                .gpu_mgr
+                .get_framebuffer_texture(FramebufferKind::HdrOpaque);
+            let sampler = ctx
+                .gpu_mgr
+                .get_framebuffer_sampler(FramebufferKind::HdrOpaque);
+
+            generate_scene_mips(device, encoder, pipeline, base_view, mip_texture, sampler);
+        }
     }
 }
 
+fn compute_mipmaps(
+    device: &wgpu::Device,
+    texture: &wgpu::Texture,
+    encoder: &mut wgpu::CommandEncoder,
+    pipeline: &wgpu::ComputePipeline,
+    bg_layout: &wgpu::BindGroupLayout,
+) {
+    if texture.mip_level_count() == 1 {
+        return;
+    }
+
+    let mut src_view = texture.create_view(&wgpu::TextureViewDescriptor {
+        mip_level_count: Some(1),
+        ..Default::default()
+    });
+
+    let dispatch_x = texture.width().div_ceil(16);
+    let dispatch_y = texture.height().div_ceil(16);
+
+    {
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute pass mips creation"),
+            ..Default::default()
+        });
+
+        compute_pass.set_pipeline(pipeline);
+
+        for mip in 1..texture.mip_level_count() {
+            let dst_view = texture.create_view(&wgpu::TextureViewDescriptor {
+                base_mip_level: mip,
+                mip_level_count: Some(1),
+                ..Default::default()
+            });
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some(&format!("MipLevel{}", mip)),
+                layout: bg_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&src_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&dst_view),
+                    },
+                ],
+            });
+            compute_pass.set_bind_group(0, &bind_group, &[]);
+            compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
+
+            src_view = dst_view;
+        }
+    }
+}
+
+// render mipmaps
 fn generate_scene_mips(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
@@ -65,7 +140,7 @@ fn generate_scene_mips(
 
     // memorizza tutte le texture view dei mip
     let mut mip_views = Vec::with_capacity(mip_count as usize);
-    
+
     mip_views.push(base_view.clone()); // mip 0
 
     // per ogni mip > 0

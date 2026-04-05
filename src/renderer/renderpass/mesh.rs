@@ -1,6 +1,6 @@
 use cgmath::SquareMatrix;
 
-use crate::gpu::{GpuCache, GpuMesh, material};
+use crate::gpu::{GpuCache, GpuMesh};
 
 use super::*;
 

@@ -39,6 +39,7 @@ pub enum LayoutKind {
     Hdr,
     Depth,
     EntityId,
+    CsMipmaps,
 }
 
 struct LayoutCache {
@@ -706,6 +707,36 @@ impl LayoutCache {
                     ],
                 })
             }
+
+            LayoutKind::CsMipmaps => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("CS_Mipmaps_bind_group_layout"),
+                    entries: &[
+                        // src texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::StorageTexture {
+                                access: wgpu::StorageTextureAccess::ReadOnly,
+                                format: wgpu::TextureFormat::Rgba16Float,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                        // dst texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::StorageTexture {
+                                access: wgpu::StorageTextureAccess::WriteOnly,
+                                format: wgpu::TextureFormat::Rgba16Float,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
         }
     }
 }
@@ -753,7 +784,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rgbaf16)
                     .with_mips(HDR_MIPS_COUNT)
-                    .usage(GpuTextureUsage::SampledTexture)
+                    .usage(GpuTextureUsage::SampledTextureStorage)
                     .sampler(SamplerDesc::LinearMipmap)
                     .label("Hdr Opaque texture_with_mips")
                     .build(device, None);

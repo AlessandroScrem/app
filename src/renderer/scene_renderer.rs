@@ -30,6 +30,7 @@ pub struct SceneRenderer {
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
+    #[allow(unused)]
     default_pass: Vec<RenderPassEnum>,
     transmission_pass: Vec<RenderPassEnum>,
 }
@@ -83,7 +84,7 @@ impl SceneRenderer {
         Self {
             skybox_mgr,
             pickobject,
-            default_pass,
+            default_pass: default_pass,
             transmission_pass,
         }
     }
