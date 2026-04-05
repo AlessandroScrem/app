@@ -1,6 +1,7 @@
 use super::static_textures::StaticTexture;
 use crate::assets::{ColorSpace, SamplerDesc, texture_upload::TextureData};
 
+use super::prelude::*;
 use std::sync::Arc;
 
 pub enum TextureSource<'a> {
@@ -26,7 +27,7 @@ pub struct GpuTexture {
 pub struct GpuTextureBuilder<'a> {
     width: u32,
     height: u32,
-    with_mips: bool,
+    with_mips: Option<u32>,
     source: Option<TextureSource<'a>>,
     sampler: Option<SamplerDesc>,
     format: ColorSpace,
@@ -122,7 +123,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Cpu(data)),
-            with_mips: false,
+            with_mips: None,
         }
     }
 
@@ -136,7 +137,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::SampledTexture,
             sampler: Some(SamplerDesc::Linear),
             source: Some(TextureSource::Static(data)),
-            with_mips: false,
+            with_mips: None,
         }
     }
 
@@ -150,7 +151,7 @@ impl<'a> GpuTextureBuilder<'a> {
             usage: GpuTextureUsage::RenderTarget,
             sampler: None,
             source: None,
-            with_mips: false,
+            with_mips: None,
         }
     }
 
@@ -179,8 +180,8 @@ impl<'a> GpuTextureBuilder<'a> {
         self
     }
 
-    pub fn with_mips(mut self) -> Self {
-        self.with_mips = true;
+    pub fn with_mips(mut self, max_mips: u32) -> Self {
+        self.with_mips = Some(max_mips);
         self
     }
 }
@@ -204,8 +205,12 @@ impl<'a> GpuTextureBuilder<'a> {
         let format = wgpu::TextureFormat::from(self.format);
         let usage = wgpu::TextureUsages::from(self.usage);
 
-        let mip_level_count = if self.with_mips {
-            (width.max(height) as f32).log2().floor() as u32 + 1
+        let mip_level_count = if let Some(max_mips) = self.with_mips {
+            use std::cmp::{min, max};
+            // // lod calcuation based on texture size clamp to max_mips
+            let mip_count = min(max_mips, u32::ilog2(max(width, height)));
+            trace!("Texture with mips: {}", mip_count);
+            mip_count
         } else {
             1
         };
@@ -258,6 +263,8 @@ impl<'a> GpuTextureBuilder<'a> {
                 },
                 extent,
             );
+
+            // TODO: implement pixel size and with mips
             estimated_size = pixels.len();
         }
 

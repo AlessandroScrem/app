@@ -474,7 +474,7 @@ fn create_pipeline(
         }
         PipelineKind::BuildMipmaps => {
             let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::HdrWithMips),  //0
+                gpu_resource_manager.get_layout(LayoutKind::Hdr),  //0
             ];
 
             let render_pipeline_layout =
@@ -484,7 +484,7 @@ fn create_pipeline(
                     push_constant_ranges: &[],
                 });
 
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/build_mips.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/mips.wgsl"));
 
             let buffer_desc = &[];
 

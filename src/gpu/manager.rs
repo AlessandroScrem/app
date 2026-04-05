@@ -39,7 +39,6 @@ pub enum LayoutKind {
     Hdr,
     Depth,
     EntityId,
-    HdrWithMips,
 }
 
 struct LayoutCache {
@@ -707,29 +706,6 @@ impl LayoutCache {
                     ],
                 })
             }
-            LayoutKind::HdrWithMips => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Hdr_Texture_bind_group_layout"),
-                entries: &[
-                    // sampler
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // hdr texture with mips
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                ],
-            }),
         }
     }
 }
@@ -773,9 +749,10 @@ impl FramebufferCache {
                 }
             }
             FramebufferKind::HdrOpaque => {
+                const HDR_MIPS_COUNT: u32 = 8;
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rgbaf16)
-                    .with_mips()
+                    .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::LinearMipmap)
                     .label("Hdr Opaque texture_with_mips")

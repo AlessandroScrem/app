@@ -401,32 +401,55 @@ fn blur(refracted_uv: vec2<f32>, roughness: f32) -> vec3<f32> {
      return color / total;
 }
 
-fn computeTransmission(
-    ndc_xy: vec2<f32>,
-    normal: vec3<f32>,
+// transmission w refraction
+fn computeTransmission_(
+    V:            vec3<f32>,
+    ndc_xy:       vec2<f32>,
+    normal:       vec3<f32>,
     transmission: f32,
-    roughness: f32,
+    roughness:    f32,
 ) -> vec3<f32> {
 
     // Normalizza NDC
     var uv = ndc_xy * 0.5 + vec2(0.5);
     uv.y = 1.0 - uv.y; // inverti Y se necessario
 
-    // Offset semplice basato sulla normale (fake refraction)
-    let distortion_strength = 0.05;
-    let offset = normal.xy * distortion_strength * transmission;
+    let eta = 1.0 / 1.5; // TODO: material.ior
+    let refracted = refract(-V, normal, eta);
 
-    let refracted_uv = uv + offset;
+    // screen-space offset (approx)
+    let distortion = refracted.xy * 0.1 * transmission;
+    let refracted_uv = uv + distortion;
 
-    // lod calcuation based on screen size
-    let max_dim = max(camera.screen_size.x, camera.screen_size.y);
-    let max_lod = floor(log2(max_dim));
-    let lod = clamp(roughness * max_lod, 0.0, max_lod);
+    let NdotV = max(dot(normal, V), 0.0);
+    let  max_lod = 7.0; // (HDR_MIPS_COUNT = 8) -1 
 
-    // Sample scena dietro
-    let transmitted_color = textureSampleLevel(scene_color, scene_sampler, refracted_uv, lod).rgb;
-    return transmitted_color;
+    let lod = roughness * max_lod * (1.0 + (1.0 - NdotV));
 
+    return textureSampleLevel(scene_color, scene_sampler, refracted_uv, lod).rgb;
+}
+
+// transmission no refraction
+fn computeTransmission(
+    _V:         vec3<f32>,   // non serve più
+    ndc_xy:     vec2<f32>,
+    _normal:    vec3<f32>,   // non serve più
+    transmission: f32,
+    roughness:  f32,
+) -> vec3<f32> {
+
+    // Normalizza NDC in UV [0,1]
+    var uv = ndc_xy * 0.5 + vec2(0.5);
+    uv.y = 1.0 - uv.y; // inverti Y se necessario
+
+    let max_lod = 7.0; // (HDR_MIPS_COUNT = 8) -1 
+    let lod = roughness * max_lod;
+
+    // Campiona con mip-level
+    let color = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
+
+    // Applica intensità della trasmissione
+    return color * transmission;
 }
 
 
@@ -477,25 +500,23 @@ fn fs_main(
     var color = diffuse + specular + emissive; 
 
     // Transmission 
-    var transmitted = computeTransmission(in.ndc_xy, Nws, transmission, roughness);
+    var transmitted = computeTransmission(V, in.ndc_xy, Nws, transmission, roughness);
+
     // Fresnel (IMPORTANTISSIMO per riflessi)
     let NdotV = max(dot(Nws, V), 0.0);
     let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
     let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
 
-    // componente riflessa (specular già calcolato sopra)
-    let reflected = specular;
-
-    // trasmissione colorata (Beer-Lambert semplificato)
-    let transmitted_tinted = transmitted * albedo_color;
+    // evita vetro troppo saturo (problema comune)
+    let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
 
     // energia conservata:
     // - F → riflessione
     // - (1-F) → trasmissione
     color =
-        reflected * F +
+        specular +
         transmitted_tinted * (1.0 - F) * transmission +
-        diffuse * (1.0 - transmission); // opzionale ma utile
+        diffuse * (1.0 - transmission);
 
 
     switch globals.debug {
