@@ -3,6 +3,7 @@ use super::*;
 #[derive(Default)]
 pub struct SkyboxPass {
     enable: bool,
+    blur: bool,
 }
 
 impl SkyboxPass {
@@ -15,6 +16,14 @@ impl RenderPass for SkyboxPass {
     fn name(&self) -> &'static str {
         "SkyboxPass"
     }
+    
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[ResourceId::HDRA, ResourceId::DEPTH]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,
@@ -25,6 +34,7 @@ impl RenderPass for SkyboxPass {
         _ctx: &mut RenderContext,
     ) {
         self.enable = globals.skybox_enable;
+        self.blur = globals.skybox_enable_blur;
     }
 
     fn execute(
@@ -67,7 +77,7 @@ impl RenderPass for SkyboxPass {
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
-        let skybox_bind_group = skybox_manager.get_skybox();
+        let skybox_bind_group = skybox_manager.get_skybox(self.blur);
 
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);

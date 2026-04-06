@@ -8,6 +8,7 @@ fn main() {
 
     let textures = [
         ("WHITE_TEXTURE", "assets/core/white.png"),
+        ("BLACK_TEXTURE", "assets/core/black.png"),
         ("LIGHTBULB_TEXTURE", "assets/core/lightbulb-icon32.png"),
         ("NORMAL_TEXTURE", "assets/core/empty_normal.png"),
     ];

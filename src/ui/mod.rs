@@ -5,6 +5,7 @@ pub(crate) mod tools;
 pub(crate) mod properties;
 pub(crate) mod debug;
 pub(crate) mod snapshot;
+pub(crate) mod menu_bar;
 
 pub(crate) use ui_layer::UiLayer;
 pub(crate) use ui_layer::UiContext;
@@ -14,6 +15,7 @@ pub(crate) use settings::*;
 pub(crate) use properties::*;
 pub(crate) use debug::*;
 pub(crate) use snapshot::*;
+pub(crate) use menu_bar::*;
 pub(crate) use crate::*;
 
 

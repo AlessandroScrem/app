@@ -14,6 +14,7 @@ impl TextureId {
 pub enum SamplerDesc {
     #[default]
     Linear,
+    LinearMipmap,
     Nearest,
 }
 
@@ -28,14 +29,12 @@ pub enum ColorSpace {
 }
 
 impl ColorSpace {
-    pub fn bpp(&self) -> usize {
+    // pixel size (Bytes)
+    pub fn pixel_size(&self) -> u32 {
         match self {
-            ColorSpace::Rgbaf32 => 16,
-            ColorSpace::Rgbaf16 => 8,
-            ColorSpace::Depth32f => 4,
-            ColorSpace::Srgba8 => 4,
-            ColorSpace::Rgba8 => 4,
-            ColorSpace::Rg32ui => 2,
+            Self::Rgbaf32 => 16,
+            Self::Rgbaf16 | Self::Rg32ui => 8,
+            Self::Depth32f | Self::Srgba8 | Self::Rgba8 => 4,
         }
     }
 }
@@ -47,21 +46,22 @@ pub enum TextureUsage {
     MetallicRoughness,
     Emissive,
     Occlusion,
+    Transmission,
     HDR16,
-    #[allow(dead_code)]
+    #[allow(unused)]
     HDR32,
 }
 
 impl From<material_asset::MaterialTextureSlot> for TextureUsage {
     fn from(slot: material_asset::MaterialTextureSlot) -> Self {
+        use material_asset::MaterialTextureSlot::*;
         match slot {
-            material_asset::MaterialTextureSlot::BaseColor => TextureUsage::Albedo,
-            material_asset::MaterialTextureSlot::Normal => TextureUsage::Normal,
-            material_asset::MaterialTextureSlot::MetallicRoughness => {
-                TextureUsage::MetallicRoughness
-            }
-            material_asset::MaterialTextureSlot::Emissive => TextureUsage::Emissive,
-            material_asset::MaterialTextureSlot::Occlusion => TextureUsage::Occlusion,
+            BaseColor => Self::Albedo,
+            Normal => Self::Normal,
+            MetallicRoughness => Self::MetallicRoughness,
+            Emissive => Self::Emissive,
+            Occlusion => Self::Occlusion,
+            Transmission => Self::Transmission,
         }
     }
 }
@@ -69,12 +69,11 @@ impl From<material_asset::MaterialTextureSlot> for TextureUsage {
 impl TextureUsage {
     pub fn color_space(self) -> ColorSpace {
         match self {
-            TextureUsage::Albedo | TextureUsage::Emissive => ColorSpace::Srgba8,
-            TextureUsage::Normal | TextureUsage::Occlusion | TextureUsage::MetallicRoughness => {
-                ColorSpace::Rgba8
-            }
-            TextureUsage::HDR16 => ColorSpace::Rgbaf16,
-            TextureUsage::HDR32 => ColorSpace::Rgbaf32,
+            Self::Albedo | Self::Emissive => ColorSpace::Srgba8,
+            Self::Normal | Self::Occlusion | Self::MetallicRoughness => ColorSpace::Rgba8,
+            Self::Transmission => ColorSpace::Srgba8,
+            Self::HDR16 => ColorSpace::Rgbaf16,
+            Self::HDR32 => ColorSpace::Rgbaf32,
         }
     }
 }
@@ -109,7 +108,6 @@ pub enum TextureDesc {
         mipmaps: bool,
     },
 }
-
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct TextureInfo {
@@ -201,7 +199,6 @@ impl Default for TextureAssets {
             dirty_textures,
             stats,
         }
-
     }
 }
 

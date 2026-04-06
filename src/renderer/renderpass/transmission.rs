@@ -27,11 +27,10 @@ fn drawables<'a>(
                     .into_iter() // stessa logica
                     .flat_map(move |mesh_desc| {
                         mesh_desc.submeshes.iter().filter_map(move |sub| {
-                            
                             // Get material asset
                             let material = assets.materials.get_desc(sub.material)?;
-                            // Filter material opaque
-                            if material.is_transmissive() {
+                            // Filter only material is trasmissive
+                            if !material.is_transmissive() {
                                 return None;
                             }
 
@@ -49,9 +48,9 @@ fn drawables<'a>(
 }
 
 #[derive(Default)]
-pub struct MeshPass {}
+pub struct TransmissionPass {}
 
-impl MeshPass {
+impl TransmissionPass {
     pub fn new() -> Self {
         Self::default()
     }
@@ -66,7 +65,10 @@ impl MeshPass {
 
         for (entity, mesh, global) in mesh_query.iter(world) {
             // Model Uniform
-            assert!(global.mat.determinant() > 0.0 ,"matrix determinant is negative"); 
+            assert!(
+                global.mat.determinant() > 0.0,
+                "matrix determinant is negative"
+            );
 
             let mut model = ModelUniform::new(global.mat);
             model.entity_id = entity.as_raw_u64();
@@ -85,13 +87,13 @@ impl MeshPass {
     }
 }
 
-impl RenderPass for MeshPass {
+impl RenderPass for TransmissionPass {
     fn name(&self) -> &'static str {
-        "MeshPass"
+        "TransmissionPass"
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        &[ResourceId::HDRB]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDRA, ResourceId::ENTITY, ResourceId::DEPTH]
@@ -117,33 +119,23 @@ impl RenderPass for MeshPass {
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        // let skybox_manager = ctx.skb_mgr;
-
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        };
 
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Mesh Render Pass"),
+            label: Some("Transmission Render Pass"),
             color_attachments: &[
-                // 0: opaque object
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear_color),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
-                // 1: entity ID
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -151,7 +143,7 @@ impl RenderPass for MeshPass {
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
+                    load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,
@@ -160,31 +152,16 @@ impl RenderPass for MeshPass {
             occlusion_query_set: None,
         });
 
-        let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);
+        let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Transmission);
 
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Ibl), &[]);
-        
-        // renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
+        renderpass.set_bind_group(
+            3,
+            gpu_manager.get_bindgroup(BindgroupKind::Transmission),
+            &[],
+        );
 
-
-        // Draw per submesh (Default)
-        // for mesh in drawables(asset_mgr, ctx.gpu_cache) {
-        //     let MeshDrawable {
-        //         gpu_mesh,
-        //         material_bg,
-        //         index_range,
-        //     } = mesh;
-
-        //     renderpass.set_bind_group(2, &gpu_mesh.model_bind_group, &[]);
-        //     renderpass.set_bind_group(1, material_bg, &[]);
-        //     renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
-        //     renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
-        //     renderpass.draw_indexed((*index_range).clone(), 0, 0..1);
-        // }
-
-        // Draw per material (reduce drawcall number)
         let mut drawables: Vec<_> = drawables(asset_mgr, ctx.gpu_cache).collect();
         drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
 
@@ -206,15 +183,3 @@ impl RenderPass for MeshPass {
         }
     }
 }
-
-// impl RenderPassNode for MeshPass {
-//     fn name(&self) -> &str {
-//         "MeshPass"
-//     }
-//     fn reads(&self) -> &[ResourceId] {
-//         &[]
-//     }
-//     fn writes(&self) -> &[ResourceId] {
-//         &[HDRA, ENTITY, DEPTH]
-//     }
-// }

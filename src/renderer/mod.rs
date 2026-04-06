@@ -3,6 +3,7 @@ pub(crate) mod renderpass;
 pub(crate) mod skybox_manager;
 pub(crate) mod uniform;
 pub (crate) mod imgui_renderer;
+pub (crate) mod rendergraph;
 
 pub(crate) use skybox_manager::SkyboxManager;
 

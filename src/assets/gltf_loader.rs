@@ -1,9 +1,8 @@
+use super::*;
 use gltf::mesh::{Mode, Reader};
-use legion::EntityStore;
 use std::path::Path;
 
 use crate::{
-    BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, TagComponent,
     TransformComponent,
     assets::{
         MaterialDesc, MaterialId, MeshDesc, MeshId, MeshKey, SubMesh, asset_manager::AssetManager,
@@ -27,7 +26,134 @@ pub struct NodeData {
     pub children: Vec<usize>, // index in nodes
 }
 
-pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
+// public wrapper manage error messages
+pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<LoadedScene> {
+    match load_gltf_internal(&path, asset_mgr) {
+        Ok(scene) => Some(scene),
+        Err(e) => {
+            warn!("Failed to load glTF {}: {}", path.as_ref().display(), e);
+            None
+        }
+    }
+}
+
+// step for load gltf
+//     (LoadedScene)
+//          |
+//          Y
+//   create Materialid
+//          |
+//          Y
+//   crate Meshid
+//          |
+//          Y
+//   spawn_scene ECS
+fn load_gltf_internal<P: AsRef<Path>>(
+    path: P,
+    asset_mgr: &mut AssetManager,
+) -> Result<LoadedScene, ImportError> {
+    let (gltf, buffers, _) = gltf::import(path.as_ref())?;
+
+    let mut meshes = Vec::new();
+    let mut materials = Vec::new();
+    for g_mesh in gltf.meshes() {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut submeshes = Vec::new();
+        for primitive in g_mesh.primitives() {
+            assert_eq!(primitive.mode(), Mode::Triangles);
+
+            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
+            let base_vertex = vertices.len() as u32;
+            let index_start = indices.len();
+
+            // assert che non ci siano set UV > 0
+            debug_assert!(
+                primitive.attributes().all(|(semantic, _)| {
+                    use gltf::mesh::Semantic::TexCoords;
+                    match semantic {
+                        TexCoords(set) => set == 0,
+                        _ => true,
+                    }
+                }),
+                "Primitive {} set UV > 0 not yet supported",
+                primitive.index()
+            );
+
+            let vertex_count = extract_vertices(&reader, &mut vertices)?;
+            extract_indices(&reader, &mut indices, base_vertex, vertex_count);
+
+            let index_end = indices.len();
+
+            if reader.read_tangents().is_none() {
+                println!("generate tangent for {:?}", primitive.material().name());
+                generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
+            }
+
+            let material_id = create_material(&primitive.material(), asset_mgr, &path);
+            materials.push(material_id);
+
+            submeshes.push(SubMesh {
+                index_range: index_start as u32..index_end as u32,
+                base_vertex,
+                material: material_id,
+            });
+        }
+
+        let mesh_key = MeshKey {
+            source: crate::assets::MeshSource::File {
+                path: path.as_ref().into(),
+                submesh_index: g_mesh.index(),
+            },
+        };
+
+        let mesh_id = asset_mgr.meshes.get_or_create(mesh_key, || MeshDesc {
+            vertices,
+            indices,
+            submeshes,
+            bounds: extract_bbox(&g_mesh),
+        });
+        meshes.push(mesh_id);
+    }
+
+    let mut nodes = Vec::new();
+    for node in gltf.nodes() {
+        let children = node.children().map(|c| c.index()).collect();
+
+        nodes.push(NodeData {
+            name: node.name().unwrap_or("no-name").to_string(),
+            local_transform: TransformComponent::from_gltf(&node),
+            mesh: node.mesh().map(|m| m.index()),
+            children,
+        });
+    }
+
+    let mut has_parent = vec![false; nodes.len()];
+
+    for node in gltf.nodes() {
+        for child in node.children() {
+            has_parent[child.index()] = true;
+        }
+    }
+
+    let roots: Vec<usize> = has_parent
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| !**p)
+        .map(|(i, _)| i)
+        .collect();
+
+    let scene = LoadedScene {
+        _materials: materials,
+        meshes,
+        nodes,
+        _roots: roots,
+    };
+
+    Ok(scene)
+}
+
+fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {
     use mikktspace::{Geometry, generate_tangents};
 
     debug_assert!(indices.iter().all(|&i| (i as usize) < vertices.len()));
@@ -70,13 +196,16 @@ pub fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[
         ) {
             let sign = if orientation { 1.0 } else { -1.0 };
             let idx = self.indices[face * 3 + vert] as usize;
-
             let v = &mut self.vertices[idx];
 
             v.tangent[0] += tangent[0];
             v.tangent[1] += tangent[1];
             v.tangent[2] += tangent[2];
-            v.tangent[3] = sign;
+
+            // w = ±1 senza accumulo
+            // FIX: invert w 
+            v.tangent[3] = -sign;
+
         }
     }
 
@@ -225,121 +354,6 @@ fn print_gltf_document(document: &gltf::Document) {
     });
 }
 
-// step per load gltf
-//     (LoadedScene)
-//          |
-//          Y
-//   create Materialid
-//          |
-//          Y
-//   crate Meshid
-//          |
-//          Y
-//   spawn_scene ECS
-pub fn load_gltf<P: AsRef<Path>>(
-    path: P,
-    asset_mgr: &mut AssetManager,
-) -> Result<LoadedScene, ImportError> {
-    let (gltf, buffers, _) = gltf::import(path.as_ref())?;
-
-    let mut meshes = Vec::new();
-    let mut materials = Vec::new();
-    for g_mesh in gltf.meshes() {
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-        let mut submeshes = Vec::new();
-        for primitive in g_mesh.primitives() {
-            assert_eq!(primitive.mode(), Mode::Triangles);
-
-            let reader = primitive.reader(|b| Some(&buffers[b.index()]));
-            let base_vertex = vertices.len() as u32;
-            let index_start = indices.len();
-
-            // assert che non ci siano set UV > 0
-            debug_assert!(
-                primitive.attributes().all(|(semantic, _)| {
-                    use gltf::mesh::Semantic::TexCoords;
-                    match semantic {
-                        TexCoords(set) => set == 0,
-                        _ => true,
-                    }
-                }),
-                "Primitive {} set UV > 0 not yet supported",
-                primitive.index()
-            );
-
-            let vertex_count = extract_vertices(&reader, &mut vertices)?;
-            extract_indices(&reader, &mut indices, base_vertex, vertex_count);
-
-            let index_end = indices.len();
-
-            if reader.read_tangents().is_none() {
-                generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
-            }
-
-            let material_id = create_material(&primitive.material(), asset_mgr, &path);
-            materials.push(material_id);
-
-            submeshes.push(SubMesh {
-                index_range: index_start as u32..index_end as u32,
-                base_vertex,
-                material: material_id,
-            });
-        }
-
-        let mesh_key = MeshKey {
-            source: crate::assets::MeshSource::File {
-                path: path.as_ref().into(),
-                submesh_index: g_mesh.index(),
-            },
-        };
-
-        let mesh_id = asset_mgr.meshes.get_or_create(mesh_key, || MeshDesc {
-            vertices,
-            indices,
-            submeshes,
-            bounds: extract_bbox(&g_mesh),
-        });
-        meshes.push(mesh_id);
-    }
-
-    let mut nodes = Vec::new();
-    for node in gltf.nodes() {
-        let children = node.children().map(|c| c.index()).collect();
-
-        nodes.push(NodeData {
-            name: node.name().unwrap_or("no-name").to_string(),
-            local_transform: TransformComponent::from_gltf(&node),
-            mesh: node.mesh().map(|m| m.index()),
-            children,
-        });
-    }
-
-    let mut has_parent = vec![false; nodes.len()];
-
-    for node in gltf.nodes() {
-        for child in node.children() {
-            has_parent[child.index()] = true;
-        }
-    }
-
-    let roots: Vec<usize> = has_parent
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| !**p)
-        .map(|(i, _)| i)
-        .collect();
-
-    let scene = LoadedScene {
-        _materials: materials,
-        meshes,
-        nodes,
-        _roots: roots,
-    };
-
-    Ok(scene)
-}
-
 fn path_from_ginfo(info: gltf::texture::Info<'_>, base_dir: &Path) -> Option<std::path::PathBuf> {
     match info.texture().source().source() {
         gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
@@ -370,22 +384,18 @@ fn create_material<P: AsRef<Path>>(
 
     // gltf pbr material
     let pbr = gltf_material.pbr_metallic_roughness();
-    
+
     let mut material_desc = MaterialDesc::default();
-    
+
     let alpha_mode = match gltf_material.alpha_mode() {
-        gltf::material::AlphaMode::Blend => {
-            material_asset::AlphaMode::Blend
-        }
-        gltf::material::AlphaMode::Mask => {
-            let alpha_cutoff = gltf_material.alpha_cutoff().unwrap_or_default();
-            material_asset::AlphaMode::Mask { alpha_cutoff }
-        }
-        gltf::material::AlphaMode::Opaque => {
-            material_asset::AlphaMode::Opaque
-        }
+        gltf::material::AlphaMode::Blend => material_asset::AlphaMode::Blend,
+        gltf::material::AlphaMode::Mask => gltf_material
+            .alpha_cutoff()
+            .map(|alpha_cutoff| AlphaMode::Mask { alpha_cutoff })
+            .unwrap_or(AlphaMode::mask_default()),
+        gltf::material::AlphaMode::Opaque => material_asset::AlphaMode::Opaque,
     };
-    
+
     material_desc.set_name(name);
     material_desc.alpha_mode = alpha_mode;
     material_desc.base_color_factor = pbr.base_color_factor().into();
@@ -393,12 +403,26 @@ fn create_material<P: AsRef<Path>>(
     material_desc.metallic_factor = pbr.metallic_factor();
     material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
 
+    if let Some(color_info) = pbr.base_color_texture() {
+        material_desc.set_texture(
+            texture_asset,
+            BaseColor,
+            path_from_ginfo(color_info, parent_path),
+        );
+    }
     if let Some(normal_tex) = gltf_material.normal_texture() {
         material_desc.normal_scale = normal_tex.scale();
         material_desc.set_texture(
             texture_asset,
             Normal,
             path_from_gtexture(normal_tex.texture(), parent_path),
+        );
+    }
+    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
+        material_desc.set_texture(
+            texture_asset,
+            MetallicRoughness,
+            path_from_ginfo(met_rough_info, parent_path),
         );
     }
     if let Some(occl_tex) = gltf_material.occlusion_texture() {
@@ -409,20 +433,6 @@ fn create_material<P: AsRef<Path>>(
             path_from_gtexture(occl_tex.texture(), parent_path),
         )
     }
-    if let Some(color_info) = pbr.base_color_texture() {
-        material_desc.set_texture(
-            texture_asset,
-            BaseColor,
-            path_from_ginfo(color_info, parent_path),
-        );
-    }
-    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
-        material_desc.set_texture(
-            texture_asset,
-            MetallicRoughness,
-            path_from_ginfo(met_rough_info, parent_path),
-        );
-    }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
         material_desc.set_texture(
             texture_asset,
@@ -430,67 +440,21 @@ fn create_material<P: AsRef<Path>>(
             path_from_ginfo(emissive_info, parent_path),
         );
     }
+    if let Some(transmission) = gltf_material.transmission() {
+        let factor = transmission.transmission_factor();
+        material_desc.transmission = Some(assets::Transmission { factor });
 
+        if let Some(transmission_texture) = transmission.transmission_texture() {
+            material_desc.set_texture(
+                texture_asset,
+                Transmission,
+                path_from_ginfo(transmission_texture, parent_path),
+            );
+        }
+    }
+
+    println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
-}
-
-pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
-    let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
-
-    // 1️⃣ crea tutte le entity
-    for node in &loaded.nodes {
-        let name = node.name.clone();
-        let entity = world.push((
-            TagComponent { name },
-            TransformComponent::from(node.local_transform.clone()),
-            HierarchyComponent::default(),
-            GlobalModelComponent::default(),
-        ));
-        node_to_entity.push(entity);
-    }
-
-    // 2️⃣ assegna mesh + material
-    for (i, node) in loaded.nodes.iter().enumerate() {
-        if let Some(mesh_idx) = node.mesh {
-            let entity = node_to_entity[i];
-            let mesh_id = &loaded.meshes[mesh_idx];
-
-            if let Some(mut entry) = world.entry(entity) {
-                // MeshComponent
-                entry.add_component(MeshComponent {
-                    handle: mesh_id.clone(),
-                });
-
-                // BoundingBoxComponent
-                if let Some(mesh) = asset_mgr.meshes.get(*mesh_id) {
-                    let bbox = &mesh.bounds;
-                    entry.add_component(BoundingBoxComponent {
-                        bounding_box: bbox.clone(),
-                        global_bounding_box: bbox.clone(),
-                    });
-                }
-            }
-        }
-    }
-
-    // 3️⃣ collega la gerarchia
-    for (i, node) in loaded.nodes.iter().enumerate() {
-        let parent = node_to_entity[i];
-
-        for &child_idx in &node.children {
-            let child = node_to_entity[child_idx];
-
-            world.entry_mut(parent).ok().map(|mut e| {
-                e.get_component_mut::<HierarchyComponent>()
-                    .map(|h| h.children.push(child))
-            });
-
-            world.entry_mut(child).ok().map(|mut e| {
-                e.get_component_mut::<HierarchyComponent>()
-                    .map(|h| h.parent = Some(parent))
-            });
-        }
-    }
 }
 
 #[cfg(test)]
@@ -502,7 +466,7 @@ mod tests {
         let path = "./assets/cube/cube.gltf";
         let mut asset_mgr = AssetManager::default();
 
-        let e = load_gltf(path, &mut asset_mgr);
+        let e = load_gltf_internal(path, &mut asset_mgr);
 
         assert!(e.is_ok());
         assert_eq!(e.ok().iter().len(), 1);
@@ -540,7 +504,7 @@ mod tests {
 
         assert!(world.is_empty());
 
-        spawn_scene(&mut world, &loaded, &asset_mgr);
+        entities::spawn_scene(&mut world, &loaded, &asset_mgr);
 
         assert_eq!(world.len(), 1);
 

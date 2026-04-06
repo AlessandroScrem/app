@@ -131,6 +131,7 @@ impl MaterialDesc {
             ui.disabled(true, || {
                 ui.text(label);
             });
+            dirty |= slot.draw_ui(ui, material);
         }
         dirty
     }
@@ -197,6 +198,17 @@ impl MaterialTextureSlot {
                     .range(0.0, 1.0)
                     .build(ui, &mut material.occlusion_strength);
                 changed
+            }
+            MaterialTextureSlot::Transmission => {
+                if let Some(mut transmission) = material.transmission {
+                    let changed = Drag::new("##Transmission")
+                        .speed(0.01)
+                        .range(0.0, 1.0)
+                        .build(ui, &mut transmission.factor);
+                    changed
+                } else {
+                    false
+                }
             }
         }
     }
@@ -278,6 +290,8 @@ fn draw_materials(
                         dirty |= material.draw_ui_slot(ui, MetallicRoughness, resolver);
                         ui.separator();
                         dirty |= material.draw_ui_slot(ui, Normal, resolver);
+                        ui.separator();
+                        dirty |= material.draw_ui_slot(ui, Transmission, resolver);
                     }
 
                     if dirty {
@@ -362,6 +376,13 @@ impl LightComponent {
                 .speed(0.1)
                 .build_array(ui, &mut data.position);
             dirty |= ui.color_edit3("Color", &mut data.color);
+            {
+                let mut enabled = data.enabled != 0;
+                if ui.checkbox("Enabled", &mut enabled) {
+                    data.enabled = enabled as u32;
+                    dirty = true;
+                }
+            }
             {
                 let mut directional = data.directional != 0;
                 if ui.checkbox("Directional", &mut directional) {

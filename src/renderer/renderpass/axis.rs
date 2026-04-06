@@ -16,6 +16,13 @@ impl RenderPass for AxisPass {
         "AxisPass"
     }
 
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[ResourceId::HDRA]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,

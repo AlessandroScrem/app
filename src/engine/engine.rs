@@ -73,7 +73,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             mesh: GpuMeshCache::default(),
         };
 
-        let gpu_manager = GpuManager::new(
+        let mut gpu_manager = GpuManager::new(
             &gpu_context.device,
             &gpu_context.queue,
             gpu_surface.get_config().width,
@@ -84,7 +84,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
         //
 
         let scene_renderer =
-            SceneRenderer::new(&gpu_context, &gpu_manager, &mut gpu_cache, asset_mgr);
+            SceneRenderer::new(&gpu_context, &mut gpu_manager, &mut gpu_cache, asset_mgr);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         self.runtime = Some(RunningApp {
@@ -93,7 +93,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             scene_renderer,
             imgui_render,
             uilayer,
-            is_minimized: false,
             timer: Timer::new(),
             events: Vec::new(),
             gpu_context,

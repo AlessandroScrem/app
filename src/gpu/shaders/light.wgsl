@@ -10,10 +10,13 @@ struct Camera {
 struct Light {
     color: vec3<f32>,
     directional: u32,
+
     position: vec3<f32>,
     cast_shadow: u32,
+    
     entity_id_low: u32,
     entity_id_high: u32,
+    enabled: u32,
 }
 
 // PerFrame

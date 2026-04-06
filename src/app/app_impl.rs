@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 pub struct RuntimeContext<'a> {
     pub gpu_context: &'a GpuContext,
-    pub gpu_manager: &'a GpuManager,
+    pub gpu_manager: &'a mut GpuManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
     pub input: &'a mut Input,
@@ -27,14 +27,8 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        // const LANTERN: &str = "./assets/Lantern/Lantern.gltf";
-        const LANTERN: &str = "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
-        const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-
-        self.domain_events
-            .queue
-            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(LANTERN.into())));
-
+        // const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+        const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/Cannon_Exterior.hdr");
         let hdr_id = self
             .asset_mgr
             .textures

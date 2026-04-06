@@ -2,19 +2,19 @@ use super::*;
 use crate::entities::bounding_box_impl::{BBoxVertexData, VERTICES};
 
 #[derive(Default)]
-pub struct BBoxPass {
+pub struct BoundingboxPass {
     enable: bool,
     vertexbuffer: Option<wgpu::Buffer>,
     count: u32,
 }
 
-impl BBoxPass {
+impl BoundingboxPass {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl BBoxPass {
+impl BoundingboxPass {
     fn create_buffer(&mut self, device: &wgpu::Device, vertices: Vec<BBoxVertexData>) {
         use wgpu::util::DeviceExt;
         let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -28,9 +28,16 @@ impl BBoxPass {
     }
 }
 
-impl RenderPass for BBoxPass {
+impl RenderPass for BoundingboxPass {
     fn name(&self) -> &'static str {
         "BoundingboxPass"
+    }
+
+    fn reads(&self) -> &[ResourceId] {
+        &[]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[ResourceId::HDRA]
     }
 
     fn prepare(
@@ -45,6 +52,9 @@ impl RenderPass for BBoxPass {
         if !globals.axis_enable {
             return;
         }
+
+        // create unique vb every pass
+        self.vertexbuffer = None;
 
         self.enable = globals.bbox_enable;
         let axis_aligned = globals.bbox_axis_aligned;
@@ -63,8 +73,9 @@ impl RenderPass for BBoxPass {
             })
             .collect::<Vec<_>>();
 
-        // create unique vb every pass
-        self.create_buffer(ctx.device, vertexdata);
+        if !vertexdata.is_empty() {
+            self.create_buffer(ctx.device, vertexdata);
+        }
     }
 
     fn execute(

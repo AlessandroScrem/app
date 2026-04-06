@@ -1,11 +1,10 @@
-use std::collections::VecDeque;
-use legion::*;
-use crate::prelude::*;
 use crate::app::*;
-
+use crate::prelude::*;
+use legion::*;
+use std::collections::VecDeque;
 
 impl App {
-       pub fn update_domain_event(&mut self) {
+    pub fn update_domain_event(&mut self) {
         // event needs world update, will be executed next frame.
         let mut next_queue = VecDeque::<DomainEvent>::new();
 
@@ -33,7 +32,6 @@ impl App {
     }
 }
 
-
 pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
     match event {
         CameraEvent::RecenterCamera => {
@@ -54,8 +52,15 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
 pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
     let g = &mut app.globals;
     match event {
+        GlobalEvent::LightEnable(flag) => {
+            g.light_enable = flag;
+            app.domain_events
+                .queue
+                .push_back(DomainEvent::Entity(EntityEvent::EnableAllLight(flag)));
+        }
         GlobalEvent::IblEnable(flag) => g.ibl_enable = flag,
         GlobalEvent::SkyboxEnable(flag) => g.skybox_enable = flag,
+        GlobalEvent::SkyboxEnableBlur(flag) => g.skybox_enable_blur = flag,
         GlobalEvent::AxisEnable(flag) => g.axis_enable = flag,
         GlobalEvent::BboxEnable(flag) => g.bbox_enable = flag,
         GlobalEvent::BboxAxisAligned(flag) => g.bbox_axis_aligned = flag,
@@ -63,6 +68,7 @@ pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
         GlobalEvent::Exposure(value) => g.exposure = value,
         GlobalEvent::IblIntensity(value) => g.ibl_intensity = value,
         GlobalEvent::TonemapFilter(filter_code) => g.tonemap_filter = filter_code,
+        GlobalEvent::MipsCsEnable(flag) => g.mips_cs = flag,
     }
 }
 
@@ -97,21 +103,24 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
                 }
             }
         }
+        EntityEvent::EnableAllLight(enable) => {
+            crate::entities::enable_all_lights(enable, world);
+        }
     }
 }
 
-pub fn handle_asset_event(app: &mut App, event: AssetEvent, next_queue: &mut VecDeque<DomainEvent>) {
+pub fn handle_asset_event(
+    app: &mut App,
+    event: AssetEvent,
+    next_queue: &mut VecDeque<DomainEvent>,
+) {
     match event {
         AssetEvent::UpdateMaterial(material_id, c) => {
             app.asset_mgr.materials.update(material_id, &c);
         }
         AssetEvent::LoadGltf(path) => {
-            if let Ok(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
-                crate::assets::gltf_loader::spawn_scene(
-                    &mut app.current_scene.world,
-                    &loaded,
-                    &app.asset_mgr,
-                );
+            if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
+                entities::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
                 next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
             }
         }

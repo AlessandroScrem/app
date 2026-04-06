@@ -13,6 +13,14 @@ impl RenderPass for LinearizePass {
     fn name(&self) -> &'static str {
         "LinearizePass"
     }
+
+    fn reads(&self) -> &[ResourceId] {
+        &[ResourceId::HDRA]
+    }
+    fn writes(&self) -> &[ResourceId] {
+        &[ResourceId::LDR]
+    }
+
     fn prepare(
         &mut self,
         _asset_mgr: &AssetManager,

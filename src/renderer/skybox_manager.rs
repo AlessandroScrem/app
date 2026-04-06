@@ -4,8 +4,6 @@
 // CreateIrradiance(skybox);
 // CreatePrefilterMap(skybox);
 
-// #![allow(dead_code)]
-
 use super::*;
 use wgpu::{TextureViewDescriptor, util::DeviceExt};
 
@@ -254,7 +252,8 @@ impl BRDFLUTBuilder {
     const TEXTURE_SIZE: u32 = 512;
     pub fn build(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
         let format = wgpu::TextureFormat::Rg16Float;
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/brdflut.wgsl"));
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/brdflut.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "BRDFLUT Pipeline");
         let size = Self::TEXTURE_SIZE;
         let mip_level_count = 1;
@@ -321,7 +320,8 @@ impl PrefilerMapResources {
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
         let roughness_buffer = Self::create_roughness_buffer(device);
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/prefilter_map.wgsl"));
+        let shader =
+            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/prefilter_map.wgsl"));
         let pipeline = utils::create_pipeline(device, format, shader, "Prefilter Pipeline");
 
         let layout = pipeline.get_bind_group_layout(0);
@@ -539,8 +539,9 @@ impl IrradianceResources {
         format: wgpu::TextureFormat,
     ) -> Self {
         let camera_buffer = utils::create_camera_buffer(device);
-        let shader =
-            device.create_shader_module(wgpu::include_wgsl!("../gpu/shaders/irradiance_convolution.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!(
+            "../gpu/shaders/irradiance_convolution.wgsl"
+        ));
         let pipeline = utils::create_pipeline(device, format, shader, "Irradiance Pipeline");
         let layout = pipeline.get_bind_group_layout(0);
         let bind_group = Self::create_bind_group(device, hdr_view, &camera_buffer, &layout);
@@ -753,16 +754,49 @@ pub struct Skybox {
     _cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
     _prefilter_map: wgpu::Texture,
+    sampler: wgpu::Sampler,
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
-    pub bind_group: wgpu::BindGroup,
+    brdf_lut_view: wgpu::TextureView,
+    bind_group: wgpu::BindGroup,
+    bind_group_blur: wgpu::BindGroup,
+}
+
+impl Skybox {
+    fn to_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
+        let Skybox {
+            sampler,
+            irradiance_view,
+            prefilter_view,
+            brdf_lut_view,
+            ..
+        } = self;
+
+        vec![
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(irradiance_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(prefilter_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(brdf_lut_view),
+            },
+        ]
+    }
 }
 
 pub struct SkyboxManager {
     _brdf_lut: wgpu::Texture,
     _brdf_lut_view: wgpu::TextureView,
     skybox: Skybox,
-    ibl_bind_group: wgpu::BindGroup,
 }
 
 impl SkyboxManager {
@@ -771,7 +805,7 @@ impl SkyboxManager {
         hdr: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
     ) -> Self {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
@@ -781,24 +815,19 @@ impl SkyboxManager {
         let skybox = Self::create_skybox(
             hdr_id,
             hdr,
+            brdf_lut_view.clone(),
             device,
             queue,
             gpu_manager.get_layout(LayoutKind::Skybox),
         );
 
-        let ibl_bind_group = Self::create_ibl_bind_group(
-            device,
-            gpu_manager.get_layout(LayoutKind::Ibl),
-            &skybox.irradiance_view,
-            &skybox.prefilter_view,
-            &brdf_lut_view,
-        );
+        let entries = skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
 
         Self {
             _brdf_lut: brdf_lut,
             _brdf_lut_view: brdf_lut_view,
             skybox,
-            ibl_bind_group,
         }
     }
 
@@ -808,7 +837,7 @@ impl SkyboxManager {
         hdr: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        gpu_manager: &GpuManager,
+        gpu_manager: &mut GpuManager,
     ) {
         if self.skybox.hdr_id == hdr_id {
             return;
@@ -817,74 +846,37 @@ impl SkyboxManager {
         self.skybox = Self::create_skybox(
             hdr_id,
             hdr,
+            self._brdf_lut_view.clone(),
             device,
             queue,
             gpu_manager.get_layout(LayoutKind::Skybox),
         );
 
-        self.ibl_bind_group = Self::create_ibl_bind_group(
-            device,
-            gpu_manager.get_layout(LayoutKind::Ibl),
-            &self.skybox.irradiance_view,
-            &self.skybox.prefilter_view,
-            &self._brdf_lut_view,
-        );
+        let entries = self.skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
     }
 
-    fn create_ibl_bind_group(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        irradiance: &wgpu::TextureView,
-        prefilter: &wgpu::TextureView,
-        brdf_lut: &wgpu::TextureView,
-    ) -> wgpu::BindGroup {
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Ibl Bind Group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(irradiance),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(prefilter),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(brdf_lut),
-                },
-            ],
-        })
+    pub fn get_skybox(&self, blur: bool) -> &wgpu::BindGroup {
+        if blur {
+            &self.skybox.bind_group_blur
+        } else {
+            &self.skybox.bind_group
+        }
     }
 
-    pub fn get_skybox(&self) -> &wgpu::BindGroup {
-        &self.skybox.bind_group
-    }
-    pub fn get_ibl_bindgroup(&self) -> &wgpu::BindGroup {
-        &self.ibl_bind_group
-    }
     pub fn get_hdr_id(&self) -> crate::assets::TextureId {
         self.skybox.hdr_id
+    }
+
+    pub fn update_ibl_bind_group(&self, device: &wgpu::Device, gpu_manager: &mut GpuManager) {
+        let entries = self.skybox.to_bindgroup_entry();
+        gpu_manager.update_ibl_bind_group(device, &entries);
     }
 
     fn create_skybox(
         hdr_id: crate::assets::TextureId,
         hdr: &GpuTexture,
+        brdf_lut_view: wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
@@ -931,6 +923,21 @@ impl SkyboxManager {
             ..Default::default()
         });
 
+        let bind_group_blur = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&irradiance_view),
+                },
+            ],
+            label: Some("skybox_bind_group_blur"),
+        });
+
         Skybox {
             hdr_id,
             _cube_map: cube_map,
@@ -939,7 +946,10 @@ impl SkyboxManager {
             irradiance_view,
             _prefilter_map,
             prefilter_view,
+            sampler,
+            brdf_lut_view,
             bind_group,
+            bind_group_blur,
         }
     }
 }
@@ -985,7 +995,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1016,7 +1026,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id, /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1025,7 +1035,7 @@ mod tests {
         assert_eq!(prefilter.format(), wgpu::TextureFormat::Rgba16Float);
         assert_eq!(prefilter.height(), PrefilterMap::TEXTURE_SIZE);
         assert_eq!(prefilter.width(), PrefilterMap::TEXTURE_SIZE);
-        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS); 
+        assert_eq!(prefilter.mip_level_count(), PrefilterMap::MIP_LEVELS);
         assert_eq!(prefilter.depth_or_array_layers(), 6); // <- cubemap
         assert_eq!(prefilter.dimension(), wgpu::TextureDimension::D2);
 
@@ -1048,7 +1058,7 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
         let cubemap = EquirectangularToCubemap::build(&hdr, &device, &queue, CUBEMAP_SIZE);
 
@@ -1071,7 +1081,7 @@ mod tests {
     #[test]
     fn skybox_manager_is_initialized() {
         let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_manager = GpuManager::new(&device, queue, 32, 32);
+        let mut gpu_manager = GpuManager::new(&device, queue, 32, 32);
         let mut texture_cache = GpuTextureCache::new(device, queue);
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
@@ -1080,9 +1090,9 @@ mod tests {
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
 
-        let hdr = texture_cache.get_or_fallback(hdr_id /* device, queue */);
+        let hdr = texture_cache.get_or_fallback_white(hdr_id /* device, queue */);
 
-        let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &gpu_manager);
+        let _manager = SkyboxManager::new(hdr_id, hdr, &device, &queue, &mut gpu_manager);
     }
 
     /// Utils

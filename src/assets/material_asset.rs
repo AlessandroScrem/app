@@ -11,10 +11,8 @@ pub enum ShaderId {
     Pbr,
 }
 
-pub const MATERIAL_TEXTURE_COUNT: usize = 5;
-
 #[derive(Debug, Default, Hash, Eq, PartialEq, Clone)]
-pub(crate) struct TestureSet {
+pub struct TestureSet {
     textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
 }
 
@@ -32,21 +30,18 @@ impl IndexMut<MaterialTextureSlot> for TestureSet {
     }
 }
 
+pub const MATERIAL_TEXTURE_COUNT: usize = MaterialTextureSlot::Transmission as usize + 1;
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum MaterialTextureSlot {
     BaseColor = 0,
     Normal = 1,
     MetallicRoughness = 2,
     Emissive = 3,
     Occlusion = 4,
+    Transmission = 5,
 }
 
-impl std::fmt::Display for MaterialTextureSlot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
 impl MaterialTextureSlot {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -55,6 +50,7 @@ impl MaterialTextureSlot {
             Self::MetallicRoughness => "Metallic Roughness",
             Self::Emissive => "Emissive",
             Self::Occlusion => "Occlusion",
+            Self::Transmission => "Transmission",
         }
     }
 }
@@ -69,22 +65,21 @@ impl MaterialTextureSlot {
 impl MaterialTextureSlot {
     pub fn color_space(self) -> ColorSpace {
         match self {
-            MaterialTextureSlot::BaseColor | MaterialTextureSlot::Emissive => ColorSpace::Srgba8,
-
-            MaterialTextureSlot::Normal
-            | MaterialTextureSlot::MetallicRoughness
-            | MaterialTextureSlot::Occlusion => ColorSpace::Rgba8,
+            Self::BaseColor | Self::Emissive => ColorSpace::Srgba8,
+            Self::Normal | Self::MetallicRoughness | Self::Occlusion => ColorSpace::Rgba8,
+            Self::Transmission => ColorSpace::Srgba8,
         }
     }
 }
 
 impl MaterialTextureSlot {
     pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
-        MaterialTextureSlot::BaseColor,
-        MaterialTextureSlot::Normal,
-        MaterialTextureSlot::MetallicRoughness,
-        MaterialTextureSlot::Emissive,
-        MaterialTextureSlot::Occlusion,
+        Self::BaseColor,
+        Self::Normal,
+        Self::MetallicRoughness,
+        Self::Emissive,
+        Self::Occlusion,
+        Self::Transmission,
     ];
 }
 
@@ -98,17 +93,21 @@ pub enum AlphaMode {
     },
     Blend,
 }
-
 impl AlphaMode {
-    pub fn to_uniform(&self) -> (u32, f32) {
-        match *self {
+    pub fn to_uniform(mode: Self) -> (u32, f32) {
+        match mode {
             AlphaMode::Opaque => (0, 0.0),
             AlphaMode::Mask { alpha_cutoff } => (1, alpha_cutoff),
             AlphaMode::Blend => (2, 0.0),
         }
     }
+
+    pub fn mask_default() -> Self {
+        AlphaMode::Mask { alpha_cutoff: 0.5 }
+    }
 }
 
+impl Eq for AlphaMode {}
 impl PartialEq for AlphaMode {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -122,12 +121,57 @@ impl PartialEq for AlphaMode {
     }
 }
 
-impl Eq for AlphaMode {}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Transmission {
+    pub factor: f32,
+}
+
+impl PartialEq for Transmission {
+    fn eq(&self, other: &Self) -> bool {
+        self.factor.to_bits() == other.factor.to_bits()
+    }
+}
+
+impl Transmission {
+    pub fn to_uniform(opt: Option<Self>) -> f32 {
+        opt.map_or(0.0, |t| t.factor)
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TextureFlags {
     flags: u32,
 }
+
+impl std::fmt::Debug for TextureFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let slots = [
+            MaterialTextureSlot::BaseColor,
+            MaterialTextureSlot::Normal,
+            MaterialTextureSlot::MetallicRoughness,
+            MaterialTextureSlot::Emissive,
+            MaterialTextureSlot::Occlusion,
+            MaterialTextureSlot::Transmission,
+        ];
+
+        for (i, slot) in slots.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+
+            let bit = 1 << (*slot as u32);
+
+            if self.flags & bit != 0 {
+                write!(f, "{:?}", slot)?; // stampa nome enum
+            } else {
+                write!(f, "None")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl TextureFlags {
     pub fn new() -> Self {
         Self { flags: 0 }
@@ -165,7 +209,7 @@ impl TextureFlags {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MaterialDesc {
     name: String,
     #[allow(unused)]
@@ -181,6 +225,7 @@ pub struct MaterialDesc {
     pub metallic_factor: f32,
     pub normal_scale: f32,
     pub occlusion_strength: f32,
+    pub transmission: Option<Transmission>,
 }
 
 // PartialEq ignore: name , shader
@@ -189,6 +234,7 @@ impl PartialEq for MaterialDesc {
         self.texture_set.textures == other.texture_set.textures
             && self.texture_flags == other.texture_flags
             && self.alpha_mode == other.alpha_mode
+            && self.transmission == other.transmission
             && self
                 .base_color_factor
                 .abs_diff_eq(&other.base_color_factor, Default::default())
@@ -205,18 +251,19 @@ impl PartialEq for MaterialDesc {
 impl Default for MaterialDesc {
     fn default() -> Self {
         MaterialDesc {
-            texture_set: TestureSet::default(),
             name: String::new(),
             shader: ShaderId::default(),
+            texture_set: TestureSet::default(),
             texture_flags: TextureFlags::new(),
 
             alpha_mode: AlphaMode::default(),
             base_color_factor: Vec4::from_value(one()),
-            emissive_factor: Vec4::from_value(zero()),
-            roughness_factor: one(),
             metallic_factor: one(),
+            roughness_factor: one(),
+            emissive_factor: Vec4::from_value(zero()),
             normal_scale: one(),
             occlusion_strength: one(),
+            transmission: None,
         }
     }
 }
@@ -246,6 +293,12 @@ impl MaterialDesc {
     pub fn set_name(&mut self, name: &str) {
         self.name = name.into();
     }
+
+
+    pub fn is_transmissive(&self) -> bool {
+        self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
+    }
+
 
     pub fn set_texture(
         &mut self,
@@ -367,7 +420,8 @@ impl MaterialAssets {
 
 impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
-        let (alpha_mode, alpha_cutoff) = value.alpha_mode.to_uniform();
+        let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
+        let transmission_factor = Transmission::to_uniform(value.transmission);
         Self {
             color_factor: value.base_color_factor.into(),
             emissive_factor: value.emissive_factor.into(),
@@ -378,6 +432,7 @@ impl From<&MaterialDesc> for MaterialUniform {
             texture_flags: value.texture_flags.raw(),
             alpha_mode,
             alpha_cutoff,
+            transmission_factor,
             ..Default::default()
         }
     }

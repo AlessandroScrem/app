@@ -139,6 +139,7 @@ fn resolve_texture_views<'a>(
         texture_cache.view(desc.texture_set[MetallicRoughness].unwrap_or_else(|| fallback)),
         texture_cache.view(desc.texture_set[Emissive].unwrap_or_else(|| fallback)),
         texture_cache.view(desc.texture_set[Occlusion].unwrap_or_else(|| fallback)),
+        texture_cache.view_or(desc.texture_set[Transmission], TextureSlot::Black),
     ])
 }
 
@@ -169,39 +170,45 @@ fn create_bindgroup_from_desc(
         layout: &texture_bind_group_layout,
         label: Some("Material  bind_group"),
         entries: &[
+            // uniform buffer
             wgpu::BindGroupEntry {
                 binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+            // sampler
+            wgpu::BindGroupEntry {
+                binding: 1,
                 resource: wgpu::BindingResource::Sampler(&sampler),
             },
             // main texture
             wgpu::BindGroupEntry {
-                binding: 1,
+                binding: 2,
                 resource: wgpu::BindingResource::TextureView(&views[BaseColor]),
             },
             // normal texture
             wgpu::BindGroupEntry {
-                binding: 2,
+                binding: 3,
                 resource: wgpu::BindingResource::TextureView(&views[Normal]),
             },
             // metallic_roughness texture
             wgpu::BindGroupEntry {
-                binding: 3,
+                binding: 4,
                 resource: wgpu::BindingResource::TextureView(&views[MetallicRoughness]),
             },
             // material emissive
             wgpu::BindGroupEntry {
-                binding: 4,
+                binding: 5,
                 resource: wgpu::BindingResource::TextureView(&views[Emissive]),
             },
             // material occlusion
             wgpu::BindGroupEntry {
-                binding: 5,
+                binding: 6,
                 resource: wgpu::BindingResource::TextureView(&views[Occlusion]),
             },
-            // uniform buffer
+            // material transmission
             wgpu::BindGroupEntry {
-                binding: 6,
-                resource: uniform_buffer.as_entire_binding(),
+                binding: 7,
+                resource: wgpu::BindingResource::TextureView(&views[Transmission]),
             },
         ],
     });
