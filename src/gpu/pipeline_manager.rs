@@ -169,6 +169,7 @@ pub enum PipelineKind {
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum CsPipelineKind {
     BuildMipmaps,
+    CopyToMipmaps01,
 }
 
 pub struct PipelineManager {
@@ -512,7 +513,7 @@ fn create_pipeline(
                 "BuildMipmaps Pipeline",
                 device,
                 render_pipeline_layout,
-                hdr_format,
+                wgpu::TextureFormat::Rgba8Unorm,
                 shader,
                 buffer_desc,
             )
@@ -542,6 +543,18 @@ fn create_cs_pipeline(
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("BuildMipmaps CS Pipeline"),
                 layout: Some(&cs_pipeline_layout),
+                module: &shader,
+                entry_point: Some("cs_main"),
+                compilation_options: Default::default(),
+                cache: None,
+            })
+        }
+        CsPipelineKind::CopyToMipmaps01 => {
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip01.wgsl"));
+
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("BuildMipmaps CS Pipeline"),
+                layout: None,
                 module: &shader,
                 entry_point: Some("cs_main"),
                 compilation_options: Default::default(),

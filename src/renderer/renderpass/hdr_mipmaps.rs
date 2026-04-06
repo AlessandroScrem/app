@@ -50,7 +50,13 @@ impl RenderPass for HdrMipmapsPass {
             .gpu_mgr
             .get_framebuffer_texture(FramebufferKind::HdrOpaque);
 
-        copy_to_mip0(encoder, src_texture, mip_texture);
+        // copy_to_mip0(encoder, src_texture, mip_texture);
+
+        let pipeline = ctx
+            .pip_mgr
+            .get_compute_pipeline(renderer::CsPipelineKind::CopyToMipmaps01);
+
+        copy_to_mip01(device, encoder, pipeline, src_texture, mip_texture);
 
         // create with compute pipeline
         if self.mips_enable {
@@ -59,13 +65,7 @@ impl RenderPass for HdrMipmapsPass {
                 .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
             let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
 
-            compute_mipmaps(
-                device,
-                encoder,
-                cs_pipeline,
-                mip_texture,
-                bg_layout,
-            );
+            compute_mipmaps(device, encoder, cs_pipeline, mip_texture, bg_layout);
         }
         // create with render pipeline
         else {
@@ -76,6 +76,99 @@ impl RenderPass for HdrMipmapsPass {
 
             generate_scene_mips(device, encoder, pipeline, mip_texture, sampler);
         }
+    }
+}
+
+fn copy_to_mip0(
+    encoder: &mut wgpu::CommandEncoder,
+    src_texture: &wgpu::Texture, // texture src già renderizzata
+    mip_texture: &wgpu::Texture, // texture dst con mipmap
+) {
+    assert_eq!(
+        src_texture.format(),
+        mip_texture.format(),
+        "Textures must have same format"
+    );
+
+    encoder.copy_texture_to_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: src_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyTextureInfo {
+            texture: mip_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        src_texture.size(),
+    );
+}
+
+fn copy_to_mip01(
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    pipeline: &wgpu::ComputePipeline,
+    src_texture: &wgpu::Texture, // texture src già renderizzata
+    mip_texture: &wgpu::Texture, // texture dst con mipmap
+) {
+    if mip_texture.mip_level_count() == 1 {
+        warn!("Texture must have mip levels");
+        return;
+    }
+
+    let src_view = src_texture.create_view(&wgpu::TextureViewDescriptor {
+        mip_level_count: Some(1),
+        ..Default::default()
+    });
+
+    let dst_view_mip0 = mip_texture.create_view(&wgpu::TextureViewDescriptor {
+        base_mip_level: 0,
+        mip_level_count: Some(1),
+        ..Default::default()
+    });
+
+    let dst_view_mip1 = mip_texture.create_view(&wgpu::TextureViewDescriptor {
+        base_mip_level: 1,
+        mip_level_count: Some(1),
+        ..Default::default()
+    });
+
+    // ogni thread processa 2x2 pixel
+    let dispatch_x = (mip_texture.width() + 15) / 16;
+    let dispatch_y = (mip_texture.height() + 15) / 16;
+
+    {
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute pass mip01 creation"),
+            ..Default::default()
+        });
+        let bind_group_layout = pipeline.get_bind_group_layout(0);
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("MipLevel01"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&src_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&dst_view_mip0),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&dst_view_mip1),
+                },
+            ],
+        });
+
+        compute_pass.set_pipeline(pipeline);
+        compute_pass.set_bind_group(0, &bind_group, &[]);
+
+        compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, 1);
     }
 }
 
@@ -92,6 +185,7 @@ fn compute_mipmaps(
     }
 
     let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
+        base_mip_level: 1,
         mip_level_count: Some(1),
         ..Default::default()
     });
@@ -107,7 +201,7 @@ fn compute_mipmaps(
 
         compute_pass.set_pipeline(pipeline);
 
-        for mip in 1..mip_texture.mip_level_count() {
+        for mip in 2..mip_texture.mip_level_count() {
             let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
                 base_mip_level: mip,
                 mip_level_count: Some(1),
@@ -135,28 +229,6 @@ fn compute_mipmaps(
     }
 }
 
-fn copy_to_mip0(
-    encoder: &mut wgpu::CommandEncoder,
-    src_texture: &wgpu::Texture, // texture src già renderizzata
-    mip_texture: &wgpu::Texture, // texture dst con mipmap
-) {
-    encoder.copy_texture_to_texture(
-        wgpu::TexelCopyTextureInfo {
-            texture: src_texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
-        wgpu::TexelCopyTextureInfo {
-            texture: mip_texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
-        src_texture.size(),
-    );
-}
-
 // render mipmaps
 fn generate_scene_mips(
     device: &wgpu::Device,
@@ -165,19 +237,19 @@ fn generate_scene_mips(
     mip_texture: &wgpu::Texture, // texture dst con mipmap
     sampler: &wgpu::Sampler,
 ) {
-    
     if mip_texture.mip_level_count() == 1 {
         warn!("Texture must have mip levels");
         return;
     }
 
     let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
+        base_mip_level: 1,
         mip_level_count: Some(1),
         ..Default::default()
     });
 
     // per ogni mip > 0
-    for level in 1..mip_texture.mip_level_count() {
+    for level in 2..mip_texture.mip_level_count() {
         let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
             label: Some(&format!("MipLevel{}", level)),
             base_mip_level: level,

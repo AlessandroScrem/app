@@ -36,7 +36,7 @@ pub enum LayoutKind {
     Material,
     Model,
     Skybox,
-    Hdr,
+    Hdr, // TODO: change name as can be used also on ldr texture
     Depth,
     EntityId,
     CsMipmaps,
@@ -718,7 +718,7 @@ impl LayoutCache {
                             visibility: wgpu::ShaderStages::COMPUTE,
                             ty: wgpu::BindingType::StorageTexture {
                                 access: wgpu::StorageTextureAccess::ReadOnly,
-                                format: wgpu::TextureFormat::Rgba16Float,
+                                format: wgpu::TextureFormat::Rgba8Unorm,
                                 view_dimension: wgpu::TextureViewDimension::D2,
                             },
                             count: None,
@@ -729,7 +729,7 @@ impl LayoutCache {
                             visibility: wgpu::ShaderStages::COMPUTE,
                             ty: wgpu::BindingType::StorageTexture {
                                 access: wgpu::StorageTextureAccess::WriteOnly,
-                                format: wgpu::TextureFormat::Rgba16Float,
+                                format: wgpu::TextureFormat::Rgba8Unorm,
                                 view_dimension: wgpu::TextureViewDimension::D2,
                             },
                             count: None,
@@ -782,14 +782,15 @@ impl FramebufferCache {
             FramebufferKind::HdrOpaque => {
                 const HDR_MIPS_COUNT: u32 = 8;
                 let texture = GpuTextureBuilder::from_empty(width, height)
-                    .format(ColorSpace::Rgbaf16)
+                    // .format(ColorSpace::Rgbaf16)
+                    .format(ColorSpace::Rgba8)
                     .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTextureStorage)
                     .sampler(SamplerDesc::LinearMipmap)
                     .label("Hdr Opaque texture_with_mips")
                     .build(device, None);
 
-                let layout = layouts.get(LayoutKind::Hdr);
+                let layout = layouts.get(LayoutKind::Hdr); 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Hdr_Opaque_bind_group"),
                     layout,
