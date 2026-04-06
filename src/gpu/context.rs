@@ -19,9 +19,8 @@ impl Default for GpuContext {
             pollster::block_on(instance.request_adapter(&RequestAdapterOptions::default()))
                 .expect("unable to  crate adapter");
 
-        let format_features = adapter.get_texture_format_features(wgpu::TextureFormat::Rgba16Float);
-
-        if !format_features
+        if !adapter
+            .get_texture_format_features(wgpu::TextureFormat::Rgba16Float)
             .allowed_usages
             .contains(wgpu::TextureUsages::STORAGE_BINDING)
         {
