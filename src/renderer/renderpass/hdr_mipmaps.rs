@@ -60,12 +60,12 @@ impl RenderPass for HdrMipmapsPass {
 
         // create with compute pipeline
         if self.mips_enable {
-            let cs_pipeline = ctx
-                .pip_mgr
-                .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
-            let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
+            // let cs_pipeline = ctx
+            //     .pip_mgr
+            //     .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
+            // // let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
 
-            compute_mipmaps(device, encoder, cs_pipeline, mip_texture, bg_layout);
+            // compute_mipmaps(device, encoder, cs_pipeline, mip_texture);
         }
         // create with render pipeline
         else {
@@ -177,7 +177,7 @@ fn compute_mipmaps(
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::ComputePipeline,
     mip_texture: &wgpu::Texture, // texture con mips
-    bg_layout: &wgpu::BindGroupLayout,
+    // bg_layout: &wgpu::BindGroupLayout,
 ) {
     if mip_texture.mip_level_count() == 1 {
         warn!("Texture must have mip levels");
@@ -188,6 +188,8 @@ fn compute_mipmaps(
         mip_level_count: Some(1),
         ..Default::default()
     });
+
+    let bg_layout = pipeline.get_bind_group_layout(0);
 
     let dispatch_x = mip_texture.width().div_ceil(16);
     let dispatch_y = mip_texture.height().div_ceil(16);
@@ -208,7 +210,7 @@ fn compute_mipmaps(
             });
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some(&format!("MipLevel{}", mip)),
-                layout: bg_layout,
+                layout: &bg_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,

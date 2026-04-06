@@ -39,7 +39,7 @@ pub enum LayoutKind {
     Hdr, // TODO: change name as can be used also on ldr texture
     Depth,
     EntityId,
-    CsMipmaps,
+    // CsMipmaps,
 }
 
 struct LayoutCache {
@@ -708,7 +708,7 @@ impl LayoutCache {
                 })
             }
 
-            LayoutKind::CsMipmaps => {
+/*             LayoutKind::CsMipmaps => {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("CS_Mipmaps_bind_group_layout"),
                     entries: &[
@@ -736,7 +736,7 @@ impl LayoutCache {
                         },
                     ],
                 })
-            }
+            } */
         }
     }
 }
