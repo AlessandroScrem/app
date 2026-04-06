@@ -54,9 +54,9 @@ impl RenderPass for HdrMipmapsPass {
 
         let pipeline = ctx
             .pip_mgr
-            .get_compute_pipeline(renderer::CsPipelineKind::CopyToMipmaps01);
+            .get_compute_pipeline(renderer::CsPipelineKind::CopyToMip0);
 
-        copy_to_mip01(device, encoder, pipeline, src_texture, mip_texture);
+        copy_to_mip0(device, encoder, pipeline, src_texture, mip_texture);
 
         // create with compute pipeline
         if self.mips_enable {
@@ -79,7 +79,7 @@ impl RenderPass for HdrMipmapsPass {
     }
 }
 
-fn copy_to_mip0(
+fn copy_texture(
     encoder: &mut wgpu::CommandEncoder,
     src_texture: &wgpu::Texture, // texture src già renderizzata
     mip_texture: &wgpu::Texture, // texture dst con mipmap
@@ -107,7 +107,7 @@ fn copy_to_mip0(
     );
 }
 
-fn copy_to_mip01(
+fn copy_to_mip0(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::ComputePipeline,
@@ -120,6 +120,7 @@ fn copy_to_mip01(
     }
 
     let src_view = src_texture.create_view(&wgpu::TextureViewDescriptor {
+        base_mip_level: 0,
         mip_level_count: Some(1),
         ..Default::default()
     });
@@ -130,15 +131,14 @@ fn copy_to_mip01(
         ..Default::default()
     });
 
-    let dst_view_mip1 = mip_texture.create_view(&wgpu::TextureViewDescriptor {
-        base_mip_level: 1,
-        mip_level_count: Some(1),
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        mipmap_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
 
-    // ogni thread processa 2x2 pixel
-    let dispatch_x = (mip_texture.width() + 15) / 16;
-    let dispatch_y = (mip_texture.height() + 15) / 16;
+    let dispatch_x = mip_texture.width().div_ceil(16);
+    let dispatch_y = mip_texture.height().div_ceil(16);
 
     {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -147,7 +147,7 @@ fn copy_to_mip01(
         });
         let bind_group_layout = pipeline.get_bind_group_layout(0);
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("MipLevel01"),
+            label: Some("Copy hdr to ldr Mip0"),
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -156,11 +156,11 @@ fn copy_to_mip01(
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&dst_view_mip0),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&dst_view_mip1),
+                    resource: wgpu::BindingResource::TextureView(&dst_view_mip0),
                 },
             ],
         });
@@ -183,9 +183,8 @@ fn compute_mipmaps(
         warn!("Texture must have mip levels");
         return;
     }
-
+    
     let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
-        base_mip_level: 1,
         mip_level_count: Some(1),
         ..Default::default()
     });
@@ -201,7 +200,7 @@ fn compute_mipmaps(
 
         compute_pass.set_pipeline(pipeline);
 
-        for mip in 2..mip_texture.mip_level_count() {
+        for mip in 1..mip_texture.mip_level_count() {
             let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
                 base_mip_level: mip,
                 mip_level_count: Some(1),
@@ -243,13 +242,12 @@ fn generate_scene_mips(
     }
 
     let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
-        base_mip_level: 1,
         mip_level_count: Some(1),
         ..Default::default()
     });
 
     // per ogni mip > 0
-    for level in 2..mip_texture.mip_level_count() {
+    for level in 1..mip_texture.mip_level_count() {
         let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
             label: Some(&format!("MipLevel{}", level)),
             base_mip_level: level,

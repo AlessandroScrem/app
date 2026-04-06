@@ -169,7 +169,7 @@ pub enum PipelineKind {
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum CsPipelineKind {
     BuildMipmaps,
-    CopyToMipmaps01,
+    CopyToMip0,
 }
 
 pub struct PipelineManager {
@@ -549,8 +549,8 @@ fn create_cs_pipeline(
                 cache: None,
             })
         }
-        CsPipelineKind::CopyToMipmaps01 => {
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip01.wgsl"));
+        CsPipelineKind::CopyToMip0 => {
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip0.wgsl"));
 
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("BuildMipmaps CS Pipeline"),
