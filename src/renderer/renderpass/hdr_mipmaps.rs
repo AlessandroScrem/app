@@ -20,7 +20,7 @@ impl RenderPass for HdrMipmapsPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        &[ResourceId::HDRA]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDRB]

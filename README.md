@@ -28,7 +28,8 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Hierarchy entity
 - [x] Import gltf with hierarchy
 - [x] Material Editor per Submesh
-- [ ] Material gltf Transmission
+- [x] Material gltf Transmission
+- [ ] Environment rotation
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 
@@ -61,6 +62,7 @@ cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
 | Fixed    | Prioriry |              Description                                                   |
 | :---:    | :---:    | :---                                                                       |
 | `todo`   |   Low    | Background color is influenced by final filtering (gamma,  color filtering)|    
+| `todo`   |   Low    | Environment / Skybox orientation different fromGltfViewer -90 Y            |    
 | `fixed`  |   High   | Panic if click on bbox ui if no meshes in scene                            |    
 | `fixed`  |   Low    | WGSL std140 / std430 uniform/storage buffer require allignemets to 16 bytes|    
 
