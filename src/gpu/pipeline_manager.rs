@@ -309,12 +309,6 @@ fn create_pipeline(
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 }),
-                // 2: Copy opaque color for transmission map
-                Some(wgpu::ColorTargetState {
-                    format: hdr_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }),
             ];
 
             let pipeline_desc = PipelineExt::default();

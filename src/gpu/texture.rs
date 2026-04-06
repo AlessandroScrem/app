@@ -52,7 +52,9 @@ impl From<GpuTextureUsage> for wgpu::TextureUsages {
                     | wgpu::TextureUsages::COPY_SRC
             }
             GpuTextureUsage::RenderTarget => {
-                wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT
+                wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::COPY_SRC
             }
             GpuTextureUsage::DepthTarget => {
                 wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT
@@ -214,7 +216,7 @@ impl<'a> GpuTextureBuilder<'a> {
         let usage = wgpu::TextureUsages::from(self.usage);
 
         let mip_level_count = if let Some(max_mips) = self.with_mips {
-            use std::cmp::{min, max};
+            use std::cmp::{max, min};
             // // lod calcuation based on texture size clamp to max_mips
             let mip_count = min(max_mips, u32::ilog2(max(width, height)));
             trace!("Texture with mips: {}", mip_count);

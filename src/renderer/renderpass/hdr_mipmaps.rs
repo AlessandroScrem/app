@@ -1,9 +1,11 @@
+use log::warn;
+
 use super::*;
 use crate::renderer;
 
 #[derive(Default)]
 pub struct HdrMipmapsPass {
-    mips_enable: bool
+    mips_enable: bool,
 }
 
 impl HdrMipmapsPass {
@@ -42,53 +44,60 @@ impl RenderPass for HdrMipmapsPass {
         ctx: &mut RenderContext,
         _asset_mgr: &AssetManager,
     ) {
+        let device = ctx.device;
+        let src_texture = ctx.gpu_mgr.get_framebuffer_texture(FramebufferKind::Hdr);
+        let mip_texture = ctx
+            .gpu_mgr
+            .get_framebuffer_texture(FramebufferKind::HdrOpaque);
+
+        copy_to_mip0(encoder, src_texture, mip_texture);
+
+        // create with compute pipeline
         if self.mips_enable {
-            // create with compute pipeline
-            let device = ctx.device;
-            let texture = ctx
-                .gpu_mgr
-                .get_framebuffer_texture(FramebufferKind::HdrOpaque);
             let cs_pipeline = ctx
                 .pip_mgr
                 .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
             let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
 
-            compute_mipmaps(device, texture, encoder, cs_pipeline, bg_layout);
-        } else {
-            // create with render pipeline
-            let device = ctx.device;
+            compute_mipmaps(
+                device,
+                encoder,
+                cs_pipeline,
+                mip_texture,
+                bg_layout,
+            );
+        }
+        // create with render pipeline
+        else {
             let pipeline = ctx.pip_mgr.get_render_pipeline(PipelineKind::BuildMipmaps);
-            let base_view = ctx.gpu_mgr.get_framebuffer_view(FramebufferKind::HdrOpaque);
-            let mip_texture = ctx
-                .gpu_mgr
-                .get_framebuffer_texture(FramebufferKind::HdrOpaque);
             let sampler = ctx
                 .gpu_mgr
                 .get_framebuffer_sampler(FramebufferKind::HdrOpaque);
 
-            generate_scene_mips(device, encoder, pipeline, base_view, mip_texture, sampler);
+            generate_scene_mips(device, encoder, pipeline, mip_texture, sampler);
         }
     }
 }
 
 fn compute_mipmaps(
     device: &wgpu::Device,
-    texture: &wgpu::Texture,
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::ComputePipeline,
+    mip_texture: &wgpu::Texture, // texture con mips
     bg_layout: &wgpu::BindGroupLayout,
 ) {
-    if texture.mip_level_count() == 1 {
+    if mip_texture.mip_level_count() == 1 {
+        warn!("Texture must have mip levels");
         return;
     }
 
-    let mut src_view = texture.create_view(&wgpu::TextureViewDescriptor {
+    let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
         mip_level_count: Some(1),
         ..Default::default()
     });
 
-    let dispatch_x = texture.width().div_ceil(16);
-    let dispatch_y = texture.height().div_ceil(16);
+    let dispatch_x = mip_texture.width().div_ceil(16);
+    let dispatch_y = mip_texture.height().div_ceil(16);
 
     {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -98,8 +107,8 @@ fn compute_mipmaps(
 
         compute_pass.set_pipeline(pipeline);
 
-        for mip in 1..texture.mip_level_count() {
-            let dst_view = texture.create_view(&wgpu::TextureViewDescriptor {
+        for mip in 1..mip_texture.mip_level_count() {
+            let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
                 base_mip_level: mip,
                 mip_level_count: Some(1),
                 ..Default::default()
@@ -126,25 +135,49 @@ fn compute_mipmaps(
     }
 }
 
+fn copy_to_mip0(
+    encoder: &mut wgpu::CommandEncoder,
+    src_texture: &wgpu::Texture, // texture src già renderizzata
+    mip_texture: &wgpu::Texture, // texture dst con mipmap
+) {
+    encoder.copy_texture_to_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: src_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyTextureInfo {
+            texture: mip_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        src_texture.size(),
+    );
+}
+
 // render mipmaps
 fn generate_scene_mips(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::RenderPipeline,
-    base_view: &wgpu::TextureView, // mip 0 già renderizzata
-    mip_texture: &wgpu::Texture,   // texture con mipmap
+    mip_texture: &wgpu::Texture, // texture dst con mipmap
     sampler: &wgpu::Sampler,
 ) {
-    let mip_count = mip_texture.mip_level_count();
-    assert!(mip_count > 1, "Texture must have mip levels");
+    
+    if mip_texture.mip_level_count() == 1 {
+        warn!("Texture must have mip levels");
+        return;
+    }
 
-    // memorizza tutte le texture view dei mip
-    let mut mip_views = Vec::with_capacity(mip_count as usize);
-
-    mip_views.push(base_view.clone()); // mip 0
+    let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
+        mip_level_count: Some(1),
+        ..Default::default()
+    });
 
     // per ogni mip > 0
-    for level in 1..mip_count {
+    for level in 1..mip_texture.mip_level_count() {
         let dst_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
             label: Some(&format!("MipLevel{}", level)),
             base_mip_level: level,
@@ -164,7 +197,7 @@ fn generate_scene_mips(
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&mip_views[level as usize - 1]),
+                    resource: wgpu::BindingResource::TextureView(&src_view),
                 },
             ],
         });
@@ -189,7 +222,6 @@ fn generate_scene_mips(
             rpass.set_bind_group(0, &bind_group, &[]);
             rpass.draw(0..3, 0..1); // fullscreen triangle
         }
-
-        mip_views.push(dst_view); // mantiene il view in vita
+        src_view = dst_view;
     }
 }

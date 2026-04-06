@@ -70,8 +70,8 @@ impl SceneRenderer {
 
         let transmission_pass = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
-            RenderPassEnum::HdrMipmaps(HdrMipmapsPass::new()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
+            RenderPassEnum::HdrMipmaps(HdrMipmapsPass::new()),
             RenderPassEnum::Transmission(TransmissionPass::new()),
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),

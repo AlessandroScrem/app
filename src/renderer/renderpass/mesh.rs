@@ -147,15 +147,6 @@ impl RenderPass for MeshPass {
                         store: wgpu::StoreOp::Store,
                     },
                 }),
-                // 2: copy opaque for transmission map
-                Some(wgpu::RenderPassColorAttachment {
-                    view: gpu_manager.get_framebuffer_view(FramebufferKind::HdrOpaque),
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                        store: wgpu::StoreOp::Store,
-                    },
-                }),
             ],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
@@ -174,6 +165,7 @@ impl RenderPass for MeshPass {
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Ibl), &[]);
+        
         // renderpass.set_bind_group(3, skybox_manager.get_ibl_bindgroup(), &[]);
 
 
