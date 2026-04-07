@@ -4,17 +4,17 @@ use super::*;
 use crate::renderer;
 
 #[derive(Default)]
-pub struct HdrMipmapsPass {
+pub struct BuildMipmapsPass {
     mips_enable: bool,
 }
 
-impl HdrMipmapsPass {
+impl BuildMipmapsPass {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl RenderPass for HdrMipmapsPass {
+impl RenderPass for BuildMipmapsPass {
     fn name(&self) -> &'static str {
         "HdrMipmapsPass"
     }
@@ -48,9 +48,7 @@ impl RenderPass for HdrMipmapsPass {
         let src_texture = ctx.gpu_mgr.get_framebuffer_texture(FramebufferKind::Hdr);
         let mip_texture = ctx
             .gpu_mgr
-            .get_framebuffer_texture(FramebufferKind::HdrOpaque);
-
-        // copy_to_mip0(encoder, src_texture, mip_texture);
+            .get_framebuffer_texture(FramebufferKind::OpaqueWithMips);
 
         let pipeline = ctx
             .pip_mgr
@@ -60,25 +58,26 @@ impl RenderPass for HdrMipmapsPass {
 
         // create with compute pipeline
         if self.mips_enable {
-            // let cs_pipeline = ctx
-            //     .pip_mgr
-            //     .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
-            // // let bg_layout = ctx.gpu_mgr.get_layout(LayoutKind::CsMipmaps);
+            let cs_pipeline = ctx
+                .pip_mgr
+                .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
 
-            // compute_mipmaps(device, encoder, cs_pipeline, mip_texture);
+            compute_mipmaps(device, encoder, cs_pipeline, mip_texture);
         }
+
         // create with render pipeline
         else {
             let pipeline = ctx.pip_mgr.get_render_pipeline(PipelineKind::BuildMipmaps);
             let sampler = ctx
                 .gpu_mgr
-                .get_framebuffer_sampler(FramebufferKind::HdrOpaque);
+                .get_framebuffer_sampler(FramebufferKind::OpaqueWithMips);
 
-            generate_scene_mips(device, encoder, pipeline, mip_texture, sampler);
+            render_mipmaps(device, encoder, pipeline, mip_texture, sampler);
         }
     }
 }
 
+#[allow(unused)]
 fn copy_texture(
     encoder: &mut wgpu::CommandEncoder,
     src_texture: &wgpu::Texture, // texture src già renderizzata
@@ -177,13 +176,13 @@ fn compute_mipmaps(
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::ComputePipeline,
     mip_texture: &wgpu::Texture, // texture con mips
-    // bg_layout: &wgpu::BindGroupLayout,
+                                 // bg_layout: &wgpu::BindGroupLayout,
 ) {
     if mip_texture.mip_level_count() == 1 {
         warn!("Texture must have mip levels");
         return;
     }
-    
+
     let mut src_view = mip_texture.create_view(&wgpu::TextureViewDescriptor {
         mip_level_count: Some(1),
         ..Default::default()
@@ -231,7 +230,7 @@ fn compute_mipmaps(
 }
 
 // render mipmaps
-fn generate_scene_mips(
+fn render_mipmaps(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
     pipeline: &wgpu::RenderPipeline,

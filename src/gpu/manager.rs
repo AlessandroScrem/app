@@ -61,7 +61,7 @@ impl LayoutCache {
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum FramebufferKind {
     Hdr,
-    HdrOpaque,
+    OpaqueWithMips,
     EntityId,
     Depth,
 }
@@ -779,7 +779,7 @@ impl FramebufferCache {
                     bind_group,
                 }
             }
-            FramebufferKind::HdrOpaque => {
+            FramebufferKind::OpaqueWithMips => {
                 const HDR_MIPS_COUNT: u32 = 8;
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     // .format(ColorSpace::Rgbaf16)
@@ -991,8 +991,8 @@ impl BindgroupCache {
             }
 
             BindgroupKind::Transmission => {
-                let scene_view = framebuffer_cache.get_view(FramebufferKind::HdrOpaque);
-                let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::HdrOpaque);
+                let scene_view = framebuffer_cache.get_view(FramebufferKind::OpaqueWithMips);
+                let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
 
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
@@ -1102,8 +1102,8 @@ fn create_bindgroup(
         LayoutKind::Transmission => {
             let mut e = entries.clone();
 
-            let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::HdrOpaque);
-            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::HdrOpaque);
+            let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
+            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::OpaqueWithMips);
 
             e.extend([
                 wgpu::BindGroupEntry {
