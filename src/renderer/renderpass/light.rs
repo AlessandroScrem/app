@@ -2,27 +2,11 @@ use super::*;
 
 #[derive(Default)]
 pub struct LightPass {
-    pub lights: Vec<LightUniform>,
 }
 
 impl LightPass {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl LightPass {
-    fn update_to_gpu(&mut self, ctx: &mut RenderContext) {
-        let queue = ctx.queue;
-        let gpu_mgr = ctx.gpu_mgr;
-
-        for light in self.lights.iter() {
-            queue.write_buffer(
-                gpu_mgr.get_buffer(BufferKind::Light),
-                0,
-                bytemuck::bytes_of(light),
-            );
-        }
     }
 }
 
@@ -38,40 +22,15 @@ impl RenderPass for LightPass {
         &[ResourceId::HDRA, ResourceId::DEPTH]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        world: &World,
-        _globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        ctx: &mut RenderContext,
-    ) {
-        self.lights.clear();
-
-        // -------- Lights --------
-        let mut light_query = <(Entity, &LightComponent)>::query();
-
-        for (entity, light) in light_query.iter(world) {
-            let data = LightUniform {
-                entity_id: entity.as_raw_u64(),
-                ..light.data
-            };
-            self.lights.push(data);
-        }
-
-        self.update_to_gpu(ctx);
-    }
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
+        let lights = &frame.lights;
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let lights = &self.lights;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

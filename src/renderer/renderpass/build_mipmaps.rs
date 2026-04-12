@@ -5,7 +5,6 @@ use crate::renderer;
 
 #[derive(Default)]
 pub struct BuildMipmapsPass {
-    mips_enable: bool,
 }
 
 impl BuildMipmapsPass {
@@ -26,24 +25,20 @@ impl RenderPass for BuildMipmapsPass {
         &[ResourceId::HDRB]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-        self.mips_enable = globals.mips_cs;
-    }
 
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
+
+        if frame.build_mips.is_none() {
+            return;
+        }
+
+        let mips_enable_cp = frame.build_mips.is_some_and(|b| b == true);
+
         let device = ctx.device;
         let src_texture = ctx.gpu_mgr.get_framebuffer_texture(FramebufferKind::Hdr);
         let mip_texture = ctx
@@ -57,7 +52,7 @@ impl RenderPass for BuildMipmapsPass {
         copy_to_mip0(device, encoder, pipeline, src_texture, mip_texture);
 
         // create with compute pipeline
-        if self.mips_enable {
+        if mips_enable_cp {
             let cs_pipeline = ctx
                 .pip_mgr
                 .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);

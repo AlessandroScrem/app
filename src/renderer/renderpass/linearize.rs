@@ -21,22 +21,11 @@ impl RenderPass for LinearizePass {
         &[ResourceId::LDR]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        _globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-    }
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        _frame: &FrameData,
     ) {
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;

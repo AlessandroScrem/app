@@ -2,7 +2,6 @@ use super::*;
 
 #[derive(Default)]
 pub struct OutlinePass {
-    enable: bool,
 }
 impl OutlinePass {
     pub fn new() -> Self {
@@ -22,32 +21,18 @@ impl RenderPass for OutlinePass {
         &[ResourceId::LDR]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        _globals: &Globals,
-        selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-        self.enable = selected.is_some();
-    }
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        // let pick_object = self.gpu.pickobject;
-        let enable = self.enable;
-        let frame_view = &ctx.target;
-
-        if !enable {
+        
+        if !frame.outline_selected {
             return;
         }
-
+        
+        let frame_view = &ctx.target;
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
 

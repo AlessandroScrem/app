@@ -299,6 +299,13 @@ impl MaterialDesc {
         self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
     }
 
+    pub fn is_transparent(&self) -> bool {
+        match self.alpha_mode {
+            AlphaMode::Blend => true,
+            _ => false
+        }
+    }
+
 
     pub fn set_texture(
         &mut self,

@@ -2,7 +2,6 @@ use super::*;
 
 #[derive(Default)]
 pub struct AxisPass {
-    enable: bool,
 }
 
 impl AxisPass {
@@ -23,26 +22,14 @@ impl RenderPass for AxisPass {
         &[ResourceId::HDRA]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-        self.enable = globals.axis_enable;
-    }
 
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        let enable = self.enable;
-        if !enable {
+        if !frame.axis_enable {
             return;
         }
 

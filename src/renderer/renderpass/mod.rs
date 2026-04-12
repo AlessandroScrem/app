@@ -1,6 +1,6 @@
 pub(crate) mod axis;
 pub(crate) mod bbox;
-pub(crate) mod hdr_mipmaps;
+pub(crate) mod build_mipmaps;
 pub(crate) mod light;
 pub(crate) mod linearize;
 pub(crate) mod mesh;
@@ -11,7 +11,7 @@ pub(crate) mod transmission;
 
 pub(crate) use axis::AxisPass;
 pub(crate) use bbox::BoundingboxPass;
-pub(crate) use hdr_mipmaps::BuildMipmapsPass;
+pub(crate) use build_mipmaps::BuildMipmapsPass;
 pub(crate) use light::LightPass;
 pub(crate) use linearize::LinearizePass;
 pub(crate) use mesh::MeshPass;
@@ -20,23 +20,77 @@ pub(crate) use pickobject::PickObjectPass;
 pub(crate) use skybox::SkyboxPass;
 pub(crate) use transmission::TransmissionPass;
 
-use crate::assets::asset_manager::AssetManager;
-use crate::entities::EntityRawU64;
-use crate::input::Input;
+use crate::renderer::FrameData;
 use crate::renderer::pipeline_manager::PipelineKind;
-use crate::uniform::{LightUniform, MaterialUniform};
-use crate::{BoundingBoxComponent, LightComponent};
-use crate::{
-    GlobalModelComponent, Globals, MeshComponent, renderer::scene_renderer::RenderContext,
-    uniform::ModelUniform,
-};
+use crate::renderer::scene_renderer::RenderContext;
 
 pub(crate) use crate::gpu::manager::*;
-pub(crate) use legion::query::IntoQuery;
-pub(crate) use legion::{Entity, World};
 use wgpu::IndexFormat;
 
 pub(crate) use super::renderer::rendergraph::*;
+
+// resources needeed
+// mesh :
+//      gpu_mesh: &'a GpuMesh,
+//      gpu_manager = ctx.gpu_mgr;
+//      material_bg: &'a wgpu::BindGroup,
+//      index_range: &'a std::ops::Range<u32>,
+//      pipeline_manager = ctx.pip_mgr;
+
+// skybox:
+//      globals:
+//      gpu_manager = ctx.gpu_mgr;
+//      pipeline_manager = ctx.pip_mgr;
+//      skybox_manager = ctx.skb_mgr;
+
+// build mipmaps:
+//      globals:
+//      gpu_manager = ctx.gpu_mgr;
+//      pipeline_manager = ctx.pip_mgr;
+//
+
+// transmission:
+//      gpu_mesh: &'a GpuMesh,
+//      material_bg: &'a wgpu::BindGroup,
+//      index_range: &'a std::ops::Range<u32>,
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// light:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// axis:
+//      globals:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// bbox:
+//      globals:
+//      vertexbuffer;
+//      count;
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// linearize:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// outline:
+//      selected;
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// pickobject:
+//      input;
+//      pickobject = ctx.pickobject;
+//      gpu_manager = ctx.gpu_mgr;
 
 pub(crate) trait RenderPass {
     #[allow(dead_code)]
@@ -44,22 +98,11 @@ pub(crate) trait RenderPass {
     fn reads(&self) -> &[ResourceId];
     fn writes(&self) -> &[ResourceId];
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        _globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-    }
-
     fn execute(
         &mut self,
         _encoder: &mut wgpu::CommandEncoder,
         _ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        _frame: &FrameData,
     ) {
     }
 }
@@ -107,26 +150,12 @@ impl RenderPass for RenderPassEnum {
         impl_render_pass_enum!(self, writes)
     }
 
-    fn prepare(
-        &mut self,
-        asset_mgr: &AssetManager,
-        world: &World,
-        globals: &Globals,
-        selected: Option<Entity>,
-        input: &Input,
-        ctx: &mut RenderContext,
-    ) {
-        impl_render_pass_enum!(
-            self, prepare, asset_mgr, world, globals, selected, input, ctx
-        )
-    }
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        impl_render_pass_enum!(self, execute, encoder, ctx, asset_mgr)
+        impl_render_pass_enum!(self, execute, encoder, ctx, frame)
     }
 }

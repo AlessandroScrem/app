@@ -16,7 +16,6 @@ use crate::Globals;
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
-    pub queue: &'a Queue,
     pub gpu_cache: &'a GpuCache,
 
     pub gpu_mgr: &'a GpuManager,
@@ -149,8 +148,18 @@ impl SceneRenderer {
         self.sync_skybox(gpu_manager, gpu_cache, gpu_context, asset_mgr);
         gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
 
-        // update global data (uniform) to GPU
-        // TODO! move out of here
+        
+        let frame = FrameBuilder::build(
+            world,
+            &gpu_context.device,
+            asset_mgr,
+            selected,
+            &self.pickobject,
+            input,
+            globals,
+        );
+        
+        // Update uniform buffer data to gpu
         self.update_render_globals_to_gpu(
             gpu_context,
             gpu_manager,
@@ -159,10 +168,11 @@ impl SceneRenderer {
             selected,
             size,
         );
+        Self::update_meshes_materials_to_gpu(asset_mgr, gpu_context, gpu_cache, &frame);
+        Self::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
 
         let mut ctx = RenderContext {
             device: &gpu_context.device,
-            queue: &gpu_context.queue,
             gpu_cache: &gpu_cache,
 
             gpu_mgr: &gpu_manager,
@@ -172,13 +182,9 @@ impl SceneRenderer {
             target: &target,
         };
 
-        // Update world buffer data to gpu
-        for pass in &mut self.transmission_pass {
-            pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
-        }
 
         for pass in &mut self.transmission_pass {
-            pass.execute(encoder, &mut ctx, &asset_mgr);
+            pass.execute(encoder, &mut ctx, &frame);
         }
     }
 
@@ -205,5 +211,59 @@ impl SceneRenderer {
             &gpu_context.queue,
             &GlobalUniform::from_global_id(globals, entity_id),
         );
+    }
+
+    // TODO! move out of here
+    fn update_meshes_materials_to_gpu(
+        asset_mgr: &AssetManager,
+        gpu_context: &GpuContext,
+        gpu_cache: &mut GpuCache,
+        frame: &FrameData,
+    ) {
+        use cgmath::SquareMatrix;
+        // -------- Mesh --------
+        let queue = &gpu_context.queue;
+
+        fn gpu_update(
+            asset_mgr: &AssetManager,
+            gpu_cache: &GpuCache,
+            queue: &Queue,
+            meshdraw: &MeshDraw,
+        ) {
+            assert!(
+                meshdraw.transform.determinant() > 0.0,
+                "matrix determinant is negative"
+            );
+
+            let mut model = uniform::ModelUniform::new(meshdraw.transform);
+            model.entity_id = meshdraw.entity_id.as_raw_u64();
+            gpu_cache.mesh.update(&meshdraw.mesh, queue, &model);
+            if let Some(material_desc) = asset_mgr.materials.get_desc(meshdraw.material) {
+                let updated_uniform = uniform::MaterialUniform::from(material_desc);
+                gpu_cache
+                    .material
+                    .update(&meshdraw.material, queue, &updated_uniform);
+            }
+        }
+
+        for meshdraw in frame.opaque.iter() {
+            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        }
+        for meshdraw in frame.transmission.iter() {
+            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        }
+    }
+
+    // TODO! move out of here
+    fn update_lights_to_gpu(gpu_context: &GpuContext, gpu_manager: &GpuManager, frame: &FrameData) {
+        let queue = &gpu_context.queue;
+
+        for light in frame.lights.iter() {
+            queue.write_buffer(
+                gpu_manager.get_buffer(BufferKind::Light),
+                0,
+                bytemuck::bytes_of(light),
+            );
+        }
     }
 }
