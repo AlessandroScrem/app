@@ -29,9 +29,7 @@ pub struct SceneRenderer {
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
-    #[allow(unused)]
     default_pass: Vec<RenderPassEnum>,
-    transmission_pass: Vec<RenderPassEnum>,
 }
 
 impl SceneRenderer {
@@ -58,17 +56,6 @@ impl SceneRenderer {
 
         let default_pass = vec![
             RenderPassEnum::Mesh(MeshPass::new()),
-            RenderPassEnum::Light(LightPass::new()),
-            RenderPassEnum::Skybox(SkyboxPass::new()),
-            RenderPassEnum::Axis(AxisPass::new()),
-            RenderPassEnum::BBox(BoundingboxPass::new()),
-            RenderPassEnum::Linearize(LinearizePass::new()),
-            RenderPassEnum::Outline(OutlinePass::new()),
-            RenderPassEnum::PickObject(PickObjectPass::new()),
-        ];
-
-        let transmission_pass = vec![
-            RenderPassEnum::Mesh(MeshPass::new()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
             RenderPassEnum::Transmission(TransmissionPass::new()),
@@ -83,8 +70,7 @@ impl SceneRenderer {
         Self {
             skybox_mgr,
             pickobject,
-            default_pass: default_pass,
-            transmission_pass,
+            default_pass,
         }
     }
 
@@ -183,7 +169,7 @@ impl SceneRenderer {
         };
 
 
-        for pass in &mut self.transmission_pass {
+        for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &frame);
         }
     }
@@ -258,11 +244,11 @@ impl SceneRenderer {
     fn update_lights_to_gpu(gpu_context: &GpuContext, gpu_manager: &GpuManager, frame: &FrameData) {
         let queue = &gpu_context.queue;
 
-        for light in frame.lights.iter() {
+        if let Some(light_uniform) = frame.lights {
             queue.write_buffer(
                 gpu_manager.get_buffer(BufferKind::Light),
                 0,
-                bytemuck::bytes_of(light),
+                bytemuck::bytes_of(&light_uniform),
             );
         }
     }

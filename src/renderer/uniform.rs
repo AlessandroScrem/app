@@ -1,5 +1,3 @@
-use cgmath::{Matrix, Matrix3};
-
 use crate::math::*;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
@@ -60,7 +58,7 @@ struct Mat4x3 {
 }
 
 impl Mat4x3 {
-    fn mat3_to_std140(m: Matrix3<f32>) -> [[f32; 4]; 3] {
+    fn mat3_to_std140(m: Mat3) -> [[f32; 4]; 3] {
         [
             [m.x.x, m.x.y, m.x.z, 0.0],
             [m.y.x, m.y.y, m.y.z, 0.0],
@@ -69,13 +67,13 @@ impl Mat4x3 {
     }
     fn identity() -> Self {
         Self {
-            m: Self::mat3_to_std140(Matrix3::identity()),
+            m: Self::mat3_to_std140(Mat3::identity()),
         }
     }
 
     fn inverse_transpose(mat: &Mat4) -> Self {
-        let mat3x3 = Matrix3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
-        let nm = mat3x3.invert().unwrap_or(Matrix3::identity()).transpose();
+        let mat3x3 = Mat3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
+        let nm = mat3x3.invert().unwrap_or(Mat3::identity()).transpose();
 
         Self {
             m: Self::mat3_to_std140(nm),
@@ -130,7 +128,7 @@ pub struct GlobalUniform {
 
 ///shader: [pbr, blinnphong, light]
 #[repr(C, align(16))]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
     pub color: [f32; 3],
     pub directional: u32,
@@ -138,18 +136,39 @@ pub struct LightUniform {
     pub cast_shadow: u32,
     pub entity_id: u64,
     pub enabled: u32,
-    pub pad2: [i32; 1],
+    pub pad: [i32; 1],
 }
-impl Default for LightUniform {
-    fn default() -> Self {
+
+impl LightUniform {
+    fn new() -> Self {
         Self {
             color: [1.0, 1.0, 1.0],
             enabled: 1,
-            cast_shadow: 0,
             directional: 1,
             position: [0.0, 0.0, -1.0],
-            entity_id: 0,
-            pad2: [0],
+            ..Default::default()
+        }
+    }
+}
+
+pub const MAX_LIGHTS: usize = 64;
+#[repr(C, align(16))]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct LightsUniform {
+    pub lights: [LightUniform; MAX_LIGHTS],
+
+    pub count: u32,
+    pub enabled: u32,
+    pub pad: [u32; 2],
+}
+
+impl Default for LightsUniform {
+    fn default() -> Self {
+        Self {
+            lights: [LightUniform::new(); MAX_LIGHTS],
+            count: 0,
+            enabled: 0,
+            pad: [0; 2],
         }
     }
 }
@@ -170,7 +189,7 @@ pub struct MaterialUniform {
     pub alpha_mode: u32,
     pub alpha_cutoff: f32,
     pub transmission_factor: f32,
-    
+
     pub is_trasmissive: u32,
     pub pad: [u32; 3],
 }

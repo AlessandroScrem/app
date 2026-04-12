@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct LightPass {
-}
+pub struct LightPass {}
 
 impl LightPass {
     pub fn new() -> Self {
@@ -28,43 +27,52 @@ impl RenderPass for LightPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        let lights = &frame.lights;
-        let gpu_manager = ctx.gpu_mgr;
-        let pipeline_manager = ctx.pip_mgr;
+        if let Some(light_uniform) = frame.lights {
+            if light_uniform.enabled == 0 {
+                return;
+            }
 
-        // Render pass
-        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Light Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
+            let gpu_manager = ctx.gpu_mgr;
+            let pipeline_manager = ctx.pip_mgr;
+
+            // Render pass
+            let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Light Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
                 }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
-        let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
+            let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
+            let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
 
-        renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(1, light_texture_bind_group, &[]);
+            renderpass.set_pipeline(&pipeline);
+            renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
+            renderpass.set_bind_group(1, light_texture_bind_group, &[]);
 
-        for light in lights.iter() {
-            if light.enabled == 1 {
-                renderpass.draw(0..6, 0..1);
+            for light in light_uniform
+                .lights
+                .iter()
+                .take(light_uniform.count as usize)
+            {
+                if light.enabled == 1 {
+                    renderpass.draw(0..6, 0..1);
+                }
             }
         }
     }

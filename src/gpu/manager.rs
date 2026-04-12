@@ -8,7 +8,7 @@ use super::*;
 use crate::assets::vertexdata::LinesVertexData;
 use crate::assets::{ColorSpace, SamplerDesc};
 use crate::gpu::texture::{GpuTextureBuilder, GpuTextureUsage};
-use crate::uniform::{CameraUniform, GlobalUniform, LightUniform};
+use crate::uniform::{CameraUniform, GlobalUniform, LightsUniform};
 
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];
@@ -935,7 +935,7 @@ impl BufferCache {
             }
             BufferKind::Light => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Light Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[LightUniform::default()]),
+                contents: bytemuck::cast_slice(&[LightsUniform::default()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }),
         }

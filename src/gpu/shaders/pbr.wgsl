@@ -1,3 +1,14 @@
+const MAX_LIGHTS             : u32 = 64;
+const MAX_REFLECTION_LOD     : f32 = 7.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
+const MAX_SCENE_LOD          : f32 = 7.0; // max mips on "scene_color" (texture.mip_level_count() -1) 
+
+const COLOR_TEXTURE          : u32 = 1u << 0u;
+const NORMAL_TEXTURE         : u32 = 1u << 1u;
+const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
+const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
+const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
+const TRANSMISSION_TEXTURE   : u32 = 1u << 5u;
+
 /// Vertex shader
 
 struct Camera {
@@ -29,6 +40,14 @@ struct Light {
     entity_id_high: u32,
     enabled: u32,
 }
+
+struct Lights {
+    lights: array<Light, MAX_LIGHTS>,
+    
+    count: u32,
+    enabled: u32, 
+}
+
 
 struct Model {
     model: mat4x4<f32>,
@@ -64,7 +83,7 @@ struct VertexInput {
 // PerFrame
 @group(0) @binding(0) var<uniform> camera  : Camera;
 @group(0) @binding(1) var<uniform> globals : Globals;
-@group(0) @binding(2) var<uniform> light   : Light;
+@group(0) @binding(2) var<uniform> lights  : Lights;
 @group(2) @binding(0) var<uniform> model   : Model;
 
 struct VertexOutput {
@@ -102,15 +121,6 @@ fn vs_main(
 
 /// Fragment shader
 ///
-const NUM_LIGHTS             : u32 = 1;
-const MAX_REFLECTION_LOD     : f32 = 7.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
-
-const COLOR_TEXTURE          : u32 = 1u << 0u;
-const NORMAL_TEXTURE         : u32 = 1u << 1u;
-const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
-const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
-const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
-const TRANSMISSION_TEXTURE   : u32 = 1u << 5u;
 
 const True                   : u32 = 1;
 const False                  : u32 = 0;
@@ -167,7 +177,12 @@ fn CalculateLight(
     result.diffuse = vec3<f32>(0.0);
     result.specular = vec3<f32>(0.0);
 
-    for (var i: u32 = 0u; i < NUM_LIGHTS; i += 1u) {
+    if lights.enabled == False {
+        return result;
+    }
+
+    for (var i: u32 = 0u; i < lights.count; i += 1u) {
+        let light = lights.lights[i];
         if light.enabled == False {
             continue;
         }
@@ -391,10 +406,8 @@ fn computeTransmission(
     var uv = ndc_xy * 0.5 + vec2(0.5);
     uv.y = 1.0 - uv.y; // inverti Y se necessario
 
-    let max_lod = 7.0; // (MIP_COUNT = 8) -1 
-    let lod = roughness * max_lod;
-
     // Campiona con mip-level
+    let lod = roughness * MAX_SCENE_LOD;
     let color = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
     let transmitted = color * transmission;
 

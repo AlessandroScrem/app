@@ -3,6 +3,7 @@ use super::*;
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::math::*;
+use crate::uniform::LightsUniform;
 use crate::{entities::bounding_box_impl::BBoxVertexData, uniform::LightUniform};
 use legion::{Entity, World};
 
@@ -53,7 +54,7 @@ pub struct FrameData {
     pub transmission: Vec<MeshDraw>,
     pub transparent: Vec<MeshDraw>,
     pub bbox_bufferdata: Option<BBoxData>,
-    pub lights: Vec<LightUniform>,
+    pub lights: Option<LightsUniform>,
 
     // flags / tasks
     pub axis_enable: bool,
@@ -79,7 +80,7 @@ impl FrameBuilder {
             transmission: Vec::new(),
             transparent: Vec::new(),
             bbox_bufferdata: None,
-            lights: Vec::new(),
+            lights: None,
             outline_selected: false,
             picking: None,
             skybox_enable: None,
@@ -189,16 +190,20 @@ impl FrameBuilder {
     fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {
         
         // -------- Lights --------
+        let mut light_uniform = LightsUniform::default();
+        light_uniform.enabled = globals.light_enable.into();
+        
         use legion::IntoQuery;
         let mut light_query = <(Entity, &LightComponent)>::query();
-
-        for (entity, light) in light_query.iter(world) {
+        for (i,  (entity, light)) in light_query.iter(world).take(uniform::MAX_LIGHTS).enumerate() {
             let data = LightUniform {
                 entity_id: entities::EntityRawU64::as_raw_u64(entity),
-                enabled: globals.light_enable as u32,
-                ..light.data
+                .. light.into()
             };
-            frame.lights.push(data);
+            light_uniform.count = (i + 1)  as u32;
+            light_uniform.lights[i] = data;
         }
+
+        frame.lights = Some(light_uniform);
     }
 }

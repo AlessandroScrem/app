@@ -371,30 +371,29 @@ impl LightComponent {
 
         let light = self;
         if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
-            let data = &mut light.data;
             dirty |= Drag::new("Position")
                 .speed(0.1)
-                .build_array(ui, &mut data.position);
-            dirty |= ui.color_edit3("Color", &mut data.color);
+                .build_array(ui, &mut light.position);
+            dirty |= ui.color_edit3("Color", &mut light.color);
             {
-                let mut enabled = data.enabled != 0;
+                let mut enabled = light.enabled;
                 if ui.checkbox("Enabled", &mut enabled) {
-                    data.enabled = enabled as u32;
+                    light.enabled = enabled;
                     dirty = true;
                 }
             }
             {
-                let mut directional = data.directional != 0;
+                let mut directional = light.directional;
                 if ui.checkbox("Directional", &mut directional) {
-                    data.directional = directional as u32;
+                    light.directional = directional;
                     dirty = true;
                 }
             }
 
             {
-                let mut cast_shadow = data.cast_shadow != 0;
+                let mut cast_shadow = light.cast_shadow;
                 if ui.checkbox("Cast Shadow", &mut cast_shadow) {
-                    data.cast_shadow = cast_shadow as u32;
+                    light.cast_shadow = cast_shadow;
                     dirty = true;
                 }
             }
