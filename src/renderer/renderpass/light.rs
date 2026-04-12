@@ -1,28 +1,11 @@
 use super::*;
 
 #[derive(Default)]
-pub struct LightPass {
-    pub lights: Vec<LightUniform>,
-}
+pub struct LightPass {}
 
 impl LightPass {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl LightPass {
-    fn update_to_gpu(&mut self, ctx: &mut RenderContext) {
-        let queue = ctx.queue;
-        let gpu_mgr = ctx.gpu_mgr;
-
-        for light in self.lights.iter() {
-            queue.write_buffer(
-                gpu_mgr.get_buffer(BufferKind::Light),
-                0,
-                bytemuck::bytes_of(light),
-            );
-        }
     }
 }
 
@@ -35,76 +18,62 @@ impl RenderPass for LightPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::DEPTH]
-    }
-
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        world: &World,
-        _globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        ctx: &mut RenderContext,
-    ) {
-        self.lights.clear();
-
-        // -------- Lights --------
-        let mut light_query = <(Entity, &LightComponent)>::query();
-
-        for (entity, light) in light_query.iter(world) {
-            let data = LightUniform {
-                entity_id: entity.as_raw_u64(),
-                ..light.data
-            };
-            self.lights.push(data);
-        }
-
-        self.update_to_gpu(ctx);
+        &[ResourceId::HDR, ResourceId::DEPTH]
     }
 
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        let gpu_manager = ctx.gpu_mgr;
-        let pipeline_manager = ctx.pip_mgr;
-        let lights = &self.lights;
+        if let Some(light_uniform) = frame.lights {
+            if light_uniform.enabled == 0 {
+                return;
+            }
 
-        // Render pass
-        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Light Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
+            let gpu_manager = ctx.gpu_mgr;
+            let pipeline_manager = ctx.pip_mgr;
+
+            // Render pass
+            let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Light Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
                 }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
-        let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
-        let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
+            let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
+            let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
 
-        renderpass.set_pipeline(&pipeline);
-        renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(1, light_texture_bind_group, &[]);
+            renderpass.set_pipeline(&pipeline);
+            renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
+            renderpass.set_bind_group(1, light_texture_bind_group, &[]);
 
-        for _light in lights.iter() {
-            renderpass.draw(0..6, 0..1);
+            for light in light_uniform
+                .lights
+                .iter()
+                .take(light_uniform.count as usize)
+            {
+                if light.enabled == 1 {
+                    renderpass.draw(0..6, 0..1);
+                }
+            }
         }
     }
 }

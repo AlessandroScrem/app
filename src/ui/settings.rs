@@ -157,6 +157,8 @@ impl Globals {
         let mut axis_enable = self.axis_enable;
         let mut bbox_enable = self.bbox_enable;
         let mut mips_cs = self.mips_cs;
+        let mut env_rotation = self.env_rotation;
+
         use GlobalEvent::*;
         if ui.checkbox("Mips with CS", &mut mips_cs) {
             command = Some(DomainEvent::Global(MipsCsEnable(mips_cs)));
@@ -176,6 +178,9 @@ impl Globals {
             if ui.checkbox("Blur", &mut skybox_enable_blur) {
                 command = Some(DomainEvent::Global(SkyboxEnableBlur(skybox_enable_blur)));
             }
+        }
+        if ui.slider_config("Env rotation", 0.0, 360.0).build(&mut env_rotation) {
+            command = Some(DomainEvent::Global(EnvRotation(env_rotation)));
         }
         if ui.checkbox("Axis enable", &mut axis_enable) {
             command = Some(DomainEvent::Global(AxisEnable(axis_enable)));

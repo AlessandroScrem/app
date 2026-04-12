@@ -299,6 +299,13 @@ impl MaterialDesc {
         self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
     }
 
+    pub fn is_transparent(&self) -> bool {
+        match self.alpha_mode {
+            AlphaMode::Blend => true,
+            _ => false
+        }
+    }
+
 
     pub fn set_texture(
         &mut self,
@@ -422,6 +429,8 @@ impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
         let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
         let transmission_factor = Transmission::to_uniform(value.transmission);
+        let is_trasmissive = value.is_transmissive().into();
+
         Self {
             color_factor: value.base_color_factor.into(),
             emissive_factor: value.emissive_factor.into(),
@@ -433,6 +442,7 @@ impl From<&MaterialDesc> for MaterialUniform {
             alpha_mode,
             alpha_cutoff,
             transmission_factor,
+            is_trasmissive,
             ..Default::default()
         }
     }

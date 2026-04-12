@@ -53,6 +53,7 @@ pub(crate) use prelude::*;
 #[allow(unused_imports)]
 pub(crate) mod math {
     use cgmath::*;
+    pub type Mat3 = Matrix3<f32>;
     pub type Mat4 = Matrix4<f32>;
     pub type Vec2 = Vector2<f32>;
     pub type Vec3 = Vector3<f32>;
@@ -103,6 +104,7 @@ pub(crate) struct Globals {
     pub ibl_enable: bool,
     pub skybox_enable: bool,
     pub skybox_enable_blur: bool,
+    pub env_rotation: f32,
     pub exposure: f32,
     pub ibl_intensity: f32,
     pub tonemap_filter: u32,
@@ -121,7 +123,7 @@ impl Default for Globals {
             skybox_enable: true,
             skybox_enable_blur: true,
             exposure: 1.0,
-
+            env_rotation: 0.0,
             ibl_intensity: 1.0,
             tonemap_filter: 0,
             axis_enable: true,

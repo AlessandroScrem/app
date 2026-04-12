@@ -29,7 +29,7 @@ A modern 3D/2D render engine that uses wgpu
 - [x] Import gltf with hierarchy
 - [x] Material Editor per Submesh
 - [x] Material gltf Transmission
-- [ ] Environment rotation
+- [x] Environment rotation
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 

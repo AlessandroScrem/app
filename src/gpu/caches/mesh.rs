@@ -68,6 +68,7 @@ impl GpuMeshCache {
         self.map.get(*id)
     }
 
+    #[allow(unused)]
     pub fn keys(&self) -> impl Iterator<Item = MeshId> {
         self.map.keys()
     }

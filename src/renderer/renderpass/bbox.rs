@@ -1,30 +1,12 @@
 use super::*;
-use crate::entities::bounding_box_impl::{BBoxVertexData, VERTICES};
 
 #[derive(Default)]
 pub struct BoundingboxPass {
-    enable: bool,
-    vertexbuffer: Option<wgpu::Buffer>,
-    count: u32,
 }
 
 impl BoundingboxPass {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl BoundingboxPass {
-    fn create_buffer(&mut self, device: &wgpu::Device, vertices: Vec<BBoxVertexData>) {
-        use wgpu::util::DeviceExt;
-        let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("BBox Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        self.count = (vertices.len() * VERTICES) as u32;
-        self.vertexbuffer = Some(vertexbuffer);
     }
 }
 
@@ -37,64 +19,26 @@ impl RenderPass for BoundingboxPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA]
+        &[ResourceId::HDR]
     }
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        world: &World,
-        globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        ctx: &mut RenderContext,
-    ) {
-        if !globals.axis_enable {
-            return;
-        }
-
-        // create unique vb every pass
-        self.vertexbuffer = None;
-
-        self.enable = globals.bbox_enable;
-        let axis_aligned = globals.bbox_axis_aligned;
-
-        // -------- BoundingBox --------
-        let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
-
-        let vertexdata = bbox_query
-            .iter(world)
-            .map(|(bbox, global_model)| {
-                if axis_aligned {
-                    bbox.gen_aabb_vertices()
-                } else {
-                    bbox.gen_obb_vertices(&global_model.mat)
-                }
-            })
-            .collect::<Vec<_>>();
-
-        if !vertexdata.is_empty() {
-            self.create_buffer(ctx.device, vertexdata);
-        }
-    }
 
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        if !self.enable {
-            return;
-        }
 
-        let Some(vertexbuffer) = self.vertexbuffer.as_ref() else {
+        let Some(bufferdata) = frame.bbox_bufferdata.as_ref() else {
             return;
         };
 
+        let count = bufferdata.count;
+        let vertexbuffer = &bufferdata.vertexbuffer;
+
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let count = self.count;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

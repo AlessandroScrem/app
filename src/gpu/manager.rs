@@ -8,7 +8,7 @@ use super::*;
 use crate::assets::vertexdata::LinesVertexData;
 use crate::assets::{ColorSpace, SamplerDesc};
 use crate::gpu::texture::{GpuTextureBuilder, GpuTextureUsage};
-use crate::uniform::{CameraUniform, GlobalUniform, LightUniform};
+use crate::uniform::{CameraUniform, GlobalUniform, LightsUniform};
 
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];
@@ -31,15 +31,13 @@ pub enum LayoutKind {
     PerFrame,
     Lines,
     LightTexture,
-    Ibl,
-    Transmission,
+    PbrMaps,
     Material,
     Model,
     Skybox,
-    Hdr,
+    Hdr, 
     Depth,
     EntityId,
-    CsMipmaps,
 }
 
 struct LayoutCache {
@@ -61,7 +59,7 @@ impl LayoutCache {
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum FramebufferKind {
     Hdr,
-    HdrOpaque,
+    OpaqueWithMips,
     EntityId,
     Depth,
 }
@@ -111,8 +109,7 @@ pub enum BindgroupKind {
     Camera,
     Perframe,
     LightTexture,
-    Ibl,
-    Transmission,
+    PbrMap,
 }
 
 struct BindgroupCache {
@@ -255,37 +252,19 @@ impl GpuManager {
     }
 
     // CHANGE ME!
-    pub fn update_ibl_bind_group(
+    pub fn update_pbrmap_bind_group(
         &mut self,
         device: &wgpu::Device,
         entries: &Vec<wgpu::BindGroupEntry>,
     ) {
         let bg = create_bindgroup(
             device,
-            LayoutKind::Ibl,
+            LayoutKind::PbrMaps,
             &self.layout_cache,
             &self.framebuffer_cache,
             entries,
         );
-        self.update_bindgroup(BindgroupKind::Ibl, bg);
-
-        // TODO: CHANGEME!
-        self.update_transmission_bind_group(device, entries);
-    }
-
-    pub fn update_transmission_bind_group(
-        &mut self,
-        device: &wgpu::Device,
-        entries: &Vec<wgpu::BindGroupEntry>,
-    ) {
-        let bg = create_bindgroup(
-            device,
-            LayoutKind::Transmission,
-            &self.layout_cache,
-            &self.framebuffer_cache,
-            entries,
-        );
-        self.update_bindgroup(BindgroupKind::Transmission, bg);
+        self.update_bindgroup(BindgroupKind::PbrMap, bg);
     }
 }
 
@@ -388,56 +367,9 @@ impl LayoutCache {
                     ],
                 })
             }
-            LayoutKind::Ibl => {
+            LayoutKind::PbrMaps => {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Ibl_bind_group_layout"),
-                    entries: &[
-                        // sampler
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                        // irradiance texture
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::Cube,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        // prefiltered texture
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 2,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::Cube,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        // brdf_lut texture
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 3,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                    ],
-                })
-            }
-            LayoutKind::Transmission => {
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Transmission_bind_group_layout"),
                     entries: &[
                         // sampler
                         wgpu::BindGroupLayoutEntry {
@@ -706,37 +638,7 @@ impl LayoutCache {
                         },
                     ],
                 })
-            }
-
-            LayoutKind::CsMipmaps => {
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("CS_Mipmaps_bind_group_layout"),
-                    entries: &[
-                        // src texture
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::StorageTexture {
-                                access: wgpu::StorageTextureAccess::ReadOnly,
-                                format: wgpu::TextureFormat::Rgba16Float,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                            },
-                            count: None,
-                        },
-                        // dst texture
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::StorageTexture {
-                                access: wgpu::StorageTextureAccess::WriteOnly,
-                                format: wgpu::TextureFormat::Rgba16Float,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                            },
-                            count: None,
-                        },
-                    ],
-                })
-            }
+            } 
         }
     }
 }
@@ -779,10 +681,11 @@ impl FramebufferCache {
                     bind_group,
                 }
             }
-            FramebufferKind::HdrOpaque => {
+            FramebufferKind::OpaqueWithMips => {
                 const HDR_MIPS_COUNT: u32 = 8;
                 let texture = GpuTextureBuilder::from_empty(width, height)
-                    .format(ColorSpace::Rgbaf16)
+                    // .format(ColorSpace::Rgbaf16)
+                    .format(ColorSpace::Rgba8)
                     .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTextureStorage)
                     .sampler(SamplerDesc::LinearMipmap)
@@ -942,60 +845,14 @@ impl BindgroupCache {
                     label: Some("light texture_bind_group"),
                 })
             }
-            BindgroupKind::Ibl => {
-                let texture =
-                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                        .build(device, Some(queue));
-
-                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .dimension(gpu::texture::Dimension::Cube)
-                    .format(ColorSpace::Rgba8)
-                    .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::Linear)
-                    .label("Cube white texture")
-                    .build(device, Some(queue));
-
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::FilterMode::Linear,
-                    ..Default::default()
-                });
-
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(LayoutKind::Ibl),
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 3,
-                            resource: wgpu::BindingResource::TextureView(&texture.view),
-                        },
-                    ],
-                    label: Some("Fake Ibl Bind Group"),
-                })
-            }
-
-            BindgroupKind::Transmission => {
-                let scene_view = framebuffer_cache.get_view(FramebufferKind::HdrOpaque);
-                let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::HdrOpaque);
+            BindgroupKind::PbrMap => {
+                let scene_view = framebuffer_cache.get_view(FramebufferKind::OpaqueWithMips);
+                let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
 
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                         .build(device, Some(queue));
+
                 let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                     .dimension(gpu::texture::Dimension::Cube)
                     .format(ColorSpace::Rgba8)
@@ -1015,7 +872,7 @@ impl BindgroupCache {
                 });
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(LayoutKind::Transmission),
+                    layout: layouts.get(LayoutKind::PbrMaps),
                     entries: &[
                         // sampler
                         wgpu::BindGroupEntry {
@@ -1048,7 +905,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&scene_view),
                         },
                     ],
-                    label: Some("Fake Transmission Bind Group"),
+                    label: Some("Fake Ibl Bind Group"),
                 })
             }
         }
@@ -1078,7 +935,7 @@ impl BufferCache {
             }
             BufferKind::Light => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Light Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[LightUniform::default()]),
+                contents: bytemuck::cast_slice(&[LightsUniform::default()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }),
         }
@@ -1093,17 +950,11 @@ fn create_bindgroup(
     entries: &Vec<wgpu::BindGroupEntry>,
 ) -> wgpu::BindGroup {
     let (label, all_entries) = match layout {
-        LayoutKind::Ibl => {
-            let e = entries.clone();
-            (Some("Ibl Bindgroup"), e)
-        }
+        LayoutKind::PbrMaps => {
+            let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
+            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::OpaqueWithMips);
 
-        LayoutKind::Transmission => {
             let mut e = entries.clone();
-
-            let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::HdrOpaque);
-            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::HdrOpaque);
-
             e.extend([
                 wgpu::BindGroupEntry {
                     binding: 4,
@@ -1114,10 +965,8 @@ fn create_bindgroup(
                     resource: wgpu::BindingResource::TextureView(hdr_t_view),
                 },
             ]);
-
-            (Some("Transmission Bindgroup"), e)
+            (Some("Ibl Bindgroup"), e)
         }
-
         _ => unimplemented!("Layout kind unimplemented for bindgroup creation"),
     };
 

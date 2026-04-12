@@ -211,7 +211,7 @@ pub(crate) fn enable_all_lights(enable: bool, world: &mut legion::World) {
     let mut query = <&mut LightComponent>::query();
 
     for light in query.iter_mut(world) {
-        light.data.enabled = enable as u32;
+        light.enabled = enable;
     }
 }
 

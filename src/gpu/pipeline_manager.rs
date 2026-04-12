@@ -158,7 +158,6 @@ pub enum PipelineKind {
     BlinnPhong,
     Lines,
     Pbr,
-    Transmission,
     Hdr,
     Light,
     Skybox,
@@ -169,6 +168,7 @@ pub enum PipelineKind {
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum CsPipelineKind {
     BuildMipmaps,
+    CopyToMip0,
 }
 
 pub struct PipelineManager {
@@ -285,7 +285,7 @@ fn create_pipeline(
                 gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
                 gpu_resource_manager.get_layout(LayoutKind::Material), //1
                 gpu_resource_manager.get_layout(LayoutKind::Model),    //2
-                gpu_resource_manager.get_layout(LayoutKind::Ibl),      //3
+                gpu_resource_manager.get_layout(LayoutKind::PbrMaps),      //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -315,47 +315,6 @@ fn create_pipeline(
 
             pipeline_desc.build_pipeline(
                 "Pbr Pipeline",
-                device,
-                render_pipeline_layout,
-                targets,
-                shader,
-                buffer_desc,
-            )
-        }
-        PipelineKind::Transmission => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::PerFrame), //0
-                gpu_resource_manager.get_layout(LayoutKind::Material), //1
-                gpu_resource_manager.get_layout(LayoutKind::Model),    //2
-                gpu_resource_manager.get_layout(LayoutKind::Transmission), //3
-            ];
-            let render_pipeline_layout =
-                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Transmission Pipeline Layout"),
-                    bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
-                });
-            let shader =
-                device.create_shader_module(wgpu::include_wgsl!("shaders/transmission.wgsl"));
-            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
-
-            let targets = &[
-                Some(wgpu::ColorTargetState {
-                    format: hdr_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }),
-                Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rg32Uint,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                }),
-            ];
-
-            let pipeline_desc = PipelineExt::default();
-
-            pipeline_desc.build_pipeline(
-                "Transmission Pipeline",
                 device,
                 render_pipeline_layout,
                 targets,
@@ -512,7 +471,7 @@ fn create_pipeline(
                 "BuildMipmaps Pipeline",
                 device,
                 render_pipeline_layout,
-                hdr_format,
+                wgpu::TextureFormat::Rgba8Unorm,
                 shader,
                 buffer_desc,
             )
@@ -522,26 +481,29 @@ fn create_pipeline(
 
 fn create_cs_pipeline(
     device: &wgpu::Device,
+    #[allow(unused)]
     gpu_resource_manager: &GpuManager,
     kind: CsPipelineKind,
 ) -> wgpu::ComputePipeline {
     match kind {
         CsPipelineKind::BuildMipmaps => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_layout(LayoutKind::CsMipmaps), //0
-            ];
-            let cs_pipeline_layout =
-                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("BuildMipmaps CS Pipeline Layout"),
-                    bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
-                });
-
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_mips.wgsl"));
 
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("BuildMipmaps CS Pipeline"),
-                layout: Some(&cs_pipeline_layout),
+                layout: None,
+                module: &shader,
+                entry_point: Some("cs_main"),
+                compilation_options: Default::default(),
+                cache: None,
+            })
+        }
+        CsPipelineKind::CopyToMip0 => {
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip0.wgsl"));
+
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("BuildMipmaps CS Pipeline"),
+                layout: None,
                 module: &shader,
                 entry_point: Some("cs_main"),
                 compilation_options: Default::default(),

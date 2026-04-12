@@ -16,7 +16,6 @@ use crate::Globals;
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
-    pub queue: &'a Queue,
     pub gpu_cache: &'a GpuCache,
 
     pub gpu_mgr: &'a GpuManager,
@@ -30,9 +29,7 @@ pub struct SceneRenderer {
     skybox_mgr: SkyboxManager,
 
     pickobject: PickObject,
-    #[allow(unused)]
     default_pass: Vec<RenderPassEnum>,
-    transmission_pass: Vec<RenderPassEnum>,
 }
 
 impl SceneRenderer {
@@ -58,21 +55,10 @@ impl SceneRenderer {
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         let default_pass = vec![
-            RenderPassEnum::Mesh(MeshPass::new()),
-            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Mesh(MeshPass::opaque()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
-            RenderPassEnum::Axis(AxisPass::new()),
-            RenderPassEnum::BBox(BoundingboxPass::new()),
-            RenderPassEnum::Linearize(LinearizePass::new()),
-            RenderPassEnum::Outline(OutlinePass::new()),
-            RenderPassEnum::PickObject(PickObjectPass::new()),
-        ];
-
-        let transmission_pass = vec![
-            RenderPassEnum::Mesh(MeshPass::new()),
-            RenderPassEnum::Skybox(SkyboxPass::new()),
-            RenderPassEnum::HdrMipmaps(HdrMipmapsPass::new()),
-            RenderPassEnum::Transmission(TransmissionPass::new()),
+            RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
+            RenderPassEnum::Transmission(MeshPass::transmission()),
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::BBox(BoundingboxPass::new()),
@@ -84,8 +70,7 @@ impl SceneRenderer {
         Self {
             skybox_mgr,
             pickobject,
-            default_pass: default_pass,
-            transmission_pass,
+            default_pass,
         }
     }
 
@@ -149,8 +134,18 @@ impl SceneRenderer {
         self.sync_skybox(gpu_manager, gpu_cache, gpu_context, asset_mgr);
         gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
 
-        // update global data (uniform) to GPU
-        // TODO! move out of here
+        
+        let frame = FrameBuilder::build(
+            world,
+            &gpu_context.device,
+            asset_mgr,
+            selected,
+            &self.pickobject,
+            input,
+            globals,
+        );
+        
+        // Update uniform buffer data to gpu
         self.update_render_globals_to_gpu(
             gpu_context,
             gpu_manager,
@@ -159,10 +154,11 @@ impl SceneRenderer {
             selected,
             size,
         );
+        Self::update_meshes_materials_to_gpu(asset_mgr, gpu_context, gpu_cache, &frame);
+        Self::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
 
         let mut ctx = RenderContext {
             device: &gpu_context.device,
-            queue: &gpu_context.queue,
             gpu_cache: &gpu_cache,
 
             gpu_mgr: &gpu_manager,
@@ -172,13 +168,9 @@ impl SceneRenderer {
             target: &target,
         };
 
-        // Update world buffer data to gpu
-        for pass in &mut self.transmission_pass {
-            pass.prepare(asset_mgr, world, globals, selected, input, &mut ctx);
-        }
 
-        for pass in &mut self.transmission_pass {
-            pass.execute(encoder, &mut ctx, &asset_mgr);
+        for pass in &mut self.default_pass {
+            pass.execute(encoder, &mut ctx, &frame);
         }
     }
 
@@ -205,5 +197,59 @@ impl SceneRenderer {
             &gpu_context.queue,
             &GlobalUniform::from_global_id(globals, entity_id),
         );
+    }
+
+    // TODO! move out of here
+    fn update_meshes_materials_to_gpu(
+        asset_mgr: &AssetManager,
+        gpu_context: &GpuContext,
+        gpu_cache: &mut GpuCache,
+        frame: &FrameData,
+    ) {
+        use cgmath::SquareMatrix;
+        // -------- Mesh --------
+        let queue = &gpu_context.queue;
+
+        fn gpu_update(
+            asset_mgr: &AssetManager,
+            gpu_cache: &GpuCache,
+            queue: &Queue,
+            meshdraw: &MeshDraw,
+        ) {
+            assert!(
+                meshdraw.transform.determinant() > 0.0,
+                "matrix determinant is negative"
+            );
+
+            let mut model = uniform::ModelUniform::new(meshdraw.transform);
+            model.entity_id = meshdraw.entity_id.as_raw_u64();
+            gpu_cache.mesh.update(&meshdraw.mesh, queue, &model);
+            if let Some(material_desc) = asset_mgr.materials.get_desc(meshdraw.material) {
+                let updated_uniform = uniform::MaterialUniform::from(material_desc);
+                gpu_cache
+                    .material
+                    .update(&meshdraw.material, queue, &updated_uniform);
+            }
+        }
+
+        for meshdraw in frame.opaque.iter() {
+            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        }
+        for meshdraw in frame.transmission.iter() {
+            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        }
+    }
+
+    // TODO! move out of here
+    fn update_lights_to_gpu(gpu_context: &GpuContext, gpu_manager: &GpuManager, frame: &FrameData) {
+        let queue = &gpu_context.queue;
+
+        if let Some(light_uniform) = frame.lights {
+            queue.write_buffer(
+                gpu_manager.get_buffer(BufferKind::Light),
+                0,
+                bytemuck::bytes_of(&light_uniform),
+            );
+        }
     }
 }

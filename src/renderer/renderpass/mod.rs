@@ -1,41 +1,86 @@
 pub(crate) mod axis;
 pub(crate) mod bbox;
+pub(crate) mod build_mipmaps;
 pub(crate) mod light;
 pub(crate) mod linearize;
 pub(crate) mod mesh;
-pub(crate) mod transmission;
 pub(crate) mod outline;
 pub(crate) mod pickobject;
 pub(crate) mod skybox;
-pub(crate) mod hdr_mipmaps;
 
 pub(crate) use axis::AxisPass;
 pub(crate) use bbox::BoundingboxPass;
+pub(crate) use build_mipmaps::BuildMipmapsPass;
 pub(crate) use light::LightPass;
 pub(crate) use linearize::LinearizePass;
 pub(crate) use mesh::MeshPass;
-pub(crate) use transmission::TransmissionPass;
 pub(crate) use outline::OutlinePass;
 pub(crate) use pickobject::PickObjectPass;
 pub(crate) use skybox::SkyboxPass;
-pub(crate) use hdr_mipmaps::HdrMipmapsPass;
 
-use crate::assets::asset_manager::AssetManager;
-use crate::entities::EntityRawU64;
-use crate::input::Input;
+use crate::renderer::FrameData;
 use crate::renderer::pipeline_manager::PipelineKind;
-use crate::uniform::{LightUniform, MaterialUniform};
-use crate::{BoundingBoxComponent, LightComponent};
-use crate::{GlobalModelComponent, Globals, MeshComponent, renderer::scene_renderer::RenderContext,
-    uniform::ModelUniform,
-};
+use crate::renderer::scene_renderer::RenderContext;
 
-pub(crate) use legion::query::IntoQuery;
-pub(crate) use legion::{Entity, World};
+pub(crate) use crate::gpu::manager::*;
 use wgpu::IndexFormat;
-pub (crate) use crate::gpu::manager::*;
 
-pub (crate) use super::renderer::rendergraph::*;
+pub(crate) use super::renderer::rendergraph::*;
+
+// resources needeed
+// mesh :
+//      gpu_mesh: &'a GpuMesh,
+//      gpu_manager = ctx.gpu_mgr;
+//      material_bg: &'a wgpu::BindGroup,
+//      index_range: &'a std::ops::Range<u32>,
+//      pipeline_manager = ctx.pip_mgr;
+
+// skybox:
+//      globals:
+//      gpu_manager = ctx.gpu_mgr;
+//      pipeline_manager = ctx.pip_mgr;
+//      skybox_manager = ctx.skb_mgr;
+
+// build mipmaps:
+//      globals:
+//      gpu_manager = ctx.gpu_mgr;
+//      pipeline_manager = ctx.pip_mgr;
+//
+
+// light:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// axis:
+//      globals:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// bbox:
+//      globals:
+//      vertexbuffer;
+//      count;
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// linearize:
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// outline:
+//      selected;
+//      pipeline_manager = ctx.pip_mgr;
+//      gpu_manager = ctx.gpu_mgr;
+//
+
+// pickobject:
+//      input;
+//      pickobject = ctx.pickobject;
+//      gpu_manager = ctx.gpu_mgr;
 
 pub(crate) trait RenderPass {
     #[allow(dead_code)]
@@ -43,28 +88,19 @@ pub(crate) trait RenderPass {
     fn reads(&self) -> &[ResourceId];
     fn writes(&self) -> &[ResourceId];
 
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        _globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ){}
-
     fn execute(
         &mut self,
         _encoder: &mut wgpu::CommandEncoder,
         _ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
-    ){}
+        _frame: &FrameData,
+    ) {
+    }
 }
-
 
 pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
-    Transmission(TransmissionPass),
+    Transmission(MeshPass),
+    BuildMipmaps(BuildMipmapsPass),
     Light(LightPass),
     Skybox(SkyboxPass),
     Axis(AxisPass),
@@ -72,116 +108,44 @@ pub(crate) enum RenderPassEnum {
     Linearize(LinearizePass),
     Outline(OutlinePass),
     PickObject(PickObjectPass),
-    HdrMipmaps(HdrMipmapsPass),
+}
+
+macro_rules! impl_render_pass_enum {
+    ($self:ident, $method:ident $(, $arg:ident)*) => {
+        match $self {
+            Self::Mesh(p) => p.$method($($arg),*),
+            Self::Transmission(p) => p.$method($($arg),*),
+            Self::Skybox(p) => p.$method($($arg),*),
+            Self::BuildMipmaps(p) => p.$method($($arg),*),
+            Self::Light(p) => p.$method($($arg),*),
+            Self::Axis(p) => p.$method($($arg),*),
+            Self::BBox(p) => p.$method($($arg),*),
+            Self::Linearize(p) => p.$method($($arg),*),
+            Self::Outline(p) => p.$method($($arg),*),
+            Self::PickObject(p) => p.$method($($arg),*),
+        }
+    };
 }
 
 impl RenderPass for RenderPassEnum {
     fn name(&self) -> &'static str {
-        match self {
-            RenderPassEnum::Mesh(p) => p.name(),
-            RenderPassEnum::Transmission(p) => p.name(),
-            RenderPassEnum::Light(p) => p.name(),
-            RenderPassEnum::Skybox(p) => p.name(),
-            RenderPassEnum::Axis(p) => p.name(),
-            RenderPassEnum::BBox(p) => p.name(),
-            RenderPassEnum::Linearize(p) => p.name(),
-            RenderPassEnum::Outline(p) => p.name(),
-            RenderPassEnum::PickObject(p) => p.name(),
-            RenderPassEnum::HdrMipmaps(p) => p.name(),
-        }
+        impl_render_pass_enum!(self, name)
     }
-    
+
     fn reads(&self) -> &[ResourceId] {
-        match self {
-            RenderPassEnum::Mesh(p) => p.reads(),
-            RenderPassEnum::Transmission(p) => p.reads(),
-            RenderPassEnum::Light(p) => p.reads(),
-            RenderPassEnum::Skybox(p) => p.reads(),
-            RenderPassEnum::Axis(p) => p.reads(),
-            RenderPassEnum::BBox(p) => p.reads(),
-            RenderPassEnum::Linearize(p) => p.reads(),
-            RenderPassEnum::Outline(p) => p.reads(),
-            RenderPassEnum::PickObject(p) => p.reads(),
-            RenderPassEnum::HdrMipmaps(p) => p.reads(),
-        }
+        impl_render_pass_enum!(self, reads)
     }
 
     fn writes(&self) -> &[ResourceId] {
-        match self {
-            RenderPassEnum::Mesh(p) => p.writes(),
-            RenderPassEnum::Transmission(p) => p.writes(),
-            RenderPassEnum::Light(p) => p.writes(),
-            RenderPassEnum::Skybox(p) => p.writes(),
-            RenderPassEnum::Axis(p) => p.writes(),
-            RenderPassEnum::BBox(p) => p.writes(),
-            RenderPassEnum::Linearize(p) => p.writes(),
-            RenderPassEnum::Outline(p) => p.writes(),
-            RenderPassEnum::PickObject(p) => p.writes(),
-            RenderPassEnum::HdrMipmaps(p) => p.writes(),
-        }
-    }
-
-    fn prepare(
-        &mut self,
-        asset_mgr: &AssetManager,
-        world: &World,
-        globals: &Globals,
-        selected: Option<Entity>,
-        input: &Input,
-        ctx: &mut RenderContext,
-    ) {
-        match self {
-            RenderPassEnum::Mesh(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Transmission(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Light(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Skybox(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Axis(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::BBox(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Linearize(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::Outline(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::PickObject(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-            RenderPassEnum::HdrMipmaps(p) => {
-                p.prepare(asset_mgr, world, globals, selected, input, ctx)
-            }
-        }
+        impl_render_pass_enum!(self, writes)
     }
 
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        match self {
-            RenderPassEnum::Mesh(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Transmission(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Light(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Skybox(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Axis(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::BBox(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Linearize(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::Outline(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::PickObject(p) => p.execute(encoder, ctx, asset_mgr),
-            RenderPassEnum::HdrMipmaps(p) => p.execute(encoder, ctx, asset_mgr),
-        }
+        impl_render_pass_enum!(self, execute, encoder, ctx, frame)
     }
 }
-

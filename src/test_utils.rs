@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use wgpu::Extent3d;
+use std::sync::OnceLock;
 use wgpu::RequestAdapterOptions;
 
 static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
@@ -7,30 +7,16 @@ static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new()
 pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
-        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,     // niente finestra
-            force_fallback_adapter: true, // <- importantissimo
-        }))
-        .unwrap();
+        let adapter =
+            pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::LowPower,
+        compatible_surface: None, // niente finestra
+        force_fallback_adapter: true, // <- importantissimo
+    }))
+                .unwrap();
 
-        if !adapter
-            .get_texture_format_features(wgpu::TextureFormat::Rgba16Float)
-            .allowed_usages
-            .contains(wgpu::TextureUsages::STORAGE_BINDING)
-        {
-            panic!("RGBA16F non supporta storage su questa GPU");
-        }
-
-        let features = wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: features,
-            ..Default::default()
-        }))
-        .expect("unable to create device");
-    
-        // let (device, queue) =
-        //     pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
 
         (device, queue)
     })
@@ -671,7 +657,7 @@ mod tests {
 
         let _rgba16f =
             create_debug_cube_texture(device, &queue, wgpu::TextureFormat::Rgba16Float, 64);
-
+        
         #[cfg(feature = "save_tests")]
         save_cubemap_cross(&device, &queue, "testimage.png", &_rgba16f).unwrap();
     }

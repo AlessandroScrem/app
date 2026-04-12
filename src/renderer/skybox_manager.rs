@@ -822,7 +822,7 @@ impl SkyboxManager {
         );
 
         let entries = skybox.to_bindgroup_entry();
-        gpu_manager.update_ibl_bind_group(device, &entries);
+        gpu_manager.update_pbrmap_bind_group(device, &entries);
 
         Self {
             _brdf_lut: brdf_lut,
@@ -853,7 +853,7 @@ impl SkyboxManager {
         );
 
         let entries = self.skybox.to_bindgroup_entry();
-        gpu_manager.update_ibl_bind_group(device, &entries);
+        gpu_manager.update_pbrmap_bind_group(device, &entries);
     }
 
     pub fn get_skybox(&self, blur: bool) -> &wgpu::BindGroup {
@@ -870,7 +870,7 @@ impl SkyboxManager {
 
     pub fn update_ibl_bind_group(&self, device: &wgpu::Device, gpu_manager: &mut GpuManager) {
         let entries = self.skybox.to_bindgroup_entry();
-        gpu_manager.update_ibl_bind_group(device, &entries);
+        gpu_manager.update_pbrmap_bind_group(device, &entries);
     }
 
     fn create_skybox(

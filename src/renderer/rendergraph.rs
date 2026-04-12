@@ -7,9 +7,9 @@ use std::collections::HashMap;
 pub enum  ResourceId {
     ENTITY,
     DEPTH,
-    HDRA,
-    HDRB,
+    HDR,
     LDR,
+    OPAQUE,
     PICKBUFFER,
 }
 
@@ -17,8 +17,8 @@ use std::fmt;
 impl fmt::Display for ResourceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            Self::HDRA => "HDR",
-            Self::HDRB => "HDRB",
+            Self::HDR => "HDR",
+            Self::OPAQUE => "Opaque",
             Self::DEPTH => "Depth",
             Self::ENTITY => "EntityID",
             Self::LDR => "LDR",
@@ -248,13 +248,14 @@ impl RenderGraph {
 mod tests {
     use super::*;
 
-
     #[test]
     fn should_run_in_order() {
         let mut graph = RenderGraph::new();
-        let meshpass = MeshPass::new();
-        let lightpass = LightPass::new();
+        let meshpass = MeshPass::opaque();
         let skyboxpass = SkyboxPass::new();
+        let build_mipmaps = BuildMipmapsPass::new();
+        let transmission = MeshPass::transmission();
+        let lightpass = LightPass::new();
         let axispass = AxisPass::new();
         let bboxpass = BoundingboxPass::new();
         let linearizepass = LinearizePass::new();
@@ -262,8 +263,10 @@ mod tests {
         let pickobjectpass = PickObjectPass::new();
 
         graph.add_pass(meshpass);
-        graph.add_pass(lightpass);
         graph.add_pass(skyboxpass);
+        graph.add_pass(build_mipmaps);
+        graph.add_pass(transmission);
+        graph.add_pass(lightpass);
         graph.add_pass(axispass);
         graph.add_pass(bboxpass);
         graph.add_pass(linearizepass);
@@ -276,9 +279,11 @@ mod tests {
                 assert_eq!(
                     order,
                     vec![
-                        "MeshPass",
-                        "LightPass",
+                        "MeshPass Opaque",
                         "SkyboxPass",
+                        "BuildMipmapsPass",
+                        "MeshPass Transmission",
+                        "LightPass",
                         "AxisPass",
                         "BoundingboxPass",
                         "LinearizePass",

@@ -2,8 +2,6 @@ use super::*;
 
 #[derive(Default)]
 pub struct SkyboxPass {
-    enable: bool,
-    blur: bool,
 }
 
 impl SkyboxPass {
@@ -16,38 +14,26 @@ impl RenderPass for SkyboxPass {
     fn name(&self) -> &'static str {
         "SkyboxPass"
     }
-    
+
     fn reads(&self) -> &[ResourceId] {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::DEPTH]
+        &[ResourceId::HDR, ResourceId::DEPTH]
     }
-
-    fn prepare(
-        &mut self,
-        _asset_mgr: &AssetManager,
-        _world: &World,
-        globals: &Globals,
-        _selected: Option<Entity>,
-        _input: &Input,
-        _ctx: &mut RenderContext,
-    ) {
-        self.enable = globals.skybox_enable;
-        self.blur = globals.skybox_enable_blur;
-    }
-
+    
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
-        _asset_mgr: &AssetManager,
+        frame: &FrameData,
     ) {
-        let enable = self.enable;
 
-        if !enable {
+        if frame.skybox_enable.is_none() {
             return;
         }
+
+        let skybox_blur = frame.skybox_enable.is_some_and(|b| b == true);
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
@@ -77,7 +63,7 @@ impl RenderPass for SkyboxPass {
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
-        let skybox_bind_group = skybox_manager.get_skybox(self.blur);
+        let skybox_bind_group = skybox_manager.get_skybox(skybox_blur);
 
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);

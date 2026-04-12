@@ -5,9 +5,40 @@ use legion::Entity;
 use crate::assets::MeshId;
 
 // Ecs Components
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct LightComponent {
-    pub data: uniform::LightUniform,
+    pub color: [f32; 3],
+    pub directional: bool,
+    pub position: [f32; 3],
+    pub cast_shadow: bool,
+    pub entity_id: u64,
+    pub enabled: bool,
+}
+impl Default for LightComponent {
+    fn default() -> Self {
+        Self {
+            color: [1.0, 1.0, 1.0],
+            enabled: true,
+            cast_shadow: false,
+            directional: true,
+            position: [0.0, 0.0, -1.0],
+            entity_id: 0,
+        }
+    }
+}
+
+impl From<&LightComponent> for uniform::LightUniform {
+    fn from(value: &LightComponent) -> Self {
+        Self {
+            color: value.color,
+            directional: value.directional.into(),
+            position: value.position,
+            cast_shadow: value.cast_shadow.into(),
+            entity_id: value.entity_id,
+            enabled: value.enabled.into(),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, Clone)]

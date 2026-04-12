@@ -12,10 +12,13 @@ struct Globals {
     skybox_enable: u32,
     exposure: f32,
     ibl_intensity: f32,
+
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
     tonemap_filter: u32,
     debug: u32,
+
+    env_rotation: f32,
 };
 
 // PerFrame
@@ -79,6 +82,19 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return out;
 }
 
+// calculate mat env_rotation from angle(rad)
+fn env_rotY() -> mat3x3<f32> {
+    let angle = globals.env_rotation;
+    let c = cos(angle);
+    let s = sin(angle);
+
+    return mat3x3<f32>(
+        vec3<f32>( c, 0.0, -s),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>( s, 0.0,  c)
+    );
+}
+
 /// Fragment shader
 ///
 @fragment
@@ -90,7 +106,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // flip asse X
     let dir = vec3<f32>(-input.frag_pos.x, input.frag_pos.y, input.frag_pos.z);
 
-    var color = textureSampleLevel(env_map, tex_sampler, dir, 0.0).rgb;
+    let env_rotation = env_rotY();
+
+    var color = textureSampleLevel(env_map, tex_sampler, env_rotation * dir, 0.0).rgb;
     color *= globals.ibl_intensity;
 
     return vec4<f32>(color, 1.0); 
