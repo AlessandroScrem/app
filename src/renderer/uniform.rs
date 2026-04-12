@@ -46,6 +46,7 @@ impl GlobalUniform {
             tonemap_filter: globals.tonemap_filter,
             entity_id,
             debug: globals.debug_code,
+            env_rotation: globals.env_rotation.to_radians(),
             ..Default::default()
         }
     }
@@ -112,7 +113,7 @@ impl ModelUniform {
     }
 }
 
-///shader: [pbr, hdr]
+///shader: [pbr, hdr, skybox]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalUniform {
@@ -124,6 +125,9 @@ pub struct GlobalUniform {
     pub entity_id: u64,
     pub tonemap_filter: u32,
     pub debug: u32,
+
+    pub env_rotation: f32,
+    pub pad: [u32; 3], 
 }
 
 ///shader: [pbr, blinnphong, light]

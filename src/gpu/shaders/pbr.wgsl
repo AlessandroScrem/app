@@ -23,10 +23,13 @@ struct Globals {
     skybox_enable: u32,
     exposure: f32,
     ibl_intensity: f32,
+
     selected_entity_id_low: u32,
     selected_entity_id_high: u32,
     tonemap_filter: u32,
     debug: u32,
+
+    env_rotation: f32,
 };
 
 struct Light {
@@ -158,6 +161,19 @@ const DebugTransmission      : u32 = 11;
 @group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
 @group(3) @binding(5) var scene_color: texture_2d<f32>;  
 
+// calculate mat env_rotation from angle(rad)
+fn env_rotY() -> mat3x3<f32> {
+    let angle = globals.env_rotation;
+    let c = cos(angle);
+    let s = sin(angle);
+
+    return mat3x3<f32>(
+        vec3<f32>( c, 0.0, -s),
+        vec3<f32>(0.0, 1.0, 0.0),
+        vec3<f32>( s, 0.0,  c)
+    );
+}
+
 struct LightResult {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
@@ -273,6 +289,8 @@ fn CalculateAmbient(
         return result;
     } 
 
+    let env_rotation = env_rotY();
+
     // Base reflectivity (F0)
     let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo, metallic);
     let NdotV = max(dot(N, V), 0.0);
@@ -284,11 +302,11 @@ fn CalculateAmbient(
     let kS = F;
     var kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
-    let irradiance = textureSample(irradiance_map, ibl_sampler, N).rgb;
+    let irradiance = textureSample(irradiance_map, ibl_sampler, env_rotation * N).rgb;
 
     var lod = roughness * MAX_REFLECTION_LOD;
 
-    let prefiltered = textureSampleLevel(prefilter_map, ibl_sampler, R, lod).rgb;
+    let prefiltered = textureSampleLevel(prefilter_map, ibl_sampler, env_rotation * R, lod).rgb;
     let brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
 
     result.diffuse = irradiance * albedo * kD *  globals.ibl_intensity;
