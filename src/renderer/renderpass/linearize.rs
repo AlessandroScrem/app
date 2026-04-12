@@ -15,7 +15,7 @@ impl RenderPass for LinearizePass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA]
+        &[ResourceId::HDR]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::LDR]

@@ -19,7 +19,7 @@ impl RenderPass for SkyboxPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::DEPTH]
+        &[ResourceId::HDR, ResourceId::DEPTH]
     }
     
     fn execute(

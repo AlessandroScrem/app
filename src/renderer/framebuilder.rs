@@ -7,29 +7,6 @@ use crate::uniform::LightsUniform;
 use crate::{entities::bounding_box_impl::BBoxVertexData, uniform::LightUniform};
 use legion::{Entity, World};
 
-pub struct MeshDrawable<'a> {
-    pub gpu_mesh: &'a GpuMesh,
-    pub material_bg: &'a wgpu::BindGroup,
-    pub index_range: &'a std::ops::Range<u32>,
-}
-
-pub fn drawables<'a>(
-    mesh_draw: &'a [MeshDraw],
-    gpu_cache: &'a GpuCache,
-) -> impl Iterator<Item = MeshDrawable<'a>> + 'a {
-    mesh_draw.iter().filter_map(move |md| {
-        let gpu_mesh = gpu_cache.mesh.get(&md.mesh)?;
-        let material = gpu_cache.material.get(&md.material)?;
-        let material_bg = material.bind_group.as_ref()?;
-
-        Some(MeshDrawable {
-            gpu_mesh,
-            material_bg,
-            index_range: &md.submesh_index_range,
-        })
-    })
-}
-
 pub struct MeshDraw {
     pub mesh: MeshId,
     pub submesh_index_range: std::ops::Range<u32>,

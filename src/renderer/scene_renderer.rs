@@ -55,10 +55,10 @@ impl SceneRenderer {
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         let default_pass = vec![
-            RenderPassEnum::Mesh(MeshPass::new()),
+            RenderPassEnum::Mesh(MeshPass::opaque()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
-            RenderPassEnum::Transmission(TransmissionPass::new()),
+            RenderPassEnum::Transmission(MeshPass::transmission()),
             RenderPassEnum::Light(LightPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::BBox(BoundingboxPass::new()),

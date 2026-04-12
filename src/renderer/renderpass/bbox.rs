@@ -19,7 +19,7 @@ impl RenderPass for BoundingboxPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA]
+        &[ResourceId::HDR]
     }
 
 

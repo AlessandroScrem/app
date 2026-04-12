@@ -7,7 +7,6 @@ pub(crate) mod mesh;
 pub(crate) mod outline;
 pub(crate) mod pickobject;
 pub(crate) mod skybox;
-pub(crate) mod transmission;
 
 pub(crate) use axis::AxisPass;
 pub(crate) use bbox::BoundingboxPass;
@@ -18,7 +17,6 @@ pub(crate) use mesh::MeshPass;
 pub(crate) use outline::OutlinePass;
 pub(crate) use pickobject::PickObjectPass;
 pub(crate) use skybox::SkyboxPass;
-pub(crate) use transmission::TransmissionPass;
 
 use crate::renderer::FrameData;
 use crate::renderer::pipeline_manager::PipelineKind;
@@ -47,14 +45,6 @@ pub(crate) use super::renderer::rendergraph::*;
 //      globals:
 //      gpu_manager = ctx.gpu_mgr;
 //      pipeline_manager = ctx.pip_mgr;
-//
-
-// transmission:
-//      gpu_mesh: &'a GpuMesh,
-//      material_bg: &'a wgpu::BindGroup,
-//      index_range: &'a std::ops::Range<u32>,
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
 //
 
 // light:
@@ -109,7 +99,7 @@ pub(crate) trait RenderPass {
 
 pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
-    Transmission(TransmissionPass),
+    Transmission(MeshPass),
     BuildMipmaps(BuildMipmapsPass),
     Light(LightPass),
     Skybox(SkyboxPass),
@@ -124,9 +114,9 @@ macro_rules! impl_render_pass_enum {
     ($self:ident, $method:ident $(, $arg:ident)*) => {
         match $self {
             Self::Mesh(p) => p.$method($($arg),*),
+            Self::Transmission(p) => p.$method($($arg),*),
             Self::Skybox(p) => p.$method($($arg),*),
             Self::BuildMipmaps(p) => p.$method($($arg),*),
-            Self::Transmission(p) => p.$method($($arg),*),
             Self::Light(p) => p.$method($($arg),*),
             Self::Axis(p) => p.$method($($arg),*),
             Self::BBox(p) => p.$method($($arg),*),

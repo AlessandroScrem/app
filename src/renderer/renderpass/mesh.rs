@@ -1,26 +1,94 @@
+use crate::{
+    gpu::{GpuCache, GpuMesh},
+    renderer::MeshDraw,
+};
+
 use super::*;
 
-use crate::renderer::drawables;
+pub struct MeshDrawable<'a> {
+    pub gpu_mesh: &'a GpuMesh,
+    pub material_bg: &'a wgpu::BindGroup,
+    pub index_range: &'a std::ops::Range<u32>,
+}
 
-#[derive(Default)]
-pub struct MeshPass {}
+pub fn drawables<'a>(
+    mesh_draw: &'a [MeshDraw],
+    gpu_cache: &'a GpuCache,
+) -> impl Iterator<Item = MeshDrawable<'a>> + 'a {
+    mesh_draw.iter().filter_map(move |md| {
+        let gpu_mesh = gpu_cache.mesh.get(&md.mesh)?;
+        let material = gpu_cache.material.get(&md.material)?;
+        let material_bg = material.bind_group.as_ref()?;
+
+        Some(MeshDrawable {
+            gpu_mesh,
+            material_bg,
+            index_range: &md.submesh_index_range,
+        })
+    })
+}
+
+pub enum MeshPassMode {
+    Opaque,
+    Transmission,
+}
+
+pub struct MeshPassConfig {
+    pub hdr_load: wgpu::LoadOp<wgpu::Color>,
+    pub entity_load: wgpu::LoadOp<wgpu::Color>,
+    pub depth_load: wgpu::LoadOp<f32>,
+    pub mode: MeshPassMode,
+}
+
+pub struct MeshPass {
+    config: MeshPassConfig,
+}
 
 impl MeshPass {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn opaque() -> Self {
+        let clear_color = wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        };
+        Self {
+            config: MeshPassConfig {
+                hdr_load: wgpu::LoadOp::Clear(clear_color),
+                entity_load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                depth_load: wgpu::LoadOp::Clear(1.0),
+                mode: MeshPassMode::Opaque,
+            },
+        }
+    }
+    pub fn transmission() -> Self {
+        Self {
+            config: MeshPassConfig {
+                hdr_load: wgpu::LoadOp::Load,
+                entity_load: wgpu::LoadOp::Load,
+                depth_load: wgpu::LoadOp::Load,
+                mode: MeshPassMode::Transmission,
+            },
+        }
     }
 }
 
 impl RenderPass for MeshPass {
     fn name(&self) -> &'static str {
-        "MeshPass"
+        match self.config.mode {
+            MeshPassMode::Opaque => "MeshPass Opaque",
+            MeshPassMode::Transmission => "MeshPass Transmission",
+        }
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        match self.config.mode {
+            MeshPassMode::Opaque => &[],
+            MeshPassMode::Transmission => &[ResourceId::OPAQUE]
+        }
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::ENTITY, ResourceId::DEPTH]
+        &[ResourceId::HDR, ResourceId::OPAQUE, ResourceId::ENTITY, ResourceId::DEPTH]
     }
 
     fn execute(
@@ -29,17 +97,13 @@ impl RenderPass for MeshPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
+        let meshdraw = match self.config.mode {
+            MeshPassMode::Opaque => &frame.opaque,
+            MeshPassMode::Transmission => &frame.transmission,
+        };
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let meshdraw = &frame.opaque;
-
-        let clear_color = wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        };
 
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Mesh Render Pass"),
@@ -49,7 +113,7 @@ impl RenderPass for MeshPass {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(clear_color),
+                        load: self.config.hdr_load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -58,7 +122,7 @@ impl RenderPass for MeshPass {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: self.config.entity_load,
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -66,7 +130,7 @@ impl RenderPass for MeshPass {
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
+                    load: self.config.depth_load,
                     store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,

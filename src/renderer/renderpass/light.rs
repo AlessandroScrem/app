@@ -18,7 +18,7 @@ impl RenderPass for LightPass {
         &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA, ResourceId::DEPTH]
+        &[ResourceId::HDR, ResourceId::DEPTH]
     }
 
     fn execute(

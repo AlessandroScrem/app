@@ -15,14 +15,14 @@ impl BuildMipmapsPass {
 
 impl RenderPass for BuildMipmapsPass {
     fn name(&self) -> &'static str {
-        "HdrMipmapsPass"
+        "BuildMipmapsPass"
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[ResourceId::HDRA]
+        &[]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDRB]
+        &[ResourceId::OPAQUE]
     }
 
 
