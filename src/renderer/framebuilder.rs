@@ -187,9 +187,6 @@ impl FrameBuilder {
     }
 
     fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {
-        if !globals.light_enable {
-            return;
-        }
         
         // -------- Lights --------
         use legion::IntoQuery;
@@ -198,6 +195,7 @@ impl FrameBuilder {
         for (entity, light) in light_query.iter(world) {
             let data = LightUniform {
                 entity_id: entities::EntityRawU64::as_raw_u64(entity),
+                enabled: globals.light_enable as u32,
                 ..light.data
             };
             frame.lights.push(data);

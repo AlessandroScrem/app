@@ -429,6 +429,8 @@ impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
         let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
         let transmission_factor = Transmission::to_uniform(value.transmission);
+        let is_trasmissive = value.is_transmissive().into();
+
         Self {
             color_factor: value.base_color_factor.into(),
             emissive_factor: value.emissive_factor.into(),
@@ -440,6 +442,7 @@ impl From<&MaterialDesc> for MaterialUniform {
             alpha_mode,
             alpha_cutoff,
             transmission_factor,
+            is_trasmissive,
             ..Default::default()
         }
     }

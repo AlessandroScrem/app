@@ -23,14 +23,12 @@ impl RenderPass for TransmissionPass {
         &[ResourceId::HDRA, ResourceId::ENTITY, ResourceId::DEPTH]
     }
 
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-
         let meshdraw = &frame.transmission;
 
         let gpu_manager = ctx.gpu_mgr;
@@ -68,15 +66,11 @@ impl RenderPass for TransmissionPass {
             occlusion_query_set: None,
         });
 
-        let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Transmission);
+        let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);
 
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(
-            3,
-            gpu_manager.get_bindgroup(BindgroupKind::Transmission),
-            &[],
-        );
+        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::PbrMap), &[]);
 
         let mut drawables: Vec<_> = drawables(meshdraw, ctx.gpu_cache).collect();
         drawables.sort_by_key(|d| d.material_bg as *const _ as usize);

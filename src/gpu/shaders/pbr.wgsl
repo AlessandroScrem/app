@@ -49,7 +49,9 @@ struct Material {
     texture_flags: u32,
     alpha_mode: u32,
     alpha_cutoff: f32,
-    transmission_factor: f32
+    transmission_factor: f32,
+
+    is_trasmissive: u32,
 }
 
 struct VertexInput {
@@ -71,6 +73,7 @@ struct VertexOutput {
     @location(1) normal              : vec3<f32>,
     @location(2) tangent             : vec4<f32>, // xyz = T, w = sign
     @location(3) uv                  : vec2<f32>,
+    @location(4) ndc_xy              : vec2<f32>, 
 };
 
 @vertex
@@ -81,12 +84,17 @@ fn vs_main(
     var out: VertexOutput;
     let world_position = model.model * vec4<f32>(in.position, 1.0);
 
-    out.clip_position = camera.proj * camera.view * world_position;
+    let clip = camera.proj * camera.view * world_position;
+
+    out.clip_position = clip;
     out.world_pos = world_position.xyz;
 
     out.tangent = vec4(normalize(model.normal_matrix * in.tangent.xyz), in.tangent.w);
     out.normal  = normalize(model.normal_matrix * in.normal);
     out.uv =  in.uv;
+
+    // salva NDC
+    out.ndc_xy = clip.xy / clip.w; // [-1, 1]
 
     return out;
 }
@@ -137,7 +145,8 @@ const DebugTransmission      : u32 = 11;
 @group(3) @binding(1) var irradiance_map: texture_cube<f32>;
 @group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
-
+@group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
+@group(3) @binding(5) var scene_color: texture_2d<f32>;  
 
 struct LightResult {
     diffuse: vec3<f32>,
@@ -362,6 +371,37 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
+// transmission no refraction
+fn computeTransmission(
+    N:            vec3<f32>,   
+    V:            vec3<f32>,
+    albedo_color: vec3<f32>,   
+    transmission: f32,
+    metallic:     f32,
+    roughness:    f32,
+    ndc_xy:       vec2<f32>,
+) -> vec3<f32> {
+
+    // Fresnel (F0)
+    let NdotV = max(dot(N, V), 0.0);
+    let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
+
+    // Normalizza NDC in UV [0,1]
+    var uv = ndc_xy * 0.5 + vec2(0.5);
+    uv.y = 1.0 - uv.y; // inverti Y se necessario
+
+    let max_lod = 7.0; // (MIP_COUNT = 8) -1 
+    let lod = roughness * max_lod;
+
+    // Campiona con mip-level
+    let color = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
+    let transmitted = color * transmission;
+
+    let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
+
+    return transmitted_tinted * (1.0 - F);
+}
 
 struct FSOutput {
     @location(0) color : vec4<f32>,
@@ -410,7 +450,18 @@ fn fs_main(
 
     let diffuse = light_res.diffuse + ambient_res.diffuse * ao;
     let specular = light_res.specular + ambient_res.specular * ao;
-    var color = diffuse + specular + emissive; 
+
+    var color = vec3<f32>();
+    if material.is_trasmissive == True {
+        var transmission_color = computeTransmission(Nws, V, albedo_color, transmission, metallic, roughness, in.ndc_xy);
+
+        color = specular + 
+            transmission_color * transmission +
+            diffuse * (1.0 - transmission);
+
+    } else {
+        color = diffuse + specular + emissive; 
+    }
 
     switch globals.debug {
         case DebugBaseColor         : { color = albedo_color; }

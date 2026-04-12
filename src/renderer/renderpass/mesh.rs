@@ -79,7 +79,7 @@ impl RenderPass for MeshPass {
 
         renderpass.set_pipeline(render_pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::Ibl), &[]);
+        renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::PbrMap), &[]);
 
         // Draw per material (reduce drawcall number)
         let mut drawables: Vec<_> = drawables(meshdraw, ctx.gpu_cache).collect();

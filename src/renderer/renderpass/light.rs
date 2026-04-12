@@ -62,8 +62,10 @@ impl RenderPass for LightPass {
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(1, light_texture_bind_group, &[]);
 
-        for _light in lights.iter() {
-            renderpass.draw(0..6, 0..1);
+        for light in lights.iter() {
+            if light.enabled == 1 {
+                renderpass.draw(0..6, 0..1);
+            }
         }
     }
 }

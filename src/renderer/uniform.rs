@@ -170,6 +170,7 @@ pub struct MaterialUniform {
     pub alpha_mode: u32,
     pub alpha_cutoff: f32,
     pub transmission_factor: f32,
-
-    // pub pad: [u32; 3],
+    
+    pub is_trasmissive: u32,
+    pub pad: [u32; 3],
 }
