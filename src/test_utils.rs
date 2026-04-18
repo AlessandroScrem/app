@@ -5,43 +5,12 @@ static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new()
 #[allow(dead_code)]
 pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            flags: wgpu::InstanceFlags::empty(),
-            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
-            backend_options: wgpu::BackendOptions::default(),
-            display: None, // headless
-        });
+        let instance = wgpu::Instance::default();
 
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        }))
-        .or_else(|_| {
-            // fallback 
-            pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::LowPower,
-                compatible_surface: None,
-                force_fallback_adapter: true,
-            }))
-        })
-        .expect("No adapter found");
-
-        let (device, queue) =
-            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
-
-        (device, queue)
-    })
-}
-/* pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
-    DEVICE_AND_QUEUE.get_or_init(|| {
-        let instance = wgpu::Instance::default();
-
-        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,     // niente finestra
-            force_fallback_adapter: false, // <- importantissimo
+            compatible_surface: None,      
+            force_fallback_adapter: false, 
         }))
         .unwrap();
 
@@ -50,7 +19,7 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         (device, queue)
     })
-} */
+}
 
 /// Save a 2D texture to a file (png).
 /// Supported formats: Rgba8Unorm, Rg16Float, Rgba16Float
