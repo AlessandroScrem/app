@@ -42,6 +42,7 @@ impl RenderPass for AxisPass {
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                 resolve_target: None,
+                depth_slice: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
@@ -50,6 +51,7 @@ impl RenderPass for AxisPass {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Lines);

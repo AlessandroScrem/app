@@ -31,8 +31,8 @@ impl Default for PipelineDesc {
             },
             depth_stencil: Some(DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -72,7 +72,7 @@ impl PipelineDesc {
             primitive: self.primitive,
             multisample: self.multisample,
             depth_stencil: self.depth_stencil,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -105,8 +105,8 @@ impl Default for PipelineExt {
             },
             depth_stencil: Some(DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float, // o quello che hai usato per creare la texture
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
@@ -142,7 +142,7 @@ impl PipelineExt {
             primitive: self.primitive,
             multisample: self.multisample,
             depth_stencil: self.depth_stencil,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -223,16 +223,16 @@ fn create_pipeline(
 ) -> wgpu::RenderPipeline {
     match kind {
         PipelineKind::BlinnPhong => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Material), //1
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Model),    //2
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Material)), //1
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Model)),    //2
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("BlinnPhong Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
             let shader =
                 device.create_shader_module(wgpu::include_wgsl!("shaders/blinn_phong.wgsl"));
@@ -250,14 +250,14 @@ fn create_pipeline(
             )
         }
         PipelineKind::Lines => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Camera), //0
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Camera)), //0
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Lines Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/lines.wgsl"));
             let buffer_desc = &[LinesVertexData::get_layout()];
@@ -281,17 +281,17 @@ fn create_pipeline(
             )
         }
         PipelineKind::Pbr => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Material), //1
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Model),    //2
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PbrMaps),      //3
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Material)), //1
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Model)),    //2
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PbrMaps))  //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Pbr Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
             let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
@@ -323,15 +323,15 @@ fn create_pipeline(
             )
         }
         PipelineKind::Hdr => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Hdr), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //1
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Hdr)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //1
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Hdr Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/hdr.wgsl"));
             let buffer_desc = &[];
@@ -351,16 +351,16 @@ fn create_pipeline(
             )
         }
         PipelineKind::Light => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::LightTexture), //1
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::LightTexture)), //1
             ];
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Light Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/light.wgsl"));
@@ -378,16 +378,16 @@ fn create_pipeline(
             )
         }
         PipelineKind::Skybox => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Skybox),   //1
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Skybox)),   //1
             ];
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Skybox Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/skybox.wgsl"));
@@ -397,8 +397,8 @@ fn create_pipeline(
             let pipeline_desc = PipelineDesc {
                 depth_stencil: Some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: false,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
                     stencil: Default::default(),
                     bias: Default::default(),
                 }),
@@ -415,16 +415,16 @@ fn create_pipeline(
             )
         }
         PipelineKind::Outline => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::EntityId), //0
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame), //1
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::EntityId)), //0
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //1
             ];
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Outline Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
             let shader =
@@ -447,15 +447,15 @@ fn create_pipeline(
             )
         }
         PipelineKind::BuildMipmaps => {
-            let layouts: Vec<&wgpu::BindGroupLayout> = vec![
-                gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Hdr), //0
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Hdr)), //0
             ];
 
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("BuildMipmaps Pipeline Layout"),
                     bind_group_layouts: &layouts,
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/mips.wgsl"));
@@ -481,8 +481,7 @@ fn create_pipeline(
 
 fn create_cs_pipeline(
     device: &wgpu::Device,
-    #[allow(unused)]
-    gpu_resource_manager: &GpuManager,
+    #[allow(unused)] gpu_resource_manager: &GpuManager,
     kind: CsPipelineKind,
 ) -> wgpu::ComputePipeline {
     match kind {
@@ -499,7 +498,8 @@ fn create_cs_pipeline(
             })
         }
         CsPipelineKind::CopyToMip0 => {
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip0.wgsl"));
+            let shader =
+                device.create_shader_module(wgpu::include_wgsl!("shaders/cs_hdr_to_mip0.wgsl"));
 
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("BuildMipmaps CS Pipeline"),

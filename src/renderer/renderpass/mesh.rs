@@ -111,20 +111,22 @@ impl RenderPass for MeshPass {
                 // 0: opaque object
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
-                    resolve_target: None,
                     ops: wgpu::Operations {
                         load: self.config.hdr_load,
                         store: wgpu::StoreOp::Store,
                     },
+                    resolve_target: None,
+                    depth_slice: None,
                 }),
                 // 1: entity ID
                 Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
-                    resolve_target: None,
                     ops: wgpu::Operations {
                         load: self.config.entity_load,
                         store: wgpu::StoreOp::Store,
                     },
+                    resolve_target: None,
+                    depth_slice: None,
                 }),
             ],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
@@ -135,8 +137,7 @@ impl RenderPass for MeshPass {
                 }),
                 stencil_ops: None,
             }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
+            ..Default::default()
         });
 
         let render_pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Pbr);

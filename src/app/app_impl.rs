@@ -28,7 +28,10 @@ impl Application for App {
         let timer = std::time::Instant::now();
 
         // const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-        const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/Cannon_Exterior.hdr");
+        const HDRPATH: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/core/Cannon_Exterior.hdr"
+        );
         let hdr_id = self
             .asset_mgr
             .textures
@@ -78,57 +81,59 @@ impl Application for App {
 
     fn render(&mut self, runtime: &mut RunningApp) {
         let mut encoder = runtime.gpu_context.create_encoder();
-        let frame = runtime.gpu_surface.get_frame();
-        let target = frame.texture.create_view(&Default::default());
-        let size: (u32, u32) = (
-            runtime.gpu_surface.get_config().width,
-            runtime.gpu_surface.get_config().height,
-        );
 
-        let RunningApp {
-            scene_renderer,
-            gpu_context,
-            gpu_manager,
-            pipeline_manager,
-            gpu_cache,
-            input,
-            ..
-        } = runtime;
+        if let Some(frame) = runtime.gpu_surface.get_frame() {
+            
+            let target = frame.texture.create_view(&Default::default());
+            let size: (u32, u32) = (
+                runtime.gpu_surface.get_config().width,
+                runtime.gpu_surface.get_config().height,
+            );
 
-        let mut context = RuntimeContext {
-            gpu_context,
-            gpu_manager,
-            pipeline_manager,
-            gpu_cache,
-            input,
-        };
+            let RunningApp {
+                scene_renderer,
+                gpu_context,
+                gpu_manager,
+                pipeline_manager,
+                gpu_cache,
+                input,
+                ..
+            } = runtime;
 
-        scene_renderer.render(
-            &mut context,
-            &mut encoder,
-            &target,
-            size,
-            &self.asset_mgr,
-            &self.current_scene.world,
-            &self.camera,
-            &self.globals,
-            self.selected,
-        );
+            let mut context = RuntimeContext {
+                gpu_context,
+                gpu_manager,
+                pipeline_manager,
+                gpu_cache,
+                input,
+            };
 
-        runtime.imgui_render.render(
-            runtime.uilayer.get_draw_data(),
-            &mut encoder,
-            &target,
-            &runtime.gpu_context.device,
-            &runtime.gpu_context.queue,
-        );
+            scene_renderer.render(
+                &mut context,
+                &mut encoder,
+                &target,
+                size,
+                &self.asset_mgr,
+                &self.current_scene.world,
+                &self.camera,
+                &self.globals,
+                self.selected,
+            );
 
-        runtime.gpu_context.queue.submit([encoder.finish()]);
-        frame.present();
+            runtime.imgui_render.render(
+                runtime.uilayer.get_draw_data(),
+                &mut encoder,
+                &target,
+                &runtime.gpu_context.device,
+                &runtime.gpu_context.queue,
+            );
+
+            runtime.gpu_context.queue.submit([encoder.finish()]);
+            frame.present();
+        }
     }
 
     fn on_close(&mut self) {
         info!("The close button was pressed; App stopping");
     }
 }
-

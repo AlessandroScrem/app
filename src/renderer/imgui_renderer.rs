@@ -97,6 +97,7 @@ impl ImguiRender {
                         load: wgpu::LoadOp::Load, // non cancellare la scena
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 ..Default::default()
@@ -134,7 +135,7 @@ impl ImguiRender {
                     sampler_desc: wgpu::SamplerDescriptor {
                         mag_filter: wgpu::FilterMode::Linear,
                         min_filter: wgpu::FilterMode::Linear,
-                        mipmap_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::MipmapFilterMode::Linear,
                         ..Default::default()
                     },
                 };
