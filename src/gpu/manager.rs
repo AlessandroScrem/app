@@ -7,14 +7,22 @@ pub struct GpuManager {
     framebuffer_cache: FramebufferCache,
     buffer_cache: BufferCache,
     bindgroup_cache: BindgroupCache,
+    ibl_cache: IblManager,
 }
 
 impl GpuManager {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        width: u32,
+        height: u32,
+        gpu_texture_cache: &GpuTextureCache,
+        skybox_id: TextureId,
+    ) -> Self {
         let layout_cache = BindgroupLayoutCache::new(device);
         let buffer_cache = BufferCache::new(device);
         let framebuffer_cache = FramebufferCache::new(device, &layout_cache, width, height);
-        let bindgroup_cache = BindgroupCache::new(
+        let mut bindgroup_cache = BindgroupCache::new(
             device,
             queue,
             &buffer_cache,
@@ -22,15 +30,51 @@ impl GpuManager {
             &layout_cache,
         );
 
+        let skybox_hdr = gpu_texture_cache.get_or_fallback_white(skybox_id);
+        let ibl_cache = IblManager::new(skybox_id, skybox_hdr, &device, &queue);
+
+        let entries = ibl_cache.get_ibl().get_skybox_bindgroup_entry();
+        let skybox_bg = create_bindgroup(
+            device,
+            BindgroupLayoutKind::Skybox,
+            &layout_cache,
+            &framebuffer_cache,
+            &entries,
+        );
+        *bindgroup_cache.get_mut(BindgroupKind::Skybox) = skybox_bg;
+
+        let entries = ibl_cache.get_ibl().get_skybox_bindgroup_entry_blur();
+        let skybox_blur_bg = create_bindgroup(
+            device,
+            BindgroupLayoutKind::Skybox,
+            &layout_cache,
+            &framebuffer_cache,
+            &entries,
+        );
+        *bindgroup_cache.get_mut(BindgroupKind::SkyboxBlur) = skybox_blur_bg;
+
+        let entries = ibl_cache.get_ibl().get_bindgroup_entry();
+
+        let ibl_bg = create_bindgroup(
+            device,
+            BindgroupLayoutKind::PbrMaps,
+            &layout_cache,
+            &framebuffer_cache,
+            &entries,
+        );
+
+        *bindgroup_cache.get_mut(BindgroupKind::PbrMap) = ibl_bg;
+
         Self {
             layout_cache,
             framebuffer_cache,
             buffer_cache,
             bindgroup_cache,
+            ibl_cache,
         }
     }
 
-    pub fn get_layout(&self, kind: BindgroupLayoutKind) -> &wgpu::BindGroupLayout {
+    pub fn get_bindgroup_layout(&self, kind: BindgroupLayoutKind) -> &wgpu::BindGroupLayout {
         self.layout_cache.get(kind)
     }
 
@@ -77,25 +121,76 @@ impl GpuManager {
         );
     }
 
-    //mutables
-    pub fn update_bindgroup(&mut self, kind: BindgroupKind, bg: wgpu::BindGroup) {
-        *self.bindgroup_cache.get_mut(kind) = bg;
-    }
+    pub fn update_ibl_bind_group(&mut self, device: &wgpu::Device) {
+        let entries = self.ibl_cache.get_ibl().get_bindgroup_entry();
 
-    // CHANGE ME!
-    pub fn update_pbrmap_bind_group(
-        &mut self,
-        device: &wgpu::Device,
-        entries: &Vec<wgpu::BindGroupEntry>,
-    ) {
         let bg = create_bindgroup(
             device,
             BindgroupLayoutKind::PbrMaps,
             &self.layout_cache,
             &self.framebuffer_cache,
-            entries,
+            &entries,
         );
+
         self.update_bindgroup(BindgroupKind::PbrMap, bg);
+    }
+
+    pub fn get_ibl_skybox_bg(&self, blur_flag: bool) -> &wgpu::BindGroup {
+        if blur_flag {
+            &self.bindgroup_cache.get(BindgroupKind::SkyboxBlur)
+        } else {
+            &self.bindgroup_cache.get(BindgroupKind::Skybox)
+        }
+    }
+
+    pub fn sync_ibl(
+        &mut self,
+        gpu_cache: &mut GpuCache,
+        gpu_context: &GpuContext,
+        asset_mgr: &AssetManager,
+    ) {
+        if asset_mgr.skybox.get_id() != self.ibl_cache.get_hdr_id() {
+            let hdr_id = asset_mgr.skybox.get_id();
+            let hdr_texture = gpu_cache.textures.get_or_fallback_white(hdr_id);
+
+            self.ibl_cache
+                .update_ibl(hdr_id, hdr_texture, &gpu_context.device, &gpu_context.queue);
+
+            let entries = { self.ibl_cache.get_ibl().get_bindgroup_entry() };
+            let bg = create_bindgroup(
+                &gpu_context.device,
+                BindgroupLayoutKind::PbrMaps,
+                &self.layout_cache,
+                &self.framebuffer_cache,
+                &entries,
+            );
+            self.update_bindgroup(BindgroupKind::PbrMap, bg);
+
+            let entries = self.ibl_cache.get_ibl().get_skybox_bindgroup_entry();
+            let bg = create_bindgroup(
+                &gpu_context.device,
+                BindgroupLayoutKind::Skybox,
+                &self.layout_cache,
+                &self.framebuffer_cache,
+                &entries,
+            );
+            self.update_bindgroup(BindgroupKind::Skybox, bg);
+
+            let entries = self.ibl_cache.get_ibl().get_skybox_bindgroup_entry_blur();
+            let bg = create_bindgroup(
+                &gpu_context.device,
+                BindgroupLayoutKind::Skybox,
+                &self.layout_cache,
+                &self.framebuffer_cache,
+                &entries,
+            );
+            self.update_bindgroup(BindgroupKind::SkyboxBlur, bg);
+        }
+    }
+
+    //mutables
+    fn update_bindgroup(&mut self, kind: BindgroupKind, bg: wgpu::BindGroup) {
+        *self.bindgroup_cache.get_mut(kind) = bg;
     }
 }
 
@@ -124,6 +219,7 @@ fn create_bindgroup(
             ]);
             (Some("Ibl Bindgroup"), e)
         }
+        BindgroupLayoutKind::Skybox => (Some("Skybox bind_group"), entries.clone()),
         _ => unimplemented!("Layout kind unimplemented for bindgroup creation"),
     };
 

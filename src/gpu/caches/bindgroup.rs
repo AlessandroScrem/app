@@ -11,6 +11,8 @@ pub enum BindgroupKind {
     Perframe,
     LightTexture,
     PbrMap,
+    Skybox,
+    SkyboxBlur,
 }
 
 pub struct BindgroupCache {
@@ -46,9 +48,6 @@ impl BindgroupCache {
         &mut self.bg[kind as usize]
     }
 }
-
-
-
 
 impl BindgroupCache {
     fn create(
@@ -183,7 +182,74 @@ impl BindgroupCache {
                     label: Some("Fake Ibl Bind Group"),
                 })
             }
+            BindgroupKind::Skybox => {
+                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .dimension(Dimension::Cube)
+                    .format(ColorSpace::Rgba8)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::Linear)
+                    .label("Cube white texture")
+                    .build(device, Some(queue));
+
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: layouts.get(BindgroupLayoutKind::Skybox),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                        },
+                    ],
+                    label: Some("skybox_bind_group"),
+                })
+            }
+            BindgroupKind::SkyboxBlur => {
+                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .dimension(Dimension::Cube)
+                    .format(ColorSpace::Rgba8)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::Linear)
+                    .label("Cube white texture")
+                    .build(device, Some(queue));
+
+                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                });
+
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: layouts.get(BindgroupLayoutKind::Skybox),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                        },
+                    ],
+                    label: Some("skybox_blur_bind_group"),
+                })
+            }
         }
     }
 }
-

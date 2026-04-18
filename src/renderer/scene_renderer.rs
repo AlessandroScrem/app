@@ -20,14 +20,11 @@ pub struct RenderContext<'a> {
 
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
-    pub skb_mgr: &'a SkyboxManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
 }
 
 pub struct SceneRenderer {
-    skybox_mgr: SkyboxManager,
-
     pickobject: PickObject,
     default_pass: Vec<RenderPassEnum>,
 }
@@ -35,22 +32,13 @@ pub struct SceneRenderer {
 impl SceneRenderer {
     pub fn new(
         gpu_context: &GpuContext,
-        gpu_manager: &mut GpuManager,
-        gpu_cache: &mut GpuCache,
-        asset_mgr: &mut AssetManager,
     ) -> Self {
         let timer = std::time::Instant::now();
         info!("Initializing renderer...");
 
         let device = &gpu_context.device;
-        let queue = &gpu_context.queue;
         let pickobject = PickObject::new(&device);
 
-        // Skybox initialization
-        let hdr_id = asset_mgr.skybox.get_id();
-        let hdr = gpu_cache.textures.get_or_fallback_white(hdr_id);
-        let skybox_mgr = SkyboxManager::new(hdr_id, hdr, &device, &queue, gpu_manager);
-        // -----
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
@@ -68,7 +56,6 @@ impl SceneRenderer {
         ];
 
         Self {
-            skybox_mgr,
             pickobject,
             default_pass,
         }
@@ -76,37 +63,6 @@ impl SceneRenderer {
 
     pub fn get_hovered(&mut self, gpu_context: &GpuContext) -> Option<Entity> {
         self.pickobject.poll_readback(&gpu_context.device)
-    }
-
-    fn sync_skybox(
-        &mut self,
-        gpu_manager: &mut GpuManager,
-        gpu_cache: &mut GpuCache,
-        gpu_context: &GpuContext,
-        asset_mgr: &AssetManager,
-    ) {
-        if asset_mgr.skybox.get_id() != self.skybox_mgr.get_hdr_id() {
-            let hdr_texture = gpu_cache
-                .textures
-                .get_or_fallback_white(asset_mgr.skybox.get_id());
-            self.skybox_mgr.update_skybox(
-                asset_mgr.skybox.get_id(),
-                hdr_texture,
-                &gpu_context.device,
-                &gpu_context.queue,
-                gpu_manager,
-            );
-        }
-    }
-
-    // CHANGEME!
-    pub fn update_ibl_bind_group(
-        &mut self,
-        gpu_manager: &mut GpuManager,
-        gpu_context: &GpuContext,
-    ) {
-        self.skybox_mgr
-            .update_ibl_bind_group(&gpu_context.device, gpu_manager);
     }
 
     pub fn render(
@@ -131,7 +87,7 @@ impl SceneRenderer {
 
         // sync GpuCache Ids with assets Ids (meshes materials textures)
         // update skybox
-        self.sync_skybox(gpu_manager, gpu_cache, gpu_context, asset_mgr);
+        gpu_manager.sync_ibl(gpu_cache, gpu_context, asset_mgr);
         gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
 
         
@@ -163,7 +119,6 @@ impl SceneRenderer {
 
             gpu_mgr: &gpu_manager,
             pip_mgr: &pipeline_manager,
-            skb_mgr: &self.skybox_mgr,
             pickobject: &self.pickobject,
             target: &target,
         };

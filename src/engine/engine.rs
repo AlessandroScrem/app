@@ -67,24 +67,29 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &gpu_context.device,
             &gpu_context.queue,
         );
-        let mut gpu_cache = GpuCache {
+        let gpu_cache = GpuCache {
             textures: texture_cache,
             material: GpuMaterialCache::default(),
             mesh: GpuMeshCache::default(),
         };
 
-        let mut gpu_manager = GpuManager::new(
+        let gpu_manager = GpuManager::new(
             &gpu_context.device,
             &gpu_context.queue,
             gpu_surface.get_config().width,
             gpu_surface.get_config().height,
+            &gpu_cache.textures,
+            asset_mgr.skybox.get_id(),
         );
 
-        let pipeline_manager = PipelineManager::new(&gpu_context.device, &gpu_manager, gpu_surface.get_config().format);
+        let pipeline_manager = PipelineManager::new(
+            &gpu_context.device,
+            &gpu_manager,
+            gpu_surface.get_config().format,
+        );
         //
 
-        let scene_renderer =
-            SceneRenderer::new(&gpu_context, &mut gpu_manager, &mut gpu_cache, asset_mgr);
+        let scene_renderer = SceneRenderer::new(&gpu_context);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         self.runtime = Some(RunningApp {

@@ -37,7 +37,6 @@ impl RenderPass for SkyboxPass {
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
-        let skybox_manager = ctx.skb_mgr;
 
         // Render pass
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -63,7 +62,7 @@ impl RenderPass for SkyboxPass {
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Skybox);
-        let skybox_bind_group = skybox_manager.get_skybox(skybox_blur);
+        let skybox_bind_group = gpu_manager.get_ibl_skybox_bg(skybox_blur);
 
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
