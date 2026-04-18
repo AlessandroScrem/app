@@ -818,7 +818,7 @@ impl SkyboxManager {
             brdf_lut_view.clone(),
             device,
             queue,
-            gpu_manager.get_layout(LayoutKind::Skybox),
+            gpu_manager.get_layout(BindgroupLayoutKind::Skybox),
         );
 
         let entries = skybox.to_bindgroup_entry();
@@ -849,7 +849,7 @@ impl SkyboxManager {
             self._brdf_lut_view.clone(),
             device,
             queue,
-            gpu_manager.get_layout(LayoutKind::Skybox),
+            gpu_manager.get_layout(BindgroupLayoutKind::Skybox),
         );
 
         let entries = self.skybox.to_bindgroup_entry();

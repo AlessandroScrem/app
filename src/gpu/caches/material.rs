@@ -164,7 +164,7 @@ fn create_bindgroup_from_desc(
 
     let views = resolve_texture_views(texture_cache, material_desc, &asset_manager.textures);
 
-    let texture_bind_group_layout = gpu_manager.get_layout(LayoutKind::Material);
+    let texture_bind_group_layout = gpu_manager.get_layout(BindgroupLayoutKind::Material);
 
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &texture_bind_group_layout,

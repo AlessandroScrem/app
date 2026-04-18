@@ -108,7 +108,7 @@ fn create_gpu_mesh(
     });
 
     let model_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &gpu_manager.get_layout(LayoutKind::Model),
+        layout: &gpu_manager.get_layout(BindgroupLayoutKind::Model),
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
             resource: model_uniform.as_entire_binding(),
