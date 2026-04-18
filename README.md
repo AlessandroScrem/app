@@ -7,6 +7,17 @@
 
 A modern 3D/2D render engine that uses wgpu
 
+```toml
+[dependencies]
+wgpu = "29"
+imgui-wgpu = "0.28.0"
+imgui = "0.12"
+winit = "0.30.9"
+legion = {version = "0.4.0", features = ["extended-tuple-impls"]}
+cgmath = "0.18.0"
+```
+
+
 ## Features
 
 - [x] Ecs 
