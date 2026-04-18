@@ -50,10 +50,12 @@ impl RenderPass for BoundingboxPass {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
+                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Lines);

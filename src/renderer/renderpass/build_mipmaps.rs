@@ -126,7 +126,7 @@ fn copy_to_mip0(
     });
 
     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        mipmap_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Linear,
         min_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
@@ -279,6 +279,7 @@ fn render_mipmaps(
                         load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 ..Default::default()

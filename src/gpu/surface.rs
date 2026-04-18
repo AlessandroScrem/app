@@ -44,10 +44,15 @@ impl GpuSurface {
         &self.surface_config
     }
 
-    pub fn get_frame(&self) -> wgpu::SurfaceTexture {
-        self.surface
-            .get_current_texture()
-            .expect("Failed to get current texture")
+    pub fn get_frame(&self) -> Option<wgpu::SurfaceTexture> {
+
+        match self.surface.get_current_texture() {
+            CurrentSurfaceTexture::Success(texture) => Some(texture),
+            CurrentSurfaceTexture::Suboptimal(texture) => Some(texture),
+            _ => None,
+
+        }
+
     }
 
     pub fn resize_frame(&mut self, device: &Device, width: u32, height: u32) {

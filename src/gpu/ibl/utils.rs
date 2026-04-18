@@ -69,10 +69,12 @@
                     load: wgpu::LoadOp::Clear(clear_color),
                     store: wgpu::StoreOp::Store,
                 },
+                depth_slice: None,
             })],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         renderpass.set_viewport(0.0, 0.0, capture_size as f32, capture_size as f32, 0.0, 1.0);
@@ -230,7 +232,7 @@
             layout: None,
             depth_stencil: None,
             cache: None,
-            multiview: None,
+            multiview_mask: None,
         });
 
         pipeline

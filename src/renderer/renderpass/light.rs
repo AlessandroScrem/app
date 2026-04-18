@@ -45,6 +45,7 @@ impl RenderPass for LightPass {
                         load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
@@ -56,6 +57,7 @@ impl RenderPass for LightPass {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
