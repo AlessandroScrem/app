@@ -3,7 +3,7 @@ use wgpu::Extent3d;
 
 static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
 #[allow(dead_code)]
-pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
+/* pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -19,7 +19,7 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
             force_fallback_adapter: false,
         }))
         .or_else(|_| {
-            // fallback 
+            // fallback
             pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::LowPower,
                 compatible_surface: None,
@@ -33,15 +33,15 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         (device, queue)
     })
-}
-/* pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
+} */
+pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
 
-        let adapter = pollster::block_on(instance.request_adapter(&RequestAdapterOptions {
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,     // niente finestra
-            force_fallback_adapter: false, // <- importantissimo
+            compatible_surface: None,      
+            force_fallback_adapter: false, 
         }))
         .unwrap();
 
@@ -50,7 +50,7 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         (device, queue)
     })
-} */
+}
 
 /// Save a 2D texture to a file (png).
 /// Supported formats: Rgba8Unorm, Rg16Float, Rgba16Float
