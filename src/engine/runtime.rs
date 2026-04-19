@@ -88,6 +88,9 @@ impl RunningApp {
             RuntimeEvent::CloseRequested => {
                 app.on_close();
             }
+            RuntimeEvent::DroppedFile(path) => {
+                app.on_drop(path);
+            }
         }
     }
 }

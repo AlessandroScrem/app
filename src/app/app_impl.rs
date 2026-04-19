@@ -79,6 +79,10 @@ impl Application for App {
         self.camera.set_aspect(aspect);
     }
 
+    fn on_drop(&mut self, path: std::path::PathBuf) {
+        self.domain_events.queue.push_back(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
+    }
+
     fn render(&mut self, runtime: &mut RunningApp) {
         let mut encoder = runtime.gpu_context.create_encoder();
 

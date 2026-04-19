@@ -111,6 +111,9 @@ impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
             WindowEvent::RedrawRequested => {
                 runtime.tick(&mut self.engine.app);
             }
+            WindowEvent::DroppedFile(path) => {
+                runtime.events.push(RuntimeEvent::DroppedFile(path));
+            }
             _ => (),
         }
     }
