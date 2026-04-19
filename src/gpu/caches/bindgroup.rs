@@ -93,23 +93,15 @@ impl BindgroupCache {
             BindgroupKind::LightTexture => {
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                        .sampler(SamplerDesc::Linear)
                         .build(device, Some(queue));
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::Repeat,
-                    address_mode_v: wgpu::AddressMode::Repeat,
-                    address_mode_w: wgpu::AddressMode::Repeat,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                    ..Default::default()
-                });
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::LightTexture),
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
@@ -135,15 +127,6 @@ impl BindgroupCache {
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
-                let ibl_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                    ..Default::default()
-                });
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
@@ -151,7 +134,7 @@ impl BindgroupCache {
                         // sampler
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&ibl_sampler),
+                            resource: wgpu::BindingResource::Sampler(&cube.sampler),
                         },
                         // irradiance texture
                         wgpu::BindGroupEntry {
@@ -191,22 +174,12 @@ impl BindgroupCache {
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                    ..Default::default()
-                });
-
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::Skybox),
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&cube.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
@@ -225,22 +198,12 @@ impl BindgroupCache {
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
-                let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                    address_mode_u: wgpu::AddressMode::ClampToEdge,
-                    address_mode_v: wgpu::AddressMode::ClampToEdge,
-                    address_mode_w: wgpu::AddressMode::ClampToEdge,
-                    mag_filter: wgpu::FilterMode::Linear,
-                    min_filter: wgpu::FilterMode::Linear,
-                    mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                    ..Default::default()
-                });
-
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::Skybox),
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
+                            resource: wgpu::BindingResource::Sampler(&cube.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
