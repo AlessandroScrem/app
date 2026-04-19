@@ -29,6 +29,7 @@ save_tests = []
 [dependencies]
 winit = "0.30.9"
 wgpu = "29.0"
+rfd = "0.15.4" #RustFileDialog
 imgui-wgpu = "0.28.0"
 imgui = { version = "0.12.0", features = ["docking", "tables-api"] }
 imgui-winit-support = "0.13.0"
@@ -36,22 +37,20 @@ imgui-winit-support = "0.13.0"
 legion = {version = "0.4.0", features = ["extended-tuple-impls"]}
 cgmath = "0.18.0"
 bytemuck = { version = "1.16", features = [ "derive" ] }
+mikktspace = { version = "0.3.0", default-features = false, features = ["glam"] }
 #
 gltf = {version = "1.4.1", features = ["KHR_materials_transmission"]}
 image = "0.25.6"
-stb_image = "0.3.0"
 half = "2.6.0"
+stb_image = "0.3.0"
 strum = "0.27.2"
 strum_macros = "0.27.2"
-# bitflags = "2.11.0"
-rfd = "0.15.4" #RustFileDialog
 log = "0.4.28" 
-
+# bitflags = "2.11.0"
 
 clap = "2.33.0"
 env_logger = "0.11.8"
 colored = "3.0.0"
-mikktspace = "0.3.0"
 slotmap = "1.1.1"
 # nofmt = "1.0.0"
 

@@ -86,7 +86,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
             let index_end = indices.len();
 
             if reader.read_tangents().is_none() {
-                println!("generate tangent for {:?}", primitive.material().name());
+                trace!("generate tangent for {:?}", primitive.material().name());
                 generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
@@ -453,7 +453,7 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    println!("Metarial created {:#?}", material_desc);
+    trace!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 

@@ -49,7 +49,6 @@ impl CenterWindow for winit::window::Window {
 
 impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        println!("resumed");
         self.engine.resume(event_loop, self.size);
     }
 
