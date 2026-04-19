@@ -214,7 +214,8 @@ fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]
         indices: indices.to_vec(),
     };
 
-    generate_tangents(&mut geom);
+    let result = generate_tangents(&mut geom);
+    debug_assert!(result, "mikkspace: failed to genetate tangents");
 }
 
 fn extract_indices<'a, F>(
