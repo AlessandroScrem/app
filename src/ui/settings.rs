@@ -1,9 +1,10 @@
 use super::*;
-use cgmath::{Deg, Rad, num_traits::zero};
+
+use prelude::math::*;
 use imgui::*;
 
-use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
 use crate::renderer::GpuResourceStats;
+use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
 
 use std::fmt;
 
@@ -179,9 +180,27 @@ impl Globals {
                 command = Some(DomainEvent::Global(SkyboxEnableBlur(skybox_enable_blur)));
             }
         }
-        if ui.slider_config("Env rotation", 0.0, 360.0).build(&mut env_rotation) {
+        if ui
+            .slider_config("Env rotation", 0.0, 360.0)
+            .build(&mut env_rotation)
+        {
+            if !ui.io().key_shift {
+                ui.tooltip_text("Press shift to disable snap");
+
+                let snap = 90.0;
+                let threshold = 25.0;
+                let nearest = (env_rotation / snap).round() * snap;
+                if (env_rotation - nearest).abs() < threshold {
+                    env_rotation = nearest;
+                }
+                if !ui.is_item_active() {
+                    env_rotation = nearest;
+                }
+            }
+
             command = Some(DomainEvent::Global(EnvRotation(env_rotation)));
         }
+
         if ui.checkbox("Axis enable", &mut axis_enable) {
             command = Some(DomainEvent::Global(AxisEnable(axis_enable)));
         }
