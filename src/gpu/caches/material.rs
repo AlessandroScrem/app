@@ -140,6 +140,7 @@ fn resolve_texture_views<'a>(
         texture_cache.view(desc.texture_set[Emissive].unwrap_or_else(|| fallback)),
         texture_cache.view(desc.texture_set[Occlusion].unwrap_or_else(|| fallback)),
         texture_cache.view_or(desc.texture_set[Transmission], TextureSlot::Black),
+        texture_cache.view_or(desc.texture_set[Volume], TextureSlot::White),
     ])
 }
 

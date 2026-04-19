@@ -47,6 +47,7 @@ pub enum TextureUsage {
     Emissive,
     Occlusion,
     Transmission,
+    Volume,
     HDR16,
     #[allow(unused)]
     HDR32,
@@ -62,6 +63,7 @@ impl From<material_asset::MaterialTextureSlot> for TextureUsage {
             Emissive => Self::Emissive,
             Occlusion => Self::Occlusion,
             Transmission => Self::Transmission,
+            Volume => Self::Volume,
         }
     }
 }
@@ -69,9 +71,10 @@ impl From<material_asset::MaterialTextureSlot> for TextureUsage {
 impl TextureUsage {
     pub fn color_space(self) -> ColorSpace {
         match self {
-            Self::Albedo | Self::Emissive => ColorSpace::Srgba8,
-            Self::Normal | Self::Occlusion | Self::MetallicRoughness => ColorSpace::Rgba8,
-            Self::Transmission => ColorSpace::Srgba8,
+            Self::Albedo | Self::Emissive | Self::Transmission => ColorSpace::Srgba8,
+            Self::Normal | Self::Occlusion | Self::MetallicRoughness | Self::Volume => {
+                ColorSpace::Rgba8
+            }
             Self::HDR16 => ColorSpace::Rgbaf16,
             Self::HDR32 => ColorSpace::Rgbaf32,
         }

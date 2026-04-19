@@ -200,11 +200,32 @@ impl MaterialTextureSlot {
                 changed
             }
             MaterialTextureSlot::Transmission => {
-                if let Some(mut transmission) = material.transmission {
+                if let Some(transmission) = material.transmission.as_mut() {
                     let changed = Drag::new("##Transmission")
                         .speed(0.01)
                         .range(0.0, 1.0)
                         .build(ui, &mut transmission.factor);
+                    changed
+                } else {
+                    false
+                }
+            }
+            MaterialTextureSlot::Volume => {
+                if let Some(volume) = material.volume.as_mut() {
+                    let mut changed = false;
+                    ui.same_line();
+                    changed |= ui
+                        .color_edit3_config("##AttColor", &mut volume.attenuation_color)
+                        .inputs(false)
+                        .build();
+                    changed |= Drag::new("Tick-Factor")
+                        .speed(0.01)
+                        .range(0.0, 1.0)
+                        .build(ui, &mut volume.thickness_factor);
+                    changed |= Drag::new("Att-Dist")
+                        .speed(0.01)
+                        .range(0.0, 1.0)
+                        .build(ui, &mut volume.attenuation_distance);
                     changed
                 } else {
                     false
@@ -292,6 +313,8 @@ fn draw_materials(
                         dirty |= material.draw_ui_slot(ui, Normal, resolver);
                         ui.separator();
                         dirty |= material.draw_ui_slot(ui, Transmission, resolver);
+                        ui.separator();
+                        dirty |= material.draw_ui_slot(ui, Volume, resolver);
                     }
 
                     if dirty {

@@ -30,7 +30,7 @@ impl IndexMut<MaterialTextureSlot> for TestureSet {
     }
 }
 
-pub const MATERIAL_TEXTURE_COUNT: usize = MaterialTextureSlot::Transmission as usize + 1;
+pub const MATERIAL_TEXTURE_COUNT: usize = 7;
 #[repr(u8)]
 #[derive(Debug, Copy, Clone)]
 pub enum MaterialTextureSlot {
@@ -40,6 +40,7 @@ pub enum MaterialTextureSlot {
     Emissive = 3,
     Occlusion = 4,
     Transmission = 5,
+    Volume = 6,
 }
 
 impl MaterialTextureSlot {
@@ -51,6 +52,7 @@ impl MaterialTextureSlot {
             Self::Emissive => "Emissive",
             Self::Occlusion => "Occlusion",
             Self::Transmission => "Transmission",
+            Self::Volume => "Volume",
         }
     }
 }
@@ -65,9 +67,10 @@ impl MaterialTextureSlot {
 impl MaterialTextureSlot {
     pub fn color_space(self) -> ColorSpace {
         match self {
-            Self::BaseColor | Self::Emissive => ColorSpace::Srgba8,
-            Self::Normal | Self::MetallicRoughness | Self::Occlusion => ColorSpace::Rgba8,
-            Self::Transmission => ColorSpace::Srgba8,
+            Self::BaseColor | Self::Transmission | Self::Emissive => ColorSpace::Srgba8,
+            Self::Normal | Self::MetallicRoughness | Self::Occlusion | Self::Volume => {
+                ColorSpace::Rgba8
+            }
         }
     }
 }
@@ -80,6 +83,7 @@ impl MaterialTextureSlot {
         Self::Emissive,
         Self::Occlusion,
         Self::Transmission,
+        Self::Volume,
     ];
 }
 
@@ -118,6 +122,20 @@ impl PartialEq for AlphaMode {
             }
             _ => false,
         }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Volume {
+    pub thickness_factor: f32,
+    pub attenuation_distance: f32,
+    pub attenuation_color: [f32; 3],
+}
+impl PartialEq for Volume {
+    fn eq(&self, other: &Self) -> bool {
+        self.thickness_factor.to_bits() == other.thickness_factor.to_bits()
+            && self.attenuation_distance.to_bits() == other.attenuation_distance.to_bits()
+            && self.attenuation_color == other.attenuation_color
     }
 }
 
@@ -226,6 +244,7 @@ pub struct MaterialDesc {
     pub normal_scale: f32,
     pub occlusion_strength: f32,
     pub transmission: Option<Transmission>,
+    pub volume: Option<Volume>,
 }
 
 // PartialEq ignore: name , shader
@@ -235,6 +254,7 @@ impl PartialEq for MaterialDesc {
             && self.texture_flags == other.texture_flags
             && self.alpha_mode == other.alpha_mode
             && self.transmission == other.transmission
+            && self.volume == other.volume
             && self
                 .base_color_factor
                 .abs_diff_eq(&other.base_color_factor, Default::default())
@@ -264,6 +284,7 @@ impl Default for MaterialDesc {
             normal_scale: one(),
             occlusion_strength: one(),
             transmission: None,
+            volume: None,
         }
     }
 }
@@ -294,7 +315,6 @@ impl MaterialDesc {
         self.name = name.into();
     }
 
-
     pub fn is_transmissive(&self) -> bool {
         self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
     }
@@ -302,10 +322,9 @@ impl MaterialDesc {
     pub fn is_transparent(&self) -> bool {
         match self.alpha_mode {
             AlphaMode::Blend => true,
-            _ => false
+            _ => false,
         }
     }
-
 
     pub fn set_texture(
         &mut self,
