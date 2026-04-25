@@ -139,6 +139,18 @@ impl PartialEq for Volume {
     }
 }
 
+impl Volume {
+    pub fn to_uniform(opt: Option<Self>) -> (f32, f32, [f32; 3]) {
+        opt.map_or((f32::INFINITY, 0.0, [1.0; 3]), |t| {
+            (
+                t.attenuation_distance,
+                t.thickness_factor,
+                t.attenuation_color,
+            )
+        })
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Transmission {
     pub factor: f32,
@@ -170,6 +182,7 @@ impl std::fmt::Debug for TextureFlags {
             MaterialTextureSlot::Emissive,
             MaterialTextureSlot::Occlusion,
             MaterialTextureSlot::Transmission,
+            MaterialTextureSlot::Volume,
         ];
 
         for (i, slot) in slots.iter().enumerate() {
@@ -326,6 +339,12 @@ impl MaterialDesc {
         }
     }
 
+    pub fn is_volume(&self) -> bool {
+        self.volume
+            .map(|f| f.attenuation_distance > 0.0)
+            .unwrap_or(false)
+    }
+
     pub fn set_texture(
         &mut self,
         texture_asset: &mut TextureAssets,
@@ -447,8 +466,12 @@ impl MaterialAssets {
 impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
         let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
-        let transmission_factor = Transmission::to_uniform(value.transmission);
         let is_trasmissive = value.is_transmissive().into();
+        let transmission_factor = Transmission::to_uniform(value.transmission);
+
+        let is_volume = value.is_volume().into();
+        let (attenuation_distance, thickness_factor, attenuation_color) =
+            Volume::to_uniform(value.volume);
 
         Self {
             color_factor: value.base_color_factor.into(),
@@ -462,6 +485,10 @@ impl From<&MaterialDesc> for MaterialUniform {
             alpha_cutoff,
             transmission_factor,
             is_trasmissive,
+            is_volume,
+            attenuation_distance,
+            thickness_factor,
+            attenuation_color,
             ..Default::default()
         }
     }

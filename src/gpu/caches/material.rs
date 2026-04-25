@@ -211,6 +211,11 @@ fn create_bindgroup_from_desc(
                 binding: 7,
                 resource: wgpu::BindingResource::TextureView(&views[Transmission]),
             },
+            // material volume
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::TextureView(&views[Volume]),
+            },
         ],
     });
     bind_group
