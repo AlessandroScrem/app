@@ -203,9 +203,8 @@ fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]
             v.tangent[2] += tangent[2];
 
             // w = ±1 senza accumulo
-            // FIX: invert w 
+            // FIX: invert w
             v.tangent[3] = -sign;
-
         }
     }
 
@@ -454,7 +453,19 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    trace!("Metarial created {:#?}", material_desc);
+    if let Some(volume) = gltf_material.volume() {
+        material_desc.volume = Some(assets::Volume {
+            thickness_factor: volume.thickness_factor(),
+            attenuation_distance: volume.attenuation_distance(),
+            attenuation_color: volume.attenuation_color(),
+        });
+
+        if let Some(volume_texture) = volume.thickness_texture() {
+            material_desc.set_texture(texture_asset, Volume, path_from_ginfo(volume_texture, parent_path));
+        }
+    }
+
+    println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 

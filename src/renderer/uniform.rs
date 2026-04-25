@@ -195,5 +195,10 @@ pub struct MaterialUniform {
     pub transmission_factor: f32,
 
     pub is_trasmissive: u32,
-    pub pad: [u32; 3],
+    pub is_volume: u32,
+    pub thickness_factor: f32,
+    pub attenuation_distance: f32,
+    
+    pub attenuation_color: [f32; 3],
+    pub pad: [u32; 1],
 }

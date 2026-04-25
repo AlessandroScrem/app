@@ -8,6 +8,7 @@ const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
 const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
 const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
 const TRANSMISSION_TEXTURE   : u32 = 1u << 5u;
+const VOLUME_TEXTURE         : u32 = 1u << 6u;
 
 /// Vertex shader
 
@@ -74,6 +75,11 @@ struct Material {
     transmission_factor: f32,
 
     is_trasmissive: u32,
+    is_volume: u32,
+    thickness_factor: f32,
+    attenuation_distance: f32,
+
+    attenuation_color: vec3<f32>,
 }
 
 struct VertexInput {
@@ -142,6 +148,7 @@ const DebugRoughness         : u32 = 8;
 const DebugEmissive          : u32 = 9; 
 const DebugOcclusion         : u32 = 10; 
 const DebugTransmission      : u32 = 11; 
+const VolumeThickness        : u32 = 12; 
 
 // Material
 @group(1) @binding(0) var <uniform> material: Material;
@@ -152,6 +159,7 @@ const DebugTransmission      : u32 = 11;
 @group(1) @binding(5) var emissive_map: texture_2d<f32>; 
 @group(1) @binding(6) var occlusion_map: texture_2d<f32>; 
 @group(1) @binding(7) var transmission_map: texture_2d<f32>; 
+@group(1) @binding(8) var volume_map: texture_2d<f32>; 
 
 // Ibl 
 @group(3) @binding(0) var ibl_sampler: sampler;
@@ -384,6 +392,14 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     return normal_ts;
 }
 
+fn get_thickness(uv: vec2<f32>) ->f32 {
+    var thickness = material.thickness_factor;
+    if has_flag(material.texture_flags, VOLUME_TEXTURE) {
+        thickness *= textureSample(volume_map, tex_sampler, uv).r;
+    }
+    return thickness;
+}
+
 fn get_transmission(uv: vec2<f32>) ->f32 {
     var transmission = material.transmission_factor;
     if has_flag(material.texture_flags, TRANSMISSION_TEXTURE) {
@@ -409,7 +425,6 @@ fn computeTransmission(
     N:            vec3<f32>,   
     V:            vec3<f32>,
     albedo_color: vec3<f32>,   
-    transmission: f32,
     metallic:     f32,
     roughness:    f32,
     ndc_xy:       vec2<f32>,
@@ -426,12 +441,36 @@ fn computeTransmission(
 
     // Campiona con mip-level
     let lod = roughness * MAX_SCENE_LOD;
-    let color = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
-    let transmitted = color * transmission;
+    let transmitted = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
 
     let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
 
     return transmitted_tinted * (1.0 - F);
+}
+
+// ---------------------------
+// VOLUME (Beer-Lambert)
+// ---------------------------
+fn computeVolume(thickness: f32)->vec3<f32> {
+    let att_color = material.attenuation_color;
+    let sigma = -log(att_color) / max(material.attenuation_distance, 0.0001);
+    let attenuation = exp(-sigma * thickness);
+
+    return attenuation;
+}
+
+// ---------------------------
+// DEBUG
+// ---------------------------
+fn computeChecker(ndc: vec2<f32>) -> vec3<f32> {
+    let gray = 0.9;
+    let scale = 20.0;
+
+    let uv = ndc * 0.5 + vec2(0.5);
+    let check = floor(uv * scale);
+    let pattern = f32(i32(check.x + check.y) & 1);
+
+    return vec3(gray + pattern * 0.1);
 }
 
 struct FSOutput {
@@ -458,7 +497,7 @@ fn fs_main(
     let emissive = get_emissive(in.uv);
     let ao = get_occlusion(in.uv);
     let transmission =  get_transmission(in.uv);
-
+    let thickness = get_thickness(in.uv);
 
     let N = normalize(in.normal);
     let T = normalize(in.tangent.xyz);
@@ -484,7 +523,12 @@ fn fs_main(
 
     var color = vec3<f32>();
     if material.is_trasmissive == True {
-        var transmission_color = computeTransmission(Nws, V, albedo_color, transmission, metallic, roughness, in.ndc_xy);
+        var transmission_color = computeTransmission(Nws, V, albedo_color, metallic, roughness, in.ndc_xy);
+
+        if material.is_volume == True {
+            let attenuation = computeVolume(thickness);
+            transmission_color *= attenuation; 
+        }
 
         color = specular + 
             transmission_color * transmission +
@@ -506,6 +550,7 @@ fn fs_main(
         case DebugEmissive          : { color = emissive;}
         case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}
         case DebugTransmission      : { color = vec3(transmission);}
+        case VolumeThickness        : { color = inverse_srgb(vec3(thickness / material.thickness_factor));}
         default: {;} 
     }
     
