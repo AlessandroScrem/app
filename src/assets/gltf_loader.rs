@@ -402,6 +402,7 @@ fn create_material<P: AsRef<Path>>(
     material_desc.roughness_factor = pbr.roughness_factor();
     material_desc.metallic_factor = pbr.metallic_factor();
     material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
+    material_desc.ior = gltf_material.ior().unwrap_or(1.5);
 
     if let Some(color_info) = pbr.base_color_texture() {
         material_desc.set_texture(

@@ -80,6 +80,7 @@ struct Material {
     attenuation_distance: f32,
 
     attenuation_color: vec3<f32>,
+    ior: f32
 }
 
 struct VertexInput {
@@ -426,17 +427,19 @@ fn computeTransmission(
     world_pos: vec3<f32>,
     N: vec3<f32>,   
     V: vec3<f32>,
+    ior: f32,
     thickness: f32,
     roughness: f32,
 ) -> vec3<f32> {
 
-    let ior = 1.5;
     let eta = 1.0 / ior;
+    let strength = (ior - 1.0) / ior;
+    let refraction_distance = max(thickness, 0.1);
 
     let R = refract(-V, N, eta);
     
     // punto di uscita nel volume
-    let exit_pos = world_pos + R * thickness;
+    let exit_pos = world_pos + R * refraction_distance * strength;
 
     // proiezione
     let clip = camera.proj * camera.view * vec4(exit_pos, 1.0);
@@ -541,7 +544,7 @@ fn fs_main(
 
     var color = vec3<f32>();
     if material.is_trasmissive == True {
-        var transmission_color = computeTransmission(in.world_pos, Nws, V, thickness, roughness);
+        var transmission_color = computeTransmission(in.world_pos, Nws, V, material.ior, thickness, roughness);
         transmission_color = mix(transmission_color, transmission_color * albedo_color, 0.9);
 
         if material.is_volume == True {
@@ -551,8 +554,7 @@ fn fs_main(
 
         // Fresnel (F0)
         let NdotV = max(dot(Nws, V), 0.0);
-        let ior = 1.5;
-        let F0 = compute_F0(albedo_color, metallic, ior);
+        let F0 = compute_F0(albedo_color, metallic, material.ior);
         let F = fresnel_schlick(F0, NdotV);
 
         let transmitted = mix(diffuse, transmission_color, transmission);

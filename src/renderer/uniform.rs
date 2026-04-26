@@ -200,5 +200,5 @@ pub struct MaterialUniform {
     pub attenuation_distance: f32,
     
     pub attenuation_color: [f32; 3],
-    pub pad: [u32; 1],
+    pub ior: f32,
 }

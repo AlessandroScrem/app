@@ -39,7 +39,7 @@ cgmath = "0.18.0"
 bytemuck = { version = "1.16", features = [ "derive" ] }
 mikktspace = { version = "0.3.0", default-features = false, features = ["glam"] }
 #
-gltf = {version = "1.4.1", features = ["KHR_materials_transmission", "KHR_materials_volume" ]}
+gltf = {version = "1.4.1", features = ["KHR_materials_transmission", "KHR_materials_volume" , "KHR_materials_ior"]}
 image = "0.25.6"
 half = "2.6.0"
 stb_image = "0.3.0"

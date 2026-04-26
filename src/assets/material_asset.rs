@@ -30,6 +30,7 @@ impl IndexMut<MaterialTextureSlot> for TestureSet {
     }
 }
 
+pub const IOR: f32 = 1.5;
 pub const MATERIAL_TEXTURE_COUNT: usize = 7;
 #[repr(u8)]
 #[derive(Debug, Copy, Clone)]
@@ -258,6 +259,7 @@ pub struct MaterialDesc {
     pub occlusion_strength: f32,
     pub transmission: Option<Transmission>,
     pub volume: Option<Volume>,
+    pub ior: f32,
 }
 
 // PartialEq ignore: name , shader
@@ -269,15 +271,16 @@ impl PartialEq for MaterialDesc {
             && self.transmission == other.transmission
             && self.volume == other.volume
             && self
-                .base_color_factor
-                .abs_diff_eq(&other.base_color_factor, Default::default())
+            .base_color_factor
+            .abs_diff_eq(&other.base_color_factor, Default::default())
             && self
-                .emissive_factor
-                .abs_diff_eq(&other.emissive_factor, Default::default())
+            .emissive_factor
+            .abs_diff_eq(&other.emissive_factor, Default::default())
             && self.roughness_factor.to_bits() == other.roughness_factor.to_bits()
             && self.metallic_factor.to_bits() == other.metallic_factor.to_bits()
             && self.normal_scale.to_bits() == other.normal_scale.to_bits()
             && self.occlusion_strength.to_bits() == other.occlusion_strength.to_bits()
+            && self.ior.to_bits() == other.ior.to_bits()
     }
 }
 
@@ -298,6 +301,7 @@ impl Default for MaterialDesc {
             occlusion_strength: one(),
             transmission: None,
             volume: None,
+            ior: IOR,
         }
     }
 }
@@ -489,7 +493,8 @@ impl From<&MaterialDesc> for MaterialUniform {
             attenuation_distance,
             thickness_factor,
             attenuation_color,
-            ..Default::default()
+            ior: value.ior,
+            // ..Default::default()
         }
     }
 }

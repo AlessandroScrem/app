@@ -201,10 +201,16 @@ impl MaterialTextureSlot {
             }
             MaterialTextureSlot::Transmission => {
                 if let Some(transmission) = material.transmission.as_mut() {
-                    let changed = Drag::new("##Transmission")
+                    let mut changed = false;
+                    changed |= Drag::new("Transmission")
                         .speed(0.01)
                         .range(0.0, 1.0)
                         .build(ui, &mut transmission.factor);
+                    
+                    changed |= Drag::new("Ior")
+                        .speed(0.01)
+                        .range(1.0, 2.5)
+                        .build(ui, &mut material.ior);
                     changed
                 } else {
                     false
