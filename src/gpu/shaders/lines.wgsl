@@ -27,7 +27,9 @@ fn vs_main(
     var out: VertexOutput;
     let world_position = vec4<f32>(vertex.position, 1.0);
 
-    out.clip_position = camera.proj * camera.view * world_position;
+    let clip_position = camera.proj * camera.view * world_position;
+    // fix: (error pixel coverage)
+    out.clip_position = clip_position + 1e-4;
     out.color = vertex.color;
 
     return out;
