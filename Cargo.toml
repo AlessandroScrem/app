@@ -5,7 +5,7 @@ edition = "2024"
 default-run = "app_wgpu"
 
 [dev-dependencies]
-criterion = "0.7.0"
+criterion = "0.8.2"
 
 [[bench]]
 name = "ldr_bench"
