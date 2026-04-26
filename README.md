@@ -41,6 +41,7 @@ cgmath = "0.18.0"
 - [x] Material Editor per Submesh
 - [x] Material gltf Transmission
 - [x] Material gltf Volume
+- [x] Material gltf Ior
 - [x] Environment rotation
 - [ ] Direct Light shadow
 - [ ] SSAO   
