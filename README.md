@@ -40,6 +40,7 @@ cgmath = "0.18.0"
 - [x] Import gltf with hierarchy
 - [x] Material Editor per Submesh
 - [x] Material gltf Transmission
+- [x] Material gltf Volume
 - [x] Environment rotation
 - [ ] Direct Light shadow
 - [ ] SSAO   

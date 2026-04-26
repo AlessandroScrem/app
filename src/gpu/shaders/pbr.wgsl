@@ -187,6 +187,7 @@ struct LightResult {
     specular: vec3<f32>,
 };
 
+
 fn CalculateLight(
     N: vec3<f32>,
     V: vec3<f32>,
@@ -397,6 +398,7 @@ fn get_thickness(uv: vec2<f32>) ->f32 {
     if has_flag(material.texture_flags, VOLUME_TEXTURE) {
         thickness *= textureSample(volume_map, tex_sampler, uv).r;
     }
+    thickness = max(thickness, 0.001);
     return thickness;
 }
 
@@ -420,32 +422,33 @@ fn inverse_srgb(c: vec3<f32>) -> vec3<f32> {
     return result;
 }
 
-// transmission no refraction
 fn computeTransmission(
-    N:            vec3<f32>,   
-    V:            vec3<f32>,
-    albedo_color: vec3<f32>,   
-    metallic:     f32,
-    roughness:    f32,
-    ndc_xy:       vec2<f32>,
+    world_pos: vec3<f32>,
+    N: vec3<f32>,   
+    V: vec3<f32>,
+    thickness: f32,
+    roughness: f32,
 ) -> vec3<f32> {
 
-    // Fresnel (F0)
-    let NdotV = max(dot(N, V), 0.0);
-    let F0 = mix(vec3<f32>(0.04), albedo_color, metallic);
-    let F = F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
+    let ior = 1.5;
+    let eta = 1.0 / ior;
 
-    // Normalizza NDC in UV [0,1]
-    var uv = ndc_xy * 0.5 + vec2(0.5);
-    uv.y = 1.0 - uv.y; // inverti Y se necessario
+    let R = refract(-V, N, eta);
+    
+    // punto di uscita nel volume
+    let exit_pos = world_pos + R * thickness;
 
-    // Campiona con mip-level
+    // proiezione
+    let clip = camera.proj * camera.view * vec4(exit_pos, 1.0);
+    let ndc = clip.xy / clip.w;
+
+    var uv = ndc * 0.5 + vec2(0.5);
+    uv.y = 1.0 - uv.y;
+
+    uv = clamp(uv, vec2(0.001), vec2(0.999));
+
     let lod = roughness * MAX_SCENE_LOD;
-    let transmitted = textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
-
-    let transmitted_tinted = mix(transmitted, transmitted * albedo_color, 1.0);
-
-    return transmitted_tinted * (1.0 - F);
+    return textureSampleLevel(scene_color, scene_sampler, uv, lod).rgb;
 }
 
 // ---------------------------
@@ -471,6 +474,21 @@ fn computeChecker(ndc: vec2<f32>) -> vec3<f32> {
     let pattern = f32(i32(check.x + check.y) & 1);
 
     return vec3(gray + pattern * 0.1);
+}
+
+fn fresnel_schlick(F0: vec3<f32>, cos_theta: f32) -> vec3<f32> {
+    let x = clamp(1.0 - cos_theta, 0.0, 1.0);
+    return F0 + (vec3<f32>(1.0) - F0) * pow(x, 5.0);
+}
+
+fn dielectric_F0(ior: f32) -> f32 {
+    let f = (ior - 1.0) / (ior + 1.0);
+    return f * f;
+}
+
+fn compute_F0(albedo: vec3<f32>, metallic: f32, ior: f32) -> vec3<f32> {
+    let dielectric = vec3<f32>(dielectric_F0(ior));
+    return mix(dielectric, albedo, metallic);
 }
 
 struct FSOutput {
@@ -523,16 +541,23 @@ fn fs_main(
 
     var color = vec3<f32>();
     if material.is_trasmissive == True {
-        var transmission_color = computeTransmission(Nws, V, albedo_color, metallic, roughness, in.ndc_xy);
+        var transmission_color = computeTransmission(in.world_pos, Nws, V, thickness, roughness);
+        transmission_color = mix(transmission_color, transmission_color * albedo_color, 0.9);
 
         if material.is_volume == True {
             let attenuation = computeVolume(thickness);
             transmission_color *= attenuation; 
         }
 
-        color = specular + 
-            transmission_color * transmission +
-            diffuse * (1.0 - transmission);
+        // Fresnel (F0)
+        let NdotV = max(dot(Nws, V), 0.0);
+        let ior = 1.5;
+        let F0 = compute_F0(albedo_color, metallic, ior);
+        let F = fresnel_schlick(F0, NdotV);
+
+        let transmitted = mix(diffuse, transmission_color, transmission);
+        color = specular + transmitted *  (1.0 - F);
+
 
     } else {
         color = diffuse + specular + emissive; 
