@@ -168,7 +168,15 @@ const VolumeThickness        : u32 = 12;
 @group(3) @binding(2) var prefilter_map: texture_cube<f32>; // miplevels = 5
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 @group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
-@group(3) @binding(5) var scene_color: texture_2d<f32>;  
+@group(3) @binding(5) var scene_color: texture_2d<f32>; 
+
+struct MaterialInfo {
+    albedo: vec3<f32>,
+    metallic: f32,
+    roughness: f32,
+    transmission: f32,
+    thickness: f32,
+}
 
 // calculate mat env_rotation from angle(rad)
 fn env_rotY() -> mat3x3<f32> {
@@ -521,63 +529,66 @@ fn compute_specular_transmission(V: vec3<f32>, Nws: vec3<f32>, albedo_color: vec
     return specular_transmission;
 }
 
-fn computeTransmissionVolume(
-    world_pos:          vec3<f32>, 
-    ndc_xy:             vec2<f32>, 
-    Nws:                vec3<f32>, 
-    V:                  vec3<f32>, 
-    albedo_color:       vec3<f32>,
-    diffuse:            vec3<f32>, 
-    transmission:       f32,
-    metallic:           f32, 
-    roughness:          f32, 
-    thickness_local:    f32,
-) ->vec3<f32> {
-    let use_refraction = material.is_volume == True && thickness_local > 0.0;
+struct BRDFResult {
+    diffuse: vec3<f32>,
+    specular: vec3<f32>,
+};
 
-    // transform to obj-space to world-space
+fn evalBRDF(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    mat: MaterialInfo,
+    world_pos: vec3<f32>,
+    ao: f32
+) -> BRDFResult{
+
+    let light_res = CalculateLight(N, V, mat.albedo, mat.metallic, mat.roughness, world_pos);
+    let ambient_res = CalculateAmbient(N, V, mat.albedo, mat.metallic, mat.roughness);
+
+    let diffuse  = light_res.diffuse + ambient_res.diffuse * ao;
+    let specular = light_res.specular + ambient_res.specular * ao;
+
+    return BRDFResult(diffuse, specular);
+}
+
+fn evalBTDF(
+    world_pos: vec3<f32>, 
+    ndc_xy: vec2<f32>, 
+    N: vec3<f32>, 
+    V: vec3<f32>, 
+    mat: MaterialInfo
+) -> vec3<f32> {
+
+    let use_refraction = material.is_volume == True && mat.thickness > 0.0;
+
+    // scala world
     let scale = compute_scale(model.model);
-    let thickness = thickness_local * scale;
+    let thickness = mat.thickness * scale;
 
     var transmission_color = sampleTransmission(
         world_pos, 
         ndc_xy,  
-        Nws, 
+        N, 
         V, 
         material.ior, 
         thickness, 
-        roughness, 
+        mat.roughness, 
         use_refraction
     );
-    
-    // 1. TINT (alwais!)
+
+    // tint
     transmission_color = mix(
         transmission_color,
-        transmission_color * albedo_color,
-        transmission
+        transmission_color * mat.albedo,
+        mat.transmission
     );
 
-    // 2. VOLUME (if enabled)
+    // volume
     if material.is_volume == True {
-        let attenuation = computeVolume(thickness);
-        transmission_color *= attenuation; 
+        transmission_color *= computeVolume(thickness);
     }
 
-    // 3. Fresnel
-    let NdotV = max(dot(Nws, V), 0.0);
-    let F0 = compute_F0(albedo_color, metallic, material.ior);
-    let F = fresnel_schlick(F0, NdotV);
-
-
-    // 4. Specular Transmission
-    let specular_transmission = compute_specular_transmission(V, Nws, albedo_color, metallic, roughness);
-
-    // 5. Mixing
-    let transmitted = transmission_color * transmission;
-    let diffuse_term = diffuse * (1.0 - transmission);
-    let color = specular_transmission +  diffuse_term + transmitted * (1.0 - F);
-
-    return color;
+    return transmission_color;
 }
 
 struct FSOutput {
@@ -606,6 +617,14 @@ fn fs_main(
     let transmission =  get_transmission(in.uv);
     let thickness = get_thickness(in.uv);
 
+    let mat: MaterialInfo = MaterialInfo(
+        albedo_color,
+        metallic,
+        roughness,
+        transmission,
+        thickness,
+    );
+
     let N = normalize(in.normal);
     let T = normalize(in.tangent.xyz);
     let B = in.tangent.w * normalize(cross(N, T));
@@ -621,30 +640,34 @@ fn fs_main(
     Nws = select(-Nws, Nws, is_front_facing); //select(false_value, true_value, condition)
     let V = normalize(camera.view_pos - in.world_pos);
 
-    let light_res = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
-    let ambient_res = CalculateAmbient(Nws, V, albedo_color, metallic, roughness);
-
-    let diffuse = light_res.diffuse + ambient_res.diffuse * ao;
-    let specular = light_res.specular + ambient_res.specular * ao;
+    let brdf = evalBRDF(Nws, V, mat, in.world_pos, ao);
         
-
     var color = vec3<f32>();
     if material.is_trasmissive == True {
-        color = computeTransmissionVolume(
-            in.world_pos, 
+        let btdf = evalBTDF(
+            in.world_pos,
             in.ndc_xy,
-            Nws, 
-            V, 
-            albedo_color,
-            diffuse, 
-            transmission,
-            metallic, 
-            roughness, 
-            thickness
+            Nws,
+            V,
+            mat
+        );
+        let NdotV = max(dot(Nws, V), 0.0);
+
+        let F0_dielectric = vec3<f32>(dielectric_F0(material.ior));
+        let F = fresnel_schlick(F0_dielectric, NdotV);
+
+        let spec_trans = compute_specular_transmission(
+            V, Nws, albedo_color, metallic, roughness
         );
 
+        color =
+            brdf.specular + 
+            brdf.diffuse * (1.0 - mat.transmission) +
+            spec_trans * (1.0 - F) +
+            btdf *  mat.transmission * (1.0 - F);
+
     } else { // Opaque
-        color = diffuse + specular + emissive; 
+        color = brdf.specular + brdf.diffuse + emissive; 
     }
 
     switch globals.debug {
