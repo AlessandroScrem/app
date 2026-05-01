@@ -150,6 +150,8 @@ fn load_gltf_internal<P: AsRef<Path>>(
         _roots: roots,
     };
 
+    // print_gltf_document(&gltf);
+
     Ok(scene)
 }
 
@@ -291,7 +293,8 @@ fn extract_bbox(mesh: &gltf::Mesh) -> BoundingBox {
     bounding_box
 }
 
-fn _get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
+#[allow(unused)]
+fn get_primitive_mode(mode: gltf::mesh::Mode) -> wgpu::PrimitiveTopology {
     match mode {
         gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
         gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
@@ -466,7 +469,7 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    println!("Metarial created {:#?}", material_desc);
+    // println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 

@@ -121,6 +121,7 @@ pub fn handle_asset_event(
         }
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
+                info!("Loaded: {} Meshes", loaded.meshes.len());
                 entities::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
                 next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
             }
