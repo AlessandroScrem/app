@@ -55,8 +55,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
     let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
 
-    println!("Import gltf took: {:?}",timer.elapsed());
-
+    info!("Import gltf took: {:?}", timer.elapsed());
 
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
@@ -155,7 +154,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
     };
 
     // print_gltf_document(&gltf);
-    println!("loading gltf took: {:?}",timer.elapsed());
+    info!("loading gltf took: {:?}", timer.elapsed());
 
     Ok(scene)
 }
@@ -362,9 +361,14 @@ fn print_gltf_document(document: &gltf::Document) {
     });
 }
 
+// remove %20 from uri, gltf spec requires that spaces in uri are encoded as %20, but we want to support unencoded spaces in file paths
+fn url_decoding(uri: &str) -> String {
+    uri.replace("%20", " ")
+}
+
 fn path_from_ginfo(info: gltf::texture::Info<'_>, base_dir: &Path) -> Option<std::path::PathBuf> {
     match info.texture().source().source() {
-        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
+        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(url_decoding(uri))),
         _ => None,
     }
 }
@@ -374,7 +378,7 @@ fn path_from_gtexture(
     base_dir: &Path,
 ) -> Option<std::path::PathBuf> {
     match texture.source().source() {
-        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(uri)),
+        gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(url_decoding(uri))),
         _ => None,
     }
 }
@@ -470,7 +474,11 @@ fn create_material<P: AsRef<Path>>(
         });
 
         if let Some(volume_texture) = volume.thickness_texture() {
-            material_desc.set_texture(texture_asset, Volume, path_from_ginfo(volume_texture, parent_path));
+            material_desc.set_texture(
+                texture_asset,
+                Volume,
+                path_from_ginfo(volume_texture, parent_path),
+            );
         }
     }
 
