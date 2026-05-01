@@ -497,20 +497,32 @@ fn compute_F0(albedo: vec3<f32>, metallic: f32, ior: f32) -> vec3<f32> {
     return mix(dielectric, albedo, metallic);
 }
 
+fn compute_scale(model: mat4x4<f32>) -> f32 {
+    let sx = length(model[0].xyz);
+    let sy = length(model[1].xyz);
+    let sz = length(model[2].xyz);
+    return (sx + sy + sz) / 3.0;
+}
+
 fn computeTransmissionVolume(
-    world_pos:    vec3<f32>, 
-    ndc_xy:       vec2<f32>, 
-    Nws:          vec3<f32>, 
-    V:            vec3<f32>, 
-    albedo_color: vec3<f32>, 
-    diffuse:      vec3<f32>,
-    specular:      vec3<f32>,
-    transmission: f32,
-    metallic:     f32, 
-    roughness:    f32, 
-    thickness:    f32,
+    world_pos:          vec3<f32>, 
+    ndc_xy:             vec2<f32>, 
+    Nws:                vec3<f32>, 
+    V:                  vec3<f32>, 
+    albedo_color:       vec3<f32>, 
+    diffuse:            vec3<f32>,
+    specular:           vec3<f32>,
+    transmission:       f32,
+    metallic:           f32, 
+    roughness:          f32, 
+    thickness_local:    f32,
 ) ->vec3<f32> {
-    let use_refraction = material.is_volume == True && thickness > 0.0;
+    let use_refraction = material.is_volume == True && thickness_local > 0.0;
+
+    // transform to obj-space to world-space
+    let scale = compute_scale(model.model);
+    let thickness = thickness_local * scale;
+
     var transmission_color = sampleTransmission(
         world_pos, 
         ndc_xy,  
