@@ -18,7 +18,7 @@ impl Layer for MenuBarUi {
             if let Some(_file_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {}
                 if ui.menu_item("Open") {
-                    menu_bar::file_open("gltf").map(|f| ctx.write.push(Assets(LoadGltf(f))));
+                    menu_bar::file_open(FileFilter::Gltf).map(|f| ctx.write.push(Assets(LoadGltf(f))));
                 }
                 ui.separator();
                 if ui.menu_item("Sponza") {
@@ -45,8 +45,21 @@ impl Layer for MenuBarUi {
     }
 }
 
-pub fn file_open(filter: &str) -> Option<PathBuf> {
+pub enum FileFilter {
+    Gltf,
+}
+
+impl FileFilter {
+    fn as_args(&self) -> (&str, &[&str]) {
+        match self {
+            FileFilter::Gltf => ("glTF", &["gltf", "glb"]),
+        }
+    }
+}
+
+pub fn file_open(filter: FileFilter) -> Option<PathBuf> {
+    let (name, ext) = filter.as_args();
     rfd::FileDialog::new()
-        .add_filter(filter, &[filter])
+        .add_filter(name, ext)
         .pick_file()
 }

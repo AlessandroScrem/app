@@ -1,6 +1,6 @@
 use super::*;
 use gltf::mesh::{Mode, Reader};
-use std::path::Path;
+use std::{path::Path, time::Instant};
 
 use crate::{
     TransformComponent,
@@ -52,7 +52,11 @@ fn load_gltf_internal<P: AsRef<Path>>(
     path: P,
     asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
+    let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
+
+    println!("Import gltf took: {:?}",timer.elapsed());
+
 
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
@@ -151,6 +155,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
     };
 
     // print_gltf_document(&gltf);
+    println!("loading gltf took: {:?}",timer.elapsed());
 
     Ok(scene)
 }

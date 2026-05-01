@@ -22,7 +22,7 @@ impl Layer for EntityListUi {
 
                 if let Some(popup) = ui.begin_popup("context") {
                     ui.menu_item("Load Gltf ..").then(|| {
-                        menu_bar::file_open("gltf")
+                        menu_bar::file_open(FileFilter::Gltf)
                             .map(|f| ctx.write.push(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
                     });
                     popup.end();
