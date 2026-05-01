@@ -180,12 +180,12 @@ impl MaterialTextureSlot {
             MaterialTextureSlot::MetallicRoughness => {
                 let mut changed = false;
 
-                changed |= Drag::new("Met")
+                changed |= Drag::new("MetFactor")
                     .speed(0.01)
                     .range(0.01, 1.0)
                     .build(ui, &mut material.metallic_factor);
 
-                changed |= Drag::new("Rough")
+                changed |= Drag::new("RoughFactor")
                     .speed(0.01)
                     .range(0.01, 1.0)
                     .build(ui, &mut material.roughness_factor);

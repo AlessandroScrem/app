@@ -309,19 +309,20 @@ fn CalculateAmbient(
     // Fresnel 
     let F =  F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - NdotV, 0.0, 1.0), 5.0);
     
+    // Diffuse Term
     let kS = F;
     var kD = (vec3(1.0) - kS) * (1.0 - metallic);
-
     let irradiance = textureSample(irradiance_map, ibl_sampler, env_rotation * N).rgb;
+    let  diffuse = irradiance * albedo * kD *  globals.ibl_intensity;
 
+    // Specular Term
     var lod = roughness * MAX_REFLECTION_LOD;
-
     let prefiltered = textureSampleLevel(prefilter_map, ibl_sampler, env_rotation * R, lod).rgb;
     let brdf = textureSample(brdf_lut_map, ibl_sampler, vec2<f32>(NdotV, roughness)).rg;
+    let specular = prefiltered * (F * brdf.x + brdf.y) * globals.ibl_intensity;
 
-    result.diffuse = irradiance * albedo * kD *  globals.ibl_intensity;
-    result.specular = prefiltered * (F * brdf.x + brdf.y) * globals.ibl_intensity;
-
+    result.diffuse  = diffuse;
+    result.specular = specular;
     return result;
 }
 
@@ -357,7 +358,7 @@ fn get_roughness(uv: vec2<f32>) ->f32 {
     if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
         roughness *= textureSample(orm_map, tex_sampler, uv).g;
     }
-    return clamp(roughness, 0.08, 1.0);
+    return clamp(roughness, 0.04, 1.0);
 }
 
 fn get_occlusion(uv: vec2<f32>) ->f32 {
@@ -504,14 +505,29 @@ fn compute_scale(model: mat4x4<f32>) -> f32 {
     return (sx + sy + sz) / 3.0;
 }
 
+fn compute_specular_transmission(V: vec3<f32>, Nws: vec3<f32>, albedo_color: vec3<f32>, metallic: f32, roughness: f32, ) ->vec3<f32> {
+    let R = reflect(-V, Nws);
+    let env_rotation = env_rotY();
+
+    let lod = roughness * MAX_REFLECTION_LOD;
+    let env_spec = textureSampleLevel(prefilter_map, ibl_sampler, env_rotation * R, lod).rgb;
+
+    let NdotV = max(dot(Nws, V), 0.0);
+    let F0 = compute_F0(albedo_color, metallic, material.ior);
+    let F = fresnel_schlick(F0, NdotV);
+
+    let specular_transmission = env_spec * F;
+
+    return specular_transmission;
+}
+
 fn computeTransmissionVolume(
     world_pos:          vec3<f32>, 
     ndc_xy:             vec2<f32>, 
     Nws:                vec3<f32>, 
     V:                  vec3<f32>, 
-    albedo_color:       vec3<f32>, 
-    diffuse:            vec3<f32>,
-    specular:           vec3<f32>,
+    albedo_color:       vec3<f32>,
+    diffuse:            vec3<f32>, 
     transmission:       f32,
     metallic:           f32, 
     roughness:          f32, 
@@ -552,10 +568,14 @@ fn computeTransmissionVolume(
     let F0 = compute_F0(albedo_color, metallic, material.ior);
     let F = fresnel_schlick(F0, NdotV);
 
-    // 4. Mixing
+
+    // 4. Specular Transmission
+    let specular_transmission = compute_specular_transmission(V, Nws, albedo_color, metallic, roughness);
+
+    // 5. Mixing
     let transmitted = transmission_color * transmission;
-    let base = diffuse * (1.0 - transmission);
-    let color = specular + (base + transmitted) * (1.0 - F);
+    let diffuse_term = diffuse * (1.0 - transmission);
+    let color = specular_transmission +  diffuse_term + transmitted * (1.0 - F);
 
     return color;
 }
@@ -599,7 +619,6 @@ fn fs_main(
 
     // Check frontfacing: (fix alpha mask surfaces, fix faces reversed from camera view)
     Nws = select(-Nws, Nws, is_front_facing); //select(false_value, true_value, condition)
-
     let V = normalize(camera.view_pos - in.world_pos);
 
     let light_res = CalculateLight(Nws, V, albedo_color, metallic, roughness, in.world_pos);
@@ -607,6 +626,7 @@ fn fs_main(
 
     let diffuse = light_res.diffuse + ambient_res.diffuse * ao;
     let specular = light_res.specular + ambient_res.specular * ao;
+        
 
     var color = vec3<f32>();
     if material.is_trasmissive == True {
@@ -615,16 +635,15 @@ fn fs_main(
             in.ndc_xy,
             Nws, 
             V, 
-            albedo_color, 
-            diffuse,
-            specular,
+            albedo_color,
+            diffuse, 
             transmission,
             metallic, 
             roughness, 
             thickness
         );
 
-    } else {
+    } else { // Opaque
         color = diffuse + specular + emissive; 
     }
 
