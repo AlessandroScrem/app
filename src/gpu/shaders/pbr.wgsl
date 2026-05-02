@@ -1,14 +1,15 @@
 const MAX_LIGHTS             : u32 = 64;
 const MAX_REFLECTION_LOD     : f32 = 7.0; // max mips on "prefilter_map" (texture.mip_level_count() -1)
 const MAX_SCENE_LOD          : f32 = 7.0; // max mips on "scene_color" (texture.mip_level_count() -1) 
+const TEX_SLOT_COUNT         : u32 = 7;
 
-const COLOR_TEXTURE          : u32 = 1u << 0u;
-const NORMAL_TEXTURE         : u32 = 1u << 1u;
-const METAL_ROUGHNESS_TEXTURE: u32 = 1u << 2u;
-const EMISSIVE_TEXTURE       : u32 = 1u << 3u;
-const OCCLUSION_TEXTURE      : u32 = 1u << 4u;
-const TRANSMISSION_TEXTURE   : u32 = 1u << 5u;
-const VOLUME_TEXTURE         : u32 = 1u << 6u;
+const COLOR_TEXTURE          : u32 = 0u;
+const NORMAL_TEXTURE         : u32 = 1u;
+const METAL_ROUGHNESS_TEXTURE: u32 = 2u;
+const EMISSIVE_TEXTURE       : u32 = 3u;
+const OCCLUSION_TEXTURE      : u32 = 4u;
+const TRANSMISSION_TEXTURE   : u32 = 5u;
+const VOLUME_TEXTURE         : u32 = 6u;
 
 /// Vertex shader
 
@@ -61,6 +62,7 @@ struct Model {
 }
 
 struct Material {
+    
     color: vec4<f32>,
     emissive: vec4<f32>,
 
@@ -80,7 +82,9 @@ struct Material {
     attenuation_distance: f32,
 
     attenuation_color: vec3<f32>,
-    ior: f32
+    ior: f32,
+
+    texture_transform: array<mat4x4<f32>, TEX_SLOT_COUNT>,
 }
 
 struct VertexInput {
@@ -334,15 +338,21 @@ fn CalculateAmbient(
     return result;
 }
 
-fn has_flag(flags: u32, bit: u32) -> bool {
-    return (flags & bit) != 0u;
+
+fn has_flag(flags: u32, index: u32) -> bool {
+    return (flags & (1u << index)) != 0u;
 }
 
+fn uv_transform(m: mat4x4<f32>, uv: vec2<f32>) -> vec2<f32> {
+    let tuv = m * vec4(uv , 1.0, 1.0);
+    return tuv.xy;
+}
 
 fn get_color(uv: vec2<f32>) ->vec3<f32> {
     var albedo_color = material.color.rgb;
     if has_flag(material.texture_flags, COLOR_TEXTURE)  {
-        albedo_color *= textureSample(albedo_map, tex_sampler, uv).rgb;
+        let tuv = uv_transform(material.texture_transform[COLOR_TEXTURE], uv);
+        albedo_color *= textureSample(albedo_map, tex_sampler, tuv).rgb;
     }
     return albedo_color;
 }

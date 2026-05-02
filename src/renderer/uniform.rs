@@ -127,7 +127,7 @@ pub struct GlobalUniform {
     pub debug: u32,
 
     pub env_rotation: f32,
-    pub pad: [u32; 3], 
+    pub pad: [u32; 3],
 }
 
 ///shader: [pbr, blinnphong, light]
@@ -177,6 +177,13 @@ impl Default for LightsUniform {
     }
 }
 
+
+#[repr(C, align(16))]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Mat4std140 {
+    pub m: [[f32; 4]; 4],
+}
+
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -198,7 +205,9 @@ pub struct MaterialUniform {
     pub is_volume: u32,
     pub thickness_factor: f32,
     pub attenuation_distance: f32,
-    
+
     pub attenuation_color: [f32; 3],
     pub ior: f32,
+
+    pub texture_transforms: [Mat4std140; super::MATERIAL_TEXTURE_COUNT],
 }

@@ -93,7 +93,7 @@ impl BindgroupCache {
             BindgroupKind::LightTexture => {
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                        .sampler(SamplerDesc::Linear)
+                        .sampler(SamplerDesc::LinearRepeat)
                         .build(device, Some(queue));
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -123,7 +123,7 @@ impl BindgroupCache {
                     .dimension(Dimension::Cube)
                     .format(ColorSpace::Rgba8)
                     .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::Linear)
+                    .sampler(SamplerDesc::LinearRepeat)
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
@@ -170,7 +170,7 @@ impl BindgroupCache {
                     .dimension(Dimension::Cube)
                     .format(ColorSpace::Rgba8)
                     .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::Linear)
+                    .sampler(SamplerDesc::LinearRepeat)
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
@@ -194,7 +194,7 @@ impl BindgroupCache {
                     .dimension(Dimension::Cube)
                     .format(ColorSpace::Rgba8)
                     .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::Linear)
+                    .sampler(SamplerDesc::LinearRepeat)
                     .label("Cube white texture")
                     .build(device, Some(queue));
 

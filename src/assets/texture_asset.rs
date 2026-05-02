@@ -13,7 +13,7 @@ impl TextureId {
 #[derive(Default, Clone, Debug)]
 pub enum SamplerDesc {
     #[default]
-    Linear,
+    LinearRepeat,
     LinearMipmap,
     Nearest,
 }

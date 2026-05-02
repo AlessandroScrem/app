@@ -366,7 +366,7 @@ fn url_decoding(uri: &str) -> String {
     uri.replace("%20", " ")
 }
 
-fn path_from_ginfo(info: gltf::texture::Info<'_>, base_dir: &Path) -> Option<std::path::PathBuf> {
+fn path_from_ginfo(info: &gltf::texture::Info<'_>, base_dir: &Path) -> Option<std::path::PathBuf> {
     match info.texture().source().source() {
         gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(url_decoding(uri))),
         _ => None,
@@ -381,6 +381,14 @@ fn path_from_gtexture(
         gltf::image::Source::Uri { uri, .. } => Some(base_dir.join(url_decoding(uri))),
         _ => None,
     }
+}
+
+fn texture_transform_from_ginfo(info: gltf::texture::Info<'_>) -> Option<TextureTransform> {
+    info.texture_transform().map(|t| TextureTransform {
+        offset: t.offset(),
+        rotation: t.rotation(),
+        scale: t.scale(),
+    })
 }
 
 fn create_material<P: AsRef<Path>>(
@@ -420,22 +428,26 @@ fn create_material<P: AsRef<Path>>(
         material_desc.set_texture(
             texture_asset,
             BaseColor,
-            path_from_ginfo(color_info, parent_path),
+            path_from_ginfo(&color_info, parent_path),
+            texture_transform_from_ginfo(color_info),
         );
     }
+
     if let Some(normal_tex) = gltf_material.normal_texture() {
         material_desc.normal_scale = normal_tex.scale();
         material_desc.set_texture(
             texture_asset,
             Normal,
             path_from_gtexture(normal_tex.texture(), parent_path),
+            None,
         );
     }
     if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
         material_desc.set_texture(
             texture_asset,
             MetallicRoughness,
-            path_from_ginfo(met_rough_info, parent_path),
+            path_from_ginfo(&met_rough_info, parent_path),
+            texture_transform_from_ginfo(met_rough_info),
         );
     }
     if let Some(occl_tex) = gltf_material.occlusion_texture() {
@@ -444,24 +456,27 @@ fn create_material<P: AsRef<Path>>(
             texture_asset,
             Occlusion,
             path_from_gtexture(occl_tex.texture(), parent_path),
+            None,
         )
     }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
         material_desc.set_texture(
             texture_asset,
             Emissive,
-            path_from_ginfo(emissive_info, parent_path),
+            path_from_ginfo(&emissive_info, parent_path),
+            texture_transform_from_ginfo(emissive_info),
         );
     }
     if let Some(transmission) = gltf_material.transmission() {
         let factor = transmission.transmission_factor();
         material_desc.transmission = Some(assets::Transmission { factor });
 
-        if let Some(transmission_texture) = transmission.transmission_texture() {
+        if let Some(transmission_texture_info) = transmission.transmission_texture() {
             material_desc.set_texture(
                 texture_asset,
                 Transmission,
-                path_from_ginfo(transmission_texture, parent_path),
+                path_from_ginfo(&transmission_texture_info, parent_path),
+                texture_transform_from_ginfo(transmission_texture_info),
             );
         }
     }
@@ -473,11 +488,12 @@ fn create_material<P: AsRef<Path>>(
             attenuation_color: volume.attenuation_color(),
         });
 
-        if let Some(volume_texture) = volume.thickness_texture() {
+        if let Some(volume_texture_info) = volume.thickness_texture() {
             material_desc.set_texture(
                 texture_asset,
                 Volume,
-                path_from_ginfo(volume_texture, parent_path),
+                path_from_ginfo(&volume_texture_info, parent_path),
+                texture_transform_from_ginfo(volume_texture_info),
             );
         }
     }
@@ -514,8 +530,8 @@ mod tests {
         let normal_path = base_path.join("Cube_normal.png");
         let mut mat_desc = MaterialDesc::default();
         mat_desc.set_name("Cube");
-        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path));
-        mat_desc.set_texture(texture_asset, Normal, Some(normal_path));
+        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path), None);
+        mat_desc.set_texture(texture_asset, Normal, Some(normal_path), None);
         mat_desc.metallic_factor = 0.0;
         mat_desc.roughness_factor = 1.0;
 

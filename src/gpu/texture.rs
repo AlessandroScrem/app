@@ -91,13 +91,14 @@ impl From<ColorSpace> for wgpu::TextureFormat {
 impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
     fn from(sd: SamplerDesc) -> Self {
         match sd {
-            SamplerDesc::Linear => wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
+            SamplerDesc::LinearRepeat => wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::Repeat,
+                address_mode_v: wgpu::AddressMode::Repeat,
+                address_mode_w: wgpu::AddressMode::Repeat,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
                 mipmap_filter: wgpu::MipmapFilterMode::Linear,
+
                 ..Default::default()
             },
             SamplerDesc::LinearMipmap => wgpu::SamplerDescriptor {
@@ -131,7 +132,7 @@ impl<'a> GpuTextureBuilder<'a> {
             height: data.height,
             dimension: Dimension::D2,
             usage: GpuTextureUsage::SampledTexture,
-            sampler: Some(SamplerDesc::Linear),
+            sampler: Some(SamplerDesc::LinearRepeat),
             source: Some(TextureSource::Cpu(data)),
             with_mips: None,
         }
@@ -145,7 +146,7 @@ impl<'a> GpuTextureBuilder<'a> {
             height: data.height,
             dimension: Dimension::D2,
             usage: GpuTextureUsage::SampledTexture,
-            sampler: Some(SamplerDesc::Linear),
+            sampler: Some(SamplerDesc::LinearRepeat),
             source: Some(TextureSource::Static(data)),
             with_mips: None,
         }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::uniform::{Mat4std140};
 use crate::{math::*, renderer::uniform::MaterialUniform};
 use cgmath::AbsDiffEq;
 use std::ops::{Index, IndexMut};
@@ -11,9 +12,75 @@ pub enum ShaderId {
     Pbr,
 }
 
+use std::hash::{Hash, Hasher};
+
+#[derive(Clone, Copy, Debug)]
+pub struct TextureTransform {
+    pub offset: [f32; 2],
+    pub rotation: f32,
+    pub scale: [f32; 2],
+}
+impl Default for TextureTransform {
+    fn default() -> Self {
+        Self {
+            offset: [0.0, 0.0],
+            rotation: 0.0,
+            scale: [1.0, 1.0],
+        }
+    }
+}
+impl TextureTransform {
+    pub fn to_mat4_std140(&self) -> Mat4std140 {
+
+        fn to_quat(r: f32) -> Quat {
+            let euler = Euler::new(Rad(r), Rad(r), Rad(r));
+            Quat::from(euler)
+        }
+
+        let translation = Vec3::new(self.offset[0], self.offset[1],  0.0);
+        let rotation = to_quat(self.rotation);
+        let scale = Vec3::new(self.scale[0], self.scale[1], 1.0);
+
+        let t = Mat4::from_translation(translation);
+        let r = Mat4::from(rotation);
+        let s = Mat4::from_nonuniform_scale(scale.x, scale.y, scale.z);
+
+        let m4 = t * r * s;
+
+        Mat4std140 {
+            m: m4.into(),
+        }
+    }
+}
+
+impl Hash for TextureTransform {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for v in self.offset {
+            v.to_bits().hash(state);
+        }
+        self.rotation.to_bits().hash(state);
+        for v in self.scale {
+            v.to_bits().hash(state);
+        }
+    }
+}
+
+impl PartialEq for TextureTransform {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset[0].to_bits() == other.offset[0].to_bits()
+            && self.offset[1].to_bits() == other.offset[1].to_bits()
+            && self.rotation.to_bits() == other.rotation.to_bits()
+            && self.scale[0].to_bits() == other.scale[0].to_bits()
+            && self.scale[1].to_bits() == other.scale[1].to_bits()
+    }
+}
+
+impl Eq for TextureTransform {}
+
 #[derive(Debug, Default, Hash, Eq, PartialEq, Clone)]
 pub struct TestureSet {
     textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
+    transforms: [Option<TextureTransform>; MATERIAL_TEXTURE_COUNT],
 }
 
 impl Index<MaterialTextureSlot> for TestureSet {
@@ -271,11 +338,11 @@ impl PartialEq for MaterialDesc {
             && self.transmission == other.transmission
             && self.volume == other.volume
             && self
-            .base_color_factor
-            .abs_diff_eq(&other.base_color_factor, Default::default())
+                .base_color_factor
+                .abs_diff_eq(&other.base_color_factor, Default::default())
             && self
-            .emissive_factor
-            .abs_diff_eq(&other.emissive_factor, Default::default())
+                .emissive_factor
+                .abs_diff_eq(&other.emissive_factor, Default::default())
             && self.roughness_factor.to_bits() == other.roughness_factor.to_bits()
             && self.metallic_factor.to_bits() == other.metallic_factor.to_bits()
             && self.normal_scale.to_bits() == other.normal_scale.to_bits()
@@ -314,6 +381,25 @@ impl MaterialDesc {
             .copied()
             .flatten()
     }
+
+    pub fn get_uvtransform_slot(&self, slot: MaterialTextureSlot) -> Option<TextureTransform> {
+        self.texture_set
+            .transforms
+            .get(slot as usize)
+            .copied()
+            .flatten()
+    }
+
+    pub fn get_uvtransform_slot_mut(
+        &mut self,
+        slot: MaterialTextureSlot,
+    ) -> Option<&mut TextureTransform> {
+        self.texture_set
+            .transforms
+            .get_mut(slot as usize)
+            .and_then(|opt| opt.as_mut())
+    }
+
     fn estimated_size() -> usize {
         size_of::<MaterialDesc>()
     }
@@ -354,6 +440,7 @@ impl MaterialDesc {
         texture_asset: &mut TextureAssets,
         slot: MaterialTextureSlot,
         path: Option<PathBuf>,
+        transform: Option<TextureTransform>,
     ) {
         if let Some(path) = path {
             let key = TextureKey::File {
@@ -363,11 +450,12 @@ impl MaterialDesc {
             };
             let desc = super::TextureDesc::File {
                 key,
-                sampler: super::SamplerDesc::Linear,
+                sampler: super::SamplerDesc::LinearRepeat,
                 mipmaps: false,
             };
             let id = texture_asset.get_or_create(desc);
             self.texture_set.textures[slot as usize] = Some(id);
+            self.texture_set.transforms[slot as usize] = transform;
             self.texture_flags.set(slot, true);
         }
     }
@@ -460,11 +548,26 @@ impl MaterialAssets {
 
     pub fn update(&mut self, id: MaterialId, desc: &MaterialDesc) {
         if let Some(asset) = &mut self.storage.get_mut(id) {
+            println!(
+                "Update material id {:?} with desc {:?}",
+                id,
+                desc.get_uvtransform_slot(MaterialTextureSlot::BaseColor)
+            );
             asset.desc = desc.clone();
         } else {
             warn!("material id {} not found", id);
         }
     }
+}
+
+fn gen_transform_array(desc: &MaterialDesc) -> [Mat4std140; MATERIAL_TEXTURE_COUNT] {
+    std::array::from_fn(|i| {
+        let slot = MaterialTextureSlot::ALL[i];
+
+        desc.get_uvtransform_slot(slot)
+            .unwrap_or_default()
+            .to_mat4_std140()
+    })
 }
 
 impl From<&MaterialDesc> for MaterialUniform {
@@ -476,6 +579,7 @@ impl From<&MaterialDesc> for MaterialUniform {
         let is_volume = value.is_volume().into();
         let (attenuation_distance, thickness_factor, attenuation_color) =
             Volume::to_uniform(value.volume);
+        let texture_transforms = gen_transform_array(value);
 
         Self {
             color_factor: value.base_color_factor.into(),
@@ -494,6 +598,7 @@ impl From<&MaterialDesc> for MaterialUniform {
             thickness_factor,
             attenuation_color,
             ior: value.ior,
+            texture_transforms,
             // ..Default::default()
         }
     }
@@ -540,7 +645,12 @@ mod tests {
         let path = Some(PathBuf::from("albedo.png"));
 
         let mut desc = MaterialDesc::default();
-        desc.set_texture(&mut texture_asset, MaterialTextureSlot::BaseColor, path);
+        desc.set_texture(
+            &mut texture_asset,
+            MaterialTextureSlot::BaseColor,
+            path,
+            None,
+        );
 
         let id = materials.get_or_create(desc);
         let mat_desc = materials.get_desc(id).unwrap();

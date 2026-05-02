@@ -124,6 +124,7 @@ impl MaterialDesc {
             if use_texture {
                 ui.same_line();
                 draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)), iconsize);
+                dirty |= draw_texture_transform(ui, material, slot);
             } else {
                 dirty |= slot.draw_ui(ui, material);
             }
@@ -435,4 +436,25 @@ fn draw_ui_texture_icon(ui: &imgui::Ui, id: Option<TextureId>, size: [f32; 2]) {
     if let Some(id) = id {
         ui.image_button("no name", id, size);
     }
+}
+
+fn draw_texture_transform(ui: &imgui::Ui, material: &mut MaterialDesc, slot: MaterialTextureSlot)->bool {
+    let mut dirty = false;
+
+    if let Some(transform) = material.get_uvtransform_slot_mut(slot) {
+        let id = ui.push_id(slot.as_str());
+
+        let offset = &mut transform.offset;
+        let rotation = &mut transform.rotation;
+        let scale = &mut transform.scale;
+    
+        dirty |= Drag::new("Offset").range(-1.0, 1.0).speed(0.01).build_array(ui, offset);
+        dirty |= Drag::new("Rotation").build(ui, rotation);
+        dirty |= Drag::new("Scale").build_array(ui, scale);
+        
+        id.pop();
+    }
+
+
+    return dirty;
 }

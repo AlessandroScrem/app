@@ -183,7 +183,7 @@ mod tests {
         };
         let desc = TextureDesc::File {
             key,
-            sampler: SamplerDesc::Linear,
+            sampler: SamplerDesc::LinearRepeat,
             mipmaps: false,
         };
 
