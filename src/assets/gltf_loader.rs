@@ -391,6 +391,30 @@ fn texture_transform_from_ginfo(info: gltf::texture::Info<'_>) -> Option<Texture
     })
 }
 
+// Gltf 1.4.1, doesn't support texture transform natively,
+// so we need to parse it manually
+fn parse_transform(ext: &serde_json::Value) -> TextureTransform {
+    let offset = ext
+        .get("offset")
+        .and_then(|v| v.as_array())
+        .map(|a| [a[0].as_f64().unwrap() as f32, a[1].as_f64().unwrap() as f32])
+        .unwrap_or([0.0, 0.0]);
+
+    let scale = ext
+        .get("scale")
+        .and_then(|v| v.as_array())
+        .map(|a| [a[0].as_f64().unwrap() as f32, a[1].as_f64().unwrap() as f32])
+        .unwrap_or([1.0, 1.0]);
+
+    let rotation = ext.get("rotation").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+
+    TextureTransform {
+        offset,
+        scale,
+        rotation,
+    }
+}
+
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     asset_mgr: &mut AssetManager,
@@ -439,7 +463,9 @@ fn create_material<P: AsRef<Path>>(
             texture_asset,
             Normal,
             path_from_gtexture(normal_tex.texture(), parent_path),
-            None,
+            normal_tex
+                .extension_value("KHR_texture_transform")
+                .map(parse_transform),
         );
     }
     if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
@@ -456,7 +482,9 @@ fn create_material<P: AsRef<Path>>(
             texture_asset,
             Occlusion,
             path_from_gtexture(occl_tex.texture(), parent_path),
-            None,
+            occl_tex
+                .extension_value("KHR_texture_transform")
+                .map(parse_transform),
         )
     }
     if let Some(emissive_info) = gltf_material.emissive_texture() {
@@ -498,7 +526,7 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    // println!("Metarial created {:#?}", material_desc);
+    info!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 

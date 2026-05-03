@@ -198,6 +198,7 @@ dependencies = [
  "pollster",
  "rayon",
  "rfd",
+ "serde_json",
  "slotmap",
  "smol",
  "stb_image",
