@@ -42,6 +42,8 @@ cgmath = "0.18.0"
 - [x] Material gltf Transmission
 - [x] Material gltf Volume
 - [x] Material gltf Ior
+- [x] Material gltf TextureTransform
+- [x] Material gltf TextureCoords[0,1]
 - [x] Environment rotation
 - [ ] Direct Light shadow
 - [ ] SSAO   
@@ -59,8 +61,8 @@ git clone https://github.com/AlessandroScrem/app.git
 cd app
 
 cargo build
-cargo test
-cargo run --release
+cargo test --lib
+cargo run --release -- -v
 
 // run with options 
 cargo run --release -- --help
