@@ -539,7 +539,7 @@ impl MaterialAssets {
 
     pub fn update(&mut self, id: MaterialId, desc: &MaterialDesc) {
         if let Some(asset) = &mut self.storage.get_mut(id) {
-            println!(
+            debug!(
                 "Update material id {:?} with desc {:?}",
                 id,
                 desc.get_uvtransform_slot(MaterialTextureSlot::BaseColor)
@@ -571,6 +571,7 @@ impl From<&MaterialDesc> for MaterialUniform {
         let (attenuation_distance, thickness_factor, attenuation_color) =
             Volume::to_uniform(value.volume);
         let texture_transforms = gen_transform_array(value);
+
 
         Self {
             color_factor: value.base_color_factor.into(),
