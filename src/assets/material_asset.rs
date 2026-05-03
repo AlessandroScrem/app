@@ -223,6 +223,13 @@ impl Transmission {
     }
 }
 
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub struct MaterialSheen {
+    pub color_factor: [f32; 3],
+    pub roughness_factor: f32,
+}
+
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TextureFlags {
     flags: u32,
@@ -315,6 +322,7 @@ pub struct MaterialDesc {
     pub transmission: Option<Transmission>,
     pub volume: Option<Volume>,
     pub ior: f32,
+    pub sheen: Option<MaterialSheen>,
 }
 
 // PartialEq ignore: name , shader
@@ -336,6 +344,7 @@ impl PartialEq for MaterialDesc {
             && self.normal_scale.to_bits() == other.normal_scale.to_bits()
             && self.occlusion_strength.to_bits() == other.occlusion_strength.to_bits()
             && self.ior.to_bits() == other.ior.to_bits()
+            && self.sheen == other.sheen
     }
 }
 
@@ -358,6 +367,7 @@ impl Default for MaterialDesc {
             transmission: None,
             volume: None,
             ior: IOR,
+            sheen: None,
         }
     }
 }

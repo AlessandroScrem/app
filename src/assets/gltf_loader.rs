@@ -187,7 +187,9 @@ fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]
         }
 
         fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-            self.vertices[self.indices[face * 3 + vert] as usize].uv[0..2].try_into().unwrap()   
+            self.vertices[self.indices[face * 3 + vert] as usize].uv[0..2]
+                .try_into()
+                .unwrap()
         }
 
         fn set_tangent(
@@ -423,6 +425,25 @@ fn parse_transform(ext: &serde_json::Value) -> TextureTransform {
     }
 }
 
+#[derive(serde::Deserialize)]
+struct SheenExt {
+    #[serde(rename = "sheenColorFactor")]
+    color_factor: Option<[f32; 3]>,
+
+    #[serde(rename = "sheenRoughnessFactor")]
+    roughness_factor: Option<f32>,
+}
+
+fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<MaterialSheen> {
+    let ext = mat.extensions()?.get("KHR_materials_sheen")?;
+    let sheen: SheenExt = serde_json::from_value(ext.clone()).ok()?;
+
+    Some(MaterialSheen {
+        color_factor: sheen.color_factor.unwrap_or([0.0, 0.0, 0.0]),
+        roughness_factor: sheen.roughness_factor.unwrap_or(0.0),
+    })
+}
+
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     asset_mgr: &mut AssetManager,
@@ -455,6 +476,13 @@ fn create_material<P: AsRef<Path>>(
     material_desc.metallic_factor = pbr.metallic_factor();
     material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
     material_desc.ior = gltf_material.ior().unwrap_or(1.5);
+
+    gltf_material.extensions().into_iter().for_each(|k| {
+        println!("Material {} has extension {:#?}", name, k);
+    });
+
+    material_desc.sheen = parse_gltf_material_sheen(gltf_material);
+
 
     if let Some(info) = pbr.base_color_texture() {
         material_desc.set_texture(
@@ -541,7 +569,7 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    info!("Metarial created {:#?}", material_desc);
+    println!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 
