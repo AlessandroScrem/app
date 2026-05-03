@@ -58,6 +58,13 @@ pub struct Mat3Std140 {
     pub m: [[f32; 4]; 3],
 }
 
+impl Default for Mat3Std140 {
+    fn default() -> Self {
+        Self::identity() 
+    }
+    
+}
+
 impl Mat3Std140 {
     pub fn mat3_to_std140(n: Mat3) -> Self {
         Self {
@@ -178,7 +185,7 @@ impl Default for LightsUniform {
 
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialUniform {
     pub color_factor: [f32; 4],
     pub emissive_factor: [f32; 4],
@@ -202,4 +209,7 @@ pub struct MaterialUniform {
     pub ior: f32,
 
     pub texture_transforms: [Mat3Std140; super::MATERIAL_TEXTURE_COUNT],
+
+    pub coord_flags: u32,
+    pub _pad: [u32; 3],
 }

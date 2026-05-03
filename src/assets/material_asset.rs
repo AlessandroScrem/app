@@ -303,6 +303,7 @@ pub struct MaterialDesc {
 
     pub texture_set: TestureSet,
     texture_flags: TextureFlags,
+    coord_flags: TextureFlags,
 
     pub alpha_mode: AlphaMode,
     pub base_color_factor: Vec4,
@@ -345,6 +346,7 @@ impl Default for MaterialDesc {
             shader: ShaderId::default(),
             texture_set: TestureSet::default(),
             texture_flags: TextureFlags::new(),
+            coord_flags: TextureFlags::new(),
 
             alpha_mode: AlphaMode::default(),
             base_color_factor: Vec4::from_value(one()),
@@ -427,6 +429,7 @@ impl MaterialDesc {
         texture_asset: &mut TextureAssets,
         slot: MaterialTextureSlot,
         path: Option<PathBuf>,
+        coord: u32,
         transform: Option<TextureTransform>,
     ) {
         if let Some(path) = path {
@@ -443,6 +446,7 @@ impl MaterialDesc {
             let id = texture_asset.get_or_create(desc);
             self.texture_set.textures[slot as usize] = Some(id);
             self.texture_set.transforms[slot as usize] = transform;
+            self.coord_flags.set(slot, coord > 0);
             self.texture_flags.set(slot, true);
         }
     }
@@ -586,7 +590,8 @@ impl From<&MaterialDesc> for MaterialUniform {
             attenuation_color,
             ior: value.ior,
             texture_transforms,
-            // ..Default::default()
+            coord_flags: value.coord_flags.raw(),
+            ..Default::default()
         }
     }
 }
@@ -636,6 +641,7 @@ mod tests {
             &mut texture_asset,
             MaterialTextureSlot::BaseColor,
             path,
+            0,
             None,
         );
 

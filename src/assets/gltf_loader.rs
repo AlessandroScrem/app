@@ -187,7 +187,7 @@ fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]
         }
 
         fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-            self.vertices[self.indices[face * 3 + vert] as usize].uv
+            self.vertices[self.indices[face * 3 + vert] as usize].uv[0..2].try_into().unwrap()   
         }
 
         fn set_tangent(
@@ -260,7 +260,7 @@ where
             position,
             normal: [0.0, 1.0, 0.0],
             tangent: [0.0; 4],
-            uv: [0.0; 2],
+            uv: [0.0; 4],
         });
     }
 
@@ -274,7 +274,15 @@ where
 
     if let Some(uvs) = reader.read_tex_coords(0) {
         for (i, uv) in uvs.into_f32().enumerate() {
-            vertices[base + i].uv = uv;
+            vertices[base + i].uv[0] = uv[0];
+            vertices[base + i].uv[1] = uv[1];
+        }
+    }
+
+    if let Some(uvs) = reader.read_tex_coords(1) {
+        for (i, uv) in uvs.into_f32().enumerate() {
+            vertices[base + i].uv[2] = uv[0];
+            vertices[base + i].uv[3] = uv[1];
         }
     }
 
@@ -448,51 +456,56 @@ fn create_material<P: AsRef<Path>>(
     material_desc.emissive_factor = Vec3::from(gltf_material.emissive_factor()).extend(0.0);
     material_desc.ior = gltf_material.ior().unwrap_or(1.5);
 
-    if let Some(color_info) = pbr.base_color_texture() {
+    if let Some(info) = pbr.base_color_texture() {
         material_desc.set_texture(
             texture_asset,
             BaseColor,
-            path_from_ginfo(&color_info, parent_path),
-            texture_transform_from_ginfo(color_info),
+            path_from_ginfo(&info, parent_path),
+            info.tex_coord(),
+            texture_transform_from_ginfo(info),
         );
     }
 
-    if let Some(normal_tex) = gltf_material.normal_texture() {
-        material_desc.normal_scale = normal_tex.scale();
+    if let Some(normal_texture) = gltf_material.normal_texture() {
+        material_desc.normal_scale = normal_texture.scale();
         material_desc.set_texture(
             texture_asset,
             Normal,
-            path_from_gtexture(normal_tex.texture(), parent_path),
-            normal_tex
+            path_from_gtexture(normal_texture.texture(), parent_path),
+            normal_texture.tex_coord(),
+            normal_texture
                 .extension_value("KHR_texture_transform")
                 .map(parse_transform),
         );
     }
-    if let Some(met_rough_info) = pbr.metallic_roughness_texture() {
+    if let Some(info) = pbr.metallic_roughness_texture() {
         material_desc.set_texture(
             texture_asset,
             MetallicRoughness,
-            path_from_ginfo(&met_rough_info, parent_path),
-            texture_transform_from_ginfo(met_rough_info),
+            path_from_ginfo(&info, parent_path),
+            info.tex_coord(),
+            texture_transform_from_ginfo(info),
         );
     }
-    if let Some(occl_tex) = gltf_material.occlusion_texture() {
-        material_desc.occlusion_strength = occl_tex.strength().clamp(0.0, 1.0);
+    if let Some(occlusion_texture) = gltf_material.occlusion_texture() {
+        material_desc.occlusion_strength = occlusion_texture.strength().clamp(0.0, 1.0);
         material_desc.set_texture(
             texture_asset,
             Occlusion,
-            path_from_gtexture(occl_tex.texture(), parent_path),
-            occl_tex
+            path_from_gtexture(occlusion_texture.texture(), parent_path),
+            occlusion_texture.tex_coord(),
+            occlusion_texture
                 .extension_value("KHR_texture_transform")
                 .map(parse_transform),
         )
     }
-    if let Some(emissive_info) = gltf_material.emissive_texture() {
+    if let Some(info) = gltf_material.emissive_texture() {
         material_desc.set_texture(
             texture_asset,
             Emissive,
-            path_from_ginfo(&emissive_info, parent_path),
-            texture_transform_from_ginfo(emissive_info),
+            path_from_ginfo(&info, parent_path),
+            info.tex_coord(),
+            texture_transform_from_ginfo(info),
         );
     }
     if let Some(transmission) = gltf_material.transmission() {
@@ -504,6 +517,7 @@ fn create_material<P: AsRef<Path>>(
                 texture_asset,
                 Transmission,
                 path_from_ginfo(&transmission_texture_info, parent_path),
+                transmission_texture_info.tex_coord(),
                 texture_transform_from_ginfo(transmission_texture_info),
             );
         }
@@ -521,6 +535,7 @@ fn create_material<P: AsRef<Path>>(
                 texture_asset,
                 Volume,
                 path_from_ginfo(&volume_texture_info, parent_path),
+                volume_texture_info.tex_coord(),
                 texture_transform_from_ginfo(volume_texture_info),
             );
         }
@@ -558,8 +573,8 @@ mod tests {
         let normal_path = base_path.join("Cube_normal.png");
         let mut mat_desc = MaterialDesc::default();
         mat_desc.set_name("Cube");
-        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path), None);
-        mat_desc.set_texture(texture_asset, Normal, Some(normal_path), None);
+        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path), 0, None);
+        mat_desc.set_texture(texture_asset, Normal, Some(normal_path), 0, None);
         mat_desc.metallic_factor = 0.0;
         mat_desc.roughness_factor = 1.0;
 

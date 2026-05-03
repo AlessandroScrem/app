@@ -132,14 +132,17 @@ impl Globals {
             "Exponential",
         ];
 
-        const DEBUG_CODE: [&str; 13] = [
+        const DEBUG_CODE: [&str; 16] = [
             "None",
+            "TextureCoords0",
+            "TextureCoords1",
             "Base Color",
             "Normal Texture",
             "Geometry Normal",
             "Geometry Tangent",
             "Geometry Bitangent",
             "Geometry Tangent W",
+            "ShadingNormal",
             "Metallic",
             "Roughness",
             "Emissive",

@@ -85,13 +85,15 @@ struct Material {
     ior: f32,
 
     texture_transform: array<mat3x3<f32>, TEX_SLOT_COUNT>,
+
+    coord_flags: u32,   
 }
 
 struct VertexInput {
     @location(0) position : vec3<f32>,
     @location(1) normal   : vec3<f32>,
     @location(2) tangent  : vec4<f32>, // xyz = T, w = sign
-    @location(3) uv       : vec2<f32>,
+    @location(3) uv       : vec4<f32>, // xy = uv0, zw = uv1
 };
 
 // PerFrame
@@ -105,7 +107,7 @@ struct VertexOutput {
     @location(0) world_pos           : vec3<f32>,
     @location(1) normal              : vec3<f32>,
     @location(2) tangent             : vec4<f32>, // xyz = T, w = sign
-    @location(3) uv                  : vec2<f32>,
+    @location(3) uv                  : vec4<f32>,
     @location(4) ndc_xy              : vec2<f32>, 
 };
 
@@ -126,7 +128,7 @@ fn vs_main(
     out.normal  = normalize(model.normal_matrix * in.normal);
     out.uv =  in.uv;
 
-    // salva NDC
+    // NDC
     out.ndc_xy = clip.xy / clip.w; // [-1, 1]
 
     return out;
@@ -141,19 +143,22 @@ const False                  : u32 = 0;
 
 const AlphaMask              : u32 = 1; 
 
-const DebugNone              : u32 = 0; 
-const DebugBaseColor         : u32 = 1; 
-const DebugNormalTexture     : u32 = 2; 
-const DebugGeometryNormal    : u32 = 3; 
-const DebugGeometryTangent   : u32 = 4; 
-const DebugGeometryBitangent : u32 = 5; 
-const DebugGeometryTangentW  : u32 = 6; 
-const DebugMetallic          : u32 = 7; 
-const DebugRoughness         : u32 = 8; 
-const DebugEmissive          : u32 = 9; 
-const DebugOcclusion         : u32 = 10; 
-const DebugTransmission      : u32 = 11; 
-const VolumeThickness        : u32 = 12; 
+const DebugNone              : u32 = 0;
+const TextureCoords0         : u32 = 1;
+const TextureCoords1         : u32 = 2;
+const DebugBaseColor         : u32 = 3; 
+const DebugNormalTexture     : u32 = 4; 
+const DebugGeometryNormal    : u32 = 5; 
+const DebugGeometryTangent   : u32 = 6; 
+const DebugGeometryBitangent : u32 = 7; 
+const DebugGeometryTangentW  : u32 = 8;
+const DebugShadingNormal     : u32 = 9;
+const DebugMetallic          : u32 = 10; 
+const DebugRoughness         : u32 = 11; 
+const DebugEmissive          : u32 = 12; 
+const DebugOcclusion         : u32 = 13; 
+const DebugTransmission      : u32 = 14; 
+const VolumeThickness        : u32 = 15; 
 
 // Material
 @group(1) @binding(0) var <uniform> material: Material;
@@ -343,68 +348,80 @@ fn has_flag(flags: u32, index: u32) -> bool {
     return (flags & (1u << index)) != 0u;
 }
 
+fn get_uv(uv01: vec4<f32>, slot: u32) -> vec2<f32> {
+    var uv = select(uv01.xy, uv01.zw, has_flag(material.coord_flags, slot));
+    uv = uv_transform(material.texture_transform[slot], uv);
+    return uv; 
+}
+
 fn uv_transform(m: mat3x3<f32>, uv: vec2<f32>) -> vec2<f32> {
     let tuv = m * vec3(uv, 1.0);
     return tuv.xy;
 }
 
-fn get_color(uv: vec2<f32>) ->vec3<f32> {
+fn get_color(uv01: vec4<f32>) ->vec3<f32> {
     var albedo_color = material.color.rgb;
     if has_flag(material.texture_flags, COLOR_TEXTURE)  {
-        let uv = uv_transform(material.texture_transform[COLOR_TEXTURE], uv);
+        let uv = get_uv(uv01, COLOR_TEXTURE);
         albedo_color *= textureSample(albedo_map, tex_sampler, uv).rgb;
     }
     return albedo_color;
 }
 
 
-fn get_alpha(uv: vec2<f32>) ->f32 {
-    return textureSample(albedo_map, tex_sampler, uv).a;
+fn get_alpha(uv01: vec4<f32>) ->f32 {
+    var alpha = 0.0;
+    if has_flag(material.texture_flags, COLOR_TEXTURE)  {
+        let uv = get_uv(uv01, COLOR_TEXTURE);
+        alpha = textureSample(albedo_map, tex_sampler, uv).a;
+    }
+
+    return alpha;
 }
 
-fn get_metallic(uv: vec2<f32>) ->f32 {
+fn get_metallic(uv01: vec4<f32>) ->f32 {
     var metallic = material.metallic_factor;
     if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[METAL_ROUGHNESS_TEXTURE], uv);
+        let uv = get_uv(uv01, METAL_ROUGHNESS_TEXTURE);
         metallic *= textureSample(orm_map, tex_sampler, uv).b;
         metallic = select(0.0, metallic, metallic > 0.06); //select(false_value, true_value, condition)
     }
     return clamp(metallic, 0.0, 1.0);
 }
 
-fn get_roughness(uv: vec2<f32>) ->f32 {
+fn get_roughness(uv01: vec4<f32>) ->f32 {
     var roughness = material.roughness_factor;
     if has_flag(material.texture_flags, METAL_ROUGHNESS_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[METAL_ROUGHNESS_TEXTURE], uv);
+        let uv = get_uv(uv01, METAL_ROUGHNESS_TEXTURE);
         roughness *= textureSample(orm_map, tex_sampler, uv).g;
     }
     return clamp(roughness, 0.04, 1.0);
 }
 
-fn get_occlusion(uv: vec2<f32>) ->f32 {
+fn get_occlusion(uv01: vec4<f32>) ->f32 {
     var ao:f32 = 1.0;
     if has_flag(material.texture_flags, OCCLUSION_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[OCCLUSION_TEXTURE], uv);
+        var uv = get_uv(uv01, OCCLUSION_TEXTURE);
         let occlusion_texture = textureSample(occlusion_map, tex_sampler, uv).r;
         ao = 1.0 + material.occlusion_strength * (occlusion_texture - 1.0);
     }
     return ao;
 }
 
-fn get_emissive(uv: vec2<f32>) ->vec3<f32> {
+fn get_emissive(uv01: vec4<f32>) ->vec3<f32> {
     var emissive = vec3<f32>(0.0);
     if has_flag(material.texture_flags, EMISSIVE_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[EMISSIVE_TEXTURE], uv);
+        let uv = get_uv(uv01, EMISSIVE_TEXTURE);
         let emissive_texture = textureSample(emissive_map, tex_sampler, uv).rgb;
         emissive = emissive_texture * material.emissive.rgb;
     }
     return emissive;
 }
 
-fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
+fn get_normal_texture(uv01: vec4<f32>) ->vec3<f32> {
     var normal_ts = vec3<f32>(0.0);
     if has_flag(material.texture_flags, NORMAL_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[NORMAL_TEXTURE], uv);
+        let uv = get_uv(uv01, NORMAL_TEXTURE);
         normal_ts = textureSample(normal_map, tex_sampler, uv).rgb;
         normal_ts =  normal_ts * 2.0 - 1.0;            // map to [-1, 1.0]
 
@@ -418,20 +435,20 @@ fn get_normal_texture(uv: vec2<f32>) ->vec3<f32> {
     return normal_ts;
 }
 
-fn get_thickness(uv: vec2<f32>) ->f32 {
+fn get_thickness(uv01: vec4<f32>) ->f32 {
     var thickness = material.thickness_factor;
     if has_flag(material.texture_flags, VOLUME_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[VOLUME_TEXTURE], uv);
+        let uv = get_uv(uv01, VOLUME_TEXTURE);
         thickness *= textureSample(volume_map, tex_sampler, uv).r;
     }
     thickness = max(thickness, 0.001);
     return thickness;
 }
 
-fn get_transmission(uv: vec2<f32>) ->f32 {
+fn get_transmission(uv01: vec4<f32>) ->f32 {
     var transmission = material.transmission_factor;
     if has_flag(material.texture_flags, TRANSMISSION_TEXTURE) {
-        let uv = uv_transform(material.texture_transform[TRANSMISSION_TEXTURE], uv);
+        let uv = get_uv(uv01, TRANSMISSION_TEXTURE);
         transmission *= textureSample(transmission_map, tex_sampler, uv).r;
     }
     return transmission;
@@ -688,12 +705,15 @@ fn fs_main(
     }
 
     switch globals.debug {
+        case TextureCoords0         : { color = inverse_srgb(vec3(in.uv.xy, 0)); }
+        case TextureCoords1         : { color = inverse_srgb(vec3(in.uv.zw, 0)); }
         case DebugBaseColor         : { color = albedo_color; }
         case DebugNormalTexture     : { color = inverse_srgb((normal_texture + 1.0) * 0.5);}
         case DebugGeometryNormal    : { color = inverse_srgb((N + 1.0) * 0.5 );}
         case DebugGeometryTangent   : { color = inverse_srgb((T + 1.0) * 0.5 );}
         case DebugGeometryBitangent : { color = inverse_srgb((B + 1.0) * 0.5 );}
         case DebugGeometryTangentW  : { color = inverse_srgb(vec3(in.tangent.w + 1.0) * 0.5);}
+        case DebugShadingNormal     : { color = inverse_srgb((Nws + 1.0) * 0.5);}
         case DebugMetallic          : { color = inverse_srgb(vec3(metallic));}
         case DebugRoughness         : { color = inverse_srgb(vec3(roughness));}
         case DebugEmissive          : { color = emissive;}
