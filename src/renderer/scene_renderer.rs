@@ -171,7 +171,7 @@ impl SceneRenderer {
             queue: &Queue,
             meshdraw: &MeshDraw,
         ) {
-            assert!(
+            debug_assert!(
                 meshdraw.transform.determinant() > 0.0,
                 "matrix determinant is negative"
             );
