@@ -207,7 +207,7 @@ impl MaterialTextureSlot {
                         .speed(0.01)
                         .range(0.0, 1.0)
                         .build(ui, &mut transmission.factor);
-                    
+
                     changed |= Drag::new("Ior")
                         .speed(0.01)
                         .range(1.0, 2.5)
@@ -438,7 +438,11 @@ fn draw_ui_texture_icon(ui: &imgui::Ui, id: Option<TextureId>, size: [f32; 2]) {
     }
 }
 
-fn draw_texture_transform(ui: &imgui::Ui, material: &mut MaterialDesc, slot: MaterialTextureSlot)->bool {
+fn draw_texture_transform(
+    ui: &imgui::Ui,
+    material: &mut MaterialDesc,
+    slot: MaterialTextureSlot,
+) -> bool {
     let mut dirty = false;
 
     if let Some(transform) = material.get_uvtransform_slot_mut(slot) {
@@ -447,14 +451,16 @@ fn draw_texture_transform(ui: &imgui::Ui, material: &mut MaterialDesc, slot: Mat
         let offset = &mut transform.offset;
         let rotation = &mut transform.rotation;
         let scale = &mut transform.scale;
-    
-        dirty |= Drag::new("Offset").range(-1.0, 1.0).speed(0.01).build_array(ui, offset);
-        dirty |= Drag::new("Rotation").build(ui, rotation);
-        dirty |= Drag::new("Scale").build_array(ui, scale);
-        
+
+        dirty |= Drag::new("Offset")
+            .range(-1.0, 1.0)
+            .speed(0.01)
+            .build_array(ui, offset);
+        dirty |= Drag::new("Rotation").speed(0.01).build(ui, rotation);
+        dirty |= Drag::new("Scale").speed(0.5).build_array(ui, scale);
+
         id.pop();
     }
-
 
     return dirty;
 }

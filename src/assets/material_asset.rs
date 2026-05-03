@@ -1,5 +1,5 @@
 use super::*;
-use crate::uniform::{Mat4std140};
+use crate::uniform::Mat3Std140;
 use crate::{math::*, renderer::uniform::MaterialUniform};
 use cgmath::AbsDiffEq;
 use std::ops::{Index, IndexMut};
@@ -30,26 +30,13 @@ impl Default for TextureTransform {
     }
 }
 impl TextureTransform {
-    pub fn to_mat4_std140(&self) -> Mat4std140 {
+    pub fn to_mat3_std140(&self) -> Mat3Std140 {
+        let t = Mat3::from_translation(self.offset.into());
+        let r = Mat3::from_angle_z(Rad(self.rotation));
+        let s = Mat3::from_nonuniform_scale(self.scale[0], self.scale[1]);
+        let m = t * r * s;
 
-        fn to_quat(r: f32) -> Quat {
-            let euler = Euler::new(Rad(r), Rad(r), Rad(r));
-            Quat::from(euler)
-        }
-
-        let translation = Vec3::new(self.offset[0], self.offset[1],  0.0);
-        let rotation = to_quat(self.rotation);
-        let scale = Vec3::new(self.scale[0], self.scale[1], 1.0);
-
-        let t = Mat4::from_translation(translation);
-        let r = Mat4::from(rotation);
-        let s = Mat4::from_nonuniform_scale(scale.x, scale.y, scale.z);
-
-        let m4 = t * r * s;
-
-        Mat4std140 {
-            m: m4.into(),
-        }
+        Mat3Std140::mat3_to_std140(m)
     }
 }
 
@@ -560,13 +547,13 @@ impl MaterialAssets {
     }
 }
 
-fn gen_transform_array(desc: &MaterialDesc) -> [Mat4std140; MATERIAL_TEXTURE_COUNT] {
+fn gen_transform_array(desc: &MaterialDesc) -> [Mat3Std140; MATERIAL_TEXTURE_COUNT] {
     std::array::from_fn(|i| {
         let slot = MaterialTextureSlot::ALL[i];
 
         desc.get_uvtransform_slot(slot)
             .unwrap_or_default()
-            .to_mat4_std140()
+            .to_mat3_std140()
     })
 }
 

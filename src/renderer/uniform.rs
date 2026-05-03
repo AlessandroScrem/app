@@ -54,31 +54,30 @@ impl GlobalUniform {
 
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct Mat4x3 {
-    m: [[f32; 4]; 3],
+pub struct Mat3Std140 {
+    pub m: [[f32; 4]; 3],
 }
 
-impl Mat4x3 {
-    fn mat3_to_std140(m: Mat3) -> [[f32; 4]; 3] {
-        [
-            [m.x.x, m.x.y, m.x.z, 0.0],
-            [m.y.x, m.y.y, m.y.z, 0.0],
-            [m.z.x, m.z.y, m.z.z, 0.0],
-        ]
-    }
-    fn identity() -> Self {
+impl Mat3Std140 {
+    pub fn mat3_to_std140(n: Mat3) -> Self {
         Self {
-            m: Self::mat3_to_std140(Mat3::identity()),
+            m: [
+                [n.x.x, n.x.y, n.x.z, 0.0],
+                [n.y.x, n.y.y, n.y.z, 0.0],
+                [n.z.x, n.z.y, n.z.z, 0.0],
+            ],
         }
     }
 
-    fn inverse_transpose(mat: &Mat4) -> Self {
+    pub fn identity() -> Self {
+        Self::mat3_to_std140(Mat3::identity())
+    }
+
+    fn inverse_transpose_mat4(mat: &Mat4) -> Self {
         let mat3x3 = Mat3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
         let nm = mat3x3.invert().unwrap_or(Mat3::identity()).transpose();
-
-        Self {
-            m: Self::mat3_to_std140(nm),
-        }
+        
+        Self::mat3_to_std140(nm)
     }
 }
 
@@ -87,7 +86,7 @@ impl Mat4x3 {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelUniform {
     pub model: [[f32; 4]; 4],
-    normal_matrix: Mat4x3,
+    normal_matrix: Mat3Std140,
     pub entity_id: u64,
     pad2: [u32; 2],
 }
@@ -96,7 +95,7 @@ impl Default for ModelUniform {
     fn default() -> Self {
         Self {
             model: Mat4::identity().into(),
-            normal_matrix: Mat4x3::identity(),
+            normal_matrix: Mat3Std140::identity(),
             entity_id: 0,
             pad2: [0, 0],
         }
@@ -107,7 +106,7 @@ impl ModelUniform {
     pub fn new(model: Mat4) -> Self {
         Self {
             model: model.into(),
-            normal_matrix: Mat4x3::inverse_transpose(&model),
+            normal_matrix: Mat3Std140::inverse_transpose_mat4(&model),
             ..Default::default()
         }
     }
@@ -177,16 +176,9 @@ impl Default for LightsUniform {
     }
 }
 
-
-#[repr(C, align(16))]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Mat4std140 {
-    pub m: [[f32; 4]; 4],
-}
-
 ///shader: [pbr, blinnphong]
 #[repr(C, align(16))]
-#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialUniform {
     pub color_factor: [f32; 4],
     pub emissive_factor: [f32; 4],
@@ -209,5 +201,5 @@ pub struct MaterialUniform {
     pub attenuation_color: [f32; 3],
     pub ior: f32,
 
-    pub texture_transforms: [Mat4std140; super::MATERIAL_TEXTURE_COUNT],
+    pub texture_transforms: [Mat3Std140; super::MATERIAL_TEXTURE_COUNT],
 }

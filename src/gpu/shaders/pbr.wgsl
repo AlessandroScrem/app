@@ -84,7 +84,7 @@ struct Material {
     attenuation_color: vec3<f32>,
     ior: f32,
 
-    texture_transform: array<mat4x4<f32>, TEX_SLOT_COUNT>,
+    texture_transform: array<mat3x3<f32>, TEX_SLOT_COUNT>,
 }
 
 struct VertexInput {
@@ -343,8 +343,8 @@ fn has_flag(flags: u32, index: u32) -> bool {
     return (flags & (1u << index)) != 0u;
 }
 
-fn uv_transform(m: mat4x4<f32>, uv: vec2<f32>) -> vec2<f32> {
-    let tuv = m * vec4(uv , 1.0, 1.0);
+fn uv_transform(m: mat3x3<f32>, uv: vec2<f32>) -> vec2<f32> {
+    let tuv = m * vec3(uv, 1.0);
     return tuv.xy;
 }
 
