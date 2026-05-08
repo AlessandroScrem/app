@@ -207,9 +207,14 @@ pub struct MaterialUniform {
 
     pub attenuation_color: [f32; 3],
     pub ior: f32,
+    
+    pub sheen_color_factor: [f32; 3],
+    pub sheen_roughness_factor: f32,
 
     pub texture_transforms: [Mat3Std140; super::MATERIAL_TEXTURE_COUNT],
 
     pub coord_flags: u32,
-    pub _pad: [u32; 3],
+    pub is_sheen: u32,
+    
+    pub _pad: [u32; 2],
 }

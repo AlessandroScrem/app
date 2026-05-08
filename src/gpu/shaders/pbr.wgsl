@@ -84,9 +84,13 @@ struct Material {
     attenuation_color: vec3<f32>,
     ior: f32,
 
+    sheen_color_factor: vec3<f32>,
+    sheen_roughness_factor: f32,
+
     texture_transform: array<mat3x3<f32>, TEX_SLOT_COUNT>,
 
-    coord_flags: u32,   
+    coord_flags: u32, 
+    is_sheen: u32,
 }
 
 struct VertexInput {
@@ -630,6 +634,22 @@ struct FSOutput {
     @location(1) entity_id : vec2<u32>,
 }
 
+fn evalSheen(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    sheen_color: vec3<f32>,
+    sheen_roughness: f32
+) -> vec3<f32> {
+
+    let NdotV = max(dot(N, V), 0.0);
+
+    let power = mix(32.0, 2.0, sheen_roughness);
+
+    let fresnel = pow(1.0 - NdotV, power);
+
+    return sheen_color * fresnel;
+}
+
 @fragment
 fn fs_main(
     in: VertexOutput, 
@@ -701,7 +721,12 @@ fn fs_main(
             btdf *  mat.transmission * (1.0 - F);
 
     } else { // Opaque
-        color = brdf.specular + brdf.diffuse + emissive; 
+        color = brdf.specular + brdf.diffuse + emissive;
+
+        if material.is_sheen == True {
+            let sheen = evalSheen(Nws, V, material.sheen_color_factor, material.sheen_roughness_factor);
+            color += sheen;
+        } 
     }
 
     switch globals.debug {
