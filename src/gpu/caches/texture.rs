@@ -17,7 +17,7 @@ use strum_macros::EnumIter;
 use wgpu::{Device, Queue};
 
 #[derive(Debug, Clone, Copy, EnumIter)]
-pub enum TextureSlot {
+pub enum CacheTextureSlot {
     White,
     Black,
     Normal,
@@ -29,28 +29,28 @@ struct GpuBuiltinTextures {
 
 impl GpuBuiltinTextures {
     fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let builtin: Vec<GpuTexture> = TextureSlot::iter()
+        let builtin: Vec<GpuTexture> = CacheTextureSlot::iter()
             .map(|slot| Self::create(device, queue, slot))
             .collect();
 
         Self { builtin }
     }
 
-    fn get(&self, slot: TextureSlot) -> &GpuTexture {
+    fn get(&self, slot: CacheTextureSlot) -> &GpuTexture {
         &self.builtin[slot as usize]
     }
 
-    fn create(device: &Device, queue: &Queue, slot: TextureSlot) -> GpuTexture {
+    fn create(device: &Device, queue: &Queue, slot: CacheTextureSlot) -> GpuTexture {
         match slot {
-            TextureSlot::White => {
+            CacheTextureSlot::White => {
                 GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                     .build(device, Some(queue))
             }
-            TextureSlot::Black => {
+            CacheTextureSlot::Black => {
                 GpuTextureBuilder::from_static(&static_textures::BLACK_STATIC_TEXTURE)
                     .build(device, Some(queue))
             }
-            TextureSlot::Normal => {
+            CacheTextureSlot::Normal => {
                 GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE)
                     .build(device, Some(queue))
             }
@@ -83,7 +83,7 @@ impl GpuTextureCache {
     pub fn get_or_fallback_white(&self, id: TextureId) -> &GpuTexture {
         self.map
             .get(id)
-            .unwrap_or(self.builtin.get(TextureSlot::White))
+            .unwrap_or(self.builtin.get(CacheTextureSlot::White))
     }
 
     
@@ -122,7 +122,7 @@ impl GpuTextureCache {
         &self.get_or_fallback_white(id).view
     }
 
-    pub fn view_or(&self, id: Option<TextureId>, slot: TextureSlot) -> &wgpu::TextureView {
+    pub fn view_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &wgpu::TextureView {
         &id.and_then(|id| self.map.get(id))
             .unwrap_or_else(|| self.builtin.get(slot))
             .view

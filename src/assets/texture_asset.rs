@@ -53,9 +53,9 @@ pub enum TextureUsage {
     HDR32,
 }
 
-impl From<material_asset::MaterialTextureSlot> for TextureUsage {
-    fn from(slot: material_asset::MaterialTextureSlot) -> Self {
-        use material_asset::MaterialTextureSlot::*;
+impl From<MaterialTextureSlot> for TextureUsage {
+    fn from(slot: MaterialTextureSlot) -> Self {
+        use MaterialTextureSlot::*;
         match slot {
             BaseColor => Self::Albedo,
             Normal => Self::Normal,

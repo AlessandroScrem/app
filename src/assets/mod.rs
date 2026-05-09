@@ -8,6 +8,7 @@ pub(crate) mod file;
 pub(crate) mod gltf_loader;
 pub(crate) mod image_decoder;
 pub(crate) mod material_asset;
+pub(crate) mod material_pbr;
 pub(crate) mod mesh_asset;
 pub(crate) mod texture_asset;
 pub(crate) mod texture_upload;
@@ -17,6 +18,7 @@ pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use crate::prelude::*;
 pub(crate) use asset_manager::*;
 pub(crate) use material_asset::*;
+pub(crate) use material_pbr::*;
 pub(crate) use mesh_asset::*;
 pub(crate) use texture_asset::*;
 

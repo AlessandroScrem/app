@@ -1,481 +1,12 @@
 use super::*;
+use crate::renderer::uniform::MaterialUniform;
 use crate::uniform::Mat3Std140;
-use crate::{math::*, renderer::uniform::MaterialUniform};
-use cgmath::AbsDiffEq;
-use std::ops::{Index, IndexMut};
-use std::{cell::Cell, path::PathBuf};
-use texture_asset::ColorSpace;
+use std::cell::Cell;
 
 #[derive(Debug, Default, Hash, Eq, PartialEq, Clone)]
 pub enum ShaderId {
     #[default]
     Pbr,
-}
-
-use std::hash::{Hash, Hasher};
-
-#[derive(Clone, Copy, Debug)]
-pub struct TextureTransform {
-    pub offset: [f32; 2],
-    pub rotation: f32,
-    pub scale: [f32; 2],
-}
-impl Default for TextureTransform {
-    fn default() -> Self {
-        Self {
-            offset: [0.0, 0.0],
-            rotation: 0.0,
-            scale: [1.0, 1.0],
-        }
-    }
-}
-impl TextureTransform {
-    pub fn to_mat3_std140(&self) -> Mat3Std140 {
-        let t = Mat3::from_translation(self.offset.into());
-        let r = Mat3::from_angle_z(Rad(self.rotation));
-        let s = Mat3::from_nonuniform_scale(self.scale[0], self.scale[1]);
-        let m = t * r * s;
-
-        Mat3Std140::mat3_to_std140(m)
-    }
-}
-
-impl Hash for TextureTransform {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for v in self.offset {
-            v.to_bits().hash(state);
-        }
-        self.rotation.to_bits().hash(state);
-        for v in self.scale {
-            v.to_bits().hash(state);
-        }
-    }
-}
-
-impl PartialEq for TextureTransform {
-    fn eq(&self, other: &Self) -> bool {
-        self.offset[0].to_bits() == other.offset[0].to_bits()
-            && self.offset[1].to_bits() == other.offset[1].to_bits()
-            && self.rotation.to_bits() == other.rotation.to_bits()
-            && self.scale[0].to_bits() == other.scale[0].to_bits()
-            && self.scale[1].to_bits() == other.scale[1].to_bits()
-    }
-}
-
-impl Eq for TextureTransform {}
-
-#[derive(Debug, Default, Hash, Eq, PartialEq, Clone)]
-pub struct TestureSet {
-    textures: [Option<TextureId>; MATERIAL_TEXTURE_COUNT],
-    transforms: [Option<TextureTransform>; MATERIAL_TEXTURE_COUNT],
-}
-
-impl Index<MaterialTextureSlot> for TestureSet {
-    type Output = Option<TextureId>;
-
-    fn index(&self, slot: MaterialTextureSlot) -> &Self::Output {
-        &self.textures[slot as usize]
-    }
-}
-
-impl IndexMut<MaterialTextureSlot> for TestureSet {
-    fn index_mut(&mut self, slot: MaterialTextureSlot) -> &mut Self::Output {
-        &mut self.textures[slot as usize]
-    }
-}
-
-pub const IOR: f32 = 1.5;
-pub const MATERIAL_TEXTURE_COUNT: usize = 7;
-#[repr(u8)]
-#[derive(Debug, Copy, Clone)]
-pub enum MaterialTextureSlot {
-    BaseColor = 0,
-    Normal = 1,
-    MetallicRoughness = 2,
-    Emissive = 3,
-    Occlusion = 4,
-    Transmission = 5,
-    Volume = 6,
-}
-
-impl MaterialTextureSlot {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::BaseColor => "Base Color",
-            Self::Normal => "Normal",
-            Self::MetallicRoughness => "Metallic Roughness",
-            Self::Emissive => "Emissive",
-            Self::Occlusion => "Occlusion",
-            Self::Transmission => "Transmission",
-            Self::Volume => "Volume",
-        }
-    }
-}
-
-impl MaterialTextureSlot {
-    #[inline]
-    pub const fn bit(self) -> u32 {
-        1 << (self as u32)
-    }
-}
-
-impl MaterialTextureSlot {
-    pub fn color_space(self) -> ColorSpace {
-        match self {
-            Self::BaseColor | Self::Transmission | Self::Emissive => ColorSpace::Srgba8,
-            Self::Normal | Self::MetallicRoughness | Self::Occlusion | Self::Volume => {
-                ColorSpace::Rgba8
-            }
-        }
-    }
-}
-
-impl MaterialTextureSlot {
-    pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [
-        Self::BaseColor,
-        Self::Normal,
-        Self::MetallicRoughness,
-        Self::Emissive,
-        Self::Occlusion,
-        Self::Transmission,
-        Self::Volume,
-    ];
-}
-
-#[repr(u8)]
-#[derive(Default, Copy, Clone, Debug)]
-pub enum AlphaMode {
-    #[default]
-    Opaque,
-    Mask {
-        alpha_cutoff: f32,
-    },
-    Blend,
-}
-impl AlphaMode {
-    pub fn to_uniform(mode: Self) -> (u32, f32) {
-        match mode {
-            AlphaMode::Opaque => (0, 0.0),
-            AlphaMode::Mask { alpha_cutoff } => (1, alpha_cutoff),
-            AlphaMode::Blend => (2, 0.0),
-        }
-    }
-
-    pub fn mask_default() -> Self {
-        AlphaMode::Mask { alpha_cutoff: 0.5 }
-    }
-}
-
-impl Eq for AlphaMode {}
-impl PartialEq for AlphaMode {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (AlphaMode::Opaque, AlphaMode::Opaque) => true,
-            (AlphaMode::Blend, AlphaMode::Blend) => true,
-            (AlphaMode::Mask { alpha_cutoff: a }, AlphaMode::Mask { alpha_cutoff: b }) => {
-                a.to_bits() == b.to_bits()
-            }
-            _ => false,
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Volume {
-    pub thickness_factor: f32,
-    pub attenuation_distance: f32,
-    pub attenuation_color: [f32; 3],
-}
-impl PartialEq for Volume {
-    fn eq(&self, other: &Self) -> bool {
-        self.thickness_factor.to_bits() == other.thickness_factor.to_bits()
-            && self.attenuation_distance.to_bits() == other.attenuation_distance.to_bits()
-            && self.attenuation_color == other.attenuation_color
-    }
-}
-
-impl Volume {
-    pub fn to_uniform(opt: Option<Self>) -> (f32, f32, [f32; 3]) {
-        opt.map_or((f32::INFINITY, 0.0, [1.0; 3]), |t| {
-            (
-                t.attenuation_distance,
-                t.thickness_factor,
-                t.attenuation_color,
-            )
-        })
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Transmission {
-    pub factor: f32,
-}
-
-impl PartialEq for Transmission {
-    fn eq(&self, other: &Self) -> bool {
-        self.factor.to_bits() == other.factor.to_bits()
-    }
-}
-
-impl Transmission {
-    pub fn to_uniform(opt: Option<Self>) -> f32 {
-        opt.map_or(0.0, |t| t.factor)
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
-pub struct MaterialSheen {
-    pub color_factor: [f32; 3],
-    pub roughness_factor: f32,
-}
-
-impl MaterialSheen {
-    pub fn to_uniform(opt: Option<Self>) -> ([f32; 3], f32) {
-        opt.map_or(([0.0; 3], 0.0), |s| {
-            (
-                s.color_factor,
-                s.roughness_factor,
-            )
-        })
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct TextureFlags {
-    flags: u32,
-}
-
-impl std::fmt::Debug for TextureFlags {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let slots = [
-            MaterialTextureSlot::BaseColor,
-            MaterialTextureSlot::Normal,
-            MaterialTextureSlot::MetallicRoughness,
-            MaterialTextureSlot::Emissive,
-            MaterialTextureSlot::Occlusion,
-            MaterialTextureSlot::Transmission,
-            MaterialTextureSlot::Volume,
-        ];
-
-        for (i, slot) in slots.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-
-            let bit = 1 << (*slot as u32);
-
-            if self.flags & bit != 0 {
-                write!(f, "{:?}", slot)?; // stampa nome enum
-            } else {
-                write!(f, "None")?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl TextureFlags {
-    pub fn new() -> Self {
-        Self { flags: 0 }
-    }
-
-    #[inline]
-    pub fn get(&self, slot: MaterialTextureSlot) -> bool {
-        (self.flags & slot.bit()) != 0
-    }
-
-    #[inline]
-    pub fn set(&mut self, slot: MaterialTextureSlot, enabled: bool) {
-        if enabled {
-            self.flags |= slot.bit();
-        } else {
-            self.flags &= !slot.bit();
-        }
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn clear(&mut self) {
-        self.flags = 0;
-    }
-
-    #[inline]
-    pub fn raw(&self) -> u32 {
-        self.flags
-    }
-
-    #[allow(unused)]
-    #[inline]
-    pub fn from_raw(flags: u32) -> Self {
-        Self { flags }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MaterialDesc {
-    name: String,
-    #[allow(unused)]
-    shader: ShaderId,
-
-    pub texture_set: TestureSet,
-    texture_flags: TextureFlags,
-    coord_flags: TextureFlags,
-
-    pub alpha_mode: AlphaMode,
-    pub base_color_factor: Vec4,
-    pub emissive_factor: Vec4,
-    pub roughness_factor: f32,
-    pub metallic_factor: f32,
-    pub normal_scale: f32,
-    pub occlusion_strength: f32,
-    pub transmission: Option<Transmission>,
-    pub volume: Option<Volume>,
-    pub ior: f32,
-    pub sheen: Option<MaterialSheen>,
-}
-
-// PartialEq ignore: name , shader
-impl PartialEq for MaterialDesc {
-    fn eq(&self, other: &Self) -> bool {
-        self.texture_set.textures == other.texture_set.textures
-            && self.texture_flags == other.texture_flags
-            && self.alpha_mode == other.alpha_mode
-            && self.transmission == other.transmission
-            && self.volume == other.volume
-            && self
-                .base_color_factor
-                .abs_diff_eq(&other.base_color_factor, Default::default())
-            && self
-                .emissive_factor
-                .abs_diff_eq(&other.emissive_factor, Default::default())
-            && self.roughness_factor.to_bits() == other.roughness_factor.to_bits()
-            && self.metallic_factor.to_bits() == other.metallic_factor.to_bits()
-            && self.normal_scale.to_bits() == other.normal_scale.to_bits()
-            && self.occlusion_strength.to_bits() == other.occlusion_strength.to_bits()
-            && self.ior.to_bits() == other.ior.to_bits()
-            && self.sheen == other.sheen
-    }
-}
-
-impl Default for MaterialDesc {
-    fn default() -> Self {
-        MaterialDesc {
-            name: String::new(),
-            shader: ShaderId::default(),
-            texture_set: TestureSet::default(),
-            texture_flags: TextureFlags::new(),
-            coord_flags: TextureFlags::new(),
-
-            alpha_mode: AlphaMode::default(),
-            base_color_factor: Vec4::from_value(one()),
-            metallic_factor: one(),
-            roughness_factor: one(),
-            emissive_factor: Vec4::from_value(zero()),
-            normal_scale: one(),
-            occlusion_strength: one(),
-            transmission: None,
-            volume: None,
-            ior: IOR,
-            sheen: None,
-        }
-    }
-}
-
-impl MaterialDesc {
-    pub fn get_texture_slot(&self, slot: MaterialTextureSlot) -> Option<TextureId> {
-        self.texture_set
-            .textures
-            .get(slot as usize)
-            .copied()
-            .flatten()
-    }
-
-    pub fn get_uvtransform_slot(&self, slot: MaterialTextureSlot) -> Option<TextureTransform> {
-        self.texture_set
-            .transforms
-            .get(slot as usize)
-            .copied()
-            .flatten()
-    }
-
-    pub fn get_uvtransform_slot_mut(
-        &mut self,
-        slot: MaterialTextureSlot,
-    ) -> Option<&mut TextureTransform> {
-        self.texture_set
-            .transforms
-            .get_mut(slot as usize)
-            .and_then(|opt| opt.as_mut())
-    }
-
-    fn estimated_size() -> usize {
-        size_of::<MaterialDesc>()
-    }
-
-    pub fn slot_get(&self, slot: MaterialTextureSlot) -> bool {
-        self.texture_flags.get(slot)
-    }
-    pub fn slot_set(&mut self, slot: MaterialTextureSlot, enabled: bool) {
-        self.texture_flags.set(slot, enabled);
-    }
-
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-    pub fn set_name(&mut self, name: &str) {
-        self.name = name.into();
-    }
-
-    pub fn is_transmissive(&self) -> bool {
-        self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
-    }
-
-    
-    pub fn is_transparent(&self) -> bool {
-        match self.alpha_mode {
-            AlphaMode::Blend => true,
-            _ => false,
-        }
-    }
-    
-    pub fn is_volume(&self) -> bool {
-        self.volume
-        .map(|f| f.attenuation_distance > 0.0)
-        .unwrap_or(false)
-    }
-    
-    pub fn is_sheen(&self) -> bool {
-        self.sheen.is_some()
-    }
-
-    pub fn set_texture(
-        &mut self,
-        texture_asset: &mut TextureAssets,
-        slot: MaterialTextureSlot,
-        path: Option<PathBuf>,
-        coord: u32,
-        transform: Option<TextureTransform>,
-    ) {
-        if let Some(path) = path {
-            let key = TextureKey::File {
-                color_space: slot.color_space().into(),
-                path: path.into(),
-                usage: slot.into(),
-            };
-            let desc = super::TextureDesc::File {
-                key,
-                sampler: super::SamplerDesc::LinearRepeat,
-                mipmaps: false,
-            };
-            let id = texture_asset.get_or_create(desc);
-            self.texture_set.textures[slot as usize] = Some(id);
-            self.texture_set.transforms[slot as usize] = transform;
-            self.coord_flags.set(slot, coord > 0);
-            self.texture_flags.set(slot, true);
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -552,7 +83,7 @@ impl MaterialAssets {
                 // remove textures from slots
                 // TODO: Remove from here
                 for slot in MaterialTextureSlot::ALL {
-                    if let Some(id) = desc.get_texture_slot(slot) {
+                    if let Some(id) = desc.texture(slot) {
                         texture_asset.remove(id);
                         debug!("Remove texture slot {:?}", slot);
                     }
@@ -565,11 +96,7 @@ impl MaterialAssets {
 
     pub fn update(&mut self, id: MaterialId, desc: &MaterialDesc) {
         if let Some(asset) = &mut self.storage.get_mut(id) {
-            debug!(
-                "Update material id {:?} with desc {:?}",
-                id,
-                desc.get_uvtransform_slot(MaterialTextureSlot::BaseColor)
-            );
+            debug!("Update material id {:?} with desc {:?}", id, desc);
             asset.desc = desc.clone();
         } else {
             warn!("material id {} not found", id);
@@ -581,9 +108,7 @@ fn gen_transform_array(desc: &MaterialDesc) -> [Mat3Std140; MATERIAL_TEXTURE_COU
     std::array::from_fn(|i| {
         let slot = MaterialTextureSlot::ALL[i];
 
-        desc.get_uvtransform_slot(slot)
-            .unwrap_or_default()
-            .to_mat3_std140()
+        desc.uvtransform(slot).unwrap_or_default().to_mat3_std140()
     })
 }
 
@@ -596,11 +121,11 @@ impl From<&MaterialDesc> for MaterialUniform {
         let is_volume = value.is_volume().into();
         let (attenuation_distance, thickness_factor, attenuation_color) =
             Volume::to_uniform(value.volume);
-            
+
         let texture_transforms = gen_transform_array(value);
 
         let is_sheen = value.is_sheen().into();
-        let (sheen_color_factor, sheen_roughness_factor) = MaterialSheen::to_uniform(value.sheen);
+        let (sheen_color_factor, sheen_roughness_factor) = Sheen::to_uniform(value.sheen);
 
         Self {
             color_factor: value.base_color_factor.into(),
@@ -609,7 +134,8 @@ impl From<&MaterialDesc> for MaterialUniform {
             roughness_factor: value.roughness_factor,
             normal_scale: value.normal_scale,
             occlusion_strength: value.occlusion_strength,
-            texture_flags: value.texture_flags.raw(),
+            texture_flags: value.texture_set.texture_flags(),
+            coord_flags: value.texture_set.coord_flags(),
             alpha_mode,
             alpha_cutoff,
             transmission_factor,
@@ -620,7 +146,6 @@ impl From<&MaterialDesc> for MaterialUniform {
             attenuation_color,
             ior: value.ior,
             texture_transforms,
-            coord_flags: value.coord_flags.raw(),
             is_sheen,
             sheen_color_factor,
             sheen_roughness_factor,
@@ -681,9 +206,7 @@ mod tests {
         let id = materials.get_or_create(desc);
         let mat_desc = materials.get_desc(id).unwrap();
 
-        let tex_id = mat_desc
-            .get_texture_slot(MaterialTextureSlot::BaseColor)
-            .unwrap();
+        let tex_id = mat_desc.texture(MaterialTextureSlot::BaseColor).unwrap();
         assert!(texture_asset.contains_key(tex_id));
 
         materials.remove(id, &mut texture_asset);

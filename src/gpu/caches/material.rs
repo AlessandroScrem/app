@@ -130,17 +130,17 @@ fn resolve_texture_views<'a>(
     desc: &MaterialDesc,
     texture_assets: &TextureAssets,
 ) -> TextureViews<'a> {
-    use crate::assets::material_asset::MaterialTextureSlot::*;
+    use MaterialTextureSlot::*;
     let fallback = texture_assets.white();
 
     TextureViews([
-        texture_cache.view(desc.texture_set[BaseColor].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture_set[Normal].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture_set[MetallicRoughness].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture_set[Emissive].unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture_set[Occlusion].unwrap_or_else(|| fallback)),
-        texture_cache.view_or(desc.texture_set[Transmission], TextureSlot::Black),
-        texture_cache.view_or(desc.texture_set[Volume], TextureSlot::White),
+        texture_cache.view(desc.texture(BaseColor).unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture(Normal).unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture(MetallicRoughness).unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture(Emissive).unwrap_or_else(|| fallback)),
+        texture_cache.view(desc.texture(Occlusion).unwrap_or_else(|| fallback)),
+        texture_cache.view_or(desc.texture(Transmission), CacheTextureSlot::Black),
+        texture_cache.view_or(desc.texture(Volume), CacheTextureSlot::White),
     ])
 }
 
@@ -163,7 +163,7 @@ fn create_bindgroup_from_desc(
         mipmap_filter: wgpu::MipmapFilterMode::Linear,
         ..Default::default()
     });
-    use crate::assets::material_asset::MaterialTextureSlot::*;
+    use MaterialTextureSlot::*;
 
     let views = resolve_texture_views(texture_cache, material_desc, &asset_manager.textures);
 

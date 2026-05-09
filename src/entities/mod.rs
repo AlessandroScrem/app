@@ -152,7 +152,7 @@ fn collect_asset_ids_from_entity(
                         material_ids.push(mat_id);
                         if let Some(mat_desc) = asset_mgr.materials.get_desc(mat_id) {
                             for slot in MaterialTextureSlot::ALL {
-                                if let Some(tex_id) = mat_desc.get_texture_slot(slot) {
+                                if let Some(tex_id) = mat_desc.texture(slot) {
                                     texture_ids.push(tex_id);
                                 }
                             }

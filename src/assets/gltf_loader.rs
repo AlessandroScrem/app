@@ -434,11 +434,11 @@ struct SheenExt {
     roughness_factor: Option<f32>,
 }
 
-fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<MaterialSheen> {
+fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<Sheen> {
     let ext = mat.extensions()?.get("KHR_materials_sheen")?;
     let sheen: SheenExt = serde_json::from_value(ext.clone()).ok()?;
 
-    Some(MaterialSheen {
+    Some(Sheen {
         color_factor: sheen.color_factor.unwrap_or([0.0, 0.0, 0.0]),
         roughness_factor: sheen.roughness_factor.unwrap_or(0.0),
     })
@@ -449,7 +449,7 @@ fn create_material<P: AsRef<Path>>(
     asset_mgr: &mut AssetManager,
     path: P,
 ) -> MaterialId {
-    use material_asset::MaterialTextureSlot::*;
+    use MaterialTextureSlot::*;
     let texture_asset = &mut asset_mgr.textures;
 
     let name = gltf_material.name().unwrap_or_default();
@@ -461,12 +461,12 @@ fn create_material<P: AsRef<Path>>(
     let mut material_desc = MaterialDesc::default();
 
     let alpha_mode = match gltf_material.alpha_mode() {
-        gltf::material::AlphaMode::Blend => material_asset::AlphaMode::Blend,
+        gltf::material::AlphaMode::Blend => AlphaMode::Blend,
         gltf::material::AlphaMode::Mask => gltf_material
             .alpha_cutoff()
             .map(|alpha_cutoff| AlphaMode::Mask { alpha_cutoff })
             .unwrap_or(AlphaMode::mask_default()),
-        gltf::material::AlphaMode::Opaque => material_asset::AlphaMode::Opaque,
+        gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
     };
 
     material_desc.set_name(name);
@@ -482,7 +482,6 @@ fn create_material<P: AsRef<Path>>(
     });
 
     material_desc.sheen = parse_gltf_material_sheen(gltf_material);
-
 
     if let Some(info) = pbr.base_color_texture() {
         material_desc.set_texture(
@@ -590,7 +589,7 @@ mod tests {
 
     #[test]
     fn should_create_material() {
-        use material_asset::MaterialTextureSlot::*;
+        use MaterialTextureSlot::*;
 
         let mut asset_mgr = AssetManager::default();
         let texture_asset = &mut asset_mgr.textures;

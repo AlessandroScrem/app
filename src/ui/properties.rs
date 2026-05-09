@@ -1,6 +1,6 @@
 use super::*;
 use crate::assets::MaterialId;
-use crate::material_asset::MaterialTextureSlot;
+use crate::assets::material_pbr::MaterialTextureSlot;
 use imgui::*;
 use imgui::{Drag, TreeNodeFlags};
 
@@ -111,7 +111,7 @@ impl MaterialDesc {
         let iconsize = [ui.text_line_height(), ui.text_line_height()];
         let material = self;
 
-        if let Some(id) = material.get_texture_slot(slot) {
+        if let Some(id) = material.texture(slot) {
             ui.text(label);
 
             let mut use_texture = material.slot_get(slot);
@@ -324,7 +324,7 @@ fn draw_materials(
             SELECTED_INDEX.with(|idx_cell| {
                 let selected_id = *idx_cell.borrow();
 
-                use MaterialTextureSlot::*;
+                use crate::assets::material_pbr::MaterialTextureSlot::*;
 
                 if let Some(mut material) = materials.get(&selected_id).cloned() {
                     let name = material.get_name();
@@ -469,7 +469,7 @@ fn draw_texture_transform(
 ) -> bool {
     let mut dirty = false;
 
-    if let Some(transform) = material.get_uvtransform_slot_mut(slot) {
+    if let Some(transform) = material.uvtransform_mut(slot) {
         let id = ui.push_id(slot.as_str());
 
         let offset = &mut transform.offset;

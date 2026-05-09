@@ -35,7 +35,6 @@ impl Engine {
 
 pub(crate) mod prelude {
     pub use crate::assets::asset_manager::AssetManager;
-    pub(crate) use crate::assets::material_asset;
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
     pub use crate::entities::components::*;
