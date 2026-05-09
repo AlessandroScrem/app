@@ -223,6 +223,24 @@ impl Transmission {
     }
 }
 
+#[derive(Debug, Default, PartialEq, Clone, Copy)]
+pub struct MaterialSheen {
+    pub color_factor: [f32; 3],
+    pub roughness_factor: f32,
+}
+
+impl MaterialSheen {
+    pub fn to_uniform(opt: Option<Self>) -> ([f32; 3], f32) {
+        opt.map_or(([0.0; 3], 0.0), |s| {
+            (
+                s.color_factor,
+                s.roughness_factor,
+            )
+        })
+    }
+}
+
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TextureFlags {
     flags: u32,
@@ -315,6 +333,7 @@ pub struct MaterialDesc {
     pub transmission: Option<Transmission>,
     pub volume: Option<Volume>,
     pub ior: f32,
+    pub sheen: Option<MaterialSheen>,
 }
 
 // PartialEq ignore: name , shader
@@ -336,6 +355,7 @@ impl PartialEq for MaterialDesc {
             && self.normal_scale.to_bits() == other.normal_scale.to_bits()
             && self.occlusion_strength.to_bits() == other.occlusion_strength.to_bits()
             && self.ior.to_bits() == other.ior.to_bits()
+            && self.sheen == other.sheen
     }
 }
 
@@ -358,6 +378,7 @@ impl Default for MaterialDesc {
             transmission: None,
             volume: None,
             ior: IOR,
+            sheen: None,
         }
     }
 }
@@ -411,17 +432,22 @@ impl MaterialDesc {
         self.transmission.map(|t| t.factor > 0.0).unwrap_or(false)
     }
 
+    
     pub fn is_transparent(&self) -> bool {
         match self.alpha_mode {
             AlphaMode::Blend => true,
             _ => false,
         }
     }
-
+    
     pub fn is_volume(&self) -> bool {
         self.volume
-            .map(|f| f.attenuation_distance > 0.0)
-            .unwrap_or(false)
+        .map(|f| f.attenuation_distance > 0.0)
+        .unwrap_or(false)
+    }
+    
+    pub fn is_sheen(&self) -> bool {
+        self.sheen.is_some()
     }
 
     pub fn set_texture(
@@ -570,8 +596,11 @@ impl From<&MaterialDesc> for MaterialUniform {
         let is_volume = value.is_volume().into();
         let (attenuation_distance, thickness_factor, attenuation_color) =
             Volume::to_uniform(value.volume);
+            
         let texture_transforms = gen_transform_array(value);
 
+        let is_sheen = value.is_sheen().into();
+        let (sheen_color_factor, sheen_roughness_factor) = MaterialSheen::to_uniform(value.sheen);
 
         Self {
             color_factor: value.base_color_factor.into(),
@@ -592,6 +621,9 @@ impl From<&MaterialDesc> for MaterialUniform {
             ior: value.ior,
             texture_transforms,
             coord_flags: value.coord_flags.raw(),
+            is_sheen,
+            sheen_color_factor,
+            sheen_roughness_factor,
             ..Default::default()
         }
     }

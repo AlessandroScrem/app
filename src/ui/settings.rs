@@ -132,7 +132,7 @@ impl Globals {
             "Exponential",
         ];
 
-        const DEBUG_CODE: [&str; 16] = [
+        const DEBUG_CODE: [&str; 18] = [
             "None",
             "TextureCoords0",
             "TextureCoords1",
@@ -149,6 +149,8 @@ impl Globals {
             "Occlusion",
             "Transmission",
             "VolumeThickness",
+            "ShennColor",
+            "ShennRoughness",
         ];
 
         tools::disabled(ui, || {
