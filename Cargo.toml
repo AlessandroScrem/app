@@ -29,7 +29,7 @@ save_tests = []
 [dependencies]
 winit = "0.30.9"
 wgpu = "29.0"
-rfd = "0.15.4"                                                       #RustFileDialog
+rfd = "0.17.2"                                                       #RustFileDialog
 imgui-wgpu = "0.28.0"
 imgui = { version = "0.12.0", features = ["docking", "tables-api"] }
 imgui-winit-support = "0.13.0"
