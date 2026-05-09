@@ -242,6 +242,28 @@ impl MaterialTextureSlot {
     }
 }
 
+fn draw_sheen_ui(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    if let Some(sheen) = material.sheen.as_mut() {
+        let mut changed = false;
+
+        ui.text("Sheen");
+        ui.same_line();
+        changed |= ui
+            .color_edit3_config("##SheenColor", &mut sheen.color_factor)
+            .inputs(false)
+            .build();
+
+        changed |= Drag::new("SheenRoughness")
+            .speed(0.01)
+            .range(0.01, 1.0)
+            .build(ui, &mut sheen.roughness_factor);
+
+        changed
+    } else {
+        false
+    }
+}
+
 fn draw_materials(
     ui: &Ui,
     materials: &HashMap<MaterialId, MaterialDesc>,
@@ -322,6 +344,8 @@ fn draw_materials(
                         dirty |= material.draw_ui_slot(ui, Transmission, resolver);
                         ui.separator();
                         dirty |= material.draw_ui_slot(ui, Volume, resolver);
+                        ui.separator();
+                        dirty |= draw_sheen_ui(ui, &mut material);
                     }
 
                     if dirty {

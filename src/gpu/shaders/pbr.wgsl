@@ -163,6 +163,8 @@ const DebugEmissive          : u32 = 12;
 const DebugOcclusion         : u32 = 13; 
 const DebugTransmission      : u32 = 14; 
 const VolumeThickness        : u32 = 15; 
+const SheenColor             : u32 = 16; 
+const ShennRoughness         : u32 = 17; 
 
 // Material
 @group(1) @binding(0) var <uniform> material: Material;
@@ -634,20 +636,112 @@ struct FSOutput {
     @location(1) entity_id : vec2<u32>,
 }
 
-fn evalSheen(
+fn CalculateSheenDirectLight(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    frag_pos: vec3<f32>,
+    sheen_color: vec3<f32>,
+    sheen_roughness: f32
+) -> vec3<f32> {
+
+    var result = vec3<f32>(0.0);
+
+    if lights.enabled == False {
+        return result;
+    }
+
+    for (var i: u32 = 0u; i < lights.count; i += 1u) {
+
+        let light = lights.lights[i];
+
+        if light.enabled == False {
+            continue;
+        }
+
+        let L = normalize(light.position - frag_pos);
+        let H = normalize(V + L);
+
+        let NdotL = max(dot(N, L), 0.0);
+        let NdotV = max(dot(N, V), 0.0);
+        let NdotH = max(dot(N, H), 0.0);
+
+        var radiance = vec3<f32>(0.0);
+
+        if light.directional == True {
+            radiance = light.color;
+        } else {
+            let d = length(light.position - frag_pos);
+            let attenuation = 1.0 / (d * d);
+            radiance = light.color * attenuation;
+        }
+
+        // fake Charlie-like distribution
+        let distribution =
+            pow(NdotH, mix(80.0, 2.0, sheen_roughness));
+
+        // edge boost
+        let fresnel =
+            0.2 + 0.8 * pow(1.0 - NdotV, 5.0);
+
+        let sheen =
+            sheen_color *
+            distribution *
+            fresnel *
+            NdotL;
+
+        result += sheen * radiance;
+    }
+
+    return result;
+}
+
+fn CalculateSheenIBL(
     N: vec3<f32>,
     V: vec3<f32>,
     sheen_color: vec3<f32>,
     sheen_roughness: f32
 ) -> vec3<f32> {
 
+    if globals.ibl_enable == False {
+        return vec3(0.0);
+    } 
+
+    let env_rotation = env_rotY();
+
     let NdotV = max(dot(N, V), 0.0);
 
-    let power = mix(32.0, 2.0, sheen_roughness);
+    let R = reflect(-V, N);
 
-    let fresnel = pow(1.0 - NdotV, power);
+    let lod =
+        mix(
+            MAX_REFLECTION_LOD * 0.35,
+            MAX_REFLECTION_LOD,
+            sheen_roughness
+        );
 
-    return sheen_color * fresnel;
+    let env =
+        textureSampleLevel(
+            prefilter_map,
+            ibl_sampler,
+            env_rotation * R,
+            lod
+        ).rgb;
+
+    // cloth fresnel
+    var fresnel = pow(1.0 - NdotV, 5.0);
+
+    // small frontal visibility
+    fresnel = max(fresnel, 0.025);
+
+    // strong energy reduction
+    let energy =
+        mix(
+            0.65,
+            0.25,
+            sheen_roughness
+        );
+
+    return env * sheen_color * fresnel * energy;
 }
 
 @fragment
@@ -724,9 +818,26 @@ fn fs_main(
         color = brdf.specular + brdf.diffuse + emissive;
 
         if material.is_sheen == True {
-            let sheen = evalSheen(Nws, V, material.sheen_color_factor, material.sheen_roughness_factor);
-            color += sheen;
-        } 
+
+            // direct light sheen
+            let sheen_direct = CalculateSheenDirectLight(
+                Nws,
+                V,
+                in.world_pos,
+                material.sheen_color_factor,
+                material.sheen_roughness_factor
+            );
+            // ibl sheen
+            let sheen_ibl = CalculateSheenIBL(
+                Nws,
+                V,
+                material.sheen_color_factor,
+                material.sheen_roughness_factor
+            );
+
+            color += sheen_direct * 0.15;
+            color += sheen_ibl * globals.ibl_intensity;
+        }
     }
 
     switch globals.debug {
@@ -745,6 +856,8 @@ fn fs_main(
         case DebugOcclusion         : { color = inverse_srgb(vec3(ao));}
         case DebugTransmission      : { color = vec3(transmission);}
         case VolumeThickness        : { color = inverse_srgb(vec3(thickness / material.thickness_factor));}
+        case SheenColor             : { color = inverse_srgb(material.sheen_color_factor);}
+        case ShennRoughness         : { color = inverse_srgb(vec3(material.sheen_roughness_factor));}
         default: {;} 
     }
     
