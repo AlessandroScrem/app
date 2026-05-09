@@ -6,8 +6,9 @@ use imgui::*;
 pub struct MenuBarUi {}
 
 const LANTERN: &str = "./assets/Lantern/Lantern.gltf";
-const SPONZA: &str = "C:/Users/aless/Downloads/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
+const SPONZA: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf";
 const TRANSMISSION_TEST: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/TransmissionTest/glTF/TransmissionTest.gltf";
+const DAMAGED_HELMET: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf";
 
 impl Layer for MenuBarUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
@@ -29,6 +30,9 @@ impl Layer for MenuBarUi {
                 }
                 if ui.menu_item("Transmission_Test") {
                     ctx.write.push(Assets(LoadGltf(TRANSMISSION_TEST.into())));
+                }
+                if ui.menu_item("Damaged Helmet") {
+                    ctx.write.push(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Save") {}
             }

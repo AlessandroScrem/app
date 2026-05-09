@@ -20,7 +20,7 @@ pub struct TextureData {
 }
 
 impl TextureData {
-    pub fn estimated_size(&self) ->usize {
+    pub fn estimated_size(&self) -> usize {
         self.pixels.len()
     }
 }
@@ -70,15 +70,16 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
     };
 
     let (path, color_space) = match desc {
-        TextureDesc::File { key, .. } => match key {
-            assets::TextureKey::File {
-                path, color_space, ..
-            } => (path, color_space),
-            assets::TextureKey::White => return Ok(UploadPayload::Fallback),
-        },
+        TextureDesc::File {
+            path, usage, ..
+        } => (path, usage.color_space()),
+
+        TextureDesc::White => {
+            return Ok(UploadPayload::Fallback);
+        }
     };
 
-    trace!("read texture {:?}", &path.as_path());
+    trace!("read texture {:?}", path.as_path());
 
     let buffer = file::read_bytes(path)?;
 
@@ -91,7 +92,7 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
     };
 
     Ok(UploadPayload::Ready(TextureData {
-        format: color_space.clone(),
+        format: color_space,
         width,
         height,
         pixels,

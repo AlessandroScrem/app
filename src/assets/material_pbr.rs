@@ -25,7 +25,7 @@ pub struct TextureSlot {
     enabled: bool,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct TextureSet {
     slot: [TextureSlot; MATERIAL_TEXTURE_COUNT],
 }
@@ -202,13 +202,9 @@ impl MaterialDesc {
         transform: Option<TextureTransform>,
     ) {
         if let Some(path) = path {
-            let key = TextureKey::File {
-                color_space: slot.color_space().into(),
+            let desc = super::TextureDesc::File {
                 path: path.into(),
                 usage: slot.into(),
-            };
-            let desc = super::TextureDesc::File {
-                key,
                 sampler: super::SamplerDesc::LinearRepeat,
                 mipmaps: false,
             };
@@ -220,7 +216,6 @@ impl MaterialDesc {
         }
     }
 }
-
 
 impl Index<MaterialTextureSlot> for TextureSet {
     type Output = TextureSlot;
@@ -268,6 +263,22 @@ impl TextureSet {
         }
 
         flags
+    }
+}
+
+impl std::fmt::Debug for TextureSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ds = f.debug_struct("TextureSet");
+
+        for slot in MaterialTextureSlot::ALL {
+            let tex = &self[slot];
+
+            if tex.texture.is_some() {
+                ds.field(slot.as_str(), tex);
+            }
+        }
+
+        ds.finish()
     }
 }
 

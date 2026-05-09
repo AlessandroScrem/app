@@ -157,7 +157,7 @@ impl GpuTextureCache {
 mod tests {
     use super::*;
     use crate::{
-        assets::{ColorSpace, SamplerDesc, TextureDesc, TextureKey},
+        assets::{SamplerDesc, TextureDesc},
         test_utils,
     };
     const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
@@ -176,13 +176,9 @@ mod tests {
         let mut gpu_texture_cache = GpuTextureCache::new(device, queue);
         let mut texture_assets = TextureAssets::new();
 
-        let key = TextureKey::File {
-            path: HDR_PATH.into(),
-            color_space: ColorSpace::Rgbaf32,
-            usage: crate::assets::TextureUsage::HDR32,
-        };
         let desc = TextureDesc::File {
-            key,
+            path: HDR_PATH.into(),
+            usage: crate::assets::TextureUsage::HDR32,
             sampler: SamplerDesc::LinearRepeat,
             mipmaps: false,
         };

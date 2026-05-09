@@ -10,7 +10,7 @@ impl TextureId {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Hash, Eq, PartialEq, Clone, Debug)]
 pub enum SamplerDesc {
     #[default]
     LinearRepeat,
@@ -94,22 +94,14 @@ impl From<wgpu::TextureFormat> for ColorSpace {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
-pub enum TextureKey {
-    File {
-        path: PathBuf,
-        color_space: ColorSpace,
-        usage: TextureUsage,
-    },
-    White,
-}
-
-#[derive(Clone, Debug)]
 pub enum TextureDesc {
     File {
-        key: TextureKey,
+        path: PathBuf,
+        usage: TextureUsage,
         sampler: SamplerDesc,
         mipmaps: bool,
     },
+    White,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -166,7 +158,7 @@ impl TextureUploadSource for TextureAssets {
 
 pub struct TextureAssets {
     storage: SlotMap<TextureId, TextureAsset>,
-    lookup: HashMap<TextureKey, TextureId>,
+    lookup: HashMap<TextureDesc, TextureId>,
     white: TextureId,
     dirty_textures: Vec<(TextureId, UploadPayload)>,
     stats: ResourceStats,
@@ -191,7 +183,7 @@ impl Default for TextureAssets {
             ref_count: Cell::new(1),
         });
 
-        lookup.insert(TextureKey::White, white_id);
+        lookup.insert(TextureDesc::White, white_id);
 
         let dirty_textures = vec![];
 
@@ -230,7 +222,7 @@ impl TextureAssets {
     }
 
     pub fn remove(&mut self, id: TextureId) {
-        // Do not remove White!
+        // Do not remove white fallback
         if id == self.white {
             return;
         }
@@ -241,60 +233,45 @@ impl TextureAssets {
             if count > 1 {
                 asset.ref_count.set(count - 1);
                 self.stats.remove_sahred();
-            } else {
-                // remove from storage
-                if let Some(removed) = self.storage.remove(id) {
-                    if let Some(TextureDesc::File { key, .. }) = removed.desc {
-                        self.lookup.remove(&key);
-                        self.stats.remove(removed.state.estimated_size());
-                    }
-                }
+                return;
             }
+        }
+
+        if let Some(removed) = self.storage.remove(id) {
+            if let Some(desc) = &removed.desc {
+                self.lookup.remove(desc);
+            };
+            self.stats.remove(removed.state.estimated_size());
         }
     }
 
     pub fn get_or_create(&mut self, desc: TextureDesc) -> TextureId {
-        match desc {
-            TextureDesc::File {
-                key,
-                sampler,
-                mipmaps,
-            } => match self.lookup.get(&key) {
-                Some(&id) => {
-                    let tex = &self.storage[id];
-                    tex.ref_count.set(tex.ref_count.get() + 1);
-                    self.stats.add_shared();
-                    id
-                }
+        if let Some(&id) = self.lookup.get(&desc) {
+            let tex = &self.storage[id];
+            tex.ref_count.set(tex.ref_count.get() + 1);
 
-                None => {
-                    let id = self.storage.insert(TextureAsset {
-                        state: TextureState::MetaOnly,
-                        desc: Some(TextureDesc::File {
-                            key: key.clone(),
-                            sampler,
-                            mipmaps,
-                        }),
-                        ref_count: Cell::new(1),
-                    });
-                    self.lookup.insert(key, id);
-                    id
-                }
-            },
+            self.stats.add_shared();
+
+            return id;
         }
+
+        let id = self.storage.insert(TextureAsset {
+            state: TextureState::MetaOnly,
+            desc: Some(desc.clone()),
+            ref_count: Cell::new(1),
+        });
+
+        self.lookup.insert(desc, id);
+
+        id
     }
 
     pub fn from_file(&mut self, path: impl Into<PathBuf>, usage: TextureUsage) -> TextureId {
-        let key = TextureKey::File {
-            color_space: usage.color_space(),
+        let desc = TextureDesc::File {
             path: path.into(),
             usage,
-        };
-
-        let desc = TextureDesc::File {
-            key,
-            sampler: SamplerDesc::default(),
             mipmaps: false,
+            sampler: SamplerDesc::default(),
         };
 
         self.get_or_create(desc)
@@ -339,14 +316,9 @@ mod tests {
     fn same_texture_same_id() {
         let mut textures = TextureAssets::new();
 
-        let key = TextureKey::File {
-            path: "albedo.png".into(),
-            color_space: ColorSpace::Rgba8,
-            usage: TextureUsage::Albedo,
-        };
-
         let desc = TextureDesc::File {
-            key,
+            path: "albedo.png".into(),
+            usage: TextureUsage::Albedo,
             sampler: SamplerDesc::default(),
             mipmaps: true,
         };
@@ -369,14 +341,9 @@ mod tests {
     fn should_not_remove_shared_from_asset() {
         let mut textures = TextureAssets::new();
 
-        let key = TextureKey::File {
-            path: "albedo.png".into(),
-            color_space: ColorSpace::Rgba8,
-            usage: TextureUsage::Albedo,
-        };
-
         let desc = TextureDesc::File {
-            key,
+            path: "albedo.png".into(),
+            usage: TextureUsage::Albedo,
             sampler: SamplerDesc::default(),
             mipmaps: true,
         };
