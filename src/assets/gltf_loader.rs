@@ -568,7 +568,7 @@ fn create_material<P: AsRef<Path>>(
         }
     }
 
-    println!("Metarial created {:#?}", material_desc);
+    debug!("Metarial created {:#?}", material_desc);
     asset_mgr.materials.get_or_create(material_desc)
 }
 

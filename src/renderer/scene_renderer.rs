@@ -16,29 +16,38 @@ use crate::Globals;
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
+    pub queue: &'a Queue,
     pub gpu_cache: &'a GpuCache,
 
     pub gpu_mgr: &'a GpuManager,
     pub pip_mgr: &'a PipelineManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
+    pub instance_buffer: &'a wgpu::Buffer,
 }
+
+const MAX_INSTANCES: usize = 1000;
 
 pub struct SceneRenderer {
     pickobject: PickObject,
     default_pass: Vec<RenderPassEnum>,
+    instance_buffer: wgpu::Buffer,
 }
 
 impl SceneRenderer {
-    pub fn new(
-        gpu_context: &GpuContext,
-    ) -> Self {
+    pub fn new(gpu_context: &GpuContext) -> Self {
         let timer = std::time::Instant::now();
         info!("Initializing renderer...");
 
         let device = &gpu_context.device;
         let pickobject = PickObject::new(&device);
 
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance Buffer"),
+            size: (std::mem::size_of::<vertexdata::VertexInstace>() * MAX_INSTANCES) as u64, // TODO! dynamic
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
@@ -58,6 +67,7 @@ impl SceneRenderer {
         Self {
             pickobject,
             default_pass,
+            instance_buffer,
         }
     }
 
@@ -90,7 +100,6 @@ impl SceneRenderer {
         gpu_manager.sync_ibl(gpu_cache, gpu_context, asset_mgr);
         gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
 
-        
         let frame = FrameBuilder::build(
             world,
             &gpu_context.device,
@@ -100,29 +109,25 @@ impl SceneRenderer {
             input,
             globals,
         );
-        
-        // Update uniform buffer data to gpu
-        self.update_render_globals_to_gpu(
-            gpu_context,
-            gpu_manager,
-            camera,
-            globals,
-            selected,
-            size,
-        );
-        Self::update_meshes_materials_to_gpu(asset_mgr, gpu_context, gpu_cache, &frame);
-        Self::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
-
         let mut ctx = RenderContext {
             device: &gpu_context.device,
+            queue: &gpu_context.queue,
             gpu_cache: &gpu_cache,
 
             gpu_mgr: &gpu_manager,
             pip_mgr: &pipeline_manager,
             pickobject: &self.pickobject,
             target: &target,
+            instance_buffer: &self.instance_buffer,
         };
 
+        // Update uniform buffer data to gpu
+        self.update_render_globals_to_gpu(&mut ctx, camera, globals, selected, size);
+        Self::update_meshes_materials_to_gpu(&mut ctx, asset_mgr, &frame);
+        Self::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
+        
+        // Update vertex instance buffer data to gpu
+        Self::update_vertex_instances_to_gpu(&mut ctx, &frame);
 
         for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &frame);
@@ -132,8 +137,7 @@ impl SceneRenderer {
     // TODO! move out of here
     fn update_render_globals_to_gpu(
         &self,
-        gpu_context: &GpuContext,
-        gpu_manager: &GpuManager,
+        ctx: &mut RenderContext,
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
@@ -144,26 +148,38 @@ impl SceneRenderer {
             None => 0,
         };
 
-        gpu_manager.update_camera(
-            &gpu_context.queue,
-            &CameraUniform::from_camera_size(camera, size),
+        let queue = ctx.queue;
+
+        ctx.gpu_mgr
+            .update_camera(queue, &CameraUniform::from_camera_size(camera, size));
+        ctx.gpu_mgr
+            .update_globals(queue, &GlobalUniform::from_global_id(globals, entity_id));
+    }
+
+    // TODO! move out of here
+    fn update_vertex_instances_to_gpu(ctx: &mut RenderContext, frame: &FrameData) {
+        assert!(
+            frame.instances.len() <= MAX_INSTANCES,
+            "Too many instances! Max is {}",
+            MAX_INSTANCES
         );
-        gpu_manager.update_globals(
-            &gpu_context.queue,
-            &GlobalUniform::from_global_id(globals, entity_id),
+
+        ctx.queue.write_buffer(
+            ctx.instance_buffer,
+            0,
+            bytemuck::cast_slice(&frame.instances),
         );
     }
 
     // TODO! move out of here
     fn update_meshes_materials_to_gpu(
+        ctx: &mut RenderContext,
         asset_mgr: &AssetManager,
-        gpu_context: &GpuContext,
-        gpu_cache: &mut GpuCache,
         frame: &FrameData,
     ) {
-        use cgmath::SquareMatrix;
         // -------- Mesh --------
-        let queue = &gpu_context.queue;
+        let queue = &ctx.queue;
+        let gpu_cache = &ctx.gpu_cache;
 
         fn gpu_update(
             asset_mgr: &AssetManager,
@@ -171,25 +187,21 @@ impl SceneRenderer {
             queue: &Queue,
             meshdraw: &MeshDraw,
         ) {
-            debug_assert!(
-                meshdraw.transform.determinant() > 0.0,
-                "matrix determinant is negative"
-            );
-
-            let mut model = uniform::ModelUniform::new(meshdraw.transform);
-            model.entity_id = meshdraw.entity_id.as_raw_u64();
-            gpu_cache.mesh.update(&meshdraw.mesh, queue, &model);
-            if let Some(material_desc) = asset_mgr.materials.get_desc(meshdraw.material) {
-                let updated_uniform = uniform::MaterialUniform::from(material_desc);
-                gpu_cache
-                    .material
-                    .update(&meshdraw.material, queue, &updated_uniform);
-            }
+            asset_mgr
+                .materials
+                .get_desc(meshdraw.material)
+                .map(|material_desc| {
+                    let updated_uniform = uniform::MaterialUniform::from(material_desc);
+                    gpu_cache
+                        .material
+                        .update(&meshdraw.material, queue, &updated_uniform);
+                });
         }
 
         for meshdraw in frame.opaque.iter() {
             gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
         }
+
         for meshdraw in frame.transmission.iter() {
             gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
         }

@@ -84,11 +84,16 @@ impl RenderPass for MeshPass {
     fn reads(&self) -> &[ResourceId] {
         match self.config.mode {
             MeshPassMode::Opaque => &[],
-            MeshPassMode::Transmission => &[ResourceId::OPAQUE]
+            MeshPassMode::Transmission => &[ResourceId::OPAQUE],
         }
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDR, ResourceId::OPAQUE, ResourceId::ENTITY, ResourceId::DEPTH]
+        &[
+            ResourceId::HDR,
+            ResourceId::OPAQUE,
+            ResourceId::ENTITY,
+            ResourceId::DEPTH,
+        ]
     }
 
     fn execute(
@@ -97,6 +102,7 @@ impl RenderPass for MeshPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
+
         let meshdraw = match self.config.mode {
             MeshPassMode::Opaque => &frame.opaque,
             MeshPassMode::Transmission => &frame.transmission,
@@ -146,13 +152,17 @@ impl RenderPass for MeshPass {
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::PbrMap), &[]);
 
+        renderpass.set_vertex_buffer(1, ctx.instance_buffer.slice(..));
+
         // Draw per material (reduce drawcall number)
-        let mut drawables: Vec<_> = drawables(meshdraw, ctx.gpu_cache).collect();
-        drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
+            let mut drawables: Vec<_> =
+        drawables(meshdraw, ctx.gpu_cache).zip(meshdraw.iter()).collect();
+
+        drawables.sort_by_key(|(d, _)| d.material_bg as *const _ as usize);
 
         let mut current_material: Option<*const _> = None;
 
-        for mesh in drawables {
+        for (mesh, md) in drawables {
             let mat_ptr = mesh.material_bg as *const _;
 
             if current_material != Some(mat_ptr) {
@@ -160,11 +170,10 @@ impl RenderPass for MeshPass {
                 current_material = Some(mat_ptr);
             }
 
-            renderpass.set_bind_group(2, &mesh.gpu_mesh.model_bind_group, &[]);
-            renderpass.set_index_buffer(mesh.gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
             renderpass.set_vertex_buffer(0, mesh.gpu_mesh.vertexbuffer.slice(..));
+            renderpass.set_index_buffer(mesh.gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
 
-            renderpass.draw_indexed(mesh.index_range.clone(), 0, 0..1);
+            renderpass.draw_indexed(mesh.index_range.clone(), 0, md.instance_index..md.instance_index + 1);
         }
     }
 }
