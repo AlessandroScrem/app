@@ -50,6 +50,7 @@ impl Layer for SettimgsUi {
         let resolver = &ctx.snapshot.resolver;
         let stats = &ctx.snapshot.stats;
         let gpu_counters = &ctx.snapshot.gpu_counters;
+        let root_nodes = ctx.snapshot.root_snapshot.root_nodes.nodes.len();
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -77,6 +78,7 @@ impl Layer for SettimgsUi {
                         text_fmt!(ui, "Gpu Mem            : {}", 0);
                         text_fmt!(ui, "GPU Shaders        : {}", 0);
                         text_fmt!(ui, "Draw               : {}", 0);
+                        text_fmt!(ui, "RootNodes          : {}", root_nodes);
                     });
                 }
                 if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
