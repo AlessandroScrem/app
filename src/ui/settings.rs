@@ -1,7 +1,7 @@
 use super::*;
 
-use prelude::math::*;
 use imgui::*;
+use prelude::math::*;
 
 use crate::renderer::GpuResourceStats;
 use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
@@ -33,6 +33,16 @@ impl fmt::Display for GpuResourceStats {
     }
 }
 
+impl fmt::Display for renderer::framebuilder::DrawStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} calls | {} instances",
+            self.draw_calls, self.instances
+        )
+    }
+}
+
 #[derive(Default)]
 pub struct SettimgsUi {
     demo_open: bool,
@@ -48,9 +58,11 @@ impl Layer for SettimgsUi {
         let hdr_texture_id = ctx.snapshot.hdr_texture_id;
         let timestep = &ctx.timestep;
         let resolver = &ctx.snapshot.resolver;
-        let stats = &ctx.snapshot.stats;
         let gpu_counters = &ctx.snapshot.gpu_counters;
         let root_nodes = ctx.snapshot.root_snapshot.root_nodes.nodes.len();
+        let render_stats = &ctx.snapshot.render_stats;
+        let opaque_stats = render_stats.frame.opaque;
+        let transmission_stats = render_stats.frame.transmission;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -66,9 +78,9 @@ impl Layer for SettimgsUi {
                     text_fmt!(ui, "Selected Entity ID: {:?}", selected_entity,);
                     ui.separator();
                     tools::disabled(ui, || {
-                        text_fmt!(ui, "Asset Textures     : {}", stats.texture);
-                        text_fmt!(ui, "Asset Meshes       : {}", stats.mesh);
-                        text_fmt!(ui, "Asset Materials    : {}", stats.material);
+                        text_fmt!(ui, "Asset Textures     : {}", render_stats.texture);
+                        text_fmt!(ui, "Asset Meshes       : {}", render_stats.mesh);
+                        text_fmt!(ui, "Asset Materials    : {}", render_stats.material);
                         text_fmt!(ui, "Gpu Textures       : {}", gpu_counters.textures);
                         text_fmt!(ui, "Gpu Materials      : {}", gpu_counters.materials);
                         text_fmt!(ui, "Gpu Meshes         : {}", gpu_counters.meshes);
@@ -77,7 +89,8 @@ impl Layer for SettimgsUi {
                         text_fmt!(ui, "Gpu FB             : {}", 0);
                         text_fmt!(ui, "Gpu Mem            : {}", 0);
                         text_fmt!(ui, "GPU Shaders        : {}", 0);
-                        text_fmt!(ui, "Draw               : {}", 0);
+                        text_fmt!(ui, "Opaque             : {}", opaque_stats);
+                        text_fmt!(ui, "Transmission       : {}", transmission_stats);
                         text_fmt!(ui, "RootNodes          : {}", root_nodes);
                     });
                 }

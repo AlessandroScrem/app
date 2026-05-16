@@ -39,6 +39,22 @@ pub struct BBoxData {
     pub count: u32,
 }
 
+#[derive(Default, Debug, Copy, Clone)]
+pub struct DrawStats {
+    pub draw_calls: u32,
+    pub instances: u32,
+}
+
+fn compute_stats(batches: &[InstanceBatch]) -> DrawStats {
+    let draw_calls = batches.len() as u32;
+
+    let instances = batches.iter().map(|b| b.instance_count).sum::<u32>();
+    DrawStats {
+        draw_calls,
+        instances,
+    }
+}
+
 pub struct FrameData {
     // geometry
     pub opaque_batches: Vec<InstanceBatch>,
@@ -53,6 +69,10 @@ pub struct FrameData {
     pub picking: Option<PickingData>,
     pub skybox_enable: Option<bool>,
     pub build_mips: Option<bool>,
+
+    // stats
+    pub opaque_stats: DrawStats,
+    pub transmission_stats: DrawStats,
 }
 
 pub struct FrameBuilder {}
@@ -77,6 +97,8 @@ impl FrameBuilder {
             build_mips: None,
             axis_enable: false,
             instances: Vec::new(),
+            opaque_stats: DrawStats::default(),
+            transmission_stats: DrawStats::default(),
         };
         Self::build_geometry(world, asset, &mut frame);
         Self::build_picking(input, pickobject, &mut frame);
@@ -87,11 +109,14 @@ impl FrameBuilder {
         frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
         frame.axis_enable = globals.axis_enable;
 
+        frame.opaque_stats = compute_stats(&frame.opaque_batches);
+        frame.transmission_stats = compute_stats(&frame.transmission_batches);
+
         debug!(
-            "Opaque Count: {}, Transmission Count: {}, Total: {}",
-            frame.opaque_batches.len(),
-            frame.transmission_batches.len(),
-            frame.opaque_batches.len() + frame.transmission_batches.len()
+            "Opaque Stats: {:?}, Transmission Stats: {:?}, Total DrawCall: {}",
+            frame.opaque_stats,
+            frame.transmission_stats,
+            frame.opaque_stats.draw_calls + frame.transmission_stats.draw_calls
         );
         frame
     }

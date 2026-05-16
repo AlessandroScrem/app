@@ -6,6 +6,7 @@ use crate::app::app_impl::RuntimeContext;
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
 use crate::gpu::GpuContext;
+use crate::renderer::framebuilder::DrawStats;
 use crate::uniform::{CameraUniform, GlobalUniform};
 
 use legion::{Entity, World};
@@ -30,10 +31,17 @@ pub struct RenderContext<'a> {
 
 const MAX_INSTANCES: usize = 1000;
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct FrameStats {
+    pub opaque: DrawStats,
+    pub transmission: DrawStats,
+}
+
 pub struct SceneRenderer {
     pickobject: PickObject,
     default_pass: Vec<RenderPassEnum>,
     instance_buffer: wgpu::Buffer,
+    stats: FrameStats,
 }
 
 impl SceneRenderer {
@@ -70,11 +78,16 @@ impl SceneRenderer {
             pickobject,
             default_pass,
             instance_buffer,
+            stats: FrameStats::default(),
         }
     }
 
     pub fn get_hovered(&mut self, gpu_context: &GpuContext) -> Option<Entity> {
         self.pickobject.poll_readback(&gpu_context.device)
+    }
+
+    pub fn get_render_stats(&self) -> FrameStats {
+        self.stats
     }
 
     pub fn render(
@@ -134,6 +147,11 @@ impl SceneRenderer {
         for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &frame);
         }
+
+        self.stats = FrameStats {
+            opaque: frame.opaque_stats,
+            transmission: frame.transmission_stats,
+        };
     }
 
     // TODO! move out of here
