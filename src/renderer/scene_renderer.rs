@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::*;
 
 use crate::app::app_impl::RuntimeContext;
@@ -44,7 +46,7 @@ impl SceneRenderer {
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: (std::mem::size_of::<vertexdata::VertexInstace>() * MAX_INSTANCES) as u64, // TODO! dynamic
+            size: (std::mem::size_of::<vertexdata::VertexInstance>() * MAX_INSTANCES) as u64, // TODO! dynamic
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -125,7 +127,7 @@ impl SceneRenderer {
         self.update_render_globals_to_gpu(&mut ctx, camera, globals, selected, size);
         Self::update_meshes_materials_to_gpu(&mut ctx, asset_mgr, &frame);
         Self::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
-        
+
         // Update vertex instance buffer data to gpu
         Self::update_vertex_instances_to_gpu(&mut ctx, &frame);
 
@@ -181,29 +183,32 @@ impl SceneRenderer {
         let queue = &ctx.queue;
         let gpu_cache = &ctx.gpu_cache;
 
+        let mut updated_materials = HashSet::new();
+
         fn gpu_update(
             asset_mgr: &AssetManager,
             gpu_cache: &GpuCache,
             queue: &Queue,
-            meshdraw: &MeshDraw,
+            material_id: MaterialId,
         ) {
-            asset_mgr
-                .materials
-                .get_desc(meshdraw.material)
-                .map(|material_desc| {
-                    let updated_uniform = uniform::MaterialUniform::from(material_desc);
-                    gpu_cache
-                        .material
-                        .update(&meshdraw.material, queue, &updated_uniform);
-                });
+            if let Some(material_desc) = asset_mgr.materials.get_desc(material_id) {
+                let updated_uniform = uniform::MaterialUniform::from(material_desc);
+                gpu_cache
+                    .material
+                    .update(&material_id, queue, &updated_uniform);
+            }
         }
 
-        for meshdraw in frame.opaque.iter() {
-            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        for batch in frame.opaque_batches.iter() {
+            if updated_materials.insert(batch.material) {
+                gpu_update(asset_mgr, gpu_cache, queue, batch.material);
+            }
         }
 
-        for meshdraw in frame.transmission.iter() {
-            gpu_update(asset_mgr, gpu_cache, queue, meshdraw);
+        for batch in frame.transmission_batches.iter() {
+            if updated_materials.insert(batch.material) {
+                gpu_update(asset_mgr, gpu_cache, queue, batch.material);
+            }
         }
     }
 

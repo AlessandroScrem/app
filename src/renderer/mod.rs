@@ -9,7 +9,7 @@ pub(crate) use crate::assets::*;
 
 pub(crate) use imgui_renderer::{ImguiRender, UiTextureResolver};
 
-pub (crate) use framebuilder::{FrameBuilder, FrameData,  MeshDraw};
+pub (crate) use framebuilder::{FrameBuilder, FrameData};
 
 pub use scene_renderer::SceneRenderer;
 pub (crate) use crate::gpu::*;

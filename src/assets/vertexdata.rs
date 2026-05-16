@@ -46,7 +46,7 @@ use crate::uniform::Mat3Std140;
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct VertexInstace {
+pub struct VertexInstance {
     pub model: [[f32; 4]; 4],
     pub normal_matrix: [[f32; 4]; 3],
     pub entity_id_low: u32,
@@ -54,7 +54,7 @@ pub struct VertexInstace {
 }
 
 
-impl VertexInstace {
+impl VertexInstance {
     const ATTRIBS: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
         // model matrix (4 vec4)
          5 =>Float32x4, 6 => Float32x4, 7 => Float32x4, 8 => Float32x4,
@@ -73,7 +73,7 @@ impl VertexInstace {
     }
 }
 
-impl VertexInstace {
+impl VertexInstance {
     pub fn new(model: Mat4, entity_id: u64) -> Self {
         Self {
             model: model.into(),

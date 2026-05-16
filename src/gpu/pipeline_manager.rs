@@ -296,7 +296,7 @@ fn create_pipeline(
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
             let buffer_desc = &[
                 crate::assets::vertexdata::MeshVertexData::get_layout(),
-                crate::assets::vertexdata::VertexInstace::get_layout(),
+                crate::assets::vertexdata::VertexInstance::get_layout(),
             ];
 
             let targets = &[

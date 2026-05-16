@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 
 use crate::entities::EntityRawU64;
@@ -8,13 +10,23 @@ use crate::uniform::LightsUniform;
 use crate::{entities::bounding_box_impl::BBoxVertexData, uniform::LightUniform};
 use legion::{Entity, World};
 
-pub struct MeshDraw {
+pub struct InstanceBatch {
     pub mesh: MeshId,
-    pub submesh_index_range: std::ops::Range<u32>,
     pub material: MaterialId,
-    pub entity_id: Entity,
-    pub transform: Mat4,
-    pub instance_index: u32,
+
+    pub submesh_index_range: std::ops::Range<u32>,
+
+    pub instance_start: u32,
+    pub instance_count: u32,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct BatchKey {
+    mesh: MeshId,
+    material: MaterialId,
+
+    index_start: u32,
+    index_end: u32,
 }
 
 pub struct PickingData {
@@ -29,12 +41,11 @@ pub struct BBoxData {
 
 pub struct FrameData {
     // geometry
-    pub opaque: Vec<MeshDraw>,
-    pub transmission: Vec<MeshDraw>,
-    pub transparent: Vec<MeshDraw>,
+    pub opaque_batches: Vec<InstanceBatch>,
+    pub transmission_batches: Vec<InstanceBatch>,
     pub bbox_bufferdata: Option<BBoxData>,
     pub lights: Option<LightsUniform>,
-    pub instances: Vec<vertexdata::VertexInstace>,
+    pub instances: Vec<vertexdata::VertexInstance>,
 
     // flags / tasks
     pub axis_enable: bool,
@@ -56,9 +67,8 @@ impl FrameBuilder {
         globals: &Globals,
     ) -> FrameData {
         let mut frame = FrameData {
-            opaque: Vec::new(),
-            transmission: Vec::new(),
-            transparent: Vec::new(),
+            opaque_batches: Vec::new(),
+            transmission_batches: Vec::new(),
             bbox_bufferdata: None,
             lights: None,
             outline_selected: false,
@@ -69,65 +79,103 @@ impl FrameBuilder {
             instances: Vec::new(),
         };
         Self::build_geometry(world, asset, &mut frame);
-        Self::build_instances(&mut frame);
         Self::build_picking(input, pickobject, &mut frame);
         Self::build_bbox_data(device, world, globals, &mut frame);
         Self::build_light_data(world, globals, &mut frame);
-        frame.build_mips = (!frame.transmission.is_empty()).then(|| globals.mips_cs);
+        frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
         frame.outline_selected = selected.is_some();
         frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
         frame.axis_enable = globals.axis_enable;
 
         debug!(
             "Opaque Count: {}, Transmission Count: {}, Total: {}",
-            frame.opaque.len(),
-            frame.transmission.len(),
-            frame.opaque.len() + frame.transmission.len() + frame.transparent.len()
+            frame.opaque_batches.len(),
+            frame.transmission_batches.len(),
+            frame.opaque_batches.len() + frame.transmission_batches.len()
         );
         frame
     }
 
     fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
+        let mut opaque_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> = HashMap::new();
+        let mut transmission_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> =
+            HashMap::new();
+
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
-            if let Some(mesh) = asset.meshes.get(mesh_comp.handle) {
-                for submesh in mesh.submeshes.iter() {
-                    if let Some(material) = asset.materials.get_desc(submesh.material) {
-                        debug_assert!(
-                            global_mat.mat.determinant() > 0.0,
-                            "matrix determinant is negative"
-                        );
-                        let item = MeshDraw {
-                            mesh: mesh_comp.handle,
-                            submesh_index_range: submesh.index_range.clone(),
-                            entity_id: *entity,
-                            material: submesh.material,
-                            transform: global_mat.mat,
-                            instance_index: 0, // TODO!
-                        };
-                        Self::classify(item, material, frame);
-                    }
+            let Some(mesh) = asset.meshes.get(mesh_comp.handle) else {
+                continue;
+            };
+
+            for submesh in mesh.submeshes.iter() {
+                let Some(material) = asset.materials.get_desc(submesh.material) else {
+                    continue;
+                };
+                debug_assert!(
+                    global_mat.mat.determinant() > 0.0,
+                    "matrix determinant is negative"
+                );
+
+                let key = BatchKey {
+                    mesh: mesh_comp.handle,
+                    material: submesh.material,
+
+                    index_start: submesh.index_range.start,
+                    index_end: submesh.index_range.end,
+                };
+
+                // -------------------------------------------------
+                // BUILD INSTANCE
+                // -------------------------------------------------
+
+                let model = global_mat.mat;
+                let instance = vertexdata::VertexInstance::new(model, entity.as_raw_u64());
+
+                // -------------------------------------------------
+                // CLASSIFY
+                // -------------------------------------------------
+
+                if material.is_transmissive() {
+                    transmission_map.entry(key).or_default().push(instance);
+                } else if !material.is_transparent() {
+                    opaque_map.entry(key).or_default().push(instance);
                 }
             }
         }
-    }
 
-    fn build_instances(frame: &mut FrameData) {
-        use vertexdata::VertexInstace;
-        for item in frame.opaque.iter_mut() {
-            item.instance_index = frame.instances.len() as u32;
+        // ---------------------------------------------------------
+        // BUILD FINAL BATCHES
+        // ---------------------------------------------------------
+        fn flush_batches(
+            map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>>,
+            batches: &mut Vec<InstanceBatch>,
+            instances: &mut Vec<vertexdata::VertexInstance>,
+        ) {
+            for (key, batch_instances) in map {
+                let start = instances.len() as u32;
+                let count = batch_instances.len() as u32;
 
-            let model = VertexInstace::new(item.transform, item.entity_id.as_raw_u64());
-            frame.instances.push(model);
+                instances.extend(batch_instances);
+
+                batches.push(InstanceBatch {
+                    mesh: key.mesh,
+                    material: key.material,
+
+                    submesh_index_range: key.index_start..key.index_end,
+
+                    instance_start: start,
+                    instance_count: count,
+                });
+            }
         }
-        
-        for item in frame.transmission.iter_mut() {
-            item.instance_index = frame.instances.len() as u32;
-            
-            let model = VertexInstace::new(item.transform, item.entity_id.as_raw_u64());
-            frame.instances.push(model);
-        }
+
+        flush_batches(opaque_map, &mut frame.opaque_batches, &mut frame.instances);
+        flush_batches(
+            transmission_map,
+            &mut frame.transmission_batches,
+            &mut frame.instances,
+        );
     }
 
     fn build_picking(input: &Input, pickobject: &PickObject, frame: &mut FrameData) {
@@ -137,16 +185,6 @@ impl FrameBuilder {
                 mouse_pos_y: input.mouse_position.y as u32,
             };
             frame.picking = Some(pick_data);
-        }
-    }
-
-    fn classify(item: MeshDraw, mat: &MaterialDesc, frame: &mut FrameData) {
-        if mat.is_transmissive() {
-            frame.transmission.push(item);
-        } else if mat.is_transparent() {
-            frame.transparent.push(item);
-        } else {
-            frame.opaque.push(item);
         }
     }
 
