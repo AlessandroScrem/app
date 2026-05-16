@@ -169,6 +169,17 @@ fn collect_asset_ids_from_entity(
     }
 }
 
+pub(crate) fn collect_hierarchy_root_entities(world: &legion::World) -> Vec<Entity> {
+    use legion::query::IntoQuery;
+
+    let mut query = <(Entity, &HierarchyComponent)>::query();
+    query
+        .iter(world)
+        .filter(|(e, _)| is_root(**e, world))
+        .map(|(e, _)| *e)
+        .collect()
+}
+
 pub(crate) fn remove_entity_from_all(
     asset_mgr: &mut crate::AssetManager,
     entity: Entity,
