@@ -16,6 +16,7 @@ pub struct App {
     pub domain_events: DomainEvents,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
+    pub exit_requested: bool,
 }
 
 impl App {

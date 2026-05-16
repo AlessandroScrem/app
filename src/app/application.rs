@@ -9,4 +9,5 @@ pub  trait Application{
     fn on_resize(&mut self, width: u32, height: u32);
     fn on_drop(&mut self, path: PathBuf);
     fn on_close(&mut self);
+    fn exit_requested(&self)->bool;
 }

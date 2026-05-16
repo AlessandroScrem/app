@@ -66,7 +66,7 @@ impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
         runtime.handle_winit_event(&event);
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
@@ -75,12 +75,17 @@ impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
             return;
         }
 
+        if self.engine.app.exit_requested() {
+            event_loop.exit();
+            return;
+        }
+
         runtime.window.request_redraw();
     }
 
     fn window_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        _event_loop: &ActiveEventLoop,
         window_id: WindowId,
         event: WindowEvent,
     ) {
@@ -99,7 +104,6 @@ impl <A: Application + HasAssetMgr> ApplicationHandler for MyApplication<A> {
         match event {
             WindowEvent::CloseRequested => {
                 runtime.events.push(RuntimeEvent::CloseRequested);
-                event_loop.exit();
             }
 
             WindowEvent::Resized(size) => {

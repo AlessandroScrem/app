@@ -37,7 +37,9 @@ impl Layer for MenuBarUi {
                     ctx.write.push(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Save") {}
-                if ui.menu_item("Exit") {}
+                if ui.menu_item("Exit") {
+                    ctx.write.push(Exit);
+                }
             }
 
             if let Some(_edit_menu) = ui.begin_menu("Edit") {
