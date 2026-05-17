@@ -22,4 +22,4 @@ pub(crate) use crate::*;
 pub(crate) use ui_layer::Layer;
 pub(crate) use renderer::imgui_renderer::{UiTexture, UiTextureResolver};
 
-pub (crate) use crate::app::domain::{DomainEvents, DomainEvent, GlobalEvent, CameraEvent, EntityEvent, AssetEvent, SelectionEvent};
+pub (crate) use crate::app::domain::{DomainEvents, SceneEvent, DomainEvent, GlobalEvent, CameraEvent, EntityEvent, AssetEvent, SelectionEvent};

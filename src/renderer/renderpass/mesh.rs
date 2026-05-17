@@ -1,32 +1,4 @@
-use crate::{
-    gpu::{GpuCache, GpuMesh},
-    renderer::MeshDraw,
-};
-
 use super::*;
-
-pub struct MeshDrawable<'a> {
-    pub gpu_mesh: &'a GpuMesh,
-    pub material_bg: &'a wgpu::BindGroup,
-    pub index_range: &'a std::ops::Range<u32>,
-}
-
-pub fn drawables<'a>(
-    mesh_draw: &'a [MeshDraw],
-    gpu_cache: &'a GpuCache,
-) -> impl Iterator<Item = MeshDrawable<'a>> + 'a {
-    mesh_draw.iter().filter_map(move |md| {
-        let gpu_mesh = gpu_cache.mesh.get(&md.mesh)?;
-        let material = gpu_cache.material.get(&md.material)?;
-        let material_bg = material.bind_group.as_ref()?;
-
-        Some(MeshDrawable {
-            gpu_mesh,
-            material_bg,
-            index_range: &md.submesh_index_range,
-        })
-    })
-}
 
 pub enum MeshPassMode {
     Opaque,
@@ -84,11 +56,16 @@ impl RenderPass for MeshPass {
     fn reads(&self) -> &[ResourceId] {
         match self.config.mode {
             MeshPassMode::Opaque => &[],
-            MeshPassMode::Transmission => &[ResourceId::OPAQUE]
+            MeshPassMode::Transmission => &[ResourceId::OPAQUE],
         }
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDR, ResourceId::OPAQUE, ResourceId::ENTITY, ResourceId::DEPTH]
+        &[
+            ResourceId::HDR,
+            ResourceId::OPAQUE,
+            ResourceId::ENTITY,
+            ResourceId::DEPTH,
+        ]
     }
 
     fn execute(
@@ -97,9 +74,9 @@ impl RenderPass for MeshPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        let meshdraw = match self.config.mode {
-            MeshPassMode::Opaque => &frame.opaque,
-            MeshPassMode::Transmission => &frame.transmission,
+        let batches = match self.config.mode {
+            MeshPassMode::Opaque => &frame.opaque_batches,
+            MeshPassMode::Transmission => &frame.transmission_batches,
         };
 
         let gpu_manager = ctx.gpu_mgr;
@@ -146,25 +123,59 @@ impl RenderPass for MeshPass {
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
         renderpass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::PbrMap), &[]);
 
-        // Draw per material (reduce drawcall number)
-        let mut drawables: Vec<_> = drawables(meshdraw, ctx.gpu_cache).collect();
-        drawables.sort_by_key(|d| d.material_bg as *const _ as usize);
+        // -------------------------------------------------
+        // INSTANCE BUFFER
+        // -------------------------------------------------
+        renderpass.set_vertex_buffer(1, ctx.instance_buffer.slice(..));
 
-        let mut current_material: Option<*const _> = None;
+        // -------------------------------------------------
+        // SORT BY MATERIAL
+        // -------------------------------------------------
+        let mut sorted_batches: Vec<_> = batches.iter().collect();
+        sorted_batches.sort_by_key(|b| b.material);
 
-        for mesh in drawables {
-            let mat_ptr = mesh.material_bg as *const _;
+        let mut current_material: Option<MaterialId> = None;
 
-            if current_material != Some(mat_ptr) {
-                renderpass.set_bind_group(1, mesh.material_bg, &[]);
-                current_material = Some(mat_ptr);
-            }
+        // -------------------------------------------------
+        // DRAW
+        // -------------------------------------------------
+        for batch in sorted_batches {
+            // ---------------------------------------------
+            // GPU RESOURCES
+            // ---------------------------------------------
+            let Some(gpu_mesh) = ctx.gpu_cache.mesh.get(&batch.mesh) else {
+                continue;
+            };
+            let Some(gpu_material) = ctx.gpu_cache.material.get(&batch.material) else {
+                continue;
+            };
+            let Some(material_bg) = gpu_material.bind_group.as_ref() else {
+                continue;
+            };
 
-            renderpass.set_bind_group(2, &mesh.gpu_mesh.model_bind_group, &[]);
-            renderpass.set_index_buffer(mesh.gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
-            renderpass.set_vertex_buffer(0, mesh.gpu_mesh.vertexbuffer.slice(..));
+            // ---------------------------------------------
+            // BIND MATERIAL ONLY IF CHANGED
+            // ---------------------------------------------
+            if current_material != Some(batch.material) {
+                renderpass.set_bind_group(1, material_bg, &[]);
+                current_material = Some(batch.material);
+            };
 
-            renderpass.draw_indexed(mesh.index_range.clone(), 0, 0..1);
+            // ---------------------------------------------
+            // GEOMETRY
+            // ---------------------------------------------
+            renderpass.set_vertex_buffer(0, gpu_mesh.vertexbuffer.slice(..));
+
+            renderpass.set_index_buffer(gpu_mesh.indexbuffer.slice(..), IndexFormat::Uint32);
+
+            // ---------------------------------------------
+            // TRUE INSTANCING
+            // ---------------------------------------------
+            renderpass.draw_indexed(
+                batch.submesh_index_range.clone(),
+                0,
+                batch.instance_start..batch.instance_start + batch.instance_count,
+            );
         }
     }
 }

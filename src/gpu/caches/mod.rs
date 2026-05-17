@@ -48,7 +48,7 @@ impl GpuCache {
         // Sync Meshes
         for (id, _value) in asset_mgr.meshes.iter() {
             self.mesh
-                .ensure(id, &asset_mgr.meshes, &gpu_manager, &gpu_context.device);
+                .ensure(id, &asset_mgr.meshes, &gpu_context.device);
         }
 
         // Sync Materials (crate also textures)

@@ -14,6 +14,7 @@ impl Layer for MenuBarUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         use AssetEvent::*;
         use DomainEvent::*;
+        use SceneEvent::*;
         
         if let Some(_menu_bar) = ui.begin_main_menu_bar() {
             if let Some(_file_menu) = ui.begin_menu("File") {
@@ -21,6 +22,7 @@ impl Layer for MenuBarUi {
                 if ui.menu_item("Open") {
                     menu_bar::file_open(FileFilter::Gltf).map(|f| ctx.write.push(Assets(LoadGltf(f))));
                 }
+                if ui.menu_item("Clear Scene") {ctx.write.push(Scene(ClearScene)); }
                 ui.separator();
                 if ui.menu_item("Sponza") {
                     ctx.write.push(Assets(LoadGltf(SPONZA.into())));
@@ -35,6 +37,9 @@ impl Layer for MenuBarUi {
                     ctx.write.push(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Save") {}
+                if ui.menu_item("Exit") {
+                    ctx.write.push(Exit);
+                }
             }
 
             if let Some(_edit_menu) = ui.begin_menu("Edit") {

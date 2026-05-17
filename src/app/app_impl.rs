@@ -80,14 +80,15 @@ impl Application for App {
     }
 
     fn on_drop(&mut self, path: std::path::PathBuf) {
-        self.domain_events.queue.push_back(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
+        self.domain_events
+            .queue
+            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
     }
 
     fn render(&mut self, runtime: &mut RunningApp) {
         let mut encoder = runtime.gpu_context.create_encoder();
 
         if let Some(frame) = runtime.gpu_surface.get_frame() {
-            
             let target = frame.texture.create_view(&Default::default());
             let size: (u32, u32) = (
                 runtime.gpu_surface.get_config().width,
@@ -138,6 +139,11 @@ impl Application for App {
     }
 
     fn on_close(&mut self) {
-        info!("The close button was pressed; App stopping");
+        self.exit_requested = true;
+        info!("Exit requested; App stopping");
+    }
+
+    fn exit_requested(&self) -> bool {
+        self.exit_requested
     }
 }

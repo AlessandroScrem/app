@@ -46,6 +46,7 @@ cgmath = "0.18.0"
 - [x] Material gltf TextureCoords[0,1]
 - [x] Material gltf Sheen
 - [x] Environment rotation
+- [x] Mesh Instance
 - [ ] Direct Light shadow
 - [ ] SSAO   
 - [ ] 

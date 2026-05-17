@@ -284,8 +284,8 @@ fn create_pipeline(
             let layouts = [
                 Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
                 Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Material)), //1
-                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Model)),    //2
-                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PbrMaps))  //3
+                None,                                                                           //2
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PbrMaps)),  //3
             ];
             let render_pipeline_layout =
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -294,7 +294,10 @@ fn create_pipeline(
                     immediate_size: 0,
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
-            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
+            let buffer_desc = &[
+                crate::assets::vertexdata::MeshVertexData::get_layout(),
+                crate::assets::vertexdata::VertexInstance::get_layout(),
+            ];
 
             let targets = &[
                 // 0:

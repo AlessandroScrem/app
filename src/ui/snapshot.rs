@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use super::*;
+use crate::assets::MaterialId;
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
-use crate::assets::{HasStats, MaterialId};
 use crate::prelude::*;
 use crate::renderer::{GpuInternalCounters, InternalCounter, UiTextureResolver};
 use legion::*;
@@ -26,10 +26,11 @@ pub struct RootSnapshot {
 }
 
 #[derive(Default)]
-pub struct AssetsStats {
+pub struct RenderStats {
     pub texture: ResourceStats,
     pub mesh: ResourceStats,
     pub material: ResourceStats,
+    pub frame: renderer::scene_renderer::FrameStats,
 }
 
 pub struct UiSnapshot<'a> {
@@ -42,7 +43,7 @@ pub struct UiSnapshot<'a> {
     pub hovered: Option<Entity>,
     pub hdr_texture_id: assets::TextureId,
     pub debug_texture_id: Option<assets::TextureId>,
-    pub stats: AssetsStats,
+    pub render_stats: RenderStats,
     pub gpu_counters: GpuInternalCounters,
 }
 
@@ -107,16 +108,11 @@ impl<'a> UiSnapshot<'a> {
         resolver: &'a dyn UiTextureResolver,
         internal_counter: &'a dyn InternalCounter,
         debug_texture_id: Option<assets::TextureId>,
+        render_stats: RenderStats,
     ) -> Self {
         let root_snapshot = RootSnapshot {
             root_nodes: get_hierarchy_roots(world),
             lights_nodes: get_lights_roots(world),
-        };
-
-        let stats = AssetsStats {
-            texture: asset_mgr.textures.get_stats(),
-            mesh: asset_mgr.meshes.get_stats(),
-            material: asset_mgr.materials.get_stats(),
         };
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
@@ -133,8 +129,8 @@ impl<'a> UiSnapshot<'a> {
             hovered: None,
             hdr_texture_id,
             debug_texture_id,
-            stats,
             gpu_counters,
+            render_stats,
         }
     }
 }

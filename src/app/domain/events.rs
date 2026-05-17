@@ -16,9 +16,12 @@ pub enum DomainEvent {
     Assets(AssetEvent),
     Entity(EntityEvent),
     Selection(SelectionEvent),
+    Exit
 }
 
-pub enum SceneEvent {}
+pub enum SceneEvent {
+    ClearScene,
+}
 
 pub enum SelectionEvent {
     Selected(Option<Entity>),

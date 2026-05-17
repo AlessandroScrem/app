@@ -1,3 +1,4 @@
+use crate::app::domain::SceneEvent;
 use crate::app::*;
 use crate::prelude::*;
 use legion::*;
@@ -25,6 +26,12 @@ impl App {
                 DomainEvent::Selection(event) => {
                     handle_selection_event(self, event);
                 }
+                DomainEvent::Scene(event) => {
+                    handle_scene_event(self, event);
+                }
+                DomainEvent::Exit => {
+                    self.exit_requested = true;
+                }
             }
         }
 
@@ -45,6 +52,19 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
         }
         CameraEvent::CameraNearFar(near_far) => {
             app.camera.set_near_far(near_far);
+        }
+    }
+}
+
+pub fn handle_scene_event(app: &mut App, event: SceneEvent) {
+    match event {
+        SceneEvent::ClearScene => {
+            let world = &mut app.current_scene.world;
+
+            for entity in entities::collect_hierarchy_root_entities(world).iter() {
+                crate::entities::remove_entity_from_all(&mut app.asset_mgr, *entity, world);
+            }
+            app.selected = None;
         }
     }
 }

@@ -55,14 +55,19 @@ impl GlobalUniform {
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Mat3Std140 {
-    pub m: [[f32; 4]; 3],
+    m: [[f32; 4]; 3],
 }
 
 impl Default for Mat3Std140 {
     fn default() -> Self {
         Self::identity() 
     }
-    
+}
+
+impl Into<[[f32; 4]; 3]> for Mat3Std140 {
+    fn into(self) -> [[f32; 4]; 3] {
+        self.m
+    }
 }
 
 impl Mat3Std140 {
@@ -80,42 +85,11 @@ impl Mat3Std140 {
         Self::mat3_to_std140(Mat3::identity())
     }
 
-    fn inverse_transpose_mat4(mat: &Mat4) -> Self {
+    pub fn inverse_transpose_mat4(mat: &Mat4) -> Self {
         let mat3x3 = Mat3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
         let nm = mat3x3.invert().unwrap_or(Mat3::identity()).transpose();
         
         Self::mat3_to_std140(nm)
-    }
-}
-
-///shader: [pbr, blinnphong]
-#[repr(C, align(16))]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ModelUniform {
-    pub model: [[f32; 4]; 4],
-    normal_matrix: Mat3Std140,
-    pub entity_id: u64,
-    pad2: [u32; 2],
-}
-
-impl Default for ModelUniform {
-    fn default() -> Self {
-        Self {
-            model: Mat4::identity().into(),
-            normal_matrix: Mat3Std140::identity(),
-            entity_id: 0,
-            pad2: [0, 0],
-        }
-    }
-}
-
-impl ModelUniform {
-    pub fn new(model: Mat4) -> Self {
-        Self {
-            model: model.into(),
-            normal_matrix: Mat3Std140::inverse_transpose_mat4(&model),
-            ..Default::default()
-        }
     }
 }
 

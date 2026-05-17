@@ -53,14 +53,6 @@ struct Lights {
     enabled: u32, 
 }
 
-
-struct Model {
-    model: mat4x4<f32>,
-    normal_matrix: mat3x3<f32>,
-    entity_id_low: u32,
-    entity_id_high: u32,
-}
-
 struct Material {
     
     color: vec4<f32>,
@@ -100,11 +92,48 @@ struct VertexInput {
     @location(3) uv       : vec4<f32>, // xy = uv0, zw = uv1
 };
 
+struct InstanceInput {
+    @location(5) model0 : vec4<f32>,
+    @location(6) model1 : vec4<f32>,
+    @location(7) model2 : vec4<f32>,
+    @location(8) model3 : vec4<f32>,
+    
+    @location(9) normal0 : vec3<f32>,
+    @location(10) normal1 : vec3<f32>,
+    @location(11) normal2 : vec3<f32>,
+
+    @location(12) entity_id_low: u32,
+    @location(13) entity_id_high: u32,
+}
+
+fn mat4_from_instance(i: InstanceInput) -> mat4x4<f32> {
+    return mat4x4<f32>(
+        i.model0,
+        i.model1,
+        i.model2,
+        i.model3
+    );
+}
+
+fn compute_scale(model: mat4x4<f32>) -> f32 {
+    let sx = length(model[0].xyz);
+    let sy = length(model[1].xyz);
+    let sz = length(model[2].xyz);
+    return (sx + sy + sz) * 0.33;
+}
+
+fn mat3_from_instance(i: InstanceInput) -> mat3x3<f32> {
+    return mat3x3<f32>(
+        i.normal0,
+        i.normal1,
+        i.normal2,
+    );
+}
+
 // PerFrame
 @group(0) @binding(0) var<uniform> camera  : Camera;
 @group(0) @binding(1) var<uniform> globals : Globals;
 @group(0) @binding(2) var<uniform> lights  : Lights;
-@group(2) @binding(0) var<uniform> model   : Model;
 
 struct VertexOutput {
     @builtin(position) clip_position : vec4<f32>,
@@ -113,27 +142,36 @@ struct VertexOutput {
     @location(2) tangent             : vec4<f32>, // xyz = T, w = sign
     @location(3) uv                  : vec4<f32>,
     @location(4) ndc_xy              : vec2<f32>, 
+    @location(5) entity_id           : vec2<u32>, 
+    @location(6) world_scale         : f32,  //  world scale
 };
 
 @vertex
 fn vs_main(
     in: VertexInput,
+    instance: InstanceInput,
 ) -> VertexOutput {
 
     var out: VertexOutput;
-    let world_position = model.model * vec4<f32>(in.position, 1.0);
+    let model = mat4_from_instance(instance);
+    let normal_matrix = mat3_from_instance(instance);
+
+    let world_position = model * vec4<f32>(in.position, 1.0);
 
     let clip = camera.proj * camera.view * world_position;
 
     out.clip_position = clip;
     out.world_pos = world_position.xyz;
 
-    out.tangent = vec4(normalize(model.normal_matrix * in.tangent.xyz), in.tangent.w);
-    out.normal  = normalize(model.normal_matrix * in.normal);
+    out.tangent = vec4(normalize(normal_matrix * in.tangent.xyz), in.tangent.w);
+    out.normal  = normalize(normal_matrix * in.normal);
     out.uv =  in.uv;
 
     // NDC
     out.ndc_xy = clip.xy / clip.w; // [-1, 1]
+
+    out.entity_id = vec2<u32>(instance.entity_id_low, instance.entity_id_high);
+    out.world_scale = compute_scale(model);
 
     return out;
 }
@@ -546,12 +584,6 @@ fn compute_F0(albedo: vec3<f32>, metallic: f32, ior: f32) -> vec3<f32> {
     return mix(dielectric, albedo, metallic);
 }
 
-fn compute_scale(model: mat4x4<f32>) -> f32 {
-    let sx = length(model[0].xyz);
-    let sy = length(model[1].xyz);
-    let sz = length(model[2].xyz);
-    return (sx + sy + sz) / 3.0;
-}
 
 fn compute_specular_transmission(V: vec3<f32>, Nws: vec3<f32>, albedo_color: vec3<f32>, metallic: f32, roughness: f32, ) ->vec3<f32> {
     let R = reflect(-V, Nws);
@@ -596,14 +628,13 @@ fn evalBTDF(
     ndc_xy: vec2<f32>, 
     N: vec3<f32>, 
     V: vec3<f32>, 
-    mat: MaterialInfo
+    mat: MaterialInfo,
+    world_scale: f32, //  world scale
 ) -> vec3<f32> {
 
     let use_refraction = material.is_volume == True && mat.thickness > 0.0;
 
-    // scala world
-    let scale = compute_scale(model.model);
-    let thickness = mat.thickness * scale;
+    let thickness = mat.thickness * world_scale;
 
     var transmission_color = sampleTransmission(
         world_pos, 
@@ -797,7 +828,8 @@ fn fs_main(
             in.ndc_xy,
             Nws,
             V,
-            mat
+            mat,
+            in.world_scale
         );
         let NdotV = max(dot(Nws, V), 0.0);
 
@@ -864,7 +896,7 @@ fn fs_main(
     // attachement 0:
     out.color = vec4<f32>(color, 1.0);
     // attachement 1:
-    out.entity_id =  vec2<u32>(model.entity_id_low, model.entity_id_high);
+    out.entity_id =  in.entity_id;
 
     return out;
 }
