@@ -1,4 +1,4 @@
-use crate::{RenderStats, UiSnapshot, engine::UiRuntimeContext, gpu::HasStats};
+use crate::{RenderStats, UiSnapshot, gpu::HasStats, ui::UiRuntimeContext};
 
 use super::app::App;
 

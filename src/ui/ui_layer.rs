@@ -6,7 +6,18 @@ use imgui::*;
 use imgui_winit_support::WinitPlatform;
 use winit::window::Window;
 
+use crate::gpu::GpuCache;
+use crate::renderer::imgui_renderer::ImguiRender;
+use crate::renderer::scene_renderer::FrameStats;
 use crate::timestep::Timestep;
+
+pub struct UiRuntimeContext<'a> {
+    pub window: &'a Window,
+    pub uilayer: &'a mut UiLayer,
+    pub imgui_render: &'a ImguiRender,
+    pub gpu_cache: &'a GpuCache,
+    pub frame_stats: FrameStats,
+}
 
 pub struct UiContext<'a> {
     pub snapshot: &'a UiSnapshot<'a>,

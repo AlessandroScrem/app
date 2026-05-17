@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::engine::UiRuntimeContext;
 use crate::input::Input;
+use crate::ui::UiRuntimeContext;
 use crate::{AssetManager, Camera, Globals};
 use legion::{Entity, World};
 

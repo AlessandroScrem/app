@@ -9,6 +9,7 @@ pub(crate) mod ui_layer;
 
 pub(crate) use ui_layer::UiContext;
 pub(crate) use ui_layer::UiLayer;
+pub(crate) use ui_layer::UiRuntimeContext;
 
 pub(crate) use crate::*;
 pub(crate) use debug::*;

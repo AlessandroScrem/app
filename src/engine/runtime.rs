@@ -10,8 +10,9 @@ use crate::gpu::{
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
-use crate::renderer::scene_renderer::{FrameStats, SceneRenderContext};
+use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::ImguiRender;
+use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for GpuCache {
@@ -40,14 +41,6 @@ pub struct RunningApp {
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
-}
-
-pub struct UiRuntimeContext<'a> {
-    pub window: &'a Window,
-    pub uilayer: &'a mut UiLayer,
-    pub imgui_render: &'a ImguiRender,
-    pub gpu_cache: &'a GpuCache,
-    pub frame_stats: FrameStats,
 }
 
 impl RunningApp {
