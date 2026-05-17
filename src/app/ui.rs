@@ -1,18 +1,14 @@
-use crate::{RenderStats, UiSnapshot, engine::RunningApp, gpu::HasStats};
+use crate::{RenderStats, UiSnapshot, engine::UiRuntimeContext, gpu::HasStats};
 
 use super::app::App;
 
 impl App {
-    pub fn update_uilayer(&mut self, runtime: &mut RunningApp) {
-        let uilayer = &mut runtime.uilayer;
-        let window = &runtime.window;
-        let counter_trait = &runtime.gpu_cache;
-
+    pub fn update_uilayer(&mut self, ctx: UiRuntimeContext<'_>) {
         let render_stats = RenderStats {
             texture: self.asset_mgr.textures.get_stats(),
             mesh: self.asset_mgr.meshes.get_stats(),
             material: self.asset_mgr.materials.get_stats(),
-            frame: runtime.scene_renderer.get_render_stats(),
+            frame: ctx.frame_stats,
         };
 
         let snapshot = UiSnapshot::from_world(
@@ -21,14 +17,14 @@ impl App {
             &self.asset_mgr,
             &self.camera,
             &self.globals,
-            &runtime.imgui_render, //resolver trait
-            counter_trait,         // internalcounter trait
+            ctx.imgui_render, //resolver trait
+            ctx.gpu_cache,    // internalcounter trait
             None,                  // no debug texture_id
             render_stats,
         );
 
         // Main operation: update_ui
-        let mut events = uilayer.build(window, snapshot);
+        let mut events = ctx.uilayer.build(ctx.window, snapshot);
         self.domain_events.queue.append(&mut events);
     }
 }

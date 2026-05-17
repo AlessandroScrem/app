@@ -10,7 +10,7 @@ use crate::gpu::{
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
-use crate::renderer::scene_renderer::SceneRenderContext;
+use crate::renderer::scene_renderer::{FrameStats, SceneRenderContext};
 use crate::renderer::ImguiRender;
 use winit::{event::Event, window::Window};
 
@@ -42,6 +42,14 @@ pub struct RunningApp {
     pub imgui_render: ImguiRender,
 }
 
+pub struct UiRuntimeContext<'a> {
+    pub window: &'a Window,
+    pub uilayer: &'a mut UiLayer,
+    pub imgui_render: &'a ImguiRender,
+    pub gpu_cache: &'a GpuCache,
+    pub frame_stats: FrameStats,
+}
+
 impl RunningApp {
     pub fn handle_winit_event(&mut self, event: &Event<()>) {
         // Handle Imgui platform events
@@ -68,7 +76,7 @@ impl RunningApp {
         let input = self.input.clone();
         app.update(&input);
         self.sync_gpu_assets(app.asset_mgr_mut());
-        app.update_ui(self);
+        self.update_app_ui(app);
 
         self.render(app);
 
@@ -97,6 +105,27 @@ impl RunningApp {
             let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
             app.set_hovered(hovered);
         }
+    }
+
+    fn update_app_ui<A: Application>(&mut self, app: &mut A) {
+        let RunningApp {
+            window,
+            uilayer,
+            gpu_cache,
+            scene_renderer,
+            imgui_render,
+            ..
+        } = self;
+
+        let context = UiRuntimeContext {
+            window: window.as_ref(),
+            uilayer,
+            imgui_render,
+            gpu_cache,
+            frame_stats: scene_renderer.get_render_stats(),
+        };
+
+        app.update_ui(context);
     }
 
     fn render<A: Application>(&mut self, app: &A) {

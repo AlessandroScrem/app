@@ -1,6 +1,6 @@
 use super::{App, Application};
 use crate::app::application::AppRenderData;
-use crate::engine::RunningApp;
+use crate::engine::UiRuntimeContext;
 use crate::input::Input;
 
 use crate::prelude::*;
@@ -46,8 +46,8 @@ impl Application for App {
         self.update_scene();
     }
 
-    fn update_ui(&mut self, runtime: &mut RunningApp) {
-        self.update_uilayer(runtime);
+    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>) {
+        self.update_uilayer(ctx);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {

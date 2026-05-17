@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::engine::RunningApp;
+use crate::engine::UiRuntimeContext;
 use crate::input::Input;
 use crate::{AssetManager, Camera, Globals};
 use legion::{Entity, World};
@@ -16,7 +16,7 @@ pub struct AppRenderData<'a> {
 pub trait Application {
     fn init(&mut self);
     fn update(&mut self, input: &Input);
-    fn update_ui(&mut self, runtime: &mut RunningApp);
+    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>);
     fn render_data(&self) -> AppRenderData<'_>;
     fn set_hovered(&mut self, hovered: Option<Entity>);
     fn on_resize(&mut self, width: u32, height: u32);
