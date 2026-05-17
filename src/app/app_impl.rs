@@ -3,6 +3,7 @@ use crate::engine::RunningApp;
 
 use crate::gpu::{GpuCache, GpuContext, GpuManager, PipelineManager};
 use crate::input::Input;
+use crate::picking::PickObject;
 use crate::prelude::*;
 
 pub struct RuntimeContext<'a> {
@@ -11,6 +12,7 @@ pub struct RuntimeContext<'a> {
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
     pub input: &'a mut Input,
+    pub pickobject: &'a PickObject,
 }
 
 pub trait HasAssetMgr {
@@ -69,7 +71,8 @@ impl Application for App {
             });
 
         self.update_camera(&runtime.input);
-        self.update_selected(runtime);
+        self.update_hovered(runtime);
+        self.handle_selection_input(&runtime.input);
         self.update_scene();
         self.update_uilayer(runtime);
     }
@@ -102,6 +105,7 @@ impl Application for App {
                 pipeline_manager,
                 gpu_cache,
                 input,
+                pickobject,
                 ..
             } = runtime;
 
@@ -111,6 +115,7 @@ impl Application for App {
                 pipeline_manager,
                 gpu_cache,
                 input,
+                pickobject,
             };
 
             scene_renderer.render(

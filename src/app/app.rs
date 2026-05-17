@@ -20,16 +20,18 @@ pub struct App {
 }
 
 impl App {
-    pub fn update_selected(&mut self, runtime: &mut RunningApp) {
+
+    pub fn update_hovered(&mut self, runtime: &mut RunningApp) {
         let input = &runtime.input;
-        let renderer = &mut runtime.scene_renderer;
         // update hovered entity_id from buffer
+        if input.is_cursor_moved() {
+            self.hovered = runtime.pickobject.poll_readback(&runtime.gpu_context.device);
+        }
+    }
+
+    pub fn handle_selection_input(&mut self, input: &crate::input::Input) {
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};
-        if input.is_cursor_moved() {
-            self.hovered = renderer.get_hovered(&runtime.gpu_context);
-        }
-
         if input.is_mouse_button_pressed(MouseButton::Left)
             && input.is_key_down(Key::Named(NamedKey::Alt))
         {

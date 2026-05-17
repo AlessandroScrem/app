@@ -38,7 +38,6 @@ pub struct FrameStats {
 }
 
 pub struct SceneRenderer {
-    pickobject: PickObject,
     default_pass: Vec<RenderPassEnum>,
     instance_buffer: wgpu::Buffer,
     stats: FrameStats,
@@ -50,7 +49,6 @@ impl SceneRenderer {
         info!("Initializing renderer...");
 
         let device = &gpu_context.device;
-        let pickobject = PickObject::new(&device);
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
@@ -75,15 +73,10 @@ impl SceneRenderer {
         ];
 
         Self {
-            pickobject,
             default_pass,
             instance_buffer,
             stats: FrameStats::default(),
         }
-    }
-
-    pub fn get_hovered(&mut self, gpu_context: &GpuContext) -> Option<Entity> {
-        self.pickobject.poll_readback(&gpu_context.device)
     }
 
     pub fn get_render_stats(&self) -> FrameStats {
@@ -108,6 +101,7 @@ impl SceneRenderer {
             pipeline_manager,
             gpu_cache,
             input,
+            pickobject: _,
         } = runtime;
 
         // sync GpuCache Ids with assets Ids (meshes materials textures)
@@ -120,7 +114,7 @@ impl SceneRenderer {
             &gpu_context.device,
             asset_mgr,
             selected,
-            &self.pickobject,
+            &runtime.pickobject,
             input,
             globals,
         );
@@ -131,7 +125,7 @@ impl SceneRenderer {
 
             gpu_mgr: &gpu_manager,
             pip_mgr: &pipeline_manager,
-            pickobject: &self.pickobject,
+            pickobject: &runtime.pickobject,
             target: &target,
             instance_buffer: &self.instance_buffer,
         };

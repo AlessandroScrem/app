@@ -12,6 +12,7 @@ use crate::app::{Application, HasAssetMgr};
 use crate::gpu::{
     GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
 };
+use crate::picking::PickObject;
 use crate::renderer::ImguiRender;
 
 #[derive(Default)]
@@ -90,12 +91,14 @@ impl<A: Application + HasAssetMgr> Engine<A> {
         //
 
         let scene_renderer = SceneRenderer::new(&gpu_context);
+        let pickobject = PickObject::new(&gpu_context.device);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         self.runtime = Some(RunningApp {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
+            pickobject,
             imgui_render,
             uilayer,
             timer: Timer::new(),

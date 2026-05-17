@@ -9,6 +9,7 @@ use crate::gpu::{
 };
 use crate::input::Input;
 use crate::prelude::*;
+use crate::picking::PickObject;
 use crate::renderer::ImguiRender;
 use winit::{event::Event, window::Window};
 
@@ -36,6 +37,7 @@ pub struct RunningApp {
 
     pub events: Vec<RuntimeEvent>,
     pub scene_renderer: SceneRenderer,
+    pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
 }
 
