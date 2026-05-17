@@ -6,10 +6,10 @@ pub struct DebugUi {}
 impl Layer for DebugUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let debug_texture_id = ctx.snapshot.debug_texture_id;
-        let resolver = ctx.snapshot.resolver;
+        let texture_resolver = ctx.snapshot.texture_resolver;
 
         if let Some(id) = debug_texture_id {
-            if let Some(id) = resolver.resolve(UiTexture::Engine(id)) {
+            if let Some(id) = texture_resolver.resolve(UiTexture::Engine(id)) {
                 let window = ui.window("Debug Texture");
                 let name = "No Name";
                 window

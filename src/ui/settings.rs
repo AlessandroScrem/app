@@ -57,7 +57,7 @@ impl Layer for SettimgsUi {
         let adapter_name = &ctx.adapter_string;
         let hdr_texture_id = ctx.snapshot.hdr_texture_id;
         let timestep = &ctx.timestep;
-        let resolver = &ctx.snapshot.resolver;
+        let texture_resolver = &ctx.snapshot.texture_resolver;
         let gpu_counters = &ctx.snapshot.gpu_counters;
         let root_nodes = ctx.snapshot.root_snapshot.root_nodes.nodes.len();
         let render_stats = &ctx.snapshot.render_stats;
@@ -118,7 +118,7 @@ impl Layer for SettimgsUi {
                     ui.separator();
                     if let Some(command) = draw_ui_skybox_selector(
                         &ui,
-                        resolver.resolve(UiTexture::Engine(hdr_texture_id)),
+                        texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
                     ) {
                         ctx.write.push(command);
                     }

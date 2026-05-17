@@ -5,8 +5,9 @@ use crate::UiLayer;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
+    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, InternalCounter,
 };
+use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
@@ -104,7 +105,6 @@ impl RunningApp {
         let RunningApp {
             window,
             uilayer,
-            gpu_cache,
             scene_renderer,
             imgui_render,
             ..
@@ -113,8 +113,8 @@ impl RunningApp {
         let context = UiRuntimeContext {
             window: window.as_ref(),
             uilayer,
-            imgui_render,
-            gpu_cache,
+            texture_resolver: imgui_render,
+            gpu_counters: self.gpu_cache.internal_counter(),
             frame_stats: scene_renderer.get_render_stats(),
         };
 

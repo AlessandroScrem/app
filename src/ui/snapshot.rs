@@ -4,7 +4,7 @@ use super::*;
 use crate::assets::MaterialId;
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
 use crate::prelude::*;
-use crate::renderer::{GpuInternalCounters, InternalCounter, UiTextureResolver};
+use crate::renderer::{GpuInternalCounters, UiTextureResolver};
 use legion::*;
 
 pub struct HierarchyNode {
@@ -34,7 +34,7 @@ pub struct RenderStats {
 }
 
 pub struct UiSnapshot<'a> {
-    pub resolver: &'a dyn UiTextureResolver,
+    pub texture_resolver: &'a dyn UiTextureResolver,
     pub camera: &'a Camera,
     pub globals: &'a Globals,
     pub root_snapshot: RootSnapshot,
@@ -105,8 +105,8 @@ impl<'a> UiSnapshot<'a> {
         asset_mgr: &AssetManager,
         camera: &'a Camera,
         globals: &'a Globals,
-        resolver: &'a dyn UiTextureResolver,
-        internal_counter: &'a dyn InternalCounter,
+        texture_resolver: &'a dyn UiTextureResolver,
+        gpu_counters: GpuInternalCounters,
         debug_texture_id: Option<assets::TextureId>,
         render_stats: RenderStats,
     ) -> Self {
@@ -117,10 +117,9 @@ impl<'a> UiSnapshot<'a> {
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
         let hdr_texture_id = asset_mgr.skybox.get_id();
-        let gpu_counters = internal_counter.internal_counter();
 
         Self {
-            resolver,
+            texture_resolver,
             camera,
             globals,
             root_snapshot,
