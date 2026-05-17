@@ -8,7 +8,7 @@ pub(crate) mod uniform;
 
 pub(crate) use crate::assets::*;
 
-pub(crate) use imgui_renderer::{ImguiRender, UiTextureResolver};
+pub(crate) use imgui_renderer::ImguiRender;
 
 pub(crate) use framebuilder::{FrameBuilder, FrameData};
 

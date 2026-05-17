@@ -1,19 +1,10 @@
 use super::*;
 
 use crate::assets::TextureId;
+use crate::ui::traits::{UiTexture, UiTextureResolver};
 use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
-
-#[allow(dead_code)]
-pub enum UiTexture {
-    Engine(TextureId),         // la texture viene dall’engine
-    Builtin(imgui::TextureId), // icone, font, ecc.
-}
-
-pub trait UiTextureResolver {
-    fn resolve(&self, tex: UiTexture) -> Option<imgui::TextureId>;
-}
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {

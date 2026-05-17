@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use super::*;
 use crate::assets::MaterialId;
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
+use crate::gpu::caches::internalcounter::GpuInternalCounters;
 use crate::prelude::*;
-use crate::renderer::{GpuInternalCounters, UiTextureResolver};
+use crate::ui::traits::UiTextureResolver;
 use legion::*;
 
 pub struct HierarchyNode {

@@ -4,9 +4,8 @@ use super::RuntimeEvent;
 use crate::UiLayer;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{
-    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, InternalCounter,
-};
+use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface};
+use crate::ui::traits::InternalCounter;
 use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::input::Input;
 use crate::picking::PickObject;

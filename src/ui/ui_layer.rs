@@ -6,7 +6,8 @@ use imgui::*;
 use imgui_winit_support::WinitPlatform;
 use winit::window::Window;
 
-use crate::renderer::{GpuInternalCounters, imgui_renderer::UiTextureResolver};
+use crate::gpu::caches::internalcounter::GpuInternalCounters;
+use crate::ui::traits::UiTextureResolver;
 use crate::renderer::scene_renderer::FrameStats;
 use crate::timestep::Timestep;
 
