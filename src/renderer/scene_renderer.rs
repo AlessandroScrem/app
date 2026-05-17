@@ -2,10 +2,10 @@ use std::collections::HashSet;
 
 use super::*;
 
-use crate::app::app_impl::RuntimeContext;
 use crate::assets::asset_manager::AssetManager;
 use crate::entities::EntityRawU64;
 use crate::gpu::GpuContext;
+use crate::input::Input;
 use crate::renderer::framebuilder::DrawStats;
 use crate::uniform::{CameraUniform, GlobalUniform};
 
@@ -16,6 +16,15 @@ use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 
 use crate::Globals;
+
+pub struct SceneRenderContext<'a> {
+    pub gpu_context: &'a GpuContext,
+    pub gpu_manager: &'a mut GpuManager,
+    pub pipeline_manager: &'a PipelineManager,
+    pub gpu_cache: &'a mut GpuCache,
+    pub input: &'a mut Input,
+    pub pickobject: &'a PickObject,
+}
 
 pub struct RenderContext<'a> {
     pub device: &'a Device,
@@ -85,7 +94,7 @@ impl SceneRenderer {
 
     pub fn render(
         &mut self,
-        runtime: &mut RuntimeContext,
+        runtime: &mut SceneRenderContext,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         size: (u32, u32),
@@ -95,7 +104,7 @@ impl SceneRenderer {
         globals: &Globals,
         selected: Option<Entity>,
     ) {
-        let RuntimeContext {
+        let SceneRenderContext {
             gpu_context,
             gpu_manager,
             pipeline_manager,

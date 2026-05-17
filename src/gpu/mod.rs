@@ -13,5 +13,4 @@ pub(crate) use caches::*;
 pub(crate) use context::GpuContext;
 pub(crate) use ibl::*;
 pub(crate) use manager::GpuManager;
-pub(crate) use pipeline_manager::PipelineManager;
 pub(crate) use surface::GpuSurface;

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::UiLayer;
-use crate::app::app_impl::RuntimeContext;
 use crate::app::Application;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
@@ -11,6 +10,7 @@ use crate::gpu::{
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
+use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::ImguiRender;
 use winit::{event::Event, window::Window};
 
@@ -95,7 +95,7 @@ impl RunningApp {
                     ..
                 } = self;
 
-                let mut context = RuntimeContext {
+                let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
                     pipeline_manager,

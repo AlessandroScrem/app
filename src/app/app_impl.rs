@@ -2,19 +2,7 @@ use super::{App, Application};
 use crate::app::application::AppRenderData;
 use crate::engine::RunningApp;
 
-use crate::gpu::{GpuCache, GpuContext, GpuManager, PipelineManager};
-use crate::input::Input;
-use crate::picking::PickObject;
 use crate::prelude::*;
-
-pub struct RuntimeContext<'a> {
-    pub gpu_context: &'a GpuContext,
-    pub gpu_manager: &'a mut GpuManager,
-    pub pipeline_manager: &'a PipelineManager,
-    pub gpu_cache: &'a mut GpuCache,
-    pub input: &'a mut Input,
-    pub pickobject: &'a PickObject,
-}
 
 pub trait HasAssetMgr {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager;
