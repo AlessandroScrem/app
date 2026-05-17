@@ -1,4 +1,5 @@
 pub(crate) mod framebuilder;
+pub(crate) mod gpu_sync;
 pub(crate) mod imgui_renderer;
 pub(crate) mod rendergraph;
 pub(crate) mod renderpass;
