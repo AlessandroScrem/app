@@ -34,11 +34,6 @@ pub struct PickingData {
     pub mouse_pos_y: u32,
 }
 
-pub struct BBoxData {
-    pub vertexbuffer: wgpu::Buffer,
-    pub count: u32,
-}
-
 #[derive(Default, Debug, Copy, Clone)]
 pub struct DrawStats {
     pub draw_calls: u32,
@@ -59,7 +54,7 @@ pub struct FrameData {
     // geometry
     pub opaque_batches: Vec<InstanceBatch>,
     pub transmission_batches: Vec<InstanceBatch>,
-    pub bbox_bufferdata: Option<BBoxData>,
+    pub bbox_vertexdata: Vec<BBoxVertexData>,
     pub lights: Option<LightsUniform>,
     pub instances: Vec<vertexdata::VertexInstance>,
 
@@ -79,7 +74,6 @@ pub struct FrameBuilder {}
 impl FrameBuilder {
     pub fn build(
         world: &World,
-        device: &wgpu::Device,
         asset: &AssetManager,
         selected: Option<Entity>,
         pickobject: &PickObject,
@@ -89,7 +83,7 @@ impl FrameBuilder {
         let mut frame = FrameData {
             opaque_batches: Vec::new(),
             transmission_batches: Vec::new(),
-            bbox_bufferdata: None,
+            bbox_vertexdata: Vec::new(),
             lights: None,
             outline_selected: false,
             picking: None,
@@ -102,7 +96,7 @@ impl FrameBuilder {
         };
         Self::build_geometry(world, asset, &mut frame);
         Self::build_picking(input, pickobject, &mut frame);
-        Self::build_bbox_data(device, world, globals, &mut frame);
+        Self::build_bbox_data(world, globals, &mut frame);
         Self::build_light_data(world, globals, &mut frame);
         frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
         frame.outline_selected = selected.is_some();
@@ -214,30 +208,12 @@ impl FrameBuilder {
     }
 
     fn build_bbox_data(
-        device: &wgpu::Device,
         world: &World,
         globals: &Globals,
         frame: &mut FrameData,
     ) {
         if !globals.bbox_enable {
             return;
-        }
-
-        fn create_buffer(device: &wgpu::Device, vertices: Vec<BBoxVertexData>) -> BBoxData {
-            use entities::bounding_box_impl::VERTICES;
-            use wgpu::util::DeviceExt;
-            let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("BBox Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-            let count = (vertices.len() * VERTICES) as u32;
-
-            BBoxData {
-                count,
-                vertexbuffer,
-            }
         }
 
         let axis_aligned = globals.bbox_axis_aligned;
@@ -257,10 +233,7 @@ impl FrameBuilder {
             })
             .collect::<Vec<_>>();
 
-        if !vertexdata.is_empty() {
-            let bbox_buffer = create_buffer(device, vertexdata);
-            frame.bbox_bufferdata = Some(bbox_buffer);
-        }
+        frame.bbox_vertexdata = vertexdata;
     }
 
     fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {

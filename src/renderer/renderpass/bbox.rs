@@ -1,4 +1,11 @@
+use crate::{entities::bounding_box_impl::BBoxVertexData};
+
 use super::*;
+
+pub struct BBoxData {
+    pub vertexbuffer: wgpu::Buffer,
+    pub count: u32,
+}
 
 #[derive(Default)]
 pub struct BoundingboxPass {}
@@ -27,9 +34,11 @@ impl RenderPass for BoundingboxPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        let Some(bufferdata) = frame.bbox_bufferdata.as_ref() else {
+        if  frame.bbox_vertexdata.is_empty()   {
             return;
         };
+
+        let bufferdata = create_buffer(ctx.device, &frame.bbox_vertexdata);
 
         let count = bufferdata.count;
         let vertexbuffer = &bufferdata.vertexbuffer;
@@ -62,5 +71,22 @@ impl RenderPass for BoundingboxPass {
 
         renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
         renderpass.draw(0..count, 0..1);
+    }
+}
+
+fn create_buffer(device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) -> BBoxData {
+    use entities::bounding_box_impl::VERTICES;
+    use wgpu::util::DeviceExt;
+    let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("BBox Vertex Buffer"),
+        contents: bytemuck::cast_slice(&vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    });
+
+    let count = (vertices.len() * VERTICES) as u32;
+
+    BBoxData {
+        count,
+        vertexbuffer,
     }
 }

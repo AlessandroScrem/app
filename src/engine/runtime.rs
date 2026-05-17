@@ -147,7 +147,6 @@ impl RunningApp {
 
                 let frame = FrameBuilder::build(
                     render_data.world,
-                    &gpu_context.device,
                     render_data.asset_mgr,
                     render_data.selected,
                     pickobject,
