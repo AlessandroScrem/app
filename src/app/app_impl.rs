@@ -1,6 +1,7 @@
 use super::{App, Application};
 use crate::app::application::AppRenderData;
 use crate::engine::RunningApp;
+use crate::input::Input;
 
 use crate::prelude::*;
 
@@ -37,14 +38,13 @@ impl Application for App {
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
-    fn update(&mut self, runtime: &mut RunningApp) {
+    fn update(&mut self, input: &Input, runtime: &mut RunningApp) {
         self.update_domain_event();
 
         runtime.sync_gpu_assets(&mut self.asset_mgr);
 
-        self.update_camera(&runtime.input);
-        self.update_hovered(runtime);
-        self.handle_selection_input(&runtime.input);
+        self.update_camera(input);
+        self.handle_selection_input(input);
         self.update_scene();
         self.update_uilayer(runtime);
     }
@@ -68,6 +68,10 @@ impl Application for App {
             globals: &self.globals,
             selected: self.selected,
         }
+    }
+
+    fn set_hovered(&mut self, hovered: Option<legion::Entity>) {
+        self.hovered = hovered;
     }
 
     fn on_close(&mut self) {

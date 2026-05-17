@@ -23,7 +23,7 @@ fn map_mouse_button(button: winit::event::MouseButton) -> Option<MouseButton> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Input {
     keys_down: HashSet<Key>,
     keys_pressed: HashSet<Key>,

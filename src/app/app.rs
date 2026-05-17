@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-use crate::engine::RunningApp;
 use crate::scene::Scene;
 
 use legion::Entity;
@@ -20,16 +19,6 @@ pub struct App {
 }
 
 impl App {
-    pub fn update_hovered(&mut self, runtime: &mut RunningApp) {
-        let input = &runtime.input;
-        // update hovered entity_id from buffer
-        if input.is_cursor_moved() {
-            self.hovered = runtime
-                .pickobject
-                .poll_readback(&runtime.gpu_context.device);
-        }
-    }
-
     pub fn handle_selection_input(&mut self, input: &crate::input::Input) {
         use crate::input::MouseButton;
         use winit::keyboard::{Key, NamedKey};

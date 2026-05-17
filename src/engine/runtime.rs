@@ -64,7 +64,9 @@ impl RunningApp {
             self.handle_runtime_event(app, event);
         }
 
-        app.update(self);
+        self.update_app_hover(app);
+        let input = self.input.clone();
+        app.update(&input, self);
 
         self.render(app);
 
@@ -86,6 +88,13 @@ impl RunningApp {
                 self.imgui_render
                     .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache);
             });
+    }
+
+    fn update_app_hover<A: Application>(&mut self, app: &mut A) {
+        if self.input.is_cursor_moved() {
+            let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
+            app.set_hovered(hovered);
+        }
     }
 
     fn render<A: Application>(&mut self, app: &A) {
