@@ -1,4 +1,5 @@
 use super::{App, Application};
+use crate::app::application::AppRenderData;
 use crate::engine::RunningApp;
 
 use crate::gpu::{GpuCache, GpuContext, GpuManager, PipelineManager};
@@ -88,58 +89,13 @@ impl Application for App {
             .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
     }
 
-    fn render(&mut self, runtime: &mut RunningApp) {
-        let mut encoder = runtime.gpu_context.create_encoder();
-
-        if let Some(frame) = runtime.gpu_surface.get_frame() {
-            let target = frame.texture.create_view(&Default::default());
-            let size: (u32, u32) = (
-                runtime.gpu_surface.get_config().width,
-                runtime.gpu_surface.get_config().height,
-            );
-
-            let RunningApp {
-                scene_renderer,
-                gpu_context,
-                gpu_manager,
-                pipeline_manager,
-                gpu_cache,
-                input,
-                pickobject,
-                ..
-            } = runtime;
-
-            let mut context = RuntimeContext {
-                gpu_context,
-                gpu_manager,
-                pipeline_manager,
-                gpu_cache,
-                input,
-                pickobject,
-            };
-
-            scene_renderer.render(
-                &mut context,
-                &mut encoder,
-                &target,
-                size,
-                &self.asset_mgr,
-                &self.current_scene.world,
-                &self.camera,
-                &self.globals,
-                self.selected,
-            );
-
-            runtime.imgui_render.render(
-                runtime.uilayer.get_draw_data(),
-                &mut encoder,
-                &target,
-                &runtime.gpu_context.device,
-                &runtime.gpu_context.queue,
-            );
-
-            runtime.gpu_context.queue.submit([encoder.finish()]);
-            frame.present();
+    fn render_data(&self) -> AppRenderData<'_> {
+        AppRenderData {
+            asset_mgr: &self.asset_mgr,
+            world: &self.current_scene.world,
+            camera: &self.camera,
+            globals: &self.globals,
+            selected: self.selected,
         }
     }
 

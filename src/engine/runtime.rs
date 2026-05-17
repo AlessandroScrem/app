@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::UiLayer;
+use crate::app::app_impl::RuntimeContext;
 use crate::app::Application;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
@@ -65,11 +66,68 @@ impl RunningApp {
 
         app.update(self);
 
-        // Render
-        app.render(self);
+        self.render(app);
 
         // Clear Input
         self.input.clear();
+    }
+
+    fn render<A: Application>(&mut self, app: &A) {
+        let mut encoder = self.gpu_context.create_encoder();
+
+        if let Some(frame) = self.gpu_surface.get_frame() {
+            let target = frame.texture.create_view(&Default::default());
+            let size = (
+                self.gpu_surface.get_config().width,
+                self.gpu_surface.get_config().height,
+            );
+            let render_data = app.render_data();
+
+            {
+                let RunningApp {
+                    scene_renderer,
+                    gpu_context,
+                    gpu_manager,
+                    pipeline_manager,
+                    gpu_cache,
+                    input,
+                    pickobject,
+                    ..
+                } = self;
+
+                let mut context = RuntimeContext {
+                    gpu_context,
+                    gpu_manager,
+                    pipeline_manager,
+                    gpu_cache,
+                    input,
+                    pickobject,
+                };
+
+                scene_renderer.render(
+                    &mut context,
+                    &mut encoder,
+                    &target,
+                    size,
+                    render_data.asset_mgr,
+                    render_data.world,
+                    render_data.camera,
+                    render_data.globals,
+                    render_data.selected,
+                );
+            }
+
+            self.imgui_render.render(
+                self.uilayer.get_draw_data(),
+                &mut encoder,
+                &target,
+                &self.gpu_context.device,
+                &self.gpu_context.queue,
+            );
+
+            self.gpu_context.queue.submit([encoder.finish()]);
+            frame.present();
+        }
     }
 
     fn handle_runtime_event<A: Application>(&mut self, app: &mut A, event: RuntimeEvent) {
