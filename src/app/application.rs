@@ -25,6 +25,10 @@ pub trait HasUi {
     fn update_ui(&mut self, ctx: UiRuntimeContext<'_>);
 }
 
+pub trait RuntimeApp: Application + HasAssetMgr + HandlesPicking + HasUi {}
+
+impl<T> RuntimeApp for T where T: Application + HasAssetMgr + HandlesPicking + HasUi {}
+
 pub trait Application {
     fn init(&mut self);
     fn update(&mut self, input: &Input);

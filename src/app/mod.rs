@@ -10,3 +10,4 @@ pub(crate) use application::Application;
 pub(crate) use application::HandlesPicking;
 pub(crate) use application::HasAssetMgr;
 pub(crate) use application::HasUi;
+pub(crate) use application::RuntimeApp;
