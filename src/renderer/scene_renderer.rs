@@ -1,7 +1,6 @@
-use super::*;
 use super::gpu_sync::GpuSync;
+use super::*;
 
-use crate::assets::asset_manager::AssetManager;
 use crate::gpu::GpuContext;
 use crate::renderer::framebuilder::DrawStats;
 
@@ -104,11 +103,9 @@ impl SceneRenderer {
             gpu_manager,
             pipeline_manager,
             gpu_cache,
-            pickobject: _,
+            pickobject,
         } = runtime;
 
-        // sync GpuCache Ids with assets Ids (meshes materials textures)
-        GpuSync::sync_caches(gpu_cache, gpu_context, gpu_manager, asset_mgr);
         let mut ctx = RenderContext {
             device: &gpu_context.device,
             queue: &gpu_context.queue,
@@ -116,15 +113,15 @@ impl SceneRenderer {
 
             gpu_mgr: &gpu_manager,
             pip_mgr: &pipeline_manager,
-            pickobject: &runtime.pickobject,
-            target: &target,
+            pickobject,
+            target,
             instance_buffer: &self.instance_buffer,
         };
 
         // Update uniform buffer data to gpu
         GpuSync::update_render_globals_to_gpu(&mut ctx, camera, globals, selected, size);
         GpuSync::update_meshes_materials_to_gpu(&mut ctx, asset_mgr, &frame);
-        GpuSync::update_lights_to_gpu(gpu_context, gpu_manager, &frame);
+        GpuSync::update_lights_to_gpu(ctx.queue, ctx.gpu_mgr, &frame);
 
         // Update vertex instance buffer data to gpu
         GpuSync::update_vertex_instances_to_gpu(&mut ctx, &frame);

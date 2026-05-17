@@ -3,17 +3,18 @@ use std::sync::Arc;
 use super::RuntimeEvent;
 use crate::UiLayer;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
+use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface};
-use crate::ui::traits::InternalCounter;
-use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
+use crate::renderer::gpu_sync::GpuSync;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::UiRuntimeContext;
+use crate::ui::traits::InternalCounter;
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for GpuCache {
@@ -153,6 +154,8 @@ impl RunningApp {
                     input,
                     render_data.globals,
                 );
+
+                GpuSync::sync_caches(gpu_cache, gpu_context, gpu_manager, render_data.asset_mgr);
 
                 let mut context = SceneRenderContext {
                     gpu_context,

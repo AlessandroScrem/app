@@ -19,7 +19,7 @@ impl App {
             &self.globals,
             ctx.texture_resolver,
             ctx.gpu_counters,
-            None,                  // no debug texture_id
+            None, // no debug texture_id
             render_stats,
         );
 

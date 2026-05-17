@@ -1,8 +1,8 @@
-use crate::assets::{asset_manager::AssetManager, MaterialId};
+use crate::assets::{MaterialId, asset_manager::AssetManager};
 use crate::entities::EntityRawU64;
 use crate::gpu::{GpuCache, GpuContext, GpuManager};
 use crate::prelude::*;
-use crate::renderer::scene_renderer::{RenderContext, MAX_INSTANCES};
+use crate::renderer::scene_renderer::{MAX_INSTANCES, RenderContext};
 use crate::uniform::{CameraUniform, GlobalUniform};
 use legion::Entity;
 
@@ -87,13 +87,7 @@ impl GpuSync {
         }
     }
 
-    pub fn update_lights_to_gpu(
-        gpu_context: &GpuContext,
-        gpu_manager: &GpuManager,
-        frame: &FrameData,
-    ) {
-        let queue = &gpu_context.queue;
-
+    pub fn update_lights_to_gpu(queue: &wgpu::Queue, gpu_manager: &GpuManager, frame: &FrameData) {
         if let Some(light_uniform) = frame.lights {
             queue.write_buffer(
                 gpu_manager.get_buffer(crate::gpu::BufferKind::Light),

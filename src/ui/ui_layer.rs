@@ -7,9 +7,9 @@ use imgui_winit_support::WinitPlatform;
 use winit::window::Window;
 
 use crate::gpu::caches::internalcounter::GpuInternalCounters;
-use crate::ui::traits::UiTextureResolver;
 use crate::renderer::scene_renderer::FrameStats;
 use crate::timestep::Timestep;
+use crate::ui::traits::UiTextureResolver;
 
 pub struct UiRuntimeContext<'a> {
     pub window: &'a Window,
