@@ -7,4 +7,5 @@ pub(crate) mod ui;
 
 pub(crate) use app::App;
 pub(crate) use application::Application;
+pub(crate) use application::HandlesPicking;
 pub(crate) use application::HasAssetMgr;

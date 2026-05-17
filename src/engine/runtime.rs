@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::UiLayer;
-use crate::app::{Application, HasAssetMgr};
+use crate::app::{Application, HandlesPicking, HasAssetMgr};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
@@ -59,7 +59,7 @@ impl RunningApp {
         }
     }
 
-    pub fn tick<A: Application + HasAssetMgr>(&mut self, app: &mut A) {
+    pub fn tick<A: Application + HasAssetMgr + HandlesPicking>(&mut self, app: &mut A) {
         let events = std::mem::take(&mut self.events);
         for event in events {
             self.handle_runtime_event(app, event);
@@ -93,7 +93,7 @@ impl RunningApp {
             });
     }
 
-    fn update_app_hover<A: Application>(&mut self, app: &mut A) {
+    fn update_app_hover<A: HandlesPicking>(&mut self, app: &mut A) {
         if self.input.is_cursor_moved() {
             let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
             app.set_hovered(hovered);

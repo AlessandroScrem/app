@@ -1,4 +1,4 @@
-use super::{App, Application, HasAssetMgr};
+use super::{App, Application, HandlesPicking, HasAssetMgr};
 use crate::app::application::AppRenderData;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
@@ -8,6 +8,12 @@ use crate::prelude::*;
 impl HasAssetMgr for App {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager {
         &mut self.asset_mgr
+    }
+}
+
+impl HandlesPicking for App {
+    fn set_hovered(&mut self, hovered: Option<legion::Entity>) {
+        self.hovered = hovered;
     }
 }
 
@@ -65,10 +71,6 @@ impl Application for App {
             globals: &self.globals,
             selected: self.selected,
         }
-    }
-
-    fn set_hovered(&mut self, hovered: Option<legion::Entity>) {
-        self.hovered = hovered;
     }
 
     fn on_close(&mut self) {
