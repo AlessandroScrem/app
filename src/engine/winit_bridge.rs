@@ -3,7 +3,7 @@ use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-use crate::app::{Application, HandlesPicking, HasAssetMgr};
+use crate::app::{Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::engine::{Engine, RuntimeEvent};
 
 #[derive(Default)]
@@ -12,7 +12,7 @@ pub struct MyApplication<A: Application> {
     size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl<A: Application + Default + HasAssetMgr + HandlesPicking> MyApplication<A> {
+impl<A: Application + Default + HasAssetMgr + HandlesPicking + HasUi> MyApplication<A> {
     pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: winit::dpi::PhysicalSize::new(width, height),
@@ -47,7 +47,9 @@ impl CenterWindow for winit::window::Window {
     }
 }
 
-impl<A: Application + HasAssetMgr + HandlesPicking> ApplicationHandler for MyApplication<A> {
+impl<A: Application + HasAssetMgr + HandlesPicking + HasUi> ApplicationHandler
+    for MyApplication<A>
+{
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.engine.resume(event_loop, self.size);
     }

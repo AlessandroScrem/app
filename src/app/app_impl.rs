@@ -1,4 +1,4 @@
-use super::{App, Application, HandlesPicking, HasAssetMgr};
+use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::app::application::AppRenderData;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
@@ -14,6 +14,12 @@ impl HasAssetMgr for App {
 impl HandlesPicking for App {
     fn set_hovered(&mut self, hovered: Option<legion::Entity>) {
         self.hovered = hovered;
+    }
+}
+
+impl HasUi for App {
+    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>) {
+        self.update_uilayer(ctx);
     }
 }
 
@@ -46,10 +52,6 @@ impl Application for App {
         self.update_camera(input);
         self.handle_selection_input(input);
         self.update_scene();
-    }
-
-    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>) {
-        self.update_uilayer(ctx);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {

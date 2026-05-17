@@ -21,10 +21,13 @@ pub trait HandlesPicking {
     fn set_hovered(&mut self, hovered: Option<Entity>);
 }
 
+pub trait HasUi {
+    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>);
+}
+
 pub trait Application {
     fn init(&mut self);
     fn update(&mut self, input: &Input);
-    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>);
     fn render_data(&self) -> AppRenderData<'_>;
     fn on_resize(&mut self, width: u32, height: u32);
     fn on_drop(&mut self, path: PathBuf);
