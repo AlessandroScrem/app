@@ -26,7 +26,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
         return;
     };
 
-    let resolver = ctx.snapshot.resolver;
+    let texture_resolver = ctx.snapshot.texture_resolver;
     let cv = &ctx.snapshot.comp_state;
 
     if let Some(f) = &mut cv.tag.clone() {
@@ -57,7 +57,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(materials) = &cv.materials {
-        if let Some((desc_updated, mat_id)) = draw_materials(ui, materials, resolver) {
+        if let Some((desc_updated, mat_id)) = draw_materials(ui, materials, texture_resolver) {
             trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
             ctx.write
                 .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(

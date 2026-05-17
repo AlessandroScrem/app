@@ -1,7 +1,3 @@
-pub trait InternalCounter {
-    fn internal_counter(&self) -> GpuInternalCounters;
-}
-
 #[derive(Default)]
 pub struct GpuInternalCounters {
     pub textures: GpuResourceStats,

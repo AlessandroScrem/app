@@ -3,16 +3,18 @@ use std::sync::Arc;
 use super::RuntimeEvent;
 use crate::UiLayer;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
+use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{
-    GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
-};
+use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface};
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
-use crate::renderer::scene_renderer::SceneRenderContext;
+use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
+use crate::renderer::gpu_sync::GpuSync;
+use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::UiRuntimeContext;
+use crate::ui::traits::InternalCounter;
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for GpuCache {
@@ -104,7 +106,6 @@ impl RunningApp {
         let RunningApp {
             window,
             uilayer,
-            gpu_cache,
             scene_renderer,
             imgui_render,
             ..
@@ -113,8 +114,8 @@ impl RunningApp {
         let context = UiRuntimeContext {
             window: window.as_ref(),
             uilayer,
-            imgui_render,
-            gpu_cache,
+            texture_resolver: imgui_render,
+            gpu_counters: self.gpu_cache.internal_counter(),
             frame_stats: scene_renderer.get_render_stats(),
         };
 
@@ -144,12 +145,31 @@ impl RunningApp {
                     ..
                 } = self;
 
+                let frame = FrameBuilder::build(
+                    render_data.world,
+                    &gpu_context.device,
+                    render_data.asset_mgr,
+                    render_data.selected,
+                    pickobject,
+                    input,
+                    render_data.globals,
+                );
+
+                GpuSync::sync_caches(gpu_cache, gpu_context, gpu_manager, render_data.asset_mgr);
+
+                GpuSync::update_meshes_materials_to_gpu(
+                    &gpu_context.queue,
+                    &gpu_cache,
+                    render_data.asset_mgr,
+                    &frame,
+                );
+                GpuSync::update_lights_to_gpu(&gpu_context.queue, &gpu_manager, &frame);
+
                 let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
                     pipeline_manager,
                     gpu_cache,
-                    input,
                     pickobject,
                 };
 
@@ -158,8 +178,7 @@ impl RunningApp {
                     &mut encoder,
                     &target,
                     size,
-                    render_data.asset_mgr,
-                    render_data.world,
+                    &frame,
                     render_data.camera,
                     render_data.globals,
                     render_data.selected,

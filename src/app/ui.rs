@@ -1,4 +1,4 @@
-use crate::{RenderStats, UiSnapshot, gpu::HasStats, ui::UiRuntimeContext};
+use crate::{RenderStats, UiSnapshot, assets::asset_manager::HasStats, ui::UiRuntimeContext};
 
 use super::app::App;
 
@@ -17,9 +17,9 @@ impl App {
             &self.asset_mgr,
             &self.camera,
             &self.globals,
-            ctx.imgui_render, //resolver trait
-            ctx.gpu_cache,    // internalcounter trait
-            None,                  // no debug texture_id
+            ctx.texture_resolver,
+            ctx.gpu_counters,
+            None, // no debug texture_id
             render_stats,
         );
 
