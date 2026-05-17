@@ -38,14 +38,15 @@ impl Application for App {
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
-    fn update(&mut self, input: &Input, runtime: &mut RunningApp) {
+    fn update(&mut self, input: &Input) {
         self.update_domain_event();
-
-        runtime.sync_gpu_assets(&mut self.asset_mgr);
 
         self.update_camera(input);
         self.handle_selection_input(input);
         self.update_scene();
+    }
+
+    fn update_ui(&mut self, runtime: &mut RunningApp) {
         self.update_uilayer(runtime);
     }
 

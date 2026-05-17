@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::UiLayer;
-use crate::app::Application;
+use crate::app::{Application, HasAssetMgr};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
@@ -58,7 +58,7 @@ impl RunningApp {
         }
     }
 
-    pub fn tick<A: Application>(&mut self, app: &mut A) {
+    pub fn tick<A: Application + HasAssetMgr>(&mut self, app: &mut A) {
         let events = std::mem::take(&mut self.events);
         for event in events {
             self.handle_runtime_event(app, event);
@@ -66,7 +66,9 @@ impl RunningApp {
 
         self.update_app_hover(app);
         let input = self.input.clone();
-        app.update(&input, self);
+        app.update(&input);
+        self.sync_gpu_assets(app.asset_mgr_mut());
+        app.update_ui(self);
 
         self.render(app);
 
