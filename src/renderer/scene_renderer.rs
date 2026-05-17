@@ -3,10 +3,9 @@ use super::gpu_sync::GpuSync;
 
 use crate::assets::asset_manager::AssetManager;
 use crate::gpu::GpuContext;
-use crate::input::Input;
 use crate::renderer::framebuilder::DrawStats;
 
-use legion::{Entity, World};
+use legion::Entity;
 use wgpu::{Device, Queue};
 
 use crate::picking::PickObject;
@@ -19,7 +18,6 @@ pub struct SceneRenderContext<'a> {
     pub gpu_manager: &'a mut GpuManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
-    pub input: &'a mut Input,
     pub pickobject: &'a PickObject,
 }
 
@@ -95,8 +93,8 @@ impl SceneRenderer {
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
         size: (u32, u32),
+        frame: &FrameData,
         asset_mgr: &AssetManager,
-        world: &World,
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
@@ -106,22 +104,11 @@ impl SceneRenderer {
             gpu_manager,
             pipeline_manager,
             gpu_cache,
-            input,
             pickobject: _,
         } = runtime;
 
         // sync GpuCache Ids with assets Ids (meshes materials textures)
         GpuSync::sync_caches(gpu_cache, gpu_context, gpu_manager, asset_mgr);
-
-        let frame = FrameBuilder::build(
-            world,
-            &gpu_context.device,
-            asset_mgr,
-            selected,
-            &runtime.pickobject,
-            input,
-            globals,
-        );
         let mut ctx = RenderContext {
             device: &gpu_context.device,
             queue: &gpu_context.queue,

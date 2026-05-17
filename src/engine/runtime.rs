@@ -10,8 +10,9 @@ use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
-use crate::renderer::scene_renderer::SceneRenderContext;
+use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
+use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
 
@@ -143,12 +144,21 @@ impl RunningApp {
                     ..
                 } = self;
 
+                let frame = FrameBuilder::build(
+                    render_data.world,
+                    &gpu_context.device,
+                    render_data.asset_mgr,
+                    render_data.selected,
+                    pickobject,
+                    input,
+                    render_data.globals,
+                );
+
                 let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
                     pipeline_manager,
                     gpu_cache,
-                    input,
                     pickobject,
                 };
 
@@ -157,8 +167,8 @@ impl RunningApp {
                     &mut encoder,
                     &target,
                     size,
+                    &frame,
                     render_data.asset_mgr,
-                    render_data.world,
                     render_data.camera,
                     render_data.globals,
                     render_data.selected,
