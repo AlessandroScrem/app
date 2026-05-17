@@ -40,24 +40,7 @@ impl Application for App {
     fn update(&mut self, runtime: &mut RunningApp) {
         self.update_domain_event();
 
-        // load texture from file to cpu data
-        self.asset_mgr.textures.load_cpu_textures();
-
-        // upload texture from cpu data to gpu
-        runtime.gpu_cache.textures.upload_textures(
-            &mut self.asset_mgr.textures,
-            &runtime.gpu_context.device,
-            &runtime.gpu_context.queue,
-        );
-
-        // Esegue `callback` ogni secondo , in base al clock interno.
-        runtime
-            .timer
-            .trigger_every(std::time::Duration::from_secs(1), || {
-                runtime
-                    .imgui_render
-                    .sync_imgui_texture(&runtime.gpu_context, &mut runtime.gpu_cache);
-            });
+        runtime.sync_gpu_assets(&mut self.asset_mgr);
 
         self.update_camera(&runtime.input);
         self.update_hovered(runtime);

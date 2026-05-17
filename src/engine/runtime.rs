@@ -72,6 +72,22 @@ impl RunningApp {
         self.input.clear();
     }
 
+    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
+        asset_mgr.textures.load_cpu_textures();
+
+        self.gpu_cache.textures.upload_textures(
+            &mut asset_mgr.textures,
+            &self.gpu_context.device,
+            &self.gpu_context.queue,
+        );
+
+        self.timer
+            .trigger_every(std::time::Duration::from_secs(1), || {
+                self.imgui_render
+                    .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache);
+            });
+    }
+
     fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder();
 
