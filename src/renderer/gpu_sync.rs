@@ -21,7 +21,7 @@ impl GpuSync {
         gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
     }
 
-    pub fn update_render_globals_to_gpu(
+    pub fn update_camera_and_globals_to_gpu(
         ctx: &mut RenderContext,
         camera: &Camera,
         globals: &Globals,
@@ -52,12 +52,11 @@ impl GpuSync {
     }
 
     pub fn update_meshes_materials_to_gpu(
-        ctx: &mut RenderContext,
+        queue: &wgpu::Queue,
+        gpu_cache: &GpuCache,
         asset_mgr: &AssetManager,
         frame: &FrameData,
     ) {
-        let queue = &ctx.queue;
-        let gpu_cache = &ctx.gpu_cache;
         let mut updated_materials = std::collections::HashSet::new();
 
         fn gpu_update(

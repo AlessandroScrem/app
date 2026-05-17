@@ -157,6 +157,14 @@ impl RunningApp {
 
                 GpuSync::sync_caches(gpu_cache, gpu_context, gpu_manager, render_data.asset_mgr);
 
+                GpuSync::update_meshes_materials_to_gpu(
+                    &gpu_context.queue,
+                    &gpu_cache,
+                    render_data.asset_mgr,
+                    &frame,
+                );
+                GpuSync::update_lights_to_gpu(&gpu_context.queue, &gpu_manager, &frame);
+
                 let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
@@ -171,7 +179,6 @@ impl RunningApp {
                     &target,
                     size,
                     &frame,
-                    render_data.asset_mgr,
                     render_data.camera,
                     render_data.globals,
                     render_data.selected,

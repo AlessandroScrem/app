@@ -93,7 +93,6 @@ impl SceneRenderer {
         target: &wgpu::TextureView,
         size: (u32, u32),
         frame: &FrameData,
-        asset_mgr: &AssetManager,
         camera: &Camera,
         globals: &Globals,
         selected: Option<Entity>,
@@ -119,9 +118,7 @@ impl SceneRenderer {
         };
 
         // Update uniform buffer data to gpu
-        GpuSync::update_render_globals_to_gpu(&mut ctx, camera, globals, selected, size);
-        GpuSync::update_meshes_materials_to_gpu(&mut ctx, asset_mgr, &frame);
-        GpuSync::update_lights_to_gpu(ctx.queue, ctx.gpu_mgr, &frame);
+        GpuSync::update_camera_and_globals_to_gpu(&mut ctx, camera, globals, selected, size);
 
         // Update vertex instance buffer data to gpu
         GpuSync::update_vertex_instances_to_gpu(&mut ctx, &frame);
