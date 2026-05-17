@@ -6,5 +6,5 @@ pub(crate) mod domain;
 pub(crate) mod ui;
 
 pub(crate) use app::App;
-pub(crate) use app_impl::HasAssetMgr;
 pub(crate) use application::Application;
+pub(crate) use application::HasAssetMgr;

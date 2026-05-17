@@ -1,13 +1,9 @@
-use super::{App, Application};
+use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 
 use crate::prelude::*;
-
-pub trait HasAssetMgr {
-    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
-}
 
 impl HasAssetMgr for App {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager {

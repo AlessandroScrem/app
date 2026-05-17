@@ -13,6 +13,10 @@ pub struct AppRenderData<'a> {
     pub selected: Option<Entity>,
 }
 
+pub trait HasAssetMgr {
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
+}
+
 pub trait Application {
     fn init(&mut self);
     fn update(&mut self, input: &Input);
