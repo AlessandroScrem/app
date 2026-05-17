@@ -127,7 +127,6 @@ impl BindgroupCache {
                     .label("Cube white texture")
                     .build(device, Some(queue));
 
-
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
                     entries: &[

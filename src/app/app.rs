@@ -20,12 +20,13 @@ pub struct App {
 }
 
 impl App {
-
     pub fn update_hovered(&mut self, runtime: &mut RunningApp) {
         let input = &runtime.input;
         // update hovered entity_id from buffer
         if input.is_cursor_moved() {
-            self.hovered = runtime.pickobject.poll_readback(&runtime.gpu_context.device);
+            self.hovered = runtime
+                .pickobject
+                .poll_readback(&runtime.gpu_context.device);
         }
     }
 
@@ -44,5 +45,4 @@ impl App {
             .schedule
             .execute(&mut self.current_scene.world, &mut self.resources);
     }
-
 }

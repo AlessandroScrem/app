@@ -16,9 +16,7 @@ fn main() {
     for (var_name, path) in textures {
         println!("cargo:rerun-if-changed={}", path);
 
-        let img = image::open(path)
-            .expect("Failed to open image")
-            .to_rgba8();
+        let img = image::open(path).expect("Failed to open image").to_rgba8();
 
         let (width, height) = img.dimensions();
         let data = img.into_raw();
@@ -35,10 +33,7 @@ fn main() {
             h = height
         ));
 
-        output.push_str(&format!(
-            "const {name}: &[u8] = &[\n",
-            name = var_name
-        ));
+        output.push_str(&format!("const {name}: &[u8] = &[\n", name = var_name));
 
         for chunk in data.chunks(12) {
             output.push_str("    ");

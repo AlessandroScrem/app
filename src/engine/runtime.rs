@@ -8,8 +8,8 @@ use crate::gpu::{
     GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, InternalCounter,
 };
 use crate::input::Input;
-use crate::prelude::*;
 use crate::picking::PickObject;
+use crate::prelude::*;
 use crate::renderer::ImguiRender;
 use winit::{event::Event, window::Window};
 
@@ -58,7 +58,6 @@ impl RunningApp {
     }
 
     pub fn tick<A: Application>(&mut self, app: &mut A) {
-        
         let events = std::mem::take(&mut self.events);
         for event in events {
             self.handle_runtime_event(app, event);
@@ -81,7 +80,8 @@ impl RunningApp {
                 }
                 self.gpu_manager
                     .resize_frame(&self.gpu_context.device, width, height);
-                self.gpu_manager.update_ibl_bind_group(&self.gpu_context.device);
+                self.gpu_manager
+                    .update_ibl_bind_group(&self.gpu_context.device);
 
                 self.gpu_surface
                     .resize_frame(&self.gpu_context.device, width, height);

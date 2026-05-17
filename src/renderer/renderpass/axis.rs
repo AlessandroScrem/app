@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct AxisPass {
-}
+pub struct AxisPass {}
 
 impl AxisPass {
     pub fn new() -> Self {
@@ -21,7 +20,6 @@ impl RenderPass for AxisPass {
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDR]
     }
-
 
     fn execute(
         &mut self,

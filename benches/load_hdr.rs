@@ -3,10 +3,10 @@ use rayon::prelude::*;
 use std::{fs, time::Duration};
 
 /// Run benchmark:
-/// 
+///
 /// '''rust, ignore
-/// cargo bench --bench hdr_bench --quiet -- conversion 
-/// cargo bench --bench hdr_bench --quiet -- load 
+/// cargo bench --bench hdr_bench --quiet -- conversion
+/// cargo bench --bench hdr_bench --quiet -- load
 /// '''
 
 fn load_hdr_to_buffer_u8(path: &str) -> Vec<u8> {
@@ -168,8 +168,6 @@ fn load_stb_image(buffer: &[u8]) -> (Vec<f32>, u32, u32) {
     (raw_f32, width, height)
 }
 
-
-
 // Benchmark
 fn bench_loaders(c: &mut Criterion) {
     let path = concat!(
@@ -178,13 +176,8 @@ fn bench_loaders(c: &mut Criterion) {
     );
     let raw_u8 = load_hdr_to_buffer_u8(path);
 
-    c.bench_function("load image_rs ", |b| {
-        b.iter(|| load_image_rs(&raw_u8))
-    });
-    c.bench_function("load stb_image", |b| {
-        b.iter(|| load_stb_image(&raw_u8))
-    });
-
+    c.bench_function("load image_rs ", |b| b.iter(|| load_image_rs(&raw_u8)));
+    c.bench_function("load stb_image", |b| b.iter(|| load_stb_image(&raw_u8)));
 }
 
 // ---------------------------

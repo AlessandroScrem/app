@@ -1,12 +1,10 @@
-use crate::prelude::*;
+use crate::app::App;
 use crate::input::Input;
+use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
-use crate::app::App;
-
 
 impl App {
-
     pub fn update_camera(&mut self, input: &Input) {
         // move away from here
 

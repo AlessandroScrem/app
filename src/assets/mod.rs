@@ -22,7 +22,6 @@ pub(crate) use material_pbr::*;
 pub(crate) use mesh_asset::*;
 pub(crate) use texture_asset::*;
 
-
 new_key_type! {
     pub struct TextureId;
     pub struct MaterialId;

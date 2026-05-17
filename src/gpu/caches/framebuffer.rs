@@ -1,4 +1,3 @@
-
 use crate::assets::{ColorSpace, SamplerDesc};
 
 use super::*;
@@ -23,14 +22,25 @@ pub struct FramebufferCache {
     framebuffers: Vec<Framebuffer>,
 }
 impl FramebufferCache {
-    pub fn new(device: &wgpu::Device, layouts: &BindgroupLayoutCache, width: u32, height: u32) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        layouts: &BindgroupLayoutCache,
+        width: u32,
+        height: u32,
+    ) -> Self {
         let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
             .map(|kind| Self::create(device, layouts, kind, width, height))
             .collect();
         Self { framebuffers }
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, layouts: &BindgroupLayoutCache, width: u32, height: u32) {
+    pub fn resize(
+        &mut self,
+        device: &wgpu::Device,
+        layouts: &BindgroupLayoutCache,
+        width: u32,
+        height: u32,
+    ) {
         let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
             .map(|kind| Self::create(device, layouts, kind, width, height))
             .collect();
@@ -53,7 +63,6 @@ impl FramebufferCache {
         &self.framebuffers[kind as usize].bind_group
     }
 }
-
 
 impl FramebufferCache {
     fn create(

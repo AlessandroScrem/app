@@ -22,8 +22,8 @@ use crate::renderer::FrameData;
 use crate::renderer::pipeline_manager::PipelineKind;
 use crate::renderer::scene_renderer::RenderContext;
 
-pub(crate) use crate::gpu::manager::*;
 pub(crate) use crate::gpu::caches::*;
+pub(crate) use crate::gpu::manager::*;
 use wgpu::IndexFormat;
 
 pub(crate) use super::renderer::rendergraph::*;

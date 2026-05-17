@@ -60,7 +60,7 @@ pub struct Mat3Std140 {
 
 impl Default for Mat3Std140 {
     fn default() -> Self {
-        Self::identity() 
+        Self::identity()
     }
 }
 
@@ -88,7 +88,7 @@ impl Mat3Std140 {
     pub fn inverse_transpose_mat4(mat: &Mat4) -> Self {
         let mat3x3 = Mat3::from_cols(mat.x.truncate(), mat.y.truncate(), mat.z.truncate());
         let nm = mat3x3.invert().unwrap_or(Mat3::identity()).transpose();
-        
+
         Self::mat3_to_std140(nm)
     }
 }
@@ -181,7 +181,7 @@ pub struct MaterialUniform {
 
     pub attenuation_color: [f32; 3],
     pub ior: f32,
-    
+
     pub sheen_color_factor: [f32; 3],
     pub sheen_roughness_factor: f32,
 
@@ -189,6 +189,6 @@ pub struct MaterialUniform {
 
     pub coord_flags: u32,
     pub is_sheen: u32,
-    
+
     pub _pad: [u32; 2],
 }

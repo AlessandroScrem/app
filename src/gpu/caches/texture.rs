@@ -86,7 +86,6 @@ impl GpuTextureCache {
             .unwrap_or(self.builtin.get(CacheTextureSlot::White))
     }
 
-    
     fn create_from_cpu(
         &mut self,
         id: TextureId,
@@ -103,7 +102,7 @@ impl GpuTextureCache {
             UploadPayload::Fallback => {}
         }
     }
-    
+
     pub fn retain(&mut self, assets: &TextureAssets) {
         // Sync cleanup
         self.map.retain(|id, tex| {
@@ -117,7 +116,7 @@ impl GpuTextureCache {
             }
         });
     }
-    
+
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self.get_or_fallback_white(id).view
     }

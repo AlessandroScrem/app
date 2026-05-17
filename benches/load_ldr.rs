@@ -2,7 +2,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use std::fs;
 
 /// Run benchmark:
-/// 
+///
 /// '''rust, ignore
 /// cargo bench --bench hdr_bench
 /// '''
@@ -37,8 +37,6 @@ fn load_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
     (raw_u8, width, height)
 }
 
-
-
 // Benchmark
 fn bench_loaders(c: &mut Criterion) {
     let path = concat!(
@@ -47,13 +45,8 @@ fn bench_loaders(c: &mut Criterion) {
     );
     let raw_u8 = load_ldr_to_buffer_u8(path);
 
-    c.bench_function("load mage_rs ", |b| {
-        b.iter(|| load_image_rs(&raw_u8))
-    });
-    c.bench_function("load stb_image", |b| {
-        b.iter(|| load_stb_image(&raw_u8))
-    });
-
+    c.bench_function("load mage_rs ", |b| b.iter(|| load_image_rs(&raw_u8)));
+    c.bench_function("load stb_image", |b| b.iter(|| load_stb_image(&raw_u8)));
 }
 
 criterion_group!(benches, bench_loaders);

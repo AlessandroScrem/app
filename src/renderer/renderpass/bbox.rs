@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct BoundingboxPass {
-}
+pub struct BoundingboxPass {}
 
 impl BoundingboxPass {
     pub fn new() -> Self {
@@ -22,14 +21,12 @@ impl RenderPass for BoundingboxPass {
         &[ResourceId::HDR]
     }
 
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-
         let Some(bufferdata) = frame.bbox_bufferdata.as_ref() else {
             return;
         };

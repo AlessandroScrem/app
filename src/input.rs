@@ -63,20 +63,20 @@ impl Input {
     pub fn is_key_pressed(&self, key: Key) -> bool {
         self.keys_pressed.contains(&key)
     }
-    
+
     #[allow(dead_code)]
     pub fn is_key_released(&self, key: Key) -> bool {
         self.keys_released.contains(&key)
     }
-    
+
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
-    
+
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
     }
-    
+
     #[allow(dead_code)]
     pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
@@ -88,7 +88,7 @@ impl Input {
 
     pub fn update_events<T>(&mut self, event: &Event<T>) {
         match event {
-            Event::WindowEvent { event,  ..} => {
+            Event::WindowEvent { event, .. } => {
                 self.update_window_events(event);
             }
             Event::DeviceEvent { event, .. } => {

@@ -4,8 +4,7 @@ use super::*;
 use crate::renderer;
 
 #[derive(Default)]
-pub struct BuildMipmapsPass {
-}
+pub struct BuildMipmapsPass {}
 
 impl BuildMipmapsPass {
     pub fn new() -> Self {
@@ -25,14 +24,12 @@ impl RenderPass for BuildMipmapsPass {
         &[ResourceId::OPAQUE]
     }
 
-
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-
         if frame.build_mips.is_none() {
             return;
         }
@@ -59,7 +56,6 @@ impl RenderPass for BuildMipmapsPass {
 
             compute_mipmaps(device, encoder, cs_pipeline, mip_texture);
         }
-
         // create with render pipeline
         else {
             let pipeline = ctx.pip_mgr.get_render_pipeline(PipelineKind::BuildMipmaps);

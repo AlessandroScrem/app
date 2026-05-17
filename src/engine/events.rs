@@ -5,5 +5,3 @@ pub enum RuntimeEvent {
     CloseRequested,
     DroppedFile(PathBuf),
 }
-
-

@@ -3,18 +3,18 @@ use app_wgpu::Engine;
 use clap::crate_version;
 use clap::{AppSettings, Arg};
 
+use colored::*;
+use log::Level;
 use log::LevelFilter;
 use std::env;
-use log::Level;
-use colored::*;
 
 fn format_log(record: &log::Record) -> String {
     let msg = format!("{}", record.args()); // converte fmt::Arguments in String
 
     match record.level() {
         Level::Error => msg.red().to_string(),
-        Level::Warn  => msg.yellow().to_string(),
-        Level::Info  => msg.green().to_string(),
+        Level::Warn => msg.yellow().to_string(),
+        Level::Info => msg.green().to_string(),
         Level::Debug => msg.blue().to_string(),
         Level::Trace => msg.magenta().to_string(),
     }
@@ -52,7 +52,10 @@ fn init_logger(verbose_count: u64) {
                     buf,
                     "[{}] {} {}:{} -- [{}]",
                     level_str,
-                    record.module_path().filter(|m| !m.contains("app_wgpu")).unwrap_or(""),
+                    record
+                        .module_path()
+                        .filter(|m| !m.contains("app_wgpu"))
+                        .unwrap_or(""),
                     record.file().unwrap_or(""),
                     record.line().unwrap_or(0),
                     format_log(record),

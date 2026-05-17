@@ -1,5 +1,5 @@
-use std::{collections::VecDeque, path::PathBuf};
 use crate::{assets::MaterialId, prelude::*};
+use std::{collections::VecDeque, path::PathBuf};
 
 use legion::Entity;
 
@@ -16,7 +16,7 @@ pub enum DomainEvent {
     Assets(AssetEvent),
     Entity(EntityEvent),
     Selection(SelectionEvent),
-    Exit
+    Exit,
 }
 
 pub enum SceneEvent {
@@ -38,7 +38,6 @@ pub enum EntityEvent {
     UpdateTransform(Entity, TransformComponent),
     UpdateLight(Entity, LightComponent),
     EnableAllLight(bool),
-    
 }
 pub enum GlobalEvent {
     LightEnable(bool),

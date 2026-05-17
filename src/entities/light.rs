@@ -15,5 +15,3 @@ pub fn create(world: &mut World, _resources: &Resources) {
         light,
     ));
 }
-
-

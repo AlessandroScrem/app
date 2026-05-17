@@ -1,4 +1,3 @@
-
 use legion::Entity;
 use wgpu::Device;
 
@@ -28,22 +27,21 @@ impl PickObject {
         }
     }
 
-    
-    
     fn read_pixel(data: wgpu::BufferView) -> Option<Entity> {
         if data.len() >= 8 {
-            let id = u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
+            let id =
+                u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
             let entity: Entity = crate::entities::EntityRawU64::from_raw_u64(id);
             Some(entity)
         } else {
             None
         }
     }
-    
-    pub fn poll_readback(&mut self, device: &Device)->Option<Entity> {
+
+    pub fn poll_readback(&mut self, device: &Device) -> Option<Entity> {
         self.request_readback();
-        
-        let mut entity:Option<Entity> = None;
+
+        let mut entity: Option<Entity> = None;
         // Avanza stato GPU
         let _ = device.poll(wgpu::PollType::Poll);
 
@@ -57,24 +55,23 @@ impl PickObject {
 
             self.buffer.unmap();
             self.pending = false;
-        } 
-        
+        }
+
         entity
     }
-    
+
     fn request_readback(&mut self) {
         if !self.pending {
             let slice = self.buffer.slice(..);
             let tx = self.readback_tx.clone();
-            
+
             slice.map_async(wgpu::MapMode::Read, move |res| {
                 if res.is_ok() {
                     let _ = tx.send(());
                 }
             });
-            
+
             self.pending = true;
         }
-        
     }
 }

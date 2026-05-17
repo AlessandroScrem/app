@@ -1,4 +1,3 @@
-
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -12,7 +11,7 @@ pub enum BindgroupLayoutKind {
     Material,
     Model,
     Skybox,
-    Hdr, 
+    Hdr,
     Depth,
     EntityId,
 }
@@ -342,29 +341,31 @@ impl BindgroupLayoutCache {
                     ],
                 })
             }
-            BindgroupLayoutKind::Hdr => device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Hdr_Texture_bind_group_layout"),
-                entries: &[
-                    // sampler
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    // hdr texture
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            BindgroupLayoutKind::Hdr => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Hdr_Texture_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-            }),
+                        // hdr texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
             BindgroupLayoutKind::Depth => {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Depth_Texture_bind_group_layout"),
@@ -414,7 +415,7 @@ impl BindgroupLayoutCache {
                         },
                     ],
                 })
-            } 
+            }
         }
     }
 }

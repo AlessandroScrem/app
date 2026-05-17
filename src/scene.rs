@@ -14,5 +14,4 @@ impl Default for Scene {
 
         Scene { world, schedule }
     }
-    
 }

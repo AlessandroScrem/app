@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct SkyboxPass {
-}
+pub struct SkyboxPass {}
 
 impl SkyboxPass {
     pub fn new() -> Self {
@@ -21,14 +20,13 @@ impl RenderPass for SkyboxPass {
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDR, ResourceId::DEPTH]
     }
-    
+
     fn execute(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-
         if frame.skybox_enable.is_none() {
             return;
         }

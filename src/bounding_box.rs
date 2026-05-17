@@ -4,7 +4,7 @@ pub struct BoundingBox {
     pub max: [f32; 3],
 }
 
-impl Default for BoundingBox{
+impl Default for BoundingBox {
     fn default() -> Self {
         Self::new_empty()
     }
@@ -49,7 +49,6 @@ impl From<([f32; 3], [f32; 3])> for BoundingBox {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,7 @@
 use super::*;
 use crate::math::*;
-use std::ops::{Index, IndexMut};
 use crate::uniform::Mat3Std140;
+use std::ops::{Index, IndexMut};
 
 pub const IOR: f32 = 1.5;
 pub const MATERIAL_TEXTURE_COUNT: usize = 7;
@@ -15,7 +15,6 @@ pub enum MaterialTextureSlot {
     Transmission = 5,
     Volume = 6,
 }
-
 
 #[derive(Default, Eq, PartialEq, Debug, Clone)]
 pub struct TextureSlot {
@@ -79,7 +78,6 @@ pub struct Sheen {
     pub color_factor: [f32; 3],
     pub roughness_factor: f32,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct MaterialDesc {
@@ -373,7 +371,6 @@ impl Transmission {
         opt.map_or(0.0, |t| t.factor)
     }
 }
-
 
 impl Sheen {
     pub fn to_uniform(opt: Option<Self>) -> ([f32; 3], f32) {

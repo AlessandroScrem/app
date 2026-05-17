@@ -1,4 +1,3 @@
-
 pub trait InternalCounter {
     fn internal_counter(&self) -> GpuInternalCounters;
 }
@@ -35,7 +34,7 @@ impl GpuResourceStats {
 }
 
 // TODO!"not yet implemented on wgpu 25.0"
-// 
+//
 // #[allow(dead_code)]
 // #[derive(Default, Debug)]
 // pub struct GpuInternalCounters {

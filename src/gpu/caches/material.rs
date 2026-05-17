@@ -152,7 +152,6 @@ fn create_bindgroup_from_desc(
     uniform_buffer: &wgpu::Buffer,
     gpu_manager: &GpuManager,
 ) -> wgpu::BindGroup {
-
     // Default sampler for all material textures (can be overridden by texture asset)
     let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
         address_mode_u: wgpu::AddressMode::Repeat,

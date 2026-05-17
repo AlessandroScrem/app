@@ -1,9 +1,9 @@
 use super::*;
 
+use crate::assets::TextureId;
 use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
-use crate::assets::TextureId;
 
 #[allow(dead_code)]
 pub enum UiTexture {
@@ -36,7 +36,6 @@ impl UiTextureResolver for ImguiRender {
         }
     }
 }
-
 
 pub struct ImguiRender {
     pub renderer: imgui_wgpu::Renderer,
@@ -114,11 +113,7 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-        pub fn sync_imgui_texture(
-        &mut self,
-        gpu_context: &GpuContext,
-        gpu_cache: &mut GpuCache,
-    ) {
+    pub fn sync_imgui_texture(&mut self, gpu_context: &GpuContext, gpu_cache: &mut GpuCache) {
         let registry = &mut self.registry;
         let renderer = &mut self.renderer;
         let texture_cache = &gpu_cache.textures;

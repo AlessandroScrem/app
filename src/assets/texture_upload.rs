@@ -70,9 +70,7 @@ fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureEr
     };
 
     let (path, color_space) = match desc {
-        TextureDesc::File {
-            path, usage, ..
-        } => (path, usage.color_space()),
+        TextureDesc::File { path, usage, .. } => (path, usage.color_space()),
 
         TextureDesc::White => {
             return Ok(UploadPayload::Fallback);

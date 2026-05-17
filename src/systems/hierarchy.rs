@@ -1,27 +1,20 @@
-use legion::{
-    systems::CommandBuffer,
-    world::SubWorld,
-    *,
-};
+use legion::{systems::CommandBuffer, world::SubWorld, *};
 
-use crate::{
-    GlobalModelComponent, HierarchyComponent, TransformComponent,
-    math::*,
-};
+use crate::{GlobalModelComponent, HierarchyComponent, TransformComponent, math::*};
 
 #[system]
 #[read_component(TransformComponent)]
 #[read_component(HierarchyComponent)]
-pub  fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
+pub fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     let mut query = <(Entity, Read<HierarchyComponent>, Read<TransformComponent>)>::query();
 
-    // Entities with a `HierarchyComponent` and NOT a `Parent` 
+    // Entities with a `HierarchyComponent` and NOT a `Parent`
     // (roots of a hierarchy)
     for (entity, hirarchy, transform) in query.iter(world).filter(|(_e, h, _t)| h.parent.is_none())
     {
         // Calcolo della matrice globale
         let local_matrix = transform.compute_model_matrix();
-        let global_model =  GlobalModelComponent{ mat: local_matrix}; 
+        let global_model = GlobalModelComponent { mat: local_matrix };
 
         // Aggiorna o sostituisce il componente
         commands.add_component(*entity, global_model);
@@ -64,7 +57,7 @@ fn propagate_recursive(
     let local_matrix = parent_matrix * local_matrix;
 
     // Aggiorna o sostituisce il componente
-    let global_model = GlobalModelComponent{mat: local_matrix};
+    let global_model = GlobalModelComponent { mat: local_matrix };
     commands.add_component(entity, global_model);
 
     // Propaga ai figli

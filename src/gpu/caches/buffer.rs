@@ -21,7 +21,6 @@ const fn axis() -> [LinesVertexData; 6] {
     vertices
 }
 
-
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum BufferKind {
     Camera,
@@ -76,5 +75,3 @@ impl BufferCache {
         }
     }
 }
-
-

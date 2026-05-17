@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct OutlinePass {
-}
+pub struct OutlinePass {}
 impl OutlinePass {
     pub fn new() -> Self {
         Self::default()
@@ -27,11 +26,10 @@ impl RenderPass for OutlinePass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        
         if !frame.outline_selected {
             return;
         }
-        
+
         let frame_view = &ctx.target;
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;

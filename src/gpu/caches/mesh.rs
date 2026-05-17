@@ -20,12 +20,7 @@ impl HasGpuStats for GpuMeshCache {
 }
 
 impl GpuMeshCache {
-    pub fn ensure(
-        &mut self,
-        id: MeshId,
-        assets: &MeshAssets,
-        device: &wgpu::Device,
-    ) {
+    pub fn ensure(&mut self, id: MeshId, assets: &MeshAssets, device: &wgpu::Device) {
         if !self.map.contains_key(id) {
             let mesh = Self::create_gpu_mesh(id, assets, device);
             self.stats.add(mesh.estimated_size);
@@ -47,11 +42,7 @@ impl GpuMeshCache {
         });
     }
 
-    pub fn create_gpu_mesh(
-        id: MeshId,
-        asset: &MeshAssets,
-        device: &wgpu::Device,
-    ) -> GpuMesh {
+    pub fn create_gpu_mesh(id: MeshId, asset: &MeshAssets, device: &wgpu::Device) -> GpuMesh {
         let mesh = asset.get(id).unwrap();
         let vertices = &mesh.vertices;
         let indices = &mesh.indices;
@@ -91,7 +82,6 @@ fn create_gpu_mesh(
         contents: &bytemuck::cast_slice(&indices),
         usage: wgpu::BufferUsages::INDEX,
     });
-
 
     let indexcount = indices.len() as u32;
     let estimated_size = vertices.len() + indices.len();

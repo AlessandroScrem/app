@@ -4,7 +4,7 @@ use super::renderpass::*;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
-pub enum  ResourceId {
+pub enum ResourceId {
     ENTITY,
     DEPTH,
     HDR,

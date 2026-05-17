@@ -1,10 +1,10 @@
 use std::time::{Duration, Instant};
 
 pub struct Timer {
-    clock: Instant,    // timer since application start
-    delta_time: f32,   //time since last frame
-    elapsed_time: f32, //timer since last update
-    frame_time: f32,   //time taken to render last frame
+    clock: Instant,        // timer since application start
+    delta_time: f32,       //time since last frame
+    elapsed_time: f32,     //timer since last update
+    frame_time: f32,       //time taken to render last frame
     last_trigger: Instant, // last time the every() callback was triggered
 }
 
@@ -27,7 +27,7 @@ impl Timer {
         self.frame_time = frametime * 1000.0;
         frametime
     }
-    
+
     /// Update the timer with the given frametime.
     /// Clamps the delta_time to FIXED_TIMESTEP to avoid large timesteps.
     #[allow(dead_code)]

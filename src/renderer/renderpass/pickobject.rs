@@ -1,8 +1,7 @@
 use super::*;
 
 #[derive(Default)]
-pub struct PickObjectPass {
-}
+pub struct PickObjectPass {}
 
 impl PickObjectPass {
     pub fn new() -> Self {
@@ -28,7 +27,6 @@ impl RenderPass for PickObjectPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        
         if let Some(pos) = &frame.picking {
             let pickobject = ctx.pickobject;
             let gpu_manager = ctx.gpu_mgr;

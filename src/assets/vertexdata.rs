@@ -53,7 +53,6 @@ pub struct VertexInstance {
     pub entity_id_high: u32,
 }
 
-
 impl VertexInstance {
     const ATTRIBS: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
         // model matrix (4 vec4)
@@ -63,7 +62,7 @@ impl VertexInstance {
         // entity id (1 u64)
         12 => Uint32, 13 => Uint32,
     ];
-    
+
     pub fn get_layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,

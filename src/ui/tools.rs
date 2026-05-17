@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules!  text_fmt {
 ($ui:expr, $($arg:tt)*) => {

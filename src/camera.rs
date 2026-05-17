@@ -56,7 +56,9 @@ impl Camera {
         self.position = self.calculate_position();
         let orientation = self.get_orientation();
         let translation = Mat4::from_translation(self.position);
-        self.view_matrix = (translation * Mat4::from(orientation)).invert().unwrap_or(One::one());
+        self.view_matrix = (translation * Mat4::from(orientation))
+            .invert()
+            .unwrap_or(One::one());
     }
 
     // move camera in screen asis [left/right] [up/bottom]

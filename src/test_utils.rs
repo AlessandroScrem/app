@@ -9,8 +9,8 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: None,      
-            force_fallback_adapter: false, 
+            compatible_surface: None,
+            force_fallback_adapter: false,
         }))
         .unwrap();
 

@@ -1,5 +1,5 @@
-use crate::math::*;
 use crate::TransformComponent;
+use crate::math::*;
 
 impl Default for TransformComponent {
     fn default() -> Self {
@@ -9,7 +9,7 @@ impl Default for TransformComponent {
             scale: [1.0, 1.0, 1.0],
         }
     }
-} 
+}
 
 impl TransformComponent {
     pub fn compute_model_matrix(&self) -> Mat4 {

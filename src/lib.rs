@@ -5,6 +5,8 @@ pub(crate) mod assets;
 pub(crate) mod bounding_box;
 mod camera;
 mod engine;
+pub(crate) mod error;
+pub(crate) mod gpu;
 pub(crate) mod input;
 mod picking;
 pub(crate) mod renderer;
@@ -15,8 +17,6 @@ mod timer;
 pub(crate) mod timestep;
 mod transform;
 pub(crate) mod ui;
-pub(crate) mod error;
-pub(crate) mod  gpu;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,
@@ -34,6 +34,7 @@ impl Engine {
 }
 
 pub(crate) mod prelude {
+    pub(crate) use crate::assets::MaterialDesc;
     pub use crate::assets::asset_manager::AssetManager;
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
@@ -41,10 +42,9 @@ pub(crate) mod prelude {
     pub use crate::renderer::SceneRenderer;
     pub(crate) use crate::renderer::uniform;
     pub(crate) use crate::ui::*;
-    pub(crate) use log::{debug, error, info, trace, warn};
-    pub(crate) use crate::assets::MaterialDesc;
-    pub use timer::Timer;
     pub use error::*;
+    pub(crate) use log::{debug, error, info, trace, warn};
+    pub use timer::Timer;
 }
 
 pub(crate) use prelude::*;
@@ -83,7 +83,6 @@ pub(crate) mod math {
     // }
 }
 
-
 pub(crate) mod colors {
     pub const CYAN_COLOR: [f32; 3] = [0.0, 1.0, 1.0];
     // pub const BACKGROUND_COLOR: [f32; 3] = [0.188, 0.208, 0.259]; // from GltfViewer
@@ -116,7 +115,7 @@ pub(crate) struct Globals {
 impl Default for Globals {
     fn default() -> Self {
         Self {
-            mips_cs: false, 
+            mips_cs: false,
             light_enable: false,
             ibl_enable: true,
             skybox_enable: true,

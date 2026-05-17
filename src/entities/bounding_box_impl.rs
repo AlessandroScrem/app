@@ -10,7 +10,6 @@ pub const VERTICES: usize = CORNERS * 3;
 pub type BBoxVertexData = [LinesVertexData; VERTICES];
 type BBoxCornerData = [Vec3; CORNERS];
 
-
 impl BoundingBoxComponent {
     #[allow(dead_code)]
     pub fn new(bbox: BoundingBox) -> Self {

@@ -4,9 +4,8 @@
 // CreateIrradiance(skybox);
 // CreatePrefilterMap(skybox);
 
-use super::*;
 use super::ibl_impl::*;
-
+use super::*;
 
 pub struct Ibl {
     hdr_id: crate::assets::TextureId,
@@ -125,13 +124,7 @@ impl IblManager {
             return;
         }
 
-        self.ibl = Self::create_ibl(
-            hdr_id,
-            hdr,
-            self._brdf_lut_view.clone(),
-            device,
-            queue,
-        );
+        self.ibl = Self::create_ibl(hdr_id, hdr, self._brdf_lut_view.clone(), device, queue);
     }
 
     pub fn get_ibl(&self) -> &Ibl {
@@ -176,7 +169,6 @@ impl IblManager {
             ..Default::default()
         });
 
-
         Ibl {
             hdr_id,
             _cube_map: cube_map,
@@ -211,12 +203,6 @@ mod tests {
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
         let hdr = texture_cache.get_or_fallback_white(hdr_id);
 
-        let _manager = IblManager::new(
-            hdr_id,
-            hdr,
-            &device,
-            &queue,
-        );
+        let _manager = IblManager::new(hdr_id, hdr, &device, &queue);
     }
-
 }
