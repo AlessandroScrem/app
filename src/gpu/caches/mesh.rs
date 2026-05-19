@@ -1,5 +1,5 @@
 use crate::{
-    assets::{MeshAssets, MeshId, MeshVertexData},
+    assets::{MeshId, MeshVertexData},
     renderer::{GpuResourceStats, HasGpuStats},
 };
 
@@ -20,43 +20,48 @@ impl HasGpuStats for GpuMeshCache {
 }
 
 impl GpuMeshCache {
-    pub fn ensure(&mut self, id: MeshId, assets: &MeshAssets, device: &wgpu::Device) {
-        if !self.map.contains_key(id) {
-            let mesh = Self::create_gpu_mesh(id, assets, device);
-            self.stats.add(mesh.estimated_size);
-            self.map.insert(id, mesh);
-        }
-    }
-
-    pub fn retain(&mut self, assets: &MeshAssets) {
+    fn retain<F>(&mut self, contains: F) 
+    where
+        F: Fn(&MeshId) -> bool
+    {
         // Sync cleanup
         self.map.retain(|id, mesh| {
-            if assets.contains_key(id) {
-                true //mantain
-            } else {
+            let keep = contains(&id);
+            if !keep {
+                //remove id
                 // update stats
                 self.stats.remove(mesh.estimated_size);
                 trace!("removed gpu mesh {:?}", id);
-                false // remove
             }
+            
+            keep
         });
     }
 
-    pub fn create_gpu_mesh(id: MeshId, asset: &MeshAssets, device: &wgpu::Device) -> GpuMesh {
-        let mesh = asset.get(id).unwrap();
-        let vertices = &mesh.vertices;
-        let indices = &mesh.indices;
-        create_gpu_mesh(device, vertices, indices)
+    pub fn sync(&mut self, device: &wgpu::Device, inputs: &[SyncInput<MeshId, MeshDesc>]) {
+        let desired: HashSet<_> = inputs.iter().map(|i| i.id).collect();
+
+        self.retain(|id| desired.contains(id));
+
+        for input in inputs {
+            if !self.map.contains_key(input.id) {
+                self.create_gpu_mesh(input.id, input.data, device);
+            }
+        }
+    }
+    
+    fn create_gpu_mesh(&mut self, id: MeshId, mesh_desc: &MeshDesc, device: &wgpu::Device) {
+        let vertices = &mesh_desc.vertices;
+        let indices = &mesh_desc.indices;
+        let mesh = create_gpu_mesh(device, vertices, indices);
+        self.stats.add(mesh.estimated_size);
+        self.map.insert(id, mesh);
     }
 
     pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
         self.map.get(*id)
     }
 
-    #[allow(unused)]
-    pub fn keys(&self) -> impl Iterator<Item = MeshId> {
-        self.map.keys()
-    }
 }
 
 pub struct GpuMesh {

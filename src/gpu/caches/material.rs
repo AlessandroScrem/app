@@ -1,7 +1,5 @@
 use crate::{
-    assets::{
-        MATERIAL_TEXTURE_COUNT, MaterialAssets, MaterialId, MaterialTextureSlot, TextureAssets,
-    },
+    assets::{MATERIAL_TEXTURE_COUNT, MaterialId, MaterialTextureSlot},
     renderer::{GpuResourceStats, HasGpuStats},
     uniform::MaterialUniform,
 };
@@ -36,33 +34,42 @@ impl GpuMaterial {
 }
 
 impl GpuMaterialCache {
-    pub fn ensure(
-        &mut self,
-        id: MaterialId,
-        gpu_texture_cache: &mut GpuTextureCache,
-        assets: &AssetManager,
-        gpu_mgr: &GpuManager,
-        device: &wgpu::Device,
-    ) {
-        if !self.map.contains_key(id) {
-            let value = Self::create_gpu_material(id, gpu_texture_cache, assets, gpu_mgr, device);
-            self.map.insert(id, value);
-            self.stats.add(GpuMaterial::estimated_size());
-        }
-    }
-
-    pub fn retain(&mut self, assets: &MaterialAssets) {
+    fn retain<F>(&mut self, contains: F)
+    where
+        F: Fn(&MaterialId) -> bool,
+    {
         // Sync cleanup
         self.map.retain(|id, _| {
-            if assets.contains_key(id) {
-                true //mantain
-            } else {
+            let keep = contains(&id);
+            if !keep {
+                // remove id
                 // update stats
                 self.stats.remove(GpuMaterial::estimated_size());
                 trace!("removed gpu material {:?}", id);
-                false // remove
             }
+            keep
         });
+    }
+
+    pub fn sync(
+        &mut self,
+        texture_cache: &mut GpuTextureCache,
+        device: &wgpu::Device,
+        gpu_manager: &GpuManager,
+        inputs: &[SyncInput<MaterialId, MaterialDesc>],
+    ) {
+        let desired: HashSet<_> = inputs.iter().map(|i| i.id).collect();
+
+        self.retain(|id| desired.contains(id));
+
+        for input in inputs {
+            if !self.map.contains_key(input.id) {
+                let value =
+                    Self::create_gpu_material(texture_cache, input.data, gpu_manager, device);
+                self.map.insert(input.id, value);
+                self.stats.add(GpuMaterial::estimated_size());
+            }
+        }
     }
 
     pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
@@ -78,18 +85,15 @@ impl GpuMaterialCache {
     }
 
     fn create_gpu_material(
-        material_id: crate::assets::MaterialId,
         texture_cache: &mut GpuTextureCache,
-        asset_manager: &AssetManager,
+        material_desc: &MaterialDesc,
         gpu_manager: &GpuManager,
         device: &wgpu::Device,
     ) -> GpuMaterial {
-        let material_desc = asset_manager.materials.get_desc(material_id).unwrap();
         let uniform_buffer = create_uniform_from_desc(device, material_desc);
 
         let bindgroup = create_bindgroup_from_desc(
             device,
-            asset_manager,
             texture_cache,
             material_desc,
             &uniform_buffer,
@@ -128,17 +132,15 @@ impl<'a> Index<MaterialTextureSlot> for TextureViews<'a> {
 fn resolve_texture_views<'a>(
     texture_cache: &'a GpuTextureCache,
     desc: &MaterialDesc,
-    texture_assets: &TextureAssets,
 ) -> TextureViews<'a> {
     use MaterialTextureSlot::*;
-    let fallback = texture_assets.white();
 
     TextureViews([
-        texture_cache.view(desc.texture(BaseColor).unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture(Normal).unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture(MetallicRoughness).unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture(Emissive).unwrap_or_else(|| fallback)),
-        texture_cache.view(desc.texture(Occlusion).unwrap_or_else(|| fallback)),
+        texture_cache.view_or(desc.texture(BaseColor), CacheTextureSlot::White),
+        texture_cache.view_or(desc.texture(Normal), CacheTextureSlot::White),
+        texture_cache.view_or(desc.texture(MetallicRoughness), CacheTextureSlot::White),
+        texture_cache.view_or(desc.texture(Emissive), CacheTextureSlot::White),
+        texture_cache.view_or(desc.texture(Occlusion), CacheTextureSlot::White),
         texture_cache.view_or(desc.texture(Transmission), CacheTextureSlot::Black),
         texture_cache.view_or(desc.texture(Volume), CacheTextureSlot::White),
     ])
@@ -146,7 +148,6 @@ fn resolve_texture_views<'a>(
 
 fn create_bindgroup_from_desc(
     device: &wgpu::Device,
-    asset_manager: &AssetManager,
     texture_cache: &mut GpuTextureCache,
     material_desc: &MaterialDesc,
     uniform_buffer: &wgpu::Buffer,
@@ -164,7 +165,7 @@ fn create_bindgroup_from_desc(
     });
     use MaterialTextureSlot::*;
 
-    let views = resolve_texture_views(texture_cache, material_desc, &asset_manager.textures);
+    let views = resolve_texture_views(texture_cache, material_desc);
 
     let texture_bind_group_layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
 

@@ -1,6 +1,6 @@
 use crate::{
     assets::{
-        TextureAssets, TextureId,
+        TextureId,
         texture_upload::{self, UploadPayload},
     },
     gpu::static_textures,
@@ -103,20 +103,24 @@ impl GpuTextureCache {
         }
     }
 
-    pub fn retain(&mut self, assets: &TextureAssets) {
+    fn retain<F>(&mut self, contains: F)
+    where
+        F: Fn(&TextureId) -> bool,
+    {
         // Sync cleanup
         self.map.retain(|id, tex| {
-            if assets.contains_key(id) {
-                true //mantain
-            } else {
+            let keep = contains(&id);
+            if !keep {
+                // remove id
                 // update stats
                 self.stats.remove(tex.estimated_size);
                 trace!("removed gpu tex {:?}", id);
-                false // remove
             }
+            keep
         });
     }
-
+    
+    #[allow(unused)]
     pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
         &self.get_or_fallback_white(id).view
     }
@@ -133,6 +137,18 @@ impl GpuTextureCache {
 
     pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
         self.map.iter()
+    }
+
+    pub fn sync(&mut self, inputs: &[SyncInput<TextureId, Option<TextureDesc>>]) {
+        let desired: HashSet<_> = inputs.iter().map(|i| i.id).collect();
+
+        self.retain(|id| desired.contains(id));
+
+        // for input in inputs {
+        //     if !self.map.contains_key(input.id) {
+        //         unimplemented!("TextureID not found ..")
+        //     }
+        // }
     }
 
     pub fn upload_textures(

@@ -49,7 +49,7 @@ pub struct MeshKey {
 }
 
 pub struct MeshAsset {
-    desc: MeshDesc,
+    pub desc: MeshDesc,
     ref_count: Cell<u32>,
 }
 

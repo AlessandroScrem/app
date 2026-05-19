@@ -7,6 +7,8 @@ pub(crate) mod material;
 pub(crate) mod mesh;
 pub(crate) mod texture;
 
+use std::collections::HashSet;
+
 pub(crate) use super::static_textures;
 pub(crate) use super::texture::{Dimension, GpuTexture, GpuTextureBuilder, GpuTextureUsage};
 pub(crate) use bindgroup::*;
@@ -28,6 +30,11 @@ pub struct GpuCache {
     pub textures: GpuTextureCache,
 }
 
+pub struct SyncInput<'a, Id, T> {
+    pub id: Id,
+    pub data: &'a T,
+}
+
 impl GpuCache {
     pub fn sync_caches(
         &mut self,
@@ -35,28 +42,41 @@ impl GpuCache {
         gpu_manager: &GpuManager,
         asset_mgr: &AssetManager,
     ) {
-        // Sync cleanup
 
-        self.mesh.retain(&asset_mgr.meshes);
-        self.material.retain(&asset_mgr.materials);
-        self.textures.retain(&asset_mgr.textures);
+        let mesh_input: Vec<SyncInput<MeshId, MeshDesc>> = asset_mgr
+            .meshes
+            .iter()
+            .map(|a| SyncInput {
+                id: a.0,
+                data: &a.1.desc,
+            })
+            .collect();
 
-        // Sync Textures: are already on sync after upload, or fallback
+        let material_input: Vec<SyncInput<MaterialId, MaterialDesc>> = asset_mgr
+            .materials
+            .iter()
+            .map(|a| SyncInput { id: a.0, data: a.1 })
+            .collect();
+
+        let texture_input: Vec<SyncInput<TextureId, Option<TextureDesc>>> = asset_mgr
+            .textures
+            .iter()
+            .map(|a| SyncInput { id: a.0, data: &a.1.desc })
+            .collect();
 
         // Sync Meshes
-        for (id, _value) in asset_mgr.meshes.iter() {
-            self.mesh.ensure(id, &asset_mgr.meshes, &gpu_context.device);
-        }
+        self.mesh.sync(&gpu_context.device, &mesh_input);
 
-        // Sync Materials (crate also textures)
-        for (id, _value) in asset_mgr.materials.iter() {
-            self.material.ensure(
-                id,
-                &mut self.textures,
-                &asset_mgr,
-                &gpu_manager,
-                &gpu_context.device,
-            );
-        }
+        // Sync Meshes
+        self.material.sync(
+            &mut self.textures,
+            &gpu_context.device,
+            gpu_manager,
+            &material_input,
+        );
+
+        // Sync Textures: are already on sync after upload, or fallback
+        self.textures.sync(&texture_input);
+
     }
 }
