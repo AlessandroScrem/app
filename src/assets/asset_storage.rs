@@ -16,6 +16,17 @@ pub enum StorageOp<T: Asset> {
     Removed(AssetHandle<T>),
 }
 
+impl<T: Asset> StorageOp<T> {
+    pub fn into_handle(&self) -> AssetHandle<T> {
+        match self {
+            StorageOp::Created(h)
+            | StorageOp::Existing(h)
+            | StorageOp::Modified(h)
+            | StorageOp::Removed(h) => *h
+        }
+    }
+}
+
 pub trait Asset: Sized + 'static {
     type Key: Eq + Hash + Clone;
     const TYPE: AssetType;

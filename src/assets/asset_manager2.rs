@@ -1,6 +1,65 @@
 use crate::assets::asset_id::{AssetHandle, AssetId};
 use crate::assets::asset_storage::{Asset, AssetStorage, StorageOp};
 
+use std::any::{Any, TypeId};
+use std::collections::HashMap;
+
+trait ErasedStorage {
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+struct TypedStorage<T: Asset> {
+    inner: AssetStorage<T>,
+}
+
+impl<T: Asset> ErasedStorage for TypedStorage<T> {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+pub struct AssetManager {
+    storages: HashMap<TypeId, Box<dyn ErasedStorage>>,
+    events: Vec<AssetEvent>,
+}
+
+impl AssetManager {
+    fn storage<T: Asset>(&self) -> &AssetStorage<T> {
+        let id = TypeId::of::<T>();
+
+        let storage = self.storages.get(&id).unwrap();
+
+        &storage
+            .as_any()
+            .downcast_ref::<TypedStorage<T>>()
+            .unwrap()
+            .inner
+    }
+
+    fn storage_mut<T: Asset>(&mut self) -> &mut AssetStorage<T> {
+        let id = TypeId::of::<T>();
+
+        self.storages.entry(id).or_insert_with(|| {
+            Box::new(TypedStorage::<T> {
+                inner: AssetStorage::default(),
+            })
+        });
+
+        let storage = self.storages.get_mut(&id).unwrap();
+
+        &mut storage
+            .as_any_mut()
+            .downcast_mut::<TypedStorage<T>>()
+            .unwrap()
+            .inner
+    }
+}
+
 #[derive(Debug)]
 struct AssetEvent {
     pub ty: AssetType,
@@ -48,37 +107,19 @@ impl<T: Asset> StorageOp<T> {
     }
 }
 
-pub trait AssetAccess: Asset {
-    fn storage(manager: &mut AssetManager) -> &mut AssetStorage<Self>;
-
-    fn storage_ref(manager: &AssetManager) -> &AssetStorage<Self>;
-}
-
-#[derive(Default)]
-pub struct AssetManager {
-    meshes: AssetStorage<MeshAsset>,
-    materials: AssetStorage<MaterialAsset>,
-    textures: AssetStorage<TextureAsset>,
-
-    events: Vec<AssetEvent>,
-}
-
 impl AssetManager {
-    pub fn add<T: AssetAccess>(&mut self, asset: T) -> AssetHandle<T> {
-        let op = T::storage(self).insert(asset);
+    pub fn add<T: Asset>(&mut self, asset: T) -> AssetHandle<T> {
+        let op = self.storage_mut::<T>().insert(asset);
 
-        match self.push_event(op) {
-            StorageOp::Created(h) | StorageOp::Existing(h) => h,
-            _ => unreachable!(),
-        }
+        self.push_event(op).into_handle()
     }
 
-    pub fn modify<T, F>(&mut self, handle: AssetHandle<T>, f: F)
-    where
-        T: AssetAccess,
-        F: FnOnce(&mut T),
-    {
-        if let Some(asset) = T::storage(self).get_mut(handle) {
+    pub fn get<T: Asset>(&self, handle: AssetHandle<T>) -> Option<&T> {
+        self.storage::<T>().get(handle)
+    }
+
+    pub fn modify<T: Asset>(&mut self, handle: AssetHandle<T>, f: impl FnOnce(&mut T)) {
+        if let Some(asset) = self.storage_mut::<T>().get_mut(handle) {
             f(asset);
 
             self.events.push(AssetEvent {
@@ -89,12 +130,8 @@ impl AssetManager {
         }
     }
 
-    pub fn get<T: AssetAccess>(&self, handle: AssetHandle<T>) -> Option<&T> {
-        T::storage_ref(self).get(handle)
-    }
-
-    pub fn remove<T: AssetAccess>(&mut self, handle: AssetHandle<T>) {
-        if let Some(op) = T::storage(self).remove(handle) {
+    pub fn remove<T: Asset>(&mut self, handle: AssetHandle<T>) {
+        if let Some(op) = self.storage_mut::<T>().remove(handle) {
             self.push_event(op);
         }
     }
@@ -106,70 +143,24 @@ impl AssetManager {
 
         op
     }
-}
 
-struct MeshAsset {
-    name: String,
-}
-struct MaterialAsset {
-    name: String,
-}
-struct TextureAsset {
-    name: String,
-}
-
-impl Asset for MeshAsset {
-    type Key = String;
-    const TYPE: AssetType = AssetType::Mesh;
-
-    fn key(&self) -> &Self::Key {
-        &self.name
+    #[cfg(test)]
+    fn event_count(&self) -> usize {
+        self.events.len()
     }
-}
-impl Asset for MaterialAsset {
-    type Key = String;
-    const TYPE: AssetType = AssetType::Material;
 
-    fn key(&self) -> &Self::Key {
-        &self.name
-    }
-}
-impl Asset for TextureAsset {
-    type Key = String;
-    const TYPE: AssetType = AssetType::Texture;
-
-    fn key(&self) -> &Self::Key {
-        &self.name
+    #[cfg(test)]
+    fn has_event_kind(&self, kind: AssetEventKind) -> bool {
+        self.events.iter().any(|e| e.kind == kind)
     }
 }
 
-impl AssetAccess for MeshAsset {
-    fn storage(manager: &mut AssetManager) -> &mut AssetStorage<Self> {
-        &mut manager.meshes
-    }
-
-    fn storage_ref(manager: &AssetManager) -> &AssetStorage<Self> {
-        &manager.meshes
-    }
-}
-
-impl AssetAccess for MaterialAsset {
-    fn storage(manager: &mut AssetManager) -> &mut AssetStorage<Self> {
-        &mut manager.materials
-    }
-
-    fn storage_ref(manager: &AssetManager) -> &AssetStorage<Self> {
-        &manager.materials
-    }
-}
-
-impl AssetAccess for TextureAsset {
-    fn storage(manager: &mut AssetManager) -> &mut AssetStorage<Self> {
-        &mut manager.textures
-    }
-
-    fn storage_ref(manager: &AssetManager) -> &AssetStorage<Self> {
-        &manager.textures
+impl Default for AssetManager {
+    fn default() -> Self {
+        Self {
+            storages: HashMap::new(),
+            events: Vec::new(),
+        }
     }
 }
 
@@ -177,27 +168,40 @@ impl AssetAccess for TextureAsset {
 mod tests {
     use super::*;
 
-    // ----------------------------
-    // Helpers
-    // ----------------------------
-
-    fn extract_created<T: AssetAccess>(op: StorageOp<T>) -> AssetHandle<T> {
-        match op {
-            StorageOp::Created(h) => h,
-            _ => panic!("expected Created"),
-        }
+    struct MeshAsset {
+        name: String,
+    }
+    struct MaterialAsset {
+        name: String,
+    }
+    struct TextureAsset {
+        name: String,
     }
 
-    fn extract_existing<T: AssetAccess>(op: StorageOp<T>) -> AssetHandle<T> {
-        match op {
-            StorageOp::Existing(h) => h,
-            _ => panic!("expected Existing"),
+    impl Asset for MeshAsset {
+        type Key = String;
+        const TYPE: AssetType = AssetType::Mesh;
+
+        fn key(&self) -> &Self::Key {
+            &self.name
         }
     }
+    impl Asset for MaterialAsset {
+        type Key = String;
+        const TYPE: AssetType = AssetType::Material;
 
-    // ----------------------------
-    // Insert + get
-    // ----------------------------
+        fn key(&self) -> &Self::Key {
+            &self.name
+        }
+    }
+    impl Asset for TextureAsset {
+        type Key = String;
+        const TYPE: AssetType = AssetType::Texture;
+
+        fn key(&self) -> &Self::Key {
+            &self.name
+        }
+    }
 
     #[test]
     fn insert_and_get_mesh() {
@@ -210,13 +214,8 @@ mod tests {
         let mesh = manager.get(handle).unwrap();
         assert_eq!(mesh.name, "Cube");
 
-        // event created
-        assert_eq!(manager.events.len(), 1);
+        assert_eq!(manager.event_count(), 1);
     }
-
-    // ----------------------------
-    // Remove event + invalidation
-    // ----------------------------
 
     #[test]
     fn remove_generates_event_and_invalidates_handle() {
@@ -228,20 +227,13 @@ mod tests {
 
         manager.remove(handle);
 
-        // handle invalid
         assert!(manager.get(handle).is_none());
 
-        // evento Removed presente
-        assert!(
-            manager
-                .events
-                .iter()
-                .any(|e| matches!(e.kind, AssetEventKind::Removed))
-        );
+        assert!(manager.has_event_kind(AssetEventKind::Removed));
     }
 
     #[test]
-    fn get_mut_changes_version_and_emits_event() {
+    fn modify_emits_event() {
         let mut manager = AssetManager::default();
 
         let handle = manager.add(MeshAsset {
@@ -255,18 +247,8 @@ mod tests {
         let mesh = manager.get(handle).unwrap();
         assert_eq!(mesh.name, "After");
 
-        //verifica evento Modified
-        assert!(
-            manager
-                .events
-                .iter()
-                .any(|e| matches!(e.kind, AssetEventKind::Modified))
-        );
+        assert!(manager.has_event_kind(AssetEventKind::Modified));
     }
-
-    // ----------------------------
-    // Multi-type correctness
-    // ----------------------------
 
     #[test]
     fn multiple_asset_types_work() {
@@ -275,35 +257,31 @@ mod tests {
         let mesh = manager.add(MeshAsset {
             name: "Mesh".into(),
         });
-
         let mat = manager.add(MaterialAsset { name: "Mat".into() });
-
         let tex = manager.add(TextureAsset { name: "Tex".into() });
 
         assert_eq!(manager.get(mesh).unwrap().name, "Mesh");
         assert_eq!(manager.get(mat).unwrap().name, "Mat");
         assert_eq!(manager.get(tex).unwrap().name, "Tex");
 
-        assert_eq!(manager.events.len(), 3);
+        assert_eq!(manager.event_count(), 3);
     }
-
-    // ----------------------------
-    // Existing path (dedup)
-    // ----------------------------
 
     #[test]
     fn existing_does_not_create_second_event() {
         let mut manager = AssetManager::default();
 
-        let _ = manager.add(MeshAsset {
+        let h1 = manager.add(MeshAsset {
             name: "Cube".into(),
         });
 
-        let _ = manager.add(MeshAsset {
+        let h2 = manager.add(MeshAsset {
             name: "Cube".into(),
         });
 
-        // solo 1 evento Created
-        assert_eq!(manager.events.len(), 1);
+        assert_eq!(h1.id().index, h2.id().index);
+
+        // solo Created una volta
+        assert_eq!(manager.event_count(), 1);
     }
 }
