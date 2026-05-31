@@ -14,6 +14,12 @@ pub(crate) mod texture_asset;
 pub(crate) mod texture_upload;
 pub(crate) mod vertexdata;
 
+pub(crate) mod asset_id;
+pub(crate) mod asset_storage;
+pub(crate) mod events;
+pub(crate) mod asset_manager2;
+
+
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use crate::prelude::*;
 pub(crate) use asset_manager::*;
