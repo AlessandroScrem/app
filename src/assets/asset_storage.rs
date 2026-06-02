@@ -1,18 +1,12 @@
-#![allow(unused)]
-
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hash};
 
 use crate::assets::asset_id::{AssetHandle, AssetId};
-use crate::assets::asset_manager2::AssetManager;
-use crate::assets::asset_manager2::AssetType;
-
 
 #[derive(Clone)]
 pub enum StorageOp<T: Asset> {
     Created(AssetHandle<T>),
     Existing(AssetHandle<T>),
-    Modified(AssetHandle<T>),
     Removed(AssetHandle<T>),
 }
 
@@ -21,15 +15,13 @@ impl<T: Asset> StorageOp<T> {
         match self {
             StorageOp::Created(h)
             | StorageOp::Existing(h)
-            | StorageOp::Modified(h)
-            | StorageOp::Removed(h) => *h
+            | StorageOp::Removed(h) => *h,
         }
     }
 }
 
 pub trait Asset: Sized + 'static {
     type Key: Eq + Hash + Clone;
-    const TYPE: AssetType;
 
     fn key(&self) -> &Self::Key;
 }
@@ -49,6 +41,7 @@ where
     free_list: Vec<u32>,
 
     lookup: HashMap<T::Key, AssetHandle<T>>,
+    ref_count: HashMap<AssetHandle<T>, u32>,
 }
 
 impl<T> Default for AssetStorage<T>
@@ -62,6 +55,7 @@ where
 
             // deduplication lookup
             lookup: HashMap::new(),
+            ref_count: HashMap::new(),
         }
     }
 }
@@ -74,6 +68,10 @@ where
         let key = asset.key().clone();
 
         if let Some(handle) = self.lookup.get(&key) {
+            self.ref_count
+                .entry(*handle)
+                .and_modify(|c| *c += 1)
+                .or_insert(1);
             return StorageOp::Existing(*handle);
         }
 
@@ -154,6 +152,13 @@ where
             return None;
         }
 
+        let count = self.ref_count.entry(handle).or_default();
+        
+        if *count > 0 {
+            *count = count.saturating_sub(1);
+            return None;
+        }
+
         // Invalidate old handles
         slot.generation += 1;
         slot.version = 0;
@@ -163,9 +168,9 @@ where
         self.free_list.push(handle.id().index);
 
         // remove from dedup llookup
-
         let key = asset.key();
         self.lookup.remove(&key);
+        self.ref_count.remove(&handle);
 
         Some(StorageOp::Removed(handle))
     }
@@ -209,7 +214,6 @@ mod tests {
 
     impl Asset for Mesh {
         type Key = String;
-        const TYPE: AssetType = AssetType::Mesh;
 
         fn key(&self) -> &Self::Key {
             &self.name
@@ -225,7 +229,6 @@ mod tests {
 
     impl Asset for Texture {
         type Key = String;
-        const TYPE: AssetType = AssetType::Texture;
 
         fn key(&self) -> &Self::Key {
             &self.name
@@ -267,6 +270,14 @@ mod tests {
         };
         assert_eq!(h1.id().index, h2.id().index);
         assert_eq!(storage.capacity(), 1);
+        assert_eq!(storage.ref_count.get(&h1).unwrap(), &1);
+
+        storage.remove(h2);
+        assert_eq!(storage.get(h1).unwrap().name, "Cube");
+        assert_eq!(storage.ref_count.get(&h2).unwrap(), &0);
+
+        storage.remove(h1);
+        assert_eq!(storage.ref_count.get(&h1), None);
     }
 
     #[test]
@@ -372,10 +383,10 @@ mod tests {
             StorageOp::Created(h) => h,
             _ => panic!(),
         };
-        
+
         storage.remove(old_handle);
-        
-        let new_handle = match storage.insert(Mesh { name: "New".into() }){
+
+        let new_handle = match storage.insert(Mesh { name: "New".into() }) {
             StorageOp::Created(h) => h,
             _ => panic!(),
         };

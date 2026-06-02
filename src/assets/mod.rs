@@ -18,7 +18,7 @@ pub(crate) mod asset_id;
 pub(crate) mod asset_storage;
 pub(crate) mod events;
 pub(crate) mod asset_manager2;
-
+pub(crate) mod dependency_graph;
 
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use crate::prelude::*;
