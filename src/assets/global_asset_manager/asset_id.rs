@@ -4,32 +4,6 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::assets::asset_storage::Asset;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GlobalAssetId {
-    pub type_id: TypeId,
-    pub id: AssetId,
-}
-
-impl GlobalAssetId {
-    pub fn new<T: Asset>(id: AssetId) -> Self {
-        Self {
-            type_id: TypeId::of::<T>(),
-            id,
-        }
-    }
-}
-
-impl<T: 'static> From<&AssetHandle<T>> for GlobalAssetId {
-    fn from(value: &AssetHandle<T>) -> Self {
-        GlobalAssetId {
-            type_id: TypeId::of::<T>(),
-            id: value.id,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AssetId {
     pub index: u32,

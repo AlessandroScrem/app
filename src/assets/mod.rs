@@ -14,11 +14,8 @@ pub(crate) mod texture_asset;
 pub(crate) mod texture_upload;
 pub(crate) mod vertexdata;
 
-pub(crate) mod asset_id;
-pub(crate) mod asset_storage;
-pub(crate) mod events;
-pub(crate) mod asset_manager2;
-pub(crate) mod dependency_graph;
+pub(crate) mod global_asset_manager;
+
 
 pub(crate) use crate::assets::vertexdata::MeshVertexData;
 pub(crate) use crate::prelude::*;
@@ -27,6 +24,7 @@ pub(crate) use material_asset::*;
 pub(crate) use material_pbr::*;
 pub(crate) use mesh_asset::*;
 pub(crate) use texture_asset::*;
+
 
 new_key_type! {
     pub struct TextureId;
@@ -40,57 +38,4 @@ impl std::fmt::Display for MaterialId {
         // MaterialId è un wrapper int interno
         write!(f, "{:?}", self)
     }
-}
-
-#[test]
-fn sync_add_remove_reuse() {
-    use slotmap::{SecondaryMap, SlotMap, new_key_type};
-
-    new_key_type! { pub(crate) struct MeshId; }
-
-    // Asset storage (AssetManager side)
-    let mut storage: SlotMap<MeshId, u32> = SlotMap::with_key();
-
-    // GPU registry (Renderer side)
-    let mut gpu_registry: SecondaryMap<MeshId, &'static str> = SecondaryMap::new();
-
-    // --- FRAME 1: ADD ---
-    let mesh = storage.insert(42);
-
-    // Sync
-    for (id, value) in storage.iter() {
-        if !gpu_registry.contains_key(id) {
-            gpu_registry.insert(id, "GPU_MESH");
-            println!("Upload mesh {}", value);
-        }
-    }
-
-    assert!(gpu_registry.contains_key(mesh));
-
-    // --- FRAME 2: REMOVE ---
-    storage.remove(mesh);
-
-    // Sync cleanup
-    gpu_registry.retain(|id, _| storage.contains_key(id));
-
-    assert!(!gpu_registry.contains_key(mesh));
-    assert!(!storage.contains_key(mesh));
-
-    // --- FRAME 3: REUSE SLOT ---
-    let reused = storage.insert(100);
-
-    // Se SlotMap riusa lo slot:
-    // reused potrebbe avere stesso index ma generation diversa.
-    assert_ne!(mesh, reused); // 🔥 generational safety
-
-    // Sync
-    for (id, value) in storage.iter() {
-        if !gpu_registry.contains_key(id) {
-            gpu_registry.insert(id, "GPU_MESH_REUSED");
-            println!("Upload mesh {}", value);
-        }
-    }
-
-    assert!(gpu_registry.contains_key(reused));
-    assert!(!gpu_registry.contains_key(mesh)); // vecchia key resta invalida
 }
