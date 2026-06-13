@@ -1,7 +1,11 @@
-use super::*;
-use crate::math::*;
-use crate::uniform::Mat3Std140;
+// use super::*;
 use std::ops::{Index, IndexMut};
+use std::path::PathBuf;
+
+use crate::uniform::Mat3Std140;
+use crate::{math::*};
+use crate::gpu::global_asset_manager::GlobalAssetId;
+use crate::renderer::ColorSpace;
 
 pub const IOR: f32 = 1.5;
 pub const MATERIAL_TEXTURE_COUNT: usize = 7;
@@ -18,7 +22,7 @@ pub enum MaterialTextureSlot {
 
 #[derive(Default, Eq, PartialEq, Debug, Clone)]
 pub struct TextureSlot {
-    texture: Option<TextureId>,
+    texture: Option<GlobalAssetId>,
     coord: u32,
     transform: Option<TextureTransform>,
     enabled: bool,
@@ -82,9 +86,6 @@ pub struct Sheen {
 #[derive(Debug, Clone)]
 pub struct MaterialDesc {
     pub name: String,
-    #[allow(unused)]
-    shader: ShaderId,
-
     pub texture_set: TextureSet,
 
     pub alpha_mode: AlphaMode,
@@ -104,7 +105,6 @@ impl Default for MaterialDesc {
     fn default() -> Self {
         MaterialDesc {
             name: String::new(),
-            shader: ShaderId::default(),
             texture_set: TextureSet::default(),
 
             alpha_mode: AlphaMode::default(),
@@ -139,9 +139,8 @@ impl PartialEq for MaterialDesc {
     }
 }
 
-
 impl MaterialDesc {
-    pub fn texture(&self, slot: MaterialTextureSlot) -> Option<TextureId> {
+    pub fn texture(&self, slot: MaterialTextureSlot) -> Option<GlobalAssetId> {
         self.texture_set[slot].texture
     }
 
@@ -194,24 +193,31 @@ impl MaterialDesc {
 
     pub fn set_texture(
         &mut self,
-        texture_asset: &mut TextureAssets,
+        id: Option<GlobalAssetId>,
         slot: MaterialTextureSlot,
-        path: Option<PathBuf>,
         coord: u32,
         transform: Option<TextureTransform>,
     ) {
-        if let Some(path) = path {
-            let desc = super::TextureDesc::File {
-                path: path.into(),
-                usage: slot.into(),
-                sampler: super::SamplerDesc::LinearRepeat,
-                mipmaps: false,
-            };
-            let id = texture_asset.get_or_create(desc);
+        if let Some(id) = id {
             self.texture_set[slot].texture = Some(id);
             self.texture_set[slot].transform = transform;
             self.texture_set[slot].coord = coord;
             self.texture_set[slot].enabled = true;
+        }
+    }
+}
+
+impl From<MaterialTextureSlot> for crate::assets::TextureUsage {
+    fn from(slot: MaterialTextureSlot) -> Self {
+        use MaterialTextureSlot::*;
+        match slot {
+            BaseColor => Self::Albedo,
+            Normal => Self::Normal,
+            MetallicRoughness => Self::MetallicRoughness,
+            Emissive => Self::Emissive,
+            Occlusion => Self::Occlusion,
+            Transmission => Self::Transmission,
+            Volume => Self::Volume,
         }
     }
 }
@@ -421,4 +427,54 @@ impl MaterialTextureSlot {
         Self::Transmission,
         Self::Volume,
     ];
+}
+
+fn gen_transform_array(desc: &MaterialDesc) -> [Mat3Std140; MATERIAL_TEXTURE_COUNT] {
+    std::array::from_fn(|i| {
+        let slot = MaterialTextureSlot::ALL[i];
+
+        desc.uvtransform(slot).unwrap_or_default().to_mat3_std140()
+    })
+}
+
+impl From<&MaterialDesc> for crate::uniform::MaterialUniform {
+    fn from(value: &MaterialDesc) -> Self {
+        let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
+        let is_trasmissive = value.is_transmissive().into();
+        let transmission_factor = Transmission::to_uniform(value.transmission);
+
+        let is_volume = value.is_volume().into();
+        let (attenuation_distance, thickness_factor, attenuation_color) =
+            Volume::to_uniform(value.volume);
+
+        let texture_transforms = gen_transform_array(value);
+
+        let is_sheen = value.is_sheen().into();
+        let (sheen_color_factor, sheen_roughness_factor) = Sheen::to_uniform(value.sheen);
+
+        Self {
+            color_factor: value.base_color_factor.into(),
+            emissive_factor: value.emissive_factor.into(),
+            metallic_factor: value.metallic_factor,
+            roughness_factor: value.roughness_factor,
+            normal_scale: value.normal_scale,
+            occlusion_strength: value.occlusion_strength,
+            texture_flags: value.texture_set.texture_flags(),
+            coord_flags: value.texture_set.coord_flags(),
+            alpha_mode,
+            alpha_cutoff,
+            transmission_factor,
+            is_trasmissive,
+            is_volume,
+            attenuation_distance,
+            thickness_factor,
+            attenuation_color,
+            ior: value.ior,
+            texture_transforms,
+            is_sheen,
+            sheen_color_factor,
+            sheen_roughness_factor,
+            ..Default::default()
+        }
+    }
 }

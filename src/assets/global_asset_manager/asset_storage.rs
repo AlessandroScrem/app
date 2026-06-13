@@ -160,4 +160,17 @@ impl<T: Asset> AssetStorage<T> {
 
         self.free_list.push(id.index);
     }
+
+}
+
+impl<T: Asset> AssetStorage<T> {
+    pub fn get_by_id(&self, id: AssetId) -> Option<&T> {
+        let slot = self.slots.get(id.index as usize)?;
+
+        if slot.generation != id.generation {
+            return None;
+        }
+
+        slot.value.as_ref()
+    }
 }

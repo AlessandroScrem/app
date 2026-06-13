@@ -7,7 +7,9 @@ mod asset_storage;
 mod dependency_graph;
 
 #[cfg(test)]
-mod test_api;
+mod test_gam_api;
+#[cfg(test)]
+mod test_gam_load_api;
 
 use asset_id::{AssetHandle, AssetId};
 use asset_storage::{Asset, AssetStorage};
@@ -37,7 +39,7 @@ impl<T: 'static> From<&AssetHandle<T>> for GlobalAssetId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub enum AssetEventKind {
     Created,
     Updated,
@@ -162,7 +164,7 @@ impl AssetManager {
             events: VecDeque::new(),
         }
     }
-    
+
     fn storage<T: Asset>(&self) -> &AssetStorage<T> {
         let id = TypeId::of::<T>();
 
@@ -227,6 +229,14 @@ impl AssetManager {
         });
 
         gid
+    }
+
+    pub fn get<T: Asset>(&self, id: GlobalAssetId) -> Option<&T> {
+        if id.type_id != TypeId::of::<T>() {
+            return None;
+        }
+
+        self.storage::<T>().get_by_id(id.id)
     }
 }
 
@@ -325,6 +335,11 @@ mod tests {
 
         let id1 = mgr.add(a.clone());
         assert_eq!(mgr.ref_count.get(&id1), Some(&0));
+
+        // evento created
+        let ev = mgr.events.back().unwrap();
+        assert_eq!(ev.id, id1);
+        assert_eq!(ev.kind, AssetEventKind::Created);
 
         // dedup
         let id2 = mgr.add(a.clone());

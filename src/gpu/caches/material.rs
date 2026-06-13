@@ -84,13 +84,13 @@ impl GpuMaterialCache {
         self.map.get(*id)
     }
 
-    fn create_gpu_material(
+    pub fn create_gpu_material(
         texture_cache: &mut GpuTextureCache,
         material_desc: &MaterialDesc,
         gpu_manager: &GpuManager,
         device: &wgpu::Device,
     ) -> GpuMaterial {
-        let uniform_buffer = create_uniform_from_desc(device, material_desc);
+        let uniform_buffer = create_material_uniform_from_desc(device, material_desc);
 
         let bindgroup = create_bindgroup_from_desc(
             device,
@@ -107,7 +107,7 @@ impl GpuMaterialCache {
     }
 }
 
-fn create_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc) -> wgpu::Buffer {
+pub fn create_material_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc) -> wgpu::Buffer {
     let uniform = MaterialUniform::from(material_desc);
 
     let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

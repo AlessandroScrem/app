@@ -23,12 +23,12 @@ pub enum CacheTextureSlot {
     Normal,
 }
 
-struct GpuBuiltinTextures {
+pub struct GpuBuiltinTextures {
     builtin: Vec<GpuTexture>,
 }
 
 impl GpuBuiltinTextures {
-    fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let builtin: Vec<GpuTexture> = CacheTextureSlot::iter()
             .map(|slot| Self::create(device, queue, slot))
             .collect();
@@ -36,7 +36,7 @@ impl GpuBuiltinTextures {
         Self { builtin }
     }
 
-    fn get(&self, slot: CacheTextureSlot) -> &GpuTexture {
+    pub fn get(&self, slot: CacheTextureSlot) -> &GpuTexture {
         &self.builtin[slot as usize]
     }
 
