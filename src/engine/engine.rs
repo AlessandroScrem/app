@@ -59,15 +59,17 @@ impl<A: Application + HasAssetMgr> Engine<A> {
         );
         //
 
-        let asset_mgr = self.app.asset_mgr_mut();
+        // let asset_mgr = self.app.asset_mgr_mut();
 
         // gpu resources
-        let mut texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
-        texture_cache.upload_textures(
-            &mut asset_mgr.textures,
-            &gpu_context.device,
-            &gpu_context.queue,
-        );
+        let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+        
+        // texture_cache.upload_textures(
+        //     &mut asset_mgr.textures,
+        //     &gpu_context.device,
+        //     &gpu_context.queue,
+        // );
+
         let gpu_cache = GpuCache {
             textures: texture_cache,
             material: GpuMaterialCache::default(),
@@ -79,8 +81,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &gpu_context.queue,
             gpu_surface.get_config().width,
             gpu_surface.get_config().height,
-            &gpu_cache.textures,
-            asset_mgr.skybox.get_id(),
         );
 
         let pipeline_manager = PipelineManager::new(

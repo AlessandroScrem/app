@@ -76,7 +76,7 @@ impl Asset for Mesh {
 
 #[test]
 fn mesh_removal_reduces_material_refcount() {
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let mat = mgr.add(Material {
         name: "Mat".into(),
@@ -107,7 +107,7 @@ fn mesh_removal_reduces_material_refcount() {
 
 #[test]
 fn material_removal_reduces_texture_refcount() {
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let tex = mgr.add(Texture {
         name: "T.png".into(),
@@ -138,7 +138,7 @@ fn material_removal_reduces_texture_refcount() {
 
 #[test]
 fn retain_release_behavior() {
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let tex = mgr.add(Texture {
         name: "Tex.png".into(),
@@ -158,7 +158,7 @@ fn retain_release_behavior() {
 
 #[test]
 fn dedup_chain_mesh_material_texture() {
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let tex = mgr.add(Texture {
         name: "T.png".into(),

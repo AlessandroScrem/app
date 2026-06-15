@@ -1,4 +1,4 @@
-use crate::assets::{ColorSpace, SamplerDesc};
+use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 
 use super::*;
 

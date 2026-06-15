@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::assets::MaterialId;
-use crate::assets::asset_manager::{AssetManager, ResourceStats};
+use crate::assets::global_asset_manager::GlobalAssetId;
+use crate::assets::global_asset_manager::resource_stats::ResourceStats;
 use crate::gpu::caches::internalcounter::GpuInternalCounters;
 use crate::prelude::*;
 use crate::ui::traits::UiTextureResolver;
@@ -61,7 +62,7 @@ pub struct UiComponentState {
 }
 
 impl UiComponentState {
-    pub fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &AssetManager) -> Self {
+    pub fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &GlobalAssetManager) -> Self {
         let mut state = UiComponentState::default();
 
         let Some(entity) = selected else {
@@ -78,16 +79,17 @@ impl UiComponentState {
 
         if let Ok(mesh) = entry.get_component::<MeshComponent>() {
             state.mesh = Some(mesh.clone());
+            use crate::assets::mesh_asset::MeshAsset;
+            use crate::assets::material_asset::MaterialAsset;
 
-            if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                let materials: HashMap<MaterialId, MaterialDesc> = mesh_desc
+            if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
+                let materials: HashMap<MaterialId, MaterialDesc> = mesh_asset.desc
                     .submeshes
                     .iter()
                     .filter_map(|sm| {
                         asset_mgr
-                            .materials
-                            .get_desc(sm.material)
-                            .map(|mat| (sm.material, mat.clone()))
+                            .get::<MaterialAsset>(sm.material)
+                            .map(|mat_asset| (sm.material, mat_asset.desc.clone()))
                     })
                     .collect();
 
@@ -103,7 +105,7 @@ impl<'a> UiSnapshot<'a> {
     pub fn from_world(
         world: &legion::World,
         selected: Option<Entity>,
-        asset_mgr: &AssetManager,
+        asset_mgr: &GlobalAssetManager,
         camera: &'a Camera,
         globals: &'a Globals,
         texture_resolver: &'a dyn UiTextureResolver,
@@ -117,7 +119,9 @@ impl<'a> UiSnapshot<'a> {
         };
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
-        let hdr_texture_id = asset_mgr.skybox.get_id();
+        // let hdr_texture_id = asset_mgr.skybox.get_id();
+        let hdr_texture_id = GlobalAssetId::default();
+        
 
         Self {
             texture_resolver,

@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct AssetId {
     pub index: u32,
     pub generation: u32,

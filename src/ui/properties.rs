@@ -1,6 +1,6 @@
 use super::*;
 use crate::assets::MaterialId;
-use crate::assets::material_pbr::MaterialTextureSlot;
+use crate::assets::material_desc::MaterialTextureSlot;
 use imgui::*;
 use imgui::{Drag, TreeNodeFlags};
 
@@ -289,7 +289,7 @@ fn draw_materials(
                 let mut selected_id = *id_cell.borrow();
 
                 let mut keys: Vec<MaterialId> = materials.keys().cloned().collect();
-                keys.sort();
+                keys.sort_by_key(|id| id.id.index);
 
                 // select first id if not exist
                 if !materials.contains_key(&selected_id) {
@@ -324,7 +324,7 @@ fn draw_materials(
             SELECTED_INDEX.with(|idx_cell| {
                 let selected_id = *idx_cell.borrow();
 
-                use crate::assets::material_pbr::MaterialTextureSlot::*;
+                use crate::assets::material_desc::MaterialTextureSlot::*;
 
                 if let Some(mut material) = materials.get(&selected_id).cloned() {
                     let name = material.get_name();

@@ -6,7 +6,7 @@ use crate::ui::UiRuntimeContext;
 use crate::prelude::*;
 
 impl HasAssetMgr for App {
-    fn asset_mgr_mut(&mut self) -> &mut AssetManager {
+    fn asset_mgr_mut(&mut self) -> &mut GlobalAssetManager {
         &mut self.asset_mgr
     }
 }
@@ -28,17 +28,18 @@ impl Application for App {
         let timer = std::time::Instant::now();
 
         // const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-        const HDRPATH: &str = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/core/Cannon_Exterior.hdr"
-        );
-        let hdr_id = self
-            .asset_mgr
-            .textures
-            .from_file(HDRPATH, renderer::TextureUsage::HDR16);
 
-        self.asset_mgr.skybox = assets::asset_manager::SkyboxHandle::new(hdr_id);
-        self.asset_mgr.textures.load_cpu_textures();
+        // const HDRPATH: &str = concat!(
+        //     env!("CARGO_MANIFEST_DIR"),
+        //     "/assets/core/Cannon_Exterior.hdr"
+        // );
+        // let hdr_id = self
+        //     .asset_mgr
+        //     .textures
+        //     .from_file(HDRPATH, crate::assets::texture_asset::TextureUsage::HDR16);
+
+        // self.asset_mgr.skybox = assets::asset_manager::SkyboxHandle::new(hdr_id);
+        // self.asset_mgr.textures.load_cpu_textures();
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();

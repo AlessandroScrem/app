@@ -45,23 +45,10 @@ impl From<EntityId> for Entity {
 }
 
 use crate::{
-    AssetManager,
-    assets::{MaterialTextureSlot, gltf_loader::LoadedScene},
+    assets::{global_asset_manager::GlobalAssetManager, gltf_loader::LoadedScene, material_desc::MaterialTextureSlot},
+    gpu::{material_asset::MaterialAsset, mesh_asset::MeshAsset},
 };
 
-// use std::hash::{Hash, Hasher};
-// pub(crate) trait EntityHash {
-//     /// Restituisce un hash `u64` deterministico
-//     fn entity_hash(&self) -> u64;
-// }
-
-// impl EntityHash for Entity {
-//     fn entity_hash(&self) -> u64 {
-//         let mut hasher = std::hash::DefaultHasher::new();
-//         self.hash(&mut hasher);
-//         hasher.finish()
-//     }
-// }
 
 fn collect_entity_from_root(entity: Entity, world: &mut legion::World) -> Vec<Entity> {
     let mut entities = Vec::new();
@@ -135,7 +122,7 @@ struct IDCollection {
 }
 fn collect_asset_ids_from_entity(
     world: &legion::World,
-    asset_mgr: &mut crate::AssetManager,
+    asset_mgr: &GlobalAssetManager,
     entities: &Vec<Entity>,
 ) -> IDCollection {
     let mut mesh_ids = vec![];
@@ -146,13 +133,13 @@ fn collect_asset_ids_from_entity(
         if let Ok(entry) = world.entry_ref(e) {
             if let Ok(mesh) = entry.get_component::<MeshComponent>() {
                 mesh_ids.push(mesh.handle);
-                if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                    for submesh in mesh_desc.submeshes.iter() {
+                if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
+                    for submesh in mesh_asset.desc.submeshes.iter() {
                         let mat_id = submesh.material;
                         material_ids.push(mat_id);
-                        if let Some(mat_desc) = asset_mgr.materials.get_desc(mat_id) {
+                        if let Some(mat_asset) = asset_mgr.get::<MaterialAsset>(mat_id) {
                             for slot in MaterialTextureSlot::ALL {
-                                if let Some(tex_id) = mat_desc.texture(slot) {
+                                if let Some(tex_id) = mat_asset.desc.texture(slot) {
                                     texture_ids.push(tex_id);
                                 }
                             }
@@ -181,7 +168,7 @@ pub(crate) fn collect_hierarchy_root_entities(world: &legion::World) -> Vec<Enti
 }
 
 pub(crate) fn remove_entity_from_all(
-    asset_mgr: &mut crate::AssetManager,
+    asset_mgr: &mut GlobalAssetManager,
     entity: Entity,
     world: &mut legion::World,
 ) {
@@ -200,19 +187,19 @@ pub(crate) fn remove_entity_from_all(
     // remove mesh from asset
     // TODO: check if mesh is shared by others before removing
     for mesh_id in mesh_ids {
-        asset_mgr.meshes.remove(mesh_id);
+        asset_mgr.remove(mesh_id);
     }
 
     // remove material from asset
     // remove also textures from slot
     for mat_id in material_ids {
-        asset_mgr.materials.remove(mat_id, &mut asset_mgr.textures);
+        asset_mgr.remove(mat_id);
     }
 
     // remove texture from asset
     // texture slot are removed from materials.remove()
     for tex_id in texture_ids {
-        asset_mgr.textures.remove(tex_id);
+        asset_mgr.remove(tex_id);
     }
 }
 
@@ -226,7 +213,7 @@ pub(crate) fn enable_all_lights(enable: bool, world: &mut legion::World) {
     }
 }
 
-pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
+pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &GlobalAssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
 
     // 1️⃣ crea tutte le entity
@@ -254,8 +241,8 @@ pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &
                 });
 
                 // BoundingBoxComponent
-                if let Some(mesh) = asset_mgr.meshes.get(*mesh_id) {
-                    let bbox = &mesh.bounds;
+                if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(*mesh_id) {
+                    let bbox = &mesh_asset.desc.bounds;
                     entry.add_component(BoundingBoxComponent {
                         bounding_box: bbox.clone(),
                         global_bounding_box: bbox.clone(),

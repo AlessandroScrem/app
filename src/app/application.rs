@@ -2,11 +2,13 @@ use std::path::PathBuf;
 
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
-use crate::{AssetManager, Camera, Globals};
+use crate::{Camera, Globals};
 use legion::{Entity, World};
 
+use crate::assets::global_asset_manager::GlobalAssetManager;
+
 pub struct AppRenderData<'a> {
-    pub asset_mgr: &'a AssetManager,
+    pub asset_mgr: &'a GlobalAssetManager,
     pub world: &'a World,
     pub camera: &'a Camera,
     pub globals: &'a Globals,
@@ -14,7 +16,7 @@ pub struct AppRenderData<'a> {
 }
 
 pub trait HasAssetMgr {
-    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
+    fn asset_mgr_mut(&mut self) -> &mut GlobalAssetManager;
 }
 
 pub trait HandlesPicking {

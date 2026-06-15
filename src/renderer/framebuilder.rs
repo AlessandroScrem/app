@@ -74,7 +74,7 @@ pub struct FrameBuilder {}
 impl FrameBuilder {
     pub fn build(
         world: &World,
-        asset: &AssetManager,
+        asset: &GlobalAssetManager,
         selected: Option<Entity>,
         pickobject: &PickObject,
         input: &Input,
@@ -115,20 +115,22 @@ impl FrameBuilder {
         frame
     }
 
-    fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
+    fn build_geometry(world: &World, asset: &GlobalAssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
         let mut opaque_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> = HashMap::new();
         let mut transmission_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> =
             HashMap::new();
+        use crate::assets::mesh_asset::MeshAsset;
+        use crate::assets::material_asset::MaterialAsset;
 
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
-            let Some(mesh) = asset.meshes.get(mesh_comp.handle) else {
+            let Some(mesh) = asset.get::<MeshAsset>(mesh_comp.handle) else {
                 continue;
             };
 
-            for submesh in mesh.submeshes.iter() {
-                let Some(material) = asset.materials.get_desc(submesh.material) else {
+            for submesh in mesh.desc.submeshes.iter() {
+                let Some(material) = asset.get::<MaterialAsset>(submesh.material) else {
                     continue;
                 };
                 debug_assert!(
@@ -155,9 +157,9 @@ impl FrameBuilder {
                 // CLASSIFY
                 // -------------------------------------------------
 
-                if material.is_transmissive() {
+                if material.desc.is_transmissive() {
                     transmission_map.entry(key).or_default().push(instance);
-                } else if !material.is_transparent() {
+                } else if !material.desc.is_transparent() {
                     opaque_map.entry(key).or_default().push(instance);
                 }
             }

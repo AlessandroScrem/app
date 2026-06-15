@@ -3,8 +3,8 @@ use rayon::iter::ParallelIterator;
 
 use super::TextureId;
 use super::file;
-use crate::assets::TextureState;
-use crate::assets::{ColorSpace, TextureAsset, TextureDesc};
+use crate::assets::texture_asset::TextureState;
+use crate::assets::texture_asset::{ColorSpace, TextureAsset, TextureDesc};
 use crate::prelude::*;
 
 use super::image_decoder::{
@@ -37,6 +37,17 @@ pub trait TextureUploadSource {
 }
 
 pub fn load_cpu_textures_par<'a>(
+    jobs: Vec<(TextureId, TextureDesc)>,
+) -> Vec<(TextureId, TextureData)> {
+    // spawn decode on thread pool Rayon
+    let results: Vec<_> = jobs
+        .into_par_iter() // parallelo
+        .filter_map(|(id, desc)| load_and_decode(desc).map(|data| (id, data)))
+        .collect();
+
+    results
+}
+/* pub fn load_cpu_textures_par<'a>(
     textures: impl Iterator<Item = (TextureId, &'a TextureAsset)>,
 ) -> Vec<(TextureId, Result<UploadPayload, TextureError>)> {
     // collect texture MetaOnly
@@ -53,46 +64,39 @@ pub fn load_cpu_textures_par<'a>(
     let results: Vec<_> = jobs
         .into_par_iter() // parallelo
         .map(|(id, desc)| {
-            let result = load_and_decode(desc);
+            let result = load_and_decode(Some(&desc));
             (id, result)
         })
         .collect();
 
     results
-}
+} */
 
-fn load_and_decode(desc: Option<TextureDesc>) -> Result<UploadPayload, TextureError> {
-    let desc = match desc {
-        Some(d) => d,
-        None => {
-            return Ok(UploadPayload::Fallback);
-        }
-    };
-
+pub fn load_and_decode(desc: TextureDesc) -> Option<TextureData> {
     let (path, color_space) = match desc {
         TextureDesc::File { path, usage, .. } => (path, usage.color_space()),
 
         TextureDesc::White => {
-            return Ok(UploadPayload::Fallback);
+            unimplemented!()
         }
     };
 
     trace!("read texture {:?}", path.as_path());
 
-    let buffer = file::read_bytes(path)?;
+    let buffer = file::read_bytes(path).ok()?;
 
     let (pixels, width, height) = match color_space {
-        ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer)?,
-        ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer)?,
-        ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
+        ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer).ok()?,
+        ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer).ok()?,
+        ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer).ok()?,
         ColorSpace::Rg32ui => unimplemented!(),
         ColorSpace::Depth32f => unimplemented!(),
     };
 
-    Ok(UploadPayload::Ready(TextureData {
+    Some(TextureData {
         format: color_space,
         width,
         height,
         pixels,
-    }))
+    })
 }

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::uniform::Mat3Std140;
 use crate::{math::*};
 use crate::gpu::global_asset_manager::GlobalAssetId;
-use crate::renderer::ColorSpace;
+use crate::assets::texture_asset::ColorSpace;
 
 pub const IOR: f32 = 1.5;
 pub const MATERIAL_TEXTURE_COUNT: usize = 7;
@@ -205,9 +205,13 @@ impl MaterialDesc {
             self.texture_set[slot].enabled = true;
         }
     }
+
+    pub fn get_textures(&self) ->Vec<GlobalAssetId> {   
+       self.texture_set.slot.iter().filter_map(|s| s.texture).collect()
+    }
 }
 
-impl From<MaterialTextureSlot> for crate::assets::TextureUsage {
+impl From<MaterialTextureSlot> for crate::assets::texture_asset::TextureUsage {
     fn from(slot: MaterialTextureSlot) -> Self {
         use MaterialTextureSlot::*;
         match slot {

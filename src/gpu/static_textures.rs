@@ -1,4 +1,4 @@
-use crate::assets::ColorSpace;
+use crate::assets::texture_asset::ColorSpace;
 
 // Include del file generato da build.rs
 include!(concat!(env!("OUT_DIR"), "/static_textures.rs"));

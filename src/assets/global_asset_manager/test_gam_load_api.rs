@@ -19,7 +19,7 @@ use crate::assets::texture_asset::{
 use crate::gpu::texture_upload::{TextureData, UploadPayload};
 use crate::renderer::GpuTexture;
 use crate::renderer::GpuTextureBuilder;
-use crate::renderer::ResourceStats;
+use crate::assets::ResourceStats;
 
 ///////////////////////////////
 // TEXTURE
@@ -96,41 +96,41 @@ impl Asset for MeshAsset {
     }
 }
 
-fn load_and_decode(desc: Option<&TextureDesc>) -> Result<UploadPayload, TextureError> {
-    let desc = match desc {
-        Some(d) => d,
-        None => {
-            return Ok(UploadPayload::Fallback);
-        }
-    };
+// fn load_and_decode(desc: Option<&TextureDesc>) -> Result<UploadPayload, TextureError> {
+//     let desc = match desc {
+//         Some(d) => d,
+//         None => {
+//             return Ok(UploadPayload::Fallback);
+//         }
+//     };
 
-    let (path, color_space) = match desc {
-        TextureDesc::File { path, usage, .. } => (path, usage.color_space()),
+//     let (path, color_space) = match desc {
+//         TextureDesc::File { path, usage, .. } => (path, usage.color_space()),
 
-        TextureDesc::White => {
-            return Ok(UploadPayload::Fallback);
-        }
-    };
+//         TextureDesc::White => {
+//             return Ok(UploadPayload::Fallback);
+//         }
+//     };
 
-    println!("read texture {:?}", path.as_path());
+//     println!("read texture {:?}", path.as_path());
 
-    let buffer = file::read_bytes(path)?;
+//     let buffer = file::read_bytes(path)?;
 
-    let (pixels, width, height) = match color_space {
-        ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer)?,
-        ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer)?,
-        ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
-        ColorSpace::Rg32ui => unimplemented!(),
-        ColorSpace::Depth32f => unimplemented!(),
-    };
+//     let (pixels, width, height) = match color_space {
+//         ColorSpace::Rgba8 | ColorSpace::Srgba8 => decode_stb_image_rgaba8(&buffer)?,
+//         ColorSpace::Rgbaf16 => decode_stb_image_rgbaf16(&buffer)?,
+//         ColorSpace::Rgbaf32 => decode_image_rgbaf32(&buffer)?,
+//         ColorSpace::Rg32ui => unimplemented!(),
+//         ColorSpace::Depth32f => unimplemented!(),
+//     };
 
-    Ok(UploadPayload::Ready(TextureData {
-        format: color_space,
-        width,
-        height,
-        pixels,
-    }))
-}
+//     Ok(UploadPayload::Ready(TextureData {
+//         format: color_space,
+//         width,
+//         height,
+//         pixels,
+//     }))
+// }
 
 fn create_gpu_texture_from_cpu(
     payload: UploadPayload,
@@ -252,17 +252,6 @@ fn create_material_bindgroup_from_desc(
     bind_group
 }
 
-impl AssetManager {
-    pub fn drain_grouped_events(&mut self) -> HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>> {
-        let mut grouped = HashMap::<(TypeId, AssetEventKind), Vec<AssetEvent>>::new();
-
-        for e in self.events.drain(..) {
-            grouped.entry((e.id.type_id, e.kind)).or_default().push(e);
-        }
-
-        grouped
-    }
-}
 
 fn create_material_uniform_from_desc(
     device: &wgpu::Device,
@@ -364,7 +353,7 @@ fn create_gpu_mesh(
 
 #[test]
 fn same_texture_same_id() {
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let desc = TextureDesc::File {
         path: "albedo.png".into(),
@@ -387,12 +376,13 @@ fn same_texture_same_id() {
 #[test]
 fn texture_created_event() {
     use crate::test_utils;
+    use crate::assets::texture_upload::load_and_decode;
 
     const TEXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/white.png");
 
     let (device, queue) = test_utils::get_device_and_queue();
 
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let desc = TextureDesc::File {
         path: TEXTURE_PATH.into(),
@@ -418,10 +408,10 @@ fn texture_created_event() {
     {
         for ev in tex_created {
             let asset = mgr.get::<TextureAsset>(ev.id).unwrap();
-            let payload = load_and_decode(Some(&asset.desc)).unwrap();
-            let gpu_tex = create_gpu_texture_from_cpu(payload, device, queue).unwrap();
+            let data = load_and_decode(asset.desc.clone()).unwrap();
+            let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
 
-            texture_cache.insert(ev.id, gpu_tex);
+            texture_cache.insert(ev.id, texture);
         }
     }
 
@@ -441,7 +431,7 @@ fn material_created_event() {
 
     let texture_cache = GpuTextureCache::new(device, queue);
 
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     let material = MaterialAsset {
         stats: ResourceStats::default(),
@@ -487,14 +477,14 @@ fn material_created_event() {
 }
 
 #[test]
-fn maesh_created_event() {
+fn mesh_created_event() {
     use crate::renderer::BindgroupLayoutKind;
     use crate::renderer::gpu::BindgroupLayoutCache;
     use crate::test_utils;
 
     let (device, queue) = test_utils::get_device_and_queue();
 
-    let mut mgr = AssetManager::new();
+    let mut mgr = GlobalAssetManager::new();
 
     const MESH_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/cube/cube.gltf");
     let mesh_source = MeshSource::File { path: MESH_PATH.into(), submesh_index: 0 };

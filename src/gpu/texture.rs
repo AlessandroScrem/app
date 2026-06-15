@@ -1,5 +1,6 @@
 use super::static_textures::StaticTexture;
-use crate::assets::{ColorSpace, SamplerDesc, texture_upload::TextureData};
+use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
+use crate::assets::texture_upload::TextureData;
 
 use super::prelude::*;
 use std::sync::Arc;

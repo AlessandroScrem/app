@@ -2,9 +2,10 @@ use std::any::{Any, TypeId};
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
-mod asset_id;
-mod asset_storage;
+pub mod asset_id;
+pub mod asset_storage;
 mod dependency_graph;
+pub mod resource_stats;
 
 #[cfg(test)]
 mod test_gam_api;
@@ -19,6 +20,15 @@ use dependency_graph::DependencyGraph;
 pub struct GlobalAssetId {
     pub type_id: TypeId,
     pub id: AssetId,
+}
+
+impl Default for GlobalAssetId {
+    fn default() -> Self {
+        Self {
+            type_id: TypeId::of::<()>(), // sentinella
+            id: AssetId::default(),      // oppure INVALID
+        }
+    }
 }
 
 impl GlobalAssetId {
@@ -142,7 +152,8 @@ impl<T: Asset> ErasedStorage for TypedStorage<T> {
     }
 }
 
-pub struct AssetManager {
+#[derive(Default)]
+pub struct GlobalAssetManager {
     storages: HashMap<TypeId, Box<dyn ErasedStorage>>,
 
     key_index: KeyRegistry,
@@ -154,9 +165,9 @@ pub struct AssetManager {
     events: VecDeque<AssetEvent>,
 }
 
-impl AssetManager {
-    pub fn new() -> AssetManager {
-        AssetManager {
+impl GlobalAssetManager {
+    pub fn new() -> GlobalAssetManager {
+        GlobalAssetManager {
             storages: HashMap::new(),
             key_index: Default::default(),
             ref_count: HashMap::new(),
@@ -198,7 +209,7 @@ impl AssetManager {
     }
 }
 
-impl AssetManager {
+impl GlobalAssetManager {
     pub fn add<T: Asset>(&mut self, asset: T) -> GlobalAssetId {
         let key = asset.key().clone();
 
@@ -238,9 +249,30 @@ impl AssetManager {
 
         self.storage::<T>().get_by_id(id.id)
     }
+
+    pub fn update<T: Asset>(&mut self, id: GlobalAssetId, asset: T) {
+        if id.type_id != TypeId::of::<T>() {
+            return;
+        }
+
+        if self.storage::<T>().get_by_id(id.id).is_none() {
+            return;
+        }
+
+        let handle = AssetHandle::<T>::new(id.id);
+
+        if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
+            *existing = asset;
+
+            self.events.push_back(AssetEvent {
+                id,
+                kind: AssetEventKind::Updated,
+            });
+        }
+    }
 }
 
-impl AssetManager {
+impl GlobalAssetManager {
     pub fn retain(&mut self, id: GlobalAssetId) {
         *self.ref_count.entry(id).or_insert(0) += 1;
     }
@@ -260,7 +292,7 @@ impl AssetManager {
     }
 }
 
-impl AssetManager {
+impl GlobalAssetManager {
     pub fn remove(&mut self, id: GlobalAssetId) {
         self.release(id);
     }
@@ -298,9 +330,21 @@ impl AssetManager {
     }
 }
 
-impl AssetManager {
+impl GlobalAssetManager {
     pub fn drain_events(&mut self) -> Vec<AssetEvent> {
         self.events.drain(..).collect()
+    }
+}
+
+impl GlobalAssetManager {
+    pub fn drain_grouped_events(&mut self) -> HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>> {
+        let mut grouped = HashMap::<(TypeId, AssetEventKind), Vec<AssetEvent>>::new();
+
+        for e in self.events.drain(..) {
+            grouped.entry((e.id.type_id, e.kind)).or_default().push(e);
+        }
+
+        grouped
     }
 }
 
@@ -323,7 +367,7 @@ mod tests {
 
     #[test]
     fn add_dedup_and_refcount() {
-        let mut mgr = AssetManager {
+        let mut mgr = GlobalAssetManager {
             storages: HashMap::new(),
             key_index: KeyRegistry::default(),
             ref_count: HashMap::new(),
@@ -352,9 +396,37 @@ mod tests {
         assert_eq!(mgr.events.len(), 1);
     }
 
+    fn update_asset() {
+        let mut mgr = GlobalAssetManager {
+            storages: HashMap::new(),
+            key_index: KeyRegistry::default(),
+            ref_count: HashMap::new(),
+            graph: DependencyGraph::default(),
+            events: VecDeque::new(),
+        };
+
+        let mut a = Texture { name: "tex".into() };
+
+        let id = mgr.add(a.clone());
+        assert_eq!(mgr.ref_count.get(&id), Some(&0));
+
+        a.name = "updated_tex".into();
+
+        mgr.update(id, a);
+        let tex = mgr.get::<Texture>(id).unwrap();
+        assert_eq!(tex.name, "updated_tex");
+
+        // evento Updated emesso
+        assert!(
+            mgr.events
+                .iter()
+                .any(|e| { e.id == id && e.kind == AssetEventKind::Updated })
+        );
+    }
+
     #[test]
     fn remove_basic() {
-        let mut mgr = AssetManager {
+        let mut mgr = GlobalAssetManager {
             storages: HashMap::new(),
             key_index: KeyRegistry::default(),
             ref_count: HashMap::new(),
@@ -379,7 +451,7 @@ mod tests {
 
     #[test]
     fn retain_release() {
-        let mut mgr = AssetManager {
+        let mut mgr = GlobalAssetManager {
             storages: HashMap::new(),
             key_index: KeyRegistry::default(),
             ref_count: HashMap::new(),
@@ -401,7 +473,7 @@ mod tests {
 
     #[test]
     fn remove_idempotent() {
-        let mut mgr = AssetManager {
+        let mut mgr = GlobalAssetManager {
             storages: HashMap::new(),
             key_index: KeyRegistry::default(),
             ref_count: HashMap::new(),

@@ -35,7 +35,7 @@ pub struct SyncInput<'a, Id, T> {
     pub data: &'a T,
 }
 
-impl GpuCache {
+/* impl GpuCache {
     pub fn sync_caches(
         &mut self,
         gpu_context: &GpuContext,
@@ -79,4 +79,4 @@ impl GpuCache {
         self.textures.sync(&texture_input);
 
     }
-}
+} */

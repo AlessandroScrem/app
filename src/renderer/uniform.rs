@@ -185,7 +185,7 @@ pub struct MaterialUniform {
     pub sheen_color_factor: [f32; 3],
     pub sheen_roughness_factor: f32,
 
-    pub texture_transforms: [Mat3Std140; super::MATERIAL_TEXTURE_COUNT],
+    pub texture_transforms: [Mat3Std140; crate::assets::material_desc::MATERIAL_TEXTURE_COUNT],
 
     pub coord_flags: u32,
     pub is_sheen: u32,
