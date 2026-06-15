@@ -10,7 +10,7 @@ use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
 use crate::gpu::{
-    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, IblManager,
 };
 use crate::picking::PickObject;
 use crate::renderer::ImguiRender;
@@ -83,6 +83,8 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_surface.get_config().height,
         );
 
+        let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
+
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
             &gpu_manager,
@@ -107,6 +109,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_surface,
             gpu_cache,
             gpu_manager,
+            ibl_manager,
             pipeline_manager,
         });
 

@@ -1,5 +1,7 @@
 use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::app::application::AppRenderData;
+use crate::assets::ibl_asset::IblAsset;
+use crate::assets::texture_asset::TextureAsset;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 
@@ -27,19 +29,18 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-        // const HDRPATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-
-        // const HDRPATH: &str = concat!(
-        //     env!("CARGO_MANIFEST_DIR"),
-        //     "/assets/core/Cannon_Exterior.hdr"
-        // );
-        // let hdr_id = self
-        //     .asset_mgr
-        //     .textures
-        //     .from_file(HDRPATH, crate::assets::texture_asset::TextureUsage::HDR16);
-
-        // self.asset_mgr.skybox = assets::asset_manager::SkyboxHandle::new(hdr_id);
-        // self.asset_mgr.textures.load_cpu_textures();
+        //***************************** 
+        // Create Ibl 
+        const HDRPATH: &str = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/core/Cannon_Exterior.hdr"
+        );
+        let hdr_texture_asset =
+            TextureAsset::from_file(HDRPATH, crate::assets::texture_asset::TextureUsage::HDR16);
+        
+        let hdr_id = self.asset_mgr.add::<TextureAsset>(hdr_texture_asset);
+        let ibl_id = self.asset_mgr.add::<IblAsset>(IblAsset::new(hdr_id, HDRPATH));
+        //***************************** 
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();

@@ -90,8 +90,8 @@ impl GpuTextureCache {
         self.map.contains_key(&id)
     }
 
-    pub fn get(&self, id: TextureId) -> &GpuTexture {
-        &self.get_or(Some(id), CacheTextureSlot::White)
+    pub fn get(&self, id: TextureId) -> Option<&GpuTexture> {
+        self.map.get(&id)
     }
 
     pub fn get_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &GpuTexture {

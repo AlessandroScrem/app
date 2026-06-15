@@ -7,7 +7,7 @@
 use super::ibl_impl::*;
 use super::*;
 
-pub struct Ibl {
+pub struct GpuIbl {
     _cube_map: wgpu::Texture,
     _cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
@@ -18,9 +18,9 @@ pub struct Ibl {
     brdf_lut_view: wgpu::TextureView,
 }
 
-impl Ibl {
+impl GpuIbl {
     pub fn get_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let Ibl {
+        let GpuIbl {
             sampler,
             irradiance_view,
             prefilter_view,
@@ -49,7 +49,7 @@ impl Ibl {
     }
 
     pub fn get_skybox_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let Ibl {
+        let GpuIbl {
             sampler,
             _cube_map_view,
             ..
@@ -68,7 +68,7 @@ impl Ibl {
     }
 
     pub fn get_skybox_bindgroup_entry_blur<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let Ibl {
+        let GpuIbl {
             sampler,
             irradiance_view,
             ..
@@ -89,56 +89,33 @@ impl Ibl {
 
 pub struct IblManager {
     _brdf_lut: wgpu::Texture,
-    _brdf_lut_view: wgpu::TextureView,
-    ibl: Option<Ibl>,
+    brdf_lut_view: wgpu::TextureView,
+    pub ibl: Option<GpuIbl>,
 }
 
 impl IblManager {
-    pub fn new(
-        hdr: Option<&GpuTexture>,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
-        let ibl = Self::create_ibl(hdr, brdf_lut_view.clone(), device, queue);
 
         Self {
             _brdf_lut: brdf_lut,
-            _brdf_lut_view: brdf_lut_view,
-            ibl,
+            brdf_lut_view,
+            ibl: None,
         }
     }
 
-    // pub fn update_ibl(
-    //     &mut self,
-    //     hdr_id: crate::assets::TextureId,
-    //     hdr: &GpuTexture,
-    //     device: &wgpu::Device,
-    //     queue: &wgpu::Queue,
-    // ) {
-    //     if self.ibl.hdr_id == hdr_id {
-    //         return;
-    //     }
-
-    //     self.ibl = Self::create_ibl(hdr_id, hdr, self._brdf_lut_view.clone(), device, queue);
-    // }
-
-    // pub fn get_ibl(&self) -> &Ibl {
-    //     &self.ibl
-    // }
-
-    // pub fn get_hdr_id(&self) -> crate::assets::TextureId {
-    //     self.ibl.hdr_id
-    // }
+    pub fn create(&mut self, hdr: Option<&GpuTexture>, device: &wgpu::Device, queue: &wgpu::Queue) {
+        self.ibl = Self::create_ibl(hdr, self.brdf_lut_view.clone(), device, queue);
+    }
 
     fn create_ibl(
         hdr: Option<&GpuTexture>,
         brdf_lut_view: wgpu::TextureView,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> Option<Ibl> {
+    ) -> Option<GpuIbl> {
         let Some(hdr) = hdr else { return None };
 
         let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
@@ -168,7 +145,7 @@ impl IblManager {
             ..Default::default()
         });
 
-        Some(Ibl {
+        Some(GpuIbl {
             _cube_map: cube_map,
             _cube_map_view: cube_map_view,
             _irradiance_map,

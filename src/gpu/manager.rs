@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::uniform::{CameraUniform, GlobalUniform};
+use crate::renderer::ibl::ibl_manager::GpuIbl;
 
 pub struct GpuManager {
     layout_cache: BindgroupLayoutCache,
@@ -142,23 +143,19 @@ impl GpuManager {
             &self.bindgroup_cache.get(BindgroupKind::Skybox)
         }
     }
-/* 
+
+
     pub fn sync_ibl(
         &mut self,
-        gpu_cache: &mut GpuCache,
-        gpu_context: &GpuContext,
-        asset_mgr: &AssetManager,
+        ibl: &Option<GpuIbl>,
+        device: &wgpu::Device,
     ) {
-        if asset_mgr.skybox.get_id() != self.ibl_cache.get_hdr_id() {
-            let hdr_id = asset_mgr.skybox.get_id();
-            let hdr_texture = gpu_cache.textures.get_or_fallback_white(hdr_id);
+        if let Some(ibl) = ibl {
+            println!("update Ibl");
 
-            self.ibl_cache
-                .update_ibl(hdr_id, hdr_texture, &gpu_context.device, &gpu_context.queue);
-
-            let entries = { self.ibl_cache.get_ibl().get_bindgroup_entry() };
+            let entries = ibl.get_bindgroup_entry();
             let bg = create_bindgroup(
-                &gpu_context.device,
+                device,
                 BindgroupLayoutKind::PbrMaps,
                 &self.layout_cache,
                 &self.framebuffer_cache,
@@ -166,9 +163,9 @@ impl GpuManager {
             );
             self.update_bindgroup(BindgroupKind::PbrMap, bg);
 
-            let entries = self.ibl_cache.get_ibl().get_skybox_bindgroup_entry();
+            let entries = ibl.get_skybox_bindgroup_entry();
             let bg = create_bindgroup(
-                &gpu_context.device,
+                device,
                 BindgroupLayoutKind::Skybox,
                 &self.layout_cache,
                 &self.framebuffer_cache,
@@ -176,9 +173,9 @@ impl GpuManager {
             );
             self.update_bindgroup(BindgroupKind::Skybox, bg);
 
-            let entries = self.ibl_cache.get_ibl().get_skybox_bindgroup_entry_blur();
+            let entries = ibl.get_skybox_bindgroup_entry_blur();
             let bg = create_bindgroup(
-                &gpu_context.device,
+                device,
                 BindgroupLayoutKind::Skybox,
                 &self.layout_cache,
                 &self.framebuffer_cache,
@@ -186,7 +183,7 @@ impl GpuManager {
             );
             self.update_bindgroup(BindgroupKind::SkyboxBlur, bg);
         }
-    } */
+    } 
 
     //mutables
     fn update_bindgroup(&mut self, kind: BindgroupKind, bg: wgpu::BindGroup) {

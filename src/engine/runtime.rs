@@ -4,8 +4,9 @@ use super::RuntimeEvent;
 use crate::UiLayer;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
 use crate::gpu::caches::internalcounter::HasGpuStats;
+use crate::gpu::ibl_asset::IblAsset;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface};
+use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, IblManager};
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::prelude::*;
@@ -33,6 +34,7 @@ pub struct RunningApp {
     pub gpu_surface: GpuSurface,
     pub gpu_cache: GpuCache,
     pub gpu_manager: GpuManager,
+    pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
 
     pub uilayer: UiLayer,
@@ -80,13 +82,6 @@ impl RunningApp {
     }
 
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut GlobalAssetManager) {
-        // asset_mgr.textures.load_cpu_textures();
-
-        // self.gpu_cache.textures.upload_textures(
-        //     &mut asset_mgr.textures,
-        //     &self.gpu_context.device,
-        //     &self.gpu_context.queue,
-        // );
         use crate::assets::TextureId;
         use crate::assets::global_asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -99,52 +94,75 @@ impl RunningApp {
 
         use std::any::TypeId;
 
-        let device = &self.gpu_context.device;
-        let queue = &self.gpu_context.queue;
+        let Self {
+            gpu_context,
+            ibl_manager,
+            gpu_manager,
+            ..
+        } = self;
+
+        let device = &gpu_context.device;
+        let queue = &gpu_context.queue;
+
         let texture_cache = &mut self.gpu_cache.textures;
         let material_cache = &mut self.gpu_cache.material;
-        let material_layout = self
-            .gpu_manager
-            .get_bindgroup_layout(gpu::BindgroupLayoutKind::Material);
         let mesh_cache = &mut self.gpu_cache.mesh;
 
         let grouped = asset_mgr.drain_grouped_events();
 
         // Texture Create events
         if let Some(tex_created) =
-        grouped.get(&(TypeId::of::<TextureAsset>(), AssetEventKind::Created))
+            grouped.get(&(TypeId::of::<TextureAsset>(), AssetEventKind::Created))
         {
-                println!("loading textures len {}", tex_created.len());
-                let jobs: Vec<(TextureId, TextureDesc)> = tex_created
+            println!("loading textures len {}", tex_created.len());
+            let jobs: Vec<(TextureId, TextureDesc)> = tex_created
                 .iter()
                 .filter_map(|ev| {
                     asset_mgr
-                    .get::<TextureAsset>(ev.id)
-                    .map(|asset| (ev.id, asset.desc.clone()))
+                        .get::<TextureAsset>(ev.id)
+                        .map(|asset| (ev.id, asset.desc.clone()))
                 })
                 .collect();
-            
+
             let cpu_textures = load_cpu_textures_par(jobs);
-            
+
             for (id, data) in cpu_textures.into_iter() {
                 let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
                 texture_cache.insert(id, texture);
             }
         }
-        
+
+        // Ibl Create events
+        if let Some(ibl_created) = grouped.get(&(TypeId::of::<IblAsset>(), AssetEventKind::Created))
+        {
+            println!("loading Ibl len {}", ibl_created.len());
+
+            ibl_created
+                .iter()
+                .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|asset| (ev.id, asset)))
+                .for_each(|(_id, asset)| {
+                    let hdr = texture_cache.get(asset.hrd_id);
+                    ibl_manager.create(hdr, device, queue);
+                });
+            
+            gpu_manager.sync_ibl(&ibl_manager.ibl, device);
+        }
+
         // Material Create events
         if let Some(mat_created) =
-        grouped.get(&(TypeId::of::<MaterialAsset>(), AssetEventKind::Created))
+            grouped.get(&(TypeId::of::<MaterialAsset>(), AssetEventKind::Created))
         {
             println!("loading material len {}", mat_created.len());
             mat_created
-            .iter()
+                .iter()
                 .filter_map(|ev| {
                     asset_mgr
                         .get::<MaterialAsset>(ev.id)
                         .map(|asset| (ev.id, asset))
                 })
                 .for_each(|(id, asset)| {
+                    let material_layout =
+                        gpu_manager.get_bindgroup_layout(gpu::BindgroupLayoutKind::Material);
                     let gpu_material =
                         GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
                     material_cache.insert(id, gpu_material);
@@ -153,7 +171,7 @@ impl RunningApp {
 
         // Mesh Create events
         if let Some(mesh_created) =
-        grouped.get(&(TypeId::of::<MeshAsset>(), AssetEventKind::Created))
+            grouped.get(&(TypeId::of::<MeshAsset>(), AssetEventKind::Created))
         {
             println!("loading material len {}", mesh_created.len());
             mesh_created

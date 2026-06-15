@@ -119,3 +119,18 @@ pub fn create_texture(path: std::path::PathBuf, usage: TextureUsage) -> TextureA
         state: TextureState::MetaOnly,
     }
 }
+
+impl TextureAsset {
+    pub fn from_file(path: impl Into<PathBuf>, usage: TextureUsage) -> Self {
+        let desc =  TextureDesc::File {
+            path: path.into(),
+            usage,
+            mipmaps: false,
+            sampler: SamplerDesc::default(),
+        };
+        Self {
+            desc,
+            state: TextureState::MetaOnly,
+        }
+    }
+}

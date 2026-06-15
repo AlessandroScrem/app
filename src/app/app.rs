@@ -9,7 +9,6 @@ use legion::Resources;
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
-    // pub asset_mgr: AssetManager,
     pub asset_mgr: GlobalAssetManager,
     pub resources: Resources,
     pub globals: Globals,
