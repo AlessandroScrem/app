@@ -29,6 +29,8 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
+        
+
         //***************************** 
         // Create Ibl 
         const HDRPATH: &str = concat!(
@@ -40,6 +42,7 @@ impl Application for App {
         
         let hdr_id = self.asset_mgr.add::<TextureAsset>(hdr_texture_asset);
         let ibl_id = self.asset_mgr.add::<IblAsset>(IblAsset::new(hdr_id, HDRPATH));
+        self.ibl_id = Some(ibl_id);
         //***************************** 
 
         crate::entities::light::create(&mut self.current_scene.world, &self.resources);

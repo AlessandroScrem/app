@@ -55,7 +55,7 @@ impl Layer for SettimgsUi {
         let hovered_entity = ctx.snapshot.hovered;
         let selected_entity = &ctx.snapshot.selected;
         let adapter_name = &ctx.adapter_string;
-        let hdr_texture_id = ctx.snapshot.hdr_texture_id;
+        let hdr_texture_id = ctx.snapshot.hdr_id;
         let timestep = &ctx.timestep;
         let texture_resolver = &ctx.snapshot.texture_resolver;
         let gpu_counters = &ctx.snapshot.gpu_counters;
@@ -116,11 +116,13 @@ impl Layer for SettimgsUi {
                     }
 
                     ui.separator();
-                    if let Some(command) = draw_ui_skybox_selector(
-                        &ui,
-                        texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
-                    ) {
-                        ctx.write.push(command);
+                    if let Some(hdr_texture_id) = hdr_texture_id {
+                        if let Some(command) = draw_ui_skybox_selector(
+                            &ui,
+                            texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
+                        ) {
+                            ctx.write.push(command);
+                        }
                     }
                 }
 

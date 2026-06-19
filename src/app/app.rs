@@ -1,3 +1,4 @@
+use crate::gpu::global_asset_manager::GlobalAssetId;
 use crate::gpu::global_asset_manager::GlobalAssetManager;
 use crate::prelude::*;
 
@@ -17,6 +18,7 @@ pub struct App {
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
+    pub ibl_id: Option<GlobalAssetId>,
 }
 
 impl App {

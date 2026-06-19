@@ -49,6 +49,8 @@ pub(crate) mod prelude {
 
 pub(crate) use prelude::*;
 
+use crate::gpu::global_asset_manager::GlobalAssetId;
+
 #[allow(unused_imports)]
 pub(crate) mod math {
     use cgmath::*;

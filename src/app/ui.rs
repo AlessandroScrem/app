@@ -1,5 +1,6 @@
-use crate::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
 use crate::assets::global_asset_manager::resource_stats::ResourceStats;
+use crate::gpu::ibl_asset::IblAsset;
+use crate::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
 
 use super::app::App;
 
@@ -15,6 +16,12 @@ impl App {
             frame: ctx.frame_stats,
         };
 
+        let hdr_id = self.ibl_id.and_then(|ibl_id| {
+            self.asset_mgr
+                .get::<IblAsset>(ibl_id)
+                .map(|asset| asset.hrd_id)
+        });
+
         let snapshot = UiSnapshot::from_world(
             &self.current_scene.world,
             self.selected,
@@ -25,6 +32,7 @@ impl App {
             ctx.gpu_counters,
             None, // no debug texture_id
             render_stats,
+            hdr_id,
         );
 
         // Main operation: update_ui

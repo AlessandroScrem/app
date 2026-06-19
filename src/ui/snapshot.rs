@@ -43,10 +43,10 @@ pub struct UiSnapshot<'a> {
     pub comp_state: UiComponentState,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    pub hdr_texture_id: assets::TextureId,
     pub debug_texture_id: Option<assets::TextureId>,
     pub render_stats: RenderStats,
     pub gpu_counters: GpuInternalCounters,
+    pub hdr_id: Option<GlobalAssetId>,
 }
 
 /// UiComponentView is a per-frame snapshot.
@@ -112,6 +112,7 @@ impl<'a> UiSnapshot<'a> {
         gpu_counters: GpuInternalCounters,
         debug_texture_id: Option<assets::TextureId>,
         render_stats: RenderStats,
+        hdr_id: Option<assets::TextureId>,
     ) -> Self {
         let root_snapshot = RootSnapshot {
             root_nodes: get_hierarchy_roots(world),
@@ -120,7 +121,7 @@ impl<'a> UiSnapshot<'a> {
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
         // let hdr_texture_id = asset_mgr.skybox.get_id();
-        let hdr_texture_id = GlobalAssetId::default();
+        // let hdr_texture_id = GlobalAssetId::default();
         
 
         Self {
@@ -131,10 +132,10 @@ impl<'a> UiSnapshot<'a> {
             comp_state,
             selected,
             hovered: None,
-            hdr_texture_id,
             debug_texture_id,
             gpu_counters,
             render_stats,
+            hdr_id,
         }
     }
 }

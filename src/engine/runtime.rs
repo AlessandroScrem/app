@@ -133,7 +133,9 @@ impl RunningApp {
         }
 
         // Ibl Create events
-        if let Some(ibl_created) = grouped.get(&(TypeId::of::<IblAsset>(), AssetEventKind::Created))
+        if let Some(ibl_created) = grouped
+            .get(&(TypeId::of::<IblAsset>(), AssetEventKind::Created))
+            .or(grouped.get(&(TypeId::of::<IblAsset>(), AssetEventKind::Updated)))
         {
             println!("loading Ibl len {}", ibl_created.len());
 
@@ -144,7 +146,7 @@ impl RunningApp {
                     let hdr = texture_cache.get(asset.hrd_id);
                     ibl_manager.create(hdr, device, queue);
                 });
-            
+
             gpu_manager.sync_ibl(&ibl_manager.ibl, device);
         }
 

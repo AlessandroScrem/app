@@ -1,11 +1,12 @@
 use crate::app::domain::SceneEvent;
 use crate::app::*;
+use crate::assets::ResourceStats;
+use crate::gpu::ibl_asset::IblAsset;
 use crate::gpu::material_asset::MaterialAsset;
 use crate::gpu::texture_asset::TextureAsset;
 use crate::prelude::*;
 use legion::*;
 use std::collections::VecDeque;
-use crate::assets::ResourceStats;
 
 impl App {
     pub fn update_domain_event(&mut self) {
@@ -142,7 +143,7 @@ pub fn handle_asset_event(
         AssetEvent::UpdateMaterial(material_id, desc) => {
             let asset = MaterialAsset {
                 desc,
-                stats: ResourceStats::default()
+                stats: ResourceStats::default(),
             };
             app.asset_mgr.update::<MaterialAsset>(material_id, asset);
         }
@@ -155,8 +156,14 @@ pub fn handle_asset_event(
         }
         AssetEvent::ChangeSkybox(path) => {
             use crate::assets::texture_asset::TextureUsage;
-            let texture_asset = assets::texture_asset::create_texture(path, TextureUsage::HDR16);
+            let texture_asset =
+                assets::texture_asset::create_texture(path.clone(), TextureUsage::HDR16);
             let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
+
+            if let Some(id) = app.ibl_id {
+                let asset = IblAsset::new(hdr_id, path);
+                app.asset_mgr.update::<IblAsset>(id, asset)
+            }
 
             // app.asset_mgr.skybox.set_id(hdr_id);
         }
