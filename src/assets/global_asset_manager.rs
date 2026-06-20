@@ -336,15 +336,54 @@ impl GlobalAssetManager {
     }
 }
 
-impl GlobalAssetManager {
-    pub fn drain_grouped_events(&mut self) -> HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>> {
-        let mut grouped = HashMap::<(TypeId, AssetEventKind), Vec<AssetEvent>>::new();
+#[derive(Default)]
+pub struct GroupedEvents {
+    inner: HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>>,
+}
 
-        for e in self.events.drain(..) {
-            grouped.entry((e.id.type_id, e.kind)).or_default().push(e);
+impl GroupedEvents {
+    fn type_groups(
+        &self,
+        type_id: TypeId,
+    ) -> impl Iterator<Item = (AssetEventKind, &Vec<AssetEvent>)> {
+        self.inner
+            .iter()
+            .filter_map(move |((tid, kind), events)| (*tid == type_id).then_some((*kind, events)))
+    }
+}
+
+impl GroupedEvents {
+    pub fn process_type<T: 'static, F>(&self, mut f: F)
+    where
+        F: FnMut(AssetEventKind, &Vec<AssetEvent>),
+    {
+        const ORDER: [AssetEventKind; 3] = [
+            AssetEventKind::Created,
+            AssetEventKind::Updated,
+            AssetEventKind::Removed,
+        ];
+        let type_id = TypeId::of::<T>();
+
+        for kind in ORDER {
+            if let Some(events) = self.inner.get(&(type_id, kind)) {
+                f(kind, events);
+            }
+        }
+    }
+}
+
+impl GlobalAssetManager {
+    pub fn drain_grouped_events(&mut self) -> GroupedEvents {
+        let mut grouped: HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>> = HashMap::new();
+
+        for event in self.events.drain(..) {
+            grouped
+                .entry((event.id.type_id, event.kind))
+                .or_default()
+                .push(event);
         }
 
-        grouped
+        GroupedEvents { inner: grouped }
     }
 }
 
