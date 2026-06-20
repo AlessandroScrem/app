@@ -22,9 +22,11 @@ impl DependencyGraph {
         self.forward.get(&owner).cloned().unwrap_or_default()
     }
 
+    /*
     pub fn users_of(&self, dependency: GlobalAssetId) -> Vec<GlobalAssetId> {
         self.reverse.get(&dependency).cloned().unwrap_or_default()
     }
+    */
 
     pub fn remove_asset(&mut self, id: GlobalAssetId) {
         if let Some(deps) = self.forward.remove(&id) {

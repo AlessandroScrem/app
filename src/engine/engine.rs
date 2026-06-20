@@ -57,18 +57,9 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &mut imgui_context,
             gpu_surface.get_config().format,
         );
-        //
-
-        // let asset_mgr = self.app.asset_mgr_mut();
 
         // gpu resources
         let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
-        
-        // texture_cache.upload_textures(
-        //     &mut asset_mgr.textures,
-        //     &gpu_context.device,
-        //     &gpu_context.queue,
-        // );
 
         let gpu_cache = GpuCache {
             textures: texture_cache,
@@ -103,7 +94,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             pickobject,
             imgui_render,
             uilayer,
-            timer: Timer::new(),
             events: Vec::new(),
             gpu_context,
             gpu_surface,

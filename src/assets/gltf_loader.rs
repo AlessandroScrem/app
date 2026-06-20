@@ -121,7 +121,6 @@ fn load_gltf_internal<P: AsRef<Path>>(
         let asset = MeshAsset {
             desc,
             mesh_source,
-            stats: crate::assets::ResourceStats::default(),
         };
 
         let mesh_id = asset_mgr.add(asset);
@@ -472,7 +471,7 @@ fn create_texture(
 
     let texture = TextureAsset {
         desc: desc,
-        state: TextureState::MetaOnly,
+        // state: TextureState::MetaOnly,
     };
     Some(asset_mgr.add(texture))
 }
@@ -484,7 +483,6 @@ fn create_material<P: AsRef<Path>>(
 ) -> GlobalAssetId {
     use material_desc::MaterialTextureSlot::*;
     use material_desc::*;
-    // let texture_asset = &mut asset_mgr.textures;
 
     let path_name = path
         .as_ref()
@@ -662,62 +660,4 @@ mod tests {
         assert!(e.is_ok());
         assert_eq!(e.ok().iter().len(), 1);
     }
-
-    // #[test]
-    // fn should_create_material() {
-    //     use material_desc::MaterialTextureSlot::*;
-
-    //     let mut asset_mgr = GlobalAssetManager::default();
-
-    //     let path = "./assets/cube/cube.gltf";
-    //     let base_path = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
-    //     let color_path = base_path.join("Cube_BaseColor.png");
-    //     let normal_path = base_path.join("Cube_normal.png");
-    //     let mut mat_desc = material_desc::MaterialDesc::default();
-
-    //     let base_id = create_texture(
-    //         Some(color_path.into()),
-    //         TextureUsage::Albedo,
-    //         &mut asset_mgr,
-    //     );
-    //     let normal_id = create_texture(
-    //         Some(normal_path.into()),
-    //         TextureUsage::Normal,
-    //         &mut asset_mgr,
-    //     );
-
-    //     mat_desc.set_name("Cube");
-    //     mat_desc.set_texture(base_id, BaseColor, 0, None);
-    //     mat_desc.set_texture(normal_id, Normal, 0, None);
-    //     mat_desc.metallic_factor = 0.0;
-    //     mat_desc.roughness_factor = 1.0;
-
-    //     let e = load_gltf(path, &mut asset_mgr).unwrap();
-
-    //     assert_eq!(e._materials.len(), 1);
-    // }
-
-    //     #[test]
-    //     fn should_create_entity() {
-    //         let mut world = legion::World::default();
-    //         let mut asset_mgr = GlobalAssetManager::default();
-    //         let path = "./assets/cube/cube.gltf";
-    //         let loaded = load_gltf(path, &mut asset_mgr).unwrap();
-
-    //         assert!(world.is_empty());
-
-    //         entities::spawn_scene(&mut world, &loaded, &asset_mgr);
-
-    //         assert_eq!(world.len(), 1);
-
-    //         use legion::query::IntoQuery;
-
-    //         let mut query = <(&TagComponent, &MeshComponent)>::query();
-    //         let (tag, mesh) = query.iter(&world).next().unwrap();
-
-    //         let mesh = asset_mgr.meshes.get(mesh.handle).unwrap();
-
-    //         assert_eq!(tag.name, "Cube");
-    //         assert_eq!(mesh.indices.len(), 36);
-    //     }
 }

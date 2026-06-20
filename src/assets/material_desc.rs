@@ -1,11 +1,8 @@
 // use super::*;
-use std::ops::{Index, IndexMut};
-use std::path::PathBuf;
-
-use crate::uniform::Mat3Std140;
-use crate::{math::*};
 use crate::gpu::global_asset_manager::GlobalAssetId;
-use crate::assets::texture_asset::ColorSpace;
+use crate::math::*;
+use crate::uniform::Mat3Std140;
+use std::ops::{Index, IndexMut};
 
 pub const IOR: f32 = 1.5;
 pub const MATERIAL_TEXTURE_COUNT: usize = 7;
@@ -206,8 +203,12 @@ impl MaterialDesc {
         }
     }
 
-    pub fn get_textures(&self) ->Vec<GlobalAssetId> {   
-       self.texture_set.slot.iter().filter_map(|s| s.texture).collect()
+    pub fn get_textures(&self) -> Vec<GlobalAssetId> {
+        self.texture_set
+            .slot
+            .iter()
+            .filter_map(|s| s.texture)
+            .collect()
     }
 }
 
@@ -410,7 +411,9 @@ impl MaterialTextureSlot {
     }
 }
 
+/*
 impl MaterialTextureSlot {
+    use crate::assets::texture_asset::ColorSpace;
     pub fn color_space(self) -> ColorSpace {
         match self {
             Self::BaseColor | Self::Transmission | Self::Emissive => ColorSpace::Srgba8,
@@ -420,6 +423,7 @@ impl MaterialTextureSlot {
         }
     }
 }
+ */
 
 impl MaterialTextureSlot {
     pub const ALL: [MaterialTextureSlot; MATERIAL_TEXTURE_COUNT] = [

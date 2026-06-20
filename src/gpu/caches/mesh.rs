@@ -1,5 +1,3 @@
-use super::*;
-
 use std::collections::HashMap;
 
 use crate::{
@@ -31,6 +29,7 @@ impl GpuMeshCache {
         self.map.get(id)
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.map.len()
     }

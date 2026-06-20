@@ -44,12 +44,10 @@ pub(crate) mod prelude {
     pub(crate) use crate::ui::*;
     pub use error::*;
     pub(crate) use log::{debug, error, info, trace, warn};
-    pub use timer::Timer;
 }
 
 pub(crate) use prelude::*;
 
-use crate::gpu::global_asset_manager::GlobalAssetId;
 
 #[allow(unused_imports)]
 pub(crate) mod math {

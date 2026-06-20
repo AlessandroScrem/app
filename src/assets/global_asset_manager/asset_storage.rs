@@ -84,16 +84,18 @@ where
     }
 
     // Get immutable
+    /*
     pub fn get(&self, handle: AssetHandle<T>) -> Option<&T> {
-        let slot = self.slots.get(handle.id().index as usize)?;
+            let slot = self.slots.get(handle.id().index as usize)?;
 
-        // Invalid stale handle
-        if slot.generation != handle.id().generation {
-            return None;
+            // Invalid stale handle
+            if slot.generation != handle.id().generation {
+                return None;
+            }
+
+            slot.value.as_ref()
         }
-
-        slot.value.as_ref()
-    }
+    */
 
     // Get mutable
     pub fn get_mut(&mut self, handle: AssetHandle<T>) -> Option<&mut T> {
@@ -109,8 +111,9 @@ where
         slot.value.as_mut()
     }
 
-    // Remove
-    pub fn remove(&mut self, handle: AssetHandle<T>) -> Option<T> {
+    // // Remove
+    /*
+    fn remove(&mut self, handle: AssetHandle<T>) -> Option<T> {
         let slot = self.slots.get_mut(handle.id().index as usize)?;
 
         // Stale handle
@@ -133,18 +136,19 @@ where
 
         Some(value)
     }
+    */
 
-    pub fn contains(&self, id: AssetId) -> bool {
+    /*     fn contains(&self, id: AssetId) -> bool {
         let Some(slot) = self.slots.get(id.index as usize) else {
             return false;
         };
 
         slot.generation == id.generation && slot.value.is_some()
-    }
+    } */
 }
 
 impl<T: Asset> AssetStorage<T> {
-    pub fn remove_by_id(&mut self, id: AssetId) ->usize {
+    pub fn remove_by_id(&mut self, id: AssetId) -> usize {
         let Some(slot) = self.slots.get_mut(id.index as usize) else {
             return 0;
         };
@@ -167,7 +171,6 @@ impl<T: Asset> AssetStorage<T> {
 
         size
     }
-
 }
 
 impl<T: Asset> AssetStorage<T> {

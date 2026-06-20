@@ -1,6 +1,5 @@
 use crate::app::domain::SceneEvent;
 use crate::app::*;
-use crate::assets::ResourceStats;
 use crate::gpu::ibl_asset::IblAsset;
 use crate::gpu::material_asset::MaterialAsset;
 use crate::gpu::texture_asset::TextureAsset;

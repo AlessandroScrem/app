@@ -2,8 +2,6 @@ use crate::assets::global_asset_manager::asset_storage::Asset;
 use crate::assets::global_asset_manager::GlobalAssetId;
 
 use std::path::PathBuf;
-use crate::assets::ResourceStats;
-
 
 use crate::renderer::MeshVertexData;
 use crate::BoundingBox;
@@ -44,7 +42,6 @@ pub enum MeshSource {
 pub struct MeshAsset {
     pub desc: MeshDesc,
     pub mesh_source: MeshSource,
-    pub stats: ResourceStats,
 }
 
 impl Asset for MeshAsset {

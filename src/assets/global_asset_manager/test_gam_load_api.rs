@@ -1,29 +1,14 @@
-#![cfg_attr(test, allow(warnings))]
 
-use std::path::PathBuf;
 
 use super::*;
-use log::trace;
-use wgpu::BindGroupLayout;
-use wgpu::util::DeviceExt;
 
-use crate::TextureError;
-use crate::assets::ResourceStats;
-use crate::assets::file;
-use crate::assets::image_decoder::{
-    decode_image_rgbaf32, decode_stb_image_rgaba8, decode_stb_image_rgbaf16,
-};
 use crate::assets::material_asset::MaterialAsset;
 use crate::assets::material_desc::MaterialDesc;
 use crate::assets::mesh_asset::MeshAsset;
 use crate::assets::texture_asset::TextureAsset;
-use crate::assets::texture_asset::{
-    ColorSpace, SamplerDesc, TextureDesc, TextureState, TextureUsage,
-};
-use crate::gpu::texture_upload::{TextureData, UploadPayload};
-use crate::renderer::GpuTexture;
+use crate::assets::texture_asset::{SamplerDesc, TextureDesc, TextureUsage};
 use crate::renderer::GpuTextureBuilder;
-use crate::renderer::{CacheTextureSlot, GpuMaterial, GpuMesh, GpuTextureCache};
+use crate::renderer::{GpuMaterial, GpuMesh, GpuTextureCache};
 
 #[test]
 fn same_texture_same_id() {
@@ -36,10 +21,7 @@ fn same_texture_same_id() {
         mipmaps: true,
     };
 
-    let texture = TextureAsset {
-        desc: desc,
-        state: TextureState::MetaOnly,
-    };
+    let texture = TextureAsset { desc: desc };
 
     let a = mgr.add(texture.clone());
     let b = mgr.add(texture);
@@ -66,10 +48,7 @@ fn texture_created_event() {
         mipmaps: true,
     };
 
-    let texture = TextureAsset {
-        desc: desc,
-        state: TextureState::MetaOnly,
-    };
+    let texture = TextureAsset { desc: desc };
 
     let id = mgr.add(texture);
 
@@ -90,7 +69,7 @@ fn texture_created_event() {
     }
 
     assert!(mgr.events.is_empty());
-    assert!(texture_cache.contain(id))
+    assert!(texture_cache.contains_key(&id))
 }
 
 #[test]
@@ -120,7 +99,7 @@ fn material_created_event() {
 
     let mut gpu_materials: HashMap<GlobalAssetId, GpuMaterial> = Default::default();
 
-    grouped.process_type::<MaterialAsset, _>(|kind, events| {
+    grouped.process_type::<MaterialAsset, _>(|_kind, events| {
         for ev in events {
             let asset = mgr.get::<MaterialAsset>(ev.id).unwrap();
             let gpu_material =
@@ -138,12 +117,10 @@ fn material_created_event() {
 
 #[test]
 fn mesh_created_event() {
-    use crate::renderer::BindgroupLayoutKind;
-    use crate::renderer::gpu::BindgroupLayoutCache;
-    use crate::test_utils;
     use crate::assets::mesh_asset::{MeshDesc, MeshSource};
+    use crate::test_utils;
 
-    let (device, queue) = test_utils::get_device_and_queue();
+    let (device, _queue) = test_utils::get_device_and_queue();
 
     let mut mgr = GlobalAssetManager::new();
 
@@ -154,7 +131,6 @@ fn mesh_created_event() {
     };
 
     let mesh = MeshAsset {
-        stats: ResourceStats::default(),
         mesh_source,
         desc: MeshDesc::default(),
     };
@@ -167,7 +143,7 @@ fn mesh_created_event() {
 
     let mut gpu_meshes: HashMap<GlobalAssetId, GpuMesh> = Default::default();
 
-    grouped.process_type::<MeshAsset, _>(|kind, events| {
+    grouped.process_type::<MeshAsset, _>(|_kind, events| {
         for ev in events {
             let asset = mgr.get::<MeshAsset>(ev.id).unwrap();
             let gpu_mesh = GpuMesh::new(device, &asset.desc.vertices, &asset.desc.indices);

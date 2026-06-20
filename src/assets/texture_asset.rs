@@ -43,8 +43,7 @@ pub enum TextureDesc {
         usage: TextureUsage,
         sampler: SamplerDesc,
         mipmaps: bool,
-    },
-    White,
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
@@ -68,33 +67,11 @@ impl ColorSpace {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct TextureInfo {
-    pub width: u32,
-    pub height: u32,
-    pub format: ColorSpace,
-    pub byte_size: usize,
-}
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum TextureState {
-    MetaOnly,              // solo path noto
-    CpuReady(TextureInfo), // cpu texture caricata
-    Fallback,              // errore → fallback
-}
-
-impl TextureState {
-    pub fn estimated_size(&self) -> usize {
-        match self {
-            TextureState::CpuReady(i) => i.byte_size,
-            _ => 0,
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct TextureAsset {
-    pub state: TextureState,
+    // pub state: TextureState,
     pub desc: TextureDesc,
 }
 
@@ -116,7 +93,6 @@ pub fn create_texture(path: std::path::PathBuf, usage: TextureUsage) -> TextureA
 
     TextureAsset {
         desc: desc,
-        state: TextureState::MetaOnly,
     }
 }
 
@@ -130,7 +106,6 @@ impl TextureAsset {
         };
         Self {
             desc,
-            state: TextureState::MetaOnly,
         }
     }
 }

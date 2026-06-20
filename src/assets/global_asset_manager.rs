@@ -363,7 +363,7 @@ pub struct GroupedEvents {
 }
 
 impl GroupedEvents {
-    fn type_groups(
+    pub fn type_groups(
         &self,
         type_id: TypeId,
     ) -> impl Iterator<Item = (AssetEventKind, &Vec<AssetEvent>)> {
@@ -450,27 +450,6 @@ mod tests {
         assert_eq!(mgr.events.len(), 1);
     }
 
-    fn update_asset() {
-        let mut mgr = GlobalAssetManager::new();
-
-        let mut a = Texture { name: "tex".into() };
-
-        let id = mgr.add(a.clone());
-        assert_eq!(mgr.ref_count.get(&id), Some(&0));
-
-        a.name = "updated_tex".into();
-
-        mgr.update(id, a);
-        let tex = mgr.get::<Texture>(id).unwrap();
-        assert_eq!(tex.name, "updated_tex");
-
-        // evento Updated emesso
-        assert!(
-            mgr.events
-                .iter()
-                .any(|e| { e.id == id && e.kind == AssetEventKind::Updated })
-        );
-    }
 
     #[test]
     fn remove_basic() {

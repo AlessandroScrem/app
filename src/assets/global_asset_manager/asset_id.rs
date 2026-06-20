@@ -1,5 +1,4 @@
 use std::{
-    any::TypeId,
     hash::{Hash, Hasher},
     marker::PhantomData,
 };

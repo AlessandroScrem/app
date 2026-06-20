@@ -18,4 +18,7 @@ impl Asset for MaterialAsset {
     fn dependencies(&self) -> Vec<GlobalAssetId> {
         self.desc.get_textures()
     }
+    fn estimated_size(&self) -> usize {
+        MaterialDesc::estimated_size()
+    }
 }

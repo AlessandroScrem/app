@@ -13,6 +13,7 @@ use wgpu::util::DeviceExt;
 #[derive(Default)]
 pub struct GpuMaterial {
     pub bind_group: Option<wgpu::BindGroup>,
+    #[allow(unused)]
     pub uniform_buffer: Option<wgpu::Buffer>,
 }
 impl GpuMaterial {
@@ -20,7 +21,7 @@ impl GpuMaterial {
     fn estimated_size() -> usize {
         Self::MATERIAL_SIZE
     }
-
+    
     pub fn new(
         texture_cache: &GpuTextureCache,
         material_desc: &MaterialDesc,
@@ -67,6 +68,7 @@ impl GpuMaterialCache {
         self.map.get(id)
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.map.len()
     }
