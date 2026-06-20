@@ -4,10 +4,13 @@ use super::*;
 use crate::assets::MaterialId;
 use crate::assets::global_asset_manager::GlobalAssetId;
 use crate::assets::global_asset_manager::resource_stats::ResourceStats;
+use crate::assets::mesh_asset::MeshAsset;
+use crate::assets::material_asset::MaterialAsset;
 use crate::gpu::caches::internalcounter::GpuInternalCounters;
 use crate::prelude::*;
 use crate::ui::traits::UiTextureResolver;
 use legion::*;
+
 
 pub struct HierarchyNode {
     pub name: String,
@@ -57,7 +60,7 @@ pub struct UiComponentState {
     pub mesh: Option<MeshComponent>,
     pub transform: Option<TransformComponent>,
     pub bounding_box: Option<BoundingBoxComponent>,
-    pub materials: Option<HashMap<MaterialId, MaterialDesc>>,
+    pub materials: Option<HashMap<MaterialId, MaterialAsset>>,
     pub light: Option<LightComponent>,
 }
 
@@ -79,17 +82,16 @@ impl UiComponentState {
 
         if let Ok(mesh) = entry.get_component::<MeshComponent>() {
             state.mesh = Some(mesh.clone());
-            use crate::assets::mesh_asset::MeshAsset;
-            use crate::assets::material_asset::MaterialAsset;
+
 
             if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
-                let materials: HashMap<MaterialId, MaterialDesc> = mesh_asset.desc
+                let materials: HashMap<MaterialId, MaterialAsset> = mesh_asset.desc
                     .submeshes
                     .iter()
                     .filter_map(|sm| {
                         asset_mgr
                             .get::<MaterialAsset>(sm.material)
-                            .map(|mat_asset| (sm.material, mat_asset.desc.clone()))
+                            .map(|mat_asset| (sm.material, mat_asset.clone()))
                     })
                     .collect();
 

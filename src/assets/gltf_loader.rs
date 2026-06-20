@@ -96,7 +96,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
                 generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
-            let material_id = create_material(&primitive.material(), asset_mgr, &path);
+            // let material_id = create_material(&primitive.material(), asset_mgr, &path);
             let g_mat = primitive.material().index().unwrap_or_default();
             let material_id = material_map.get(&g_mat).unwrap().clone();
 
@@ -627,7 +627,7 @@ fn create_material<P: AsRef<Path>>(
     debug!("Metarial created {:#?}", material_desc);
     let asset = assets::material_asset::MaterialAsset {
         desc: material_desc,
-        stats: crate::assets::ResourceStats::default(),
+        key,
     };
 
     asset_mgr.add(asset)

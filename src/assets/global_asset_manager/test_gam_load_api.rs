@@ -108,8 +108,8 @@ fn material_created_event() {
     let mut mgr = GlobalAssetManager::new();
 
     let material = MaterialAsset {
-        stats: ResourceStats::default(),
         desc: MaterialDesc::default(),
+        key: "material".into(),
     };
 
     let id = mgr.add(material);

@@ -57,16 +57,10 @@ impl HasGpuStats for GpuMaterialCache {
 
 impl GpuMaterialCache {
     pub fn insert(&mut self, id: MaterialId, gpu_material: GpuMaterial) {
-        self.stats.add(GpuMaterial::estimated_size());
-        self.map.insert(id, gpu_material);
-    }
-
-    pub fn update(&self, id: &MaterialId, queue: &wgpu::Queue, uniform: &MaterialUniform) {
-        if let Some(material) = self.map.get(id) {
-            if let Some(buffer) = &material.uniform_buffer {
-                queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
-            }
+        if !self.map.contains_key(&id) {
+            self.stats.add(GpuMaterial::estimated_size());
         }
+        self.map.insert(id, gpu_material);
     }
 
     pub fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
@@ -84,122 +78,6 @@ impl GpuMaterialCache {
     }
 }
 
-/* pub fn create_material_uniform_from_desc(device: &wgpu::Device, material_desc: &MaterialDesc) -> wgpu::Buffer {
-    let uniform = MaterialUniform::from(material_desc);
-
-    let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("Material Uniform Buffer"),
-        contents: bytemuck::bytes_of(&uniform),
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-    });
-    uniform_buffer
-}
-
-use std::ops::Index;
-pub struct TextureViews<'a>(pub [&'a wgpu::TextureView; MATERIAL_TEXTURE_COUNT]);
-
-impl<'a> Index<MaterialTextureSlot> for TextureViews<'a> {
-    type Output = wgpu::TextureView;
-
-    fn index(&self, slot: MaterialTextureSlot) -> &Self::Output {
-        &self.0[slot as usize]
-    }
-}
-
-fn resolve_texture_views<'a>(
-    texture_cache: &'a GpuTextureCache,
-    desc: &MaterialDesc,
-) -> TextureViews<'a> {
-    use MaterialTextureSlot::*;
-
-    TextureViews([
-        texture_cache.view_or(desc.texture(BaseColor), CacheTextureSlot::White),
-        texture_cache.view_or(desc.texture(Normal), CacheTextureSlot::White),
-        texture_cache.view_or(desc.texture(MetallicRoughness), CacheTextureSlot::White),
-        texture_cache.view_or(desc.texture(Emissive), CacheTextureSlot::White),
-        texture_cache.view_or(desc.texture(Occlusion), CacheTextureSlot::White),
-        texture_cache.view_or(desc.texture(Transmission), CacheTextureSlot::Black),
-        texture_cache.view_or(desc.texture(Volume), CacheTextureSlot::White),
-    ])
-}
-
-pub fn create_bindgroup_from_desc(
-    device: &wgpu::Device,
-    texture_cache: &mut GpuTextureCache,
-    material_desc: &MaterialDesc,
-    uniform_buffer: &wgpu::Buffer,
-    gpu_manager: &GpuManager,
-) -> wgpu::BindGroup {
-    // Default sampler for all material textures (can be overridden by texture asset)
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        address_mode_u: wgpu::AddressMode::Repeat,
-        address_mode_v: wgpu::AddressMode::Repeat,
-        address_mode_w: wgpu::AddressMode::Repeat,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::MipmapFilterMode::Linear,
-        ..Default::default()
-    });
-    use MaterialTextureSlot::*;
-
-    let views = resolve_texture_views(texture_cache, material_desc);
-
-    let texture_bind_group_layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &texture_bind_group_layout,
-        label: Some("Material  bind_group"),
-        entries: &[
-            // uniform buffer
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            },
-            // sampler
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(&sampler),
-            },
-            // main texture
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: wgpu::BindingResource::TextureView(&views[BaseColor]),
-            },
-            // normal texture
-            wgpu::BindGroupEntry {
-                binding: 3,
-                resource: wgpu::BindingResource::TextureView(&views[Normal]),
-            },
-            // metallic_roughness texture
-            wgpu::BindGroupEntry {
-                binding: 4,
-                resource: wgpu::BindingResource::TextureView(&views[MetallicRoughness]),
-            },
-            // material emissive
-            wgpu::BindGroupEntry {
-                binding: 5,
-                resource: wgpu::BindingResource::TextureView(&views[Emissive]),
-            },
-            // material occlusion
-            wgpu::BindGroupEntry {
-                binding: 6,
-                resource: wgpu::BindingResource::TextureView(&views[Occlusion]),
-            },
-            // material transmission
-            wgpu::BindGroupEntry {
-                binding: 7,
-                resource: wgpu::BindingResource::TextureView(&views[Transmission]),
-            },
-            // material volume
-            wgpu::BindGroupEntry {
-                binding: 8,
-                resource: wgpu::BindingResource::TextureView(&views[Volume]),
-            },
-        ],
-    });
-    bind_group
-}
- */
 
 pub fn create_material_bindgroup_from_desc(
     device: &wgpu::Device,

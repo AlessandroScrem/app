@@ -140,11 +140,7 @@ pub fn handle_asset_event(
     next_queue: &mut VecDeque<DomainEvent>,
 ) {
     match event {
-        AssetEvent::UpdateMaterial(material_id, desc) => {
-            let asset = MaterialAsset {
-                desc,
-                stats: ResourceStats::default(),
-            };
+        AssetEvent::UpdateMaterial(material_id, asset) => {
             app.asset_mgr.update::<MaterialAsset>(material_id, asset);
         }
         AssetEvent::LoadGltf(path) => {
