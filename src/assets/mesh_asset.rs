@@ -20,7 +20,13 @@ impl MeshDesc {
     pub fn get_materials(&self) ->Vec<GlobalAssetId> {
         self.submeshes.iter().map(|sm| sm.material).collect()
     }
+
+    /// estimete size in bytes
+    pub fn estimated_size(&self) -> usize {
+        self.vertices.len() * size_of::<MeshVertexData>() + self.indices.len() * size_of::<u32>()
+    }
 }
+
 
 pub struct SubMesh {
     pub index_range: std::ops::Range<u32>,
@@ -50,5 +56,9 @@ impl Asset for MeshAsset {
 
     fn dependencies(&self) -> Vec<GlobalAssetId> {
         self.desc.get_materials()
+    }
+
+    fn estimated_size(&self) -> usize {
+        self.desc.estimated_size()
     }
 }

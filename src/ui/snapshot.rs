@@ -120,9 +120,6 @@ impl<'a> UiSnapshot<'a> {
         };
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
-        // let hdr_texture_id = asset_mgr.skybox.get_id();
-        // let hdr_texture_id = GlobalAssetId::default();
-        
 
         Self {
             texture_resolver,

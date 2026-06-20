@@ -1,18 +1,17 @@
-use crate::assets::global_asset_manager::resource_stats::ResourceStats;
 use crate::gpu::ibl_asset::IblAsset;
 use crate::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
+use crate::assets::mesh_asset::MeshAsset;
+use crate::assets::texture_asset::TextureAsset;
+use crate::assets::material_asset::MaterialAsset;
 
 use super::app::App;
 
 impl App {
     pub fn update_uilayer(&mut self, ctx: UiRuntimeContext<'_>) {
         let render_stats = RenderStats {
-            texture: ResourceStats::default(),
-            mesh: ResourceStats::default(),
-            material: ResourceStats::default(),
-            // texture: self.asset_mgr.textures.get_stats(),
-            // mesh: self.asset_mgr.meshes.get_stats(),
-            // material: self.asset_mgr.materials.get_stats(),
+            texture: self.asset_mgr.get_stats::<TextureAsset>(),
+            mesh: self.asset_mgr.get_stats::<MeshAsset>(),
+            material: self.asset_mgr.get_stats::<MaterialAsset>(),
             frame: ctx.frame_stats,
         };
 

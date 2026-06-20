@@ -164,8 +164,6 @@ pub fn handle_asset_event(
                 let asset = IblAsset::new(hdr_id, path);
                 app.asset_mgr.update::<IblAsset>(id, asset)
             }
-
-            // app.asset_mgr.skybox.set_id(hdr_id);
         }
     }
 }

@@ -7,7 +7,6 @@ use crate::{
     renderer::{GpuResourceStats, HasGpuStats},
 };
 
-use crate::assets::mesh_asset::MeshDesc;
 use wgpu::util::DeviceExt;
 
 #[derive(Default)]
@@ -34,6 +33,12 @@ impl GpuMeshCache {
 
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    pub fn remove(&mut self, id: MeshId) {
+        if let Some(gpu_mesh) = self.map.remove(&id) {
+            self.stats.remove(gpu_mesh.estimated_size);
+        }
     }
 }
 

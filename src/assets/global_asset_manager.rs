@@ -15,6 +15,7 @@ mod test_gam_load_api;
 use asset_id::{AssetHandle, AssetId};
 use asset_storage::{Asset, AssetStorage};
 use dependency_graph::DependencyGraph;
+use resource_stats::ResourceStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlobalAssetId {
@@ -131,7 +132,7 @@ trait ErasedStorage {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
-    fn remove_by_id(&mut self, id: AssetId);
+    fn remove_by_id(&mut self, id: AssetId)->usize;
 }
 
 struct TypedStorage<T: Asset> {
@@ -147,14 +148,15 @@ impl<T: Asset> ErasedStorage for TypedStorage<T> {
         self
     }
 
-    fn remove_by_id(&mut self, id: AssetId) {
-        self.inner.remove_by_id(id);
+    fn remove_by_id(&mut self, id: AssetId)-> usize {
+        self.inner.remove_by_id(id)
     }
 }
 
 #[derive(Default)]
 pub struct GlobalAssetManager {
     storages: HashMap<TypeId, Box<dyn ErasedStorage>>,
+    stats: HashMap<TypeId, ResourceStats>,
 
     key_index: KeyRegistry,
 
@@ -173,6 +175,7 @@ impl GlobalAssetManager {
             ref_count: HashMap::new(),
             graph: Default::default(),
             events: VecDeque::new(),
+            stats: HashMap::new(),
         }
     }
 
@@ -207,6 +210,11 @@ impl GlobalAssetManager {
             .unwrap()
             .inner
     }
+
+    fn stats_mut<T: Asset>(&mut self) -> &mut ResourceStats {
+        let id = TypeId::of::<T>();
+        self.stats.entry(id).or_insert_with(ResourceStats::default)
+    }
 }
 
 impl GlobalAssetManager {
@@ -220,6 +228,11 @@ impl GlobalAssetManager {
             return existing;
         }
 
+        // insert ResourceSize
+        let size = asset.estimated_size();
+        self.stats_mut::<T>().add(size);
+
+        // create Assetid
         let handle = self.storage_mut::<T>().insert(asset);
 
         let gid = GlobalAssetId::new::<T>(handle.id());
@@ -270,6 +283,12 @@ impl GlobalAssetManager {
             });
         }
     }
+
+    pub fn get_stats<T: Asset>(&self) -> ResourceStats {
+        self.stats
+            .get(&TypeId::of::<T>())
+            .map_or_else(ResourceStats::default, Clone::clone)
+    }
 }
 
 impl GlobalAssetManager {
@@ -298,8 +317,10 @@ impl GlobalAssetManager {
     }
 
     fn remove_from_storage(&mut self, id: GlobalAssetId) {
+        
         if let Some(storage) = self.storages.get_mut(&id.type_id) {
-            storage.remove_by_id(id.id);
+            let size = storage.remove_by_id(id.id);
+            self.stats.get_mut(&id.type_id).map(|stat| stat.remove(size));
         }
     }
 
@@ -406,13 +427,7 @@ mod tests {
 
     #[test]
     fn add_dedup_and_refcount() {
-        let mut mgr = GlobalAssetManager {
-            storages: HashMap::new(),
-            key_index: KeyRegistry::default(),
-            ref_count: HashMap::new(),
-            graph: DependencyGraph::default(),
-            events: VecDeque::new(),
-        };
+        let mut mgr = GlobalAssetManager::new();
 
         let a = Texture { name: "tex".into() };
 
@@ -436,13 +451,7 @@ mod tests {
     }
 
     fn update_asset() {
-        let mut mgr = GlobalAssetManager {
-            storages: HashMap::new(),
-            key_index: KeyRegistry::default(),
-            ref_count: HashMap::new(),
-            graph: DependencyGraph::default(),
-            events: VecDeque::new(),
-        };
+        let mut mgr = GlobalAssetManager::new();
 
         let mut a = Texture { name: "tex".into() };
 
@@ -465,13 +474,7 @@ mod tests {
 
     #[test]
     fn remove_basic() {
-        let mut mgr = GlobalAssetManager {
-            storages: HashMap::new(),
-            key_index: KeyRegistry::default(),
-            ref_count: HashMap::new(),
-            graph: DependencyGraph::default(),
-            events: VecDeque::new(),
-        };
+        let mut mgr = GlobalAssetManager::new();
 
         let tex = Texture { name: "tex".into() };
 
@@ -490,13 +493,7 @@ mod tests {
 
     #[test]
     fn retain_release() {
-        let mut mgr = GlobalAssetManager {
-            storages: HashMap::new(),
-            key_index: KeyRegistry::default(),
-            ref_count: HashMap::new(),
-            graph: DependencyGraph::default(),
-            events: VecDeque::new(),
-        };
+        let mut mgr = GlobalAssetManager::new();
 
         let tex = Texture { name: "tex".into() };
 
@@ -512,13 +509,7 @@ mod tests {
 
     #[test]
     fn remove_idempotent() {
-        let mut mgr = GlobalAssetManager {
-            storages: HashMap::new(),
-            key_index: KeyRegistry::default(),
-            ref_count: HashMap::new(),
-            graph: DependencyGraph::default(),
-            events: VecDeque::new(),
-        };
+        let mut mgr = GlobalAssetManager::new();
 
         let tex = Texture { name: "tex".into() };
 

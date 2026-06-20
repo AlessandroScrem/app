@@ -134,14 +134,17 @@ impl RunningApp {
             }
 
             AssetEventKind::Removed => {
-                // batch remove textures
+                println!("Removed texture len {}", events.len());
+                events.iter().for_each(|ev| {
+                    texture_cache.remove(ev.id);
+                });
             }
             _ => {}
         });
 
         grouped.process_type::<IblAsset, _>(|kind, events| match kind {
             AssetEventKind::Created | AssetEventKind::Updated => {
-                println!("loading Ibl len {}", events.len());
+                println!("loading/Updating Ibl len {}", events.len());
 
                 events
                     .iter()
@@ -180,18 +183,35 @@ impl RunningApp {
             }
 
             AssetEventKind::Updated => {
-                // batch update textures
+                println!("updating material len {}", events.len());
+                events
+                    .iter()
+                    .filter_map(|ev| {
+                        asset_mgr
+                            .get::<MaterialAsset>(ev.id)
+                            .map(|asset| (ev.id, asset))
+                    })
+                    .for_each(|(id, asset)| {
+                        let material_layout =
+                            gpu_manager.get_bindgroup_layout(gpu::BindgroupLayoutKind::Material);
+                        let gpu_material =
+                            GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
+                        material_cache.insert(id, gpu_material);
+                    });
             }
 
             AssetEventKind::Removed => {
-                // batch remove textures
+                println!("Removed material len {}", events.len());
+                events.iter().for_each(|ev| {
+                    material_cache.remove(ev.id);
+                });
             }
             _ => {}
         });
 
         grouped.process_type::<MeshAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
-                println!("loading material len {}", events.len());
+                println!("loading meshes len {}", events.len());
                 events
                     .iter()
                     .filter_map(|ev| {
@@ -211,7 +231,10 @@ impl RunningApp {
             }
 
             AssetEventKind::Removed => {
-                // batch remove textures
+                println!("Removed meshes len {}", events.len());
+                events.iter().for_each(|ev| {
+                    mesh_cache.remove(ev.id);
+                });
             }
             _ => {}
         });
@@ -221,7 +244,6 @@ impl RunningApp {
             self.imgui_render
                 .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache);
         });
-
     }
 
     fn update_app_hover<A: HandlesPicking>(&mut self, app: &mut A) {

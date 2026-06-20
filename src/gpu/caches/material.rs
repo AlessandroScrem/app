@@ -57,6 +57,7 @@ impl HasGpuStats for GpuMaterialCache {
 
 impl GpuMaterialCache {
     pub fn insert(&mut self, id: MaterialId, gpu_material: GpuMaterial) {
+        self.stats.add(GpuMaterial::estimated_size());
         self.map.insert(id, gpu_material);
     }
 
@@ -74,6 +75,12 @@ impl GpuMaterialCache {
 
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+
+    pub fn remove(&mut self, id: MaterialId) {
+        if let Some(_) = self.map.remove(&id) {
+            self.stats.remove(GpuMaterial::estimated_size());
+        }
     }
 }
 

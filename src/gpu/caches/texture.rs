@@ -107,51 +107,13 @@ impl GpuTextureCache {
         self.map.iter()
     }
 
-    /*     fn retain<F>(&mut self, contains: F)
-    where
-        F: Fn(&TextureId) -> bool,
-    {
-        // Sync cleanup
-        self.map.retain(|id, tex| {
-            let keep = contains(&id);
-            if !keep {
-                // remove id
-                // update stats
-                self.stats.remove(tex.estimated_size);
-                trace!("removed gpu tex {:?}", id);
-            }
-            keep
-        });
-    } */
-
-    /*     #[allow(unused)]
-    pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
-        &self.get_or_fallback_white(id).view
-    }
-
-    pub fn view_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &wgpu::TextureView {
-        &id.and_then(|id| self.map.get(&id))
-            .unwrap_or_else(|| self.builtin.get(slot))
-            .view
-    }
-
-    */
-
-    /*      pub fn upload_textures(
-        &mut self,
-        source: &mut impl texture_upload::TextureUploadSource,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
-        let dirty = source.drain_dirty_textures();
-
-        for (id, cpu_texture) in dirty {
-            if let Some(asset) = source.get_texture_asset(id) {
-                self.create_from_cpu(id, cpu_texture, device, queue);
-                trace!("Gpu Upload texture {:?} {:?} ", id, asset.state);
-            }
+    pub fn remove(&mut self, id: TextureId) {
+        if let Some(gpu_texture) = self.map.remove(&id) {
+            self.stats.remove(gpu_texture.estimated_size);
         }
-    }  */
+    }
+
+
 }
 
 #[cfg(test)]

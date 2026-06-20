@@ -11,6 +11,10 @@ pub trait Asset: Sized + 'static {
     fn dependencies(&self) -> Vec<GlobalAssetId> {
         Vec::new()
     }
+
+    fn estimated_size(&self) -> usize {
+        usize::default()
+    }
 }
 
 #[derive(Debug)]
@@ -140,25 +144,28 @@ where
 }
 
 impl<T: Asset> AssetStorage<T> {
-    pub fn remove_by_id(&mut self, id: AssetId) {
+    pub fn remove_by_id(&mut self, id: AssetId) ->usize {
         let Some(slot) = self.slots.get_mut(id.index as usize) else {
-            return;
+            return 0;
         };
 
         if slot.generation != id.generation {
-            return;
+            return 0;
         }
 
         if slot.value.is_none() {
-            return;
+            return 0;
         }
 
-        slot.value.take();
+        let asset = slot.value.take();
+        let size = asset.map_or(0, |a| a.estimated_size());
 
         slot.generation += 1;
         slot.version = 0;
 
         self.free_list.push(id.index);
+
+        size
     }
 
 }
