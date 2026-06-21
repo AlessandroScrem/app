@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     assets::TextureId,
     gpu::static_textures,
-    renderer::{
+    gpu::{
         GpuResourceStats, HasGpuStats,
         texture::{GpuTexture, GpuTextureBuilder},
     },

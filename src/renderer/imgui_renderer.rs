@@ -1,10 +1,10 @@
-use super::*;
-
-use crate::assets::TextureId;
-use crate::ui::traits::{UiTexture, UiTextureResolver};
-use imgui_wgpu::*;
 use std::collections::HashMap;
+use crate::gpu::*;
+use crate::assets::TextureId;
+use crate::prelude::*;
+use crate::ui::traits::{UiTexture, UiTextureResolver};
 use wgpu::*;
+use imgui_wgpu::*;
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {

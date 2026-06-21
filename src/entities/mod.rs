@@ -2,14 +2,19 @@ pub(crate) mod bounding_box_impl;
 pub(crate) mod components;
 pub(crate) mod light;
 
-pub(crate) use components::*;
+use crate::assets::gltf_loader::LoadedScene;
+use crate::entities::components::*;
+use crate::prelude::*;
+use crate::{
+    assets::{asset_manager::AssetManager, material_desc::MaterialTextureSlot},
+    assets::{material_asset::MaterialAsset, mesh_asset::MeshAsset},
+};
 
 use legion::{Entity, EntityStore};
-use log::warn;
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct EntityId(pub(crate) u64);
+pub struct EntityId(pub(crate) u64);
 
 pub trait EntityRawU64 {
     fn as_raw_u64(&self) -> u64;
@@ -43,12 +48,6 @@ impl From<EntityId> for Entity {
         Entity::from_raw_u64(id.0)
     }
 }
-
-use crate::{
-    assets::{asset_manager::AssetManager, gltf_loader::LoadedScene, material_desc::MaterialTextureSlot},
-    gpu::{material_asset::MaterialAsset, mesh_asset::MeshAsset},
-};
-
 
 fn collect_entity_from_root(entity: Entity, world: &mut legion::World) -> Vec<Entity> {
     let mut entities = Vec::new();
@@ -96,15 +95,15 @@ pub(crate) fn add_parent(entity: Entity, world: &mut legion::World) {
     // Add parent node and set entity as child
     let new_root = {
         world.push((
-            crate::TagComponent {
+            TagComponent {
                 name: "New Node".into(),
             },
-            crate::HierarchyComponent {
+            HierarchyComponent {
                 parent: None,
                 children: vec![entity],
             },
-            crate::GlobalModelComponent::default(),
-            crate::TransformComponent::default(),
+            GlobalModelComponent::default(),
+            TransformComponent::default(),
         ))
     };
 

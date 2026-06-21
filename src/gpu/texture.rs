@@ -2,7 +2,7 @@ use super::static_textures::StaticTexture;
 use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 use crate::assets::texture_upload::TextureData;
 
-use super::prelude::*;
+use crate::prelude::*;
 use std::sync::Arc;
 
 pub enum TextureSource<'a> {
@@ -310,3 +310,4 @@ impl<'a> GpuTextureBuilder<'a> {
         }
     }
 }
+

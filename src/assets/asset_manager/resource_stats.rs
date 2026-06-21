@@ -17,10 +17,12 @@ impl ResourceStats {
             self.count -= 1;
         }
     }
-
+    #[allow(unused)]
     pub fn add_shared(&mut self) {
         self.shared += 1;
     }
+    
+    #[allow(unused)]
     pub fn remove_sahred(&mut self) {
         if self.shared > 0 {
             self.shared -= 1;

@@ -1,11 +1,11 @@
 use super::*;
 
 use imgui::*;
-use prelude::math::*;
+use crate::math::*;
 
-use crate::renderer::GpuResourceStats;
+use crate::gpu::GpuResourceStats;
 use crate::ui::{DomainEvent, Globals, camera::Camera, text_fmt};
-use crate::assets::ResourceStats;
+use crate::assets::asset_manager::ResourceStats;
 
 use std::fmt;
 

@@ -12,6 +12,6 @@ pub(crate) use imgui_renderer::ImguiRender;
 
 pub(crate) use framebuilder::{FrameBuilder, FrameData};
 
-pub(crate) use crate::gpu::pipeline_manager::*;
-pub(crate) use crate::gpu::*;
+pub use crate::gpu::pipeline_manager::*;
 pub use scene_renderer::SceneRenderer;
+use renderpass::*;

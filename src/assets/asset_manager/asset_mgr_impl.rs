@@ -2,9 +2,9 @@ use std::any::{Any, TypeId};
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
-use super::asset_id::{AssetHandle, AssetId};
-use super::asset_storage::{Asset, AssetStorage};
-use super::dependency_graph::DependencyGraph;
+use super::asset_id::*;
+use super::asset_storage::*;
+use super::dependency_graph::*;
 use super::resource_stats::ResourceStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -493,9 +493,7 @@ mod tests {
     }
 
     
-    use crate::renderer::GpuTextureBuilder;
-    use crate::renderer::{GpuMaterial, GpuMesh, GpuTextureCache};
-
+    
     #[test]
     fn same_texture_same_id() {
         use crate::assets::texture_asset::*;
@@ -507,21 +505,22 @@ mod tests {
             sampler: SamplerDesc::default(),
             mipmaps: true,
         };
-
+        
         let texture = TextureAsset { desc: desc };
 
         let a = mgr.add(texture.clone());
         let b = mgr.add(texture);
-
+        
         assert_eq!(a, b);
     }
-
+    
     #[test]
     fn texture_created_event() {
         use crate::assets::texture_asset::*;
         use crate::assets::texture_upload::load_and_decode;
         use crate::test_utils;
-
+        use crate::gpu::{GpuTextureBuilder, GpuTextureCache};
+        
         const TEXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/white.png");
 
         let (device, queue) = test_utils::get_device_and_queue();
@@ -544,9 +543,9 @@ mod tests {
         assert!(mgr.get::<TextureAsset>(id).is_some());
 
         let mut texture_cache = GpuTextureCache::new(device, queue);
-
+        
         let events: Vec<super::AssetEvent> = mgr.events.drain(..).collect();
-
+        
         for ev in events {
             let asset = mgr.get::<TextureAsset>(ev.id).unwrap();
             let data = load_and_decode(asset.desc.clone()).unwrap();
@@ -558,13 +557,14 @@ mod tests {
         assert!(mgr.events.is_empty());
         assert!(texture_cache.contains_key(&id))
     }
-
+    
     #[test]
     fn material_created_event() {
-        use crate::renderer::BindgroupLayoutKind;
-        use crate::renderer::gpu::BindgroupLayoutCache;
-        use crate::test_utils;
+        use crate::gpu::{BindgroupLayoutCache, BindgroupLayoutKind, GpuTextureCache};
+                use crate::test_utils;
         use crate::assets::*;
+        use crate::assets::material_desc::MaterialDesc;
+        use crate::gpu::GpuMaterial;
 
         let (device, queue) = test_utils::get_device_and_queue();
         let layout_cache = BindgroupLayoutCache::new(device);
@@ -607,6 +607,7 @@ mod tests {
     fn mesh_created_event() {
         use crate::assets::mesh_asset::*;
         use crate::test_utils;
+        use crate::gpu::GpuMesh;
 
         let (device, _queue) = test_utils::get_device_and_queue();
 

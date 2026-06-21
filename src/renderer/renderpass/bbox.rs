@@ -75,7 +75,7 @@ impl RenderPass for BoundingboxPass {
 }
 
 fn create_buffer(device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) -> BBoxData {
-    use entities::bounding_box_impl::VERTICES;
+    use crate::entities::bounding_box_impl::VERTICES;
     use wgpu::util::DeviceExt;
     let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("BBox Vertex Buffer"),

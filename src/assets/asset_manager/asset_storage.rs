@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use super::GlobalAssetId;
-use super::asset_id::{AssetHandle, AssetId};
+use super::asset_id::*;
 
 pub trait Asset: Sized + 'static {
     type Key: Eq + Hash + Clone;
@@ -83,20 +83,6 @@ where
         })
     }
 
-    // Get immutable
-    /*
-    pub fn get(&self, handle: AssetHandle<T>) -> Option<&T> {
-            let slot = self.slots.get(handle.id().index as usize)?;
-
-            // Invalid stale handle
-            if slot.generation != handle.id().generation {
-                return None;
-            }
-
-            slot.value.as_ref()
-        }
-    */
-
     // Get mutable
     pub fn get_mut(&mut self, handle: AssetHandle<T>) -> Option<&mut T> {
         let slot = self.slots.get_mut(handle.id().index as usize)?;
@@ -110,41 +96,6 @@ where
 
         slot.value.as_mut()
     }
-
-    // // Remove
-    /*
-    fn remove(&mut self, handle: AssetHandle<T>) -> Option<T> {
-        let slot = self.slots.get_mut(handle.id().index as usize)?;
-
-        // Stale handle
-        if slot.generation != handle.id().generation {
-            return None;
-        }
-
-        // Already empty
-        if slot.value.is_none() {
-            return None;
-        }
-
-        // Invalidate old handles
-        slot.generation += 1;
-        slot.version = 0;
-
-        self.free_list.push(handle.id().index);
-
-        let value = slot.value.take()?;
-
-        Some(value)
-    }
-    */
-
-    /*     fn contains(&self, id: AssetId) -> bool {
-        let Some(slot) = self.slots.get(id.index as usize) else {
-            return false;
-        };
-
-        slot.generation == id.generation && slot.value.is_some()
-    } */
 }
 
 impl<T: Asset> AssetStorage<T> {

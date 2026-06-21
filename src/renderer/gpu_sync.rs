@@ -1,8 +1,9 @@
 use crate::entities::EntityRawU64;
 use crate::gpu::GpuManager;
 use crate::prelude::*;
+use crate::globals::Globals;
 use crate::renderer::scene_renderer::{MAX_INSTANCES, RenderContext};
-use crate::uniform::{CameraUniform, GlobalUniform};
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use legion::Entity;
 
 use super::FrameData;

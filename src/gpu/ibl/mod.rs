@@ -1,6 +1,6 @@
 mod ibl_impl;
-pub(crate) mod ibl_manager;
+mod ibl_manager;
 mod utils;
 
-pub(crate) use super::gpu::*;
-pub(crate) use ibl_manager::IblManager;
+pub(crate) use crate::gpu::*;
+pub(crate) use ibl_manager::{IblManager, GpuIbl};

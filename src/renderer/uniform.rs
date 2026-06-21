@@ -1,4 +1,5 @@
 use crate::math::*;
+use crate::globals::Globals;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
@@ -37,7 +38,7 @@ impl CameraUniform {
 }
 
 impl GlobalUniform {
-    pub fn from_global_id(globals: &super::Globals, entity_id: u64) -> Self {
+    pub fn from_global_id(globals: &Globals, entity_id: u64) -> Self {
         Self {
             ibl_enable: globals.ibl_enable as u32,
             skybox_enable: globals.skybox_enable as u32,

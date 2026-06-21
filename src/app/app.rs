@@ -1,6 +1,9 @@
-use crate::gpu::asset_manager::GlobalAssetId;
-use crate::gpu::asset_manager::AssetManager;
+use crate::assets::asset_manager::GlobalAssetId;
+use crate::assets::asset_manager::AssetManager;
 use crate::prelude::*;
+
+use crate::globals::Globals;
+use crate::ui::DomainEvents;
 
 use crate::scene::Scene;
 

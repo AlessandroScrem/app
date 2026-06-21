@@ -1,4 +1,4 @@
-use crate::TransformComponent;
+use crate::entities::components::TransformComponent;
 use crate::math::*;
 
 impl Default for TransformComponent {

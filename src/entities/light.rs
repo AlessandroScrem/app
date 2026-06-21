@@ -1,6 +1,6 @@
 use legion::*;
 
-use crate::{LightComponent, TagComponent};
+use crate::entities::{LightComponent, TagComponent};
 use legion::world::World;
 
 /// A function to help create a light entity.

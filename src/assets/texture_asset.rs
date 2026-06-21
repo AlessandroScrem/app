@@ -1,5 +1,6 @@
-use crate::assets::asset_manager::asset_storage::Asset;
 use std::path::PathBuf;
+
+use crate::assets::asset_manager::Asset;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum TextureUsage {

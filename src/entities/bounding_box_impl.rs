@@ -1,7 +1,7 @@
 use super::*;
 use crate::{colors, math::*};
 
-use crate::assets::vertexdata::LinesVertexData;
+use crate::assets::LinesVertexData;
 use crate::bounding_box::BoundingBox;
 
 const CORNERS: usize = 8;

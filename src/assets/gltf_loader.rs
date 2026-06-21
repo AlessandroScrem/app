@@ -5,12 +5,17 @@ use gltf::{
 use std::collections::hash_map::HashMap;
 use std::{path::Path, time::Instant};
 
-use crate::{TransformComponent, assets::vertexdata::MeshVertexData, math::*, prelude::*};
+use crate::entities::components::{TransformComponent};
+use crate::prelude::*;
+use crate::math::*;
+use crate::error::ImportError;
 
+use crate::assets::vertexdata::MeshVertexData;
 use crate::assets::asset_manager::{GlobalAssetId, AssetManager};
 use crate::assets::material_desc;
 use crate::assets::mesh_asset::*;
 use crate::assets::texture_asset::*;
+use crate::assets::material_asset::*;
 
 pub struct LoadedScene {
     pub meshes: Vec<GlobalAssetId>,
@@ -620,7 +625,7 @@ fn create_material<P: AsRef<Path>>(
     }
 
     debug!("Metarial created {:#?}", material_desc);
-    let asset = assets::material_asset::MaterialAsset {
+    let asset = MaterialAsset {
         desc: material_desc,
         key,
     };

@@ -19,7 +19,6 @@ pub(crate) use material::*;
 pub(crate) use mesh::*;
 pub(crate) use texture::*;
 
-pub(crate) use super::assets::*;
 pub(crate) use super::manager::*;
 
 pub struct GpuCache {
@@ -28,3 +27,6 @@ pub struct GpuCache {
     pub textures: GpuTextureCache,
 }
 
+crate::impl_debug_drop!(GpuMaterial);
+crate::impl_debug_drop!(GpuMesh);
+// impl_debug_drop!(GpuTexture);

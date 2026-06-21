@@ -1,11 +1,11 @@
-use crate::uniform::{CameraUniform, GlobalUniform, LightsUniform};
+use crate::renderer::uniform::{CameraUniform, GlobalUniform, LightsUniform};
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use wgpu::util::DeviceExt;
 
-use crate::assets::vertexdata::LinesVertexData;
+use crate::assets::LinesVertexData;
 const fn axis() -> [LinesVertexData; 6] {
     const RED: [f32; 3] = [1.0, 0.0, 0.0];
     const GREEN: [f32; 3] = [0.0, 1.0, 0.0];

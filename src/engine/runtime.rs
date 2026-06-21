@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::UiLayer;
+use crate::ui::UiLayer;
+use crate::assets::IblAsset;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
 use crate::gpu::caches::internalcounter::HasGpuStats;
-use crate::gpu::ibl_asset::IblAsset;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, IblManager};
+use crate::gpu::{BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, IblManager};
 use crate::input::Input;
 use crate::picking::PickObject;
-use crate::prelude::*;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::gpu_sync::GpuSync;
@@ -17,6 +16,8 @@ use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::UiRuntimeContext;
 use crate::ui::traits::InternalCounter;
 use winit::{event::Event, window::Window};
+use crate::assets::asset_manager::AssetManager;
+use crate::prelude::*;
 
 impl InternalCounter for GpuCache {
     fn internal_counter(&self) -> GpuInternalCounters {
@@ -174,7 +175,7 @@ impl RunningApp {
                     })
                     .for_each(|(id, asset)| {
                         let material_layout =
-                            gpu_manager.get_bindgroup_layout(gpu::BindgroupLayoutKind::Material);
+                            gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                         let gpu_material =
                             GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
                         material_cache.insert(id, gpu_material);
@@ -192,7 +193,7 @@ impl RunningApp {
                     })
                     .for_each(|(id, asset)| {
                         let material_layout =
-                            gpu_manager.get_bindgroup_layout(gpu::BindgroupLayoutKind::Material);
+                            gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                         let gpu_material =
                             GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
                         material_cache.insert(id, gpu_material);

@@ -4,11 +4,12 @@ use super::*;
 
 use crate::{
     assets::MaterialId,
-    renderer::{GpuResourceStats, HasGpuStats},
-    uniform::MaterialUniform,
+    assets::material_desc::MaterialDesc,
+    gpu::{GpuResourceStats, HasGpuStats},
+    renderer::uniform::MaterialUniform,
 };
-
 use wgpu::util::DeviceExt;
+
 
 #[derive(Default)]
 pub struct GpuMaterial {
@@ -16,6 +17,7 @@ pub struct GpuMaterial {
     #[allow(unused)]
     pub uniform_buffer: Option<wgpu::Buffer>,
 }
+
 impl GpuMaterial {
     const MATERIAL_SIZE: usize = size_of::<MaterialUniform>();
     fn estimated_size() -> usize {
@@ -44,6 +46,8 @@ impl GpuMaterial {
         }
     }
 }
+
+
 #[derive(Default)]
 pub struct GpuMaterialCache {
     map: HashMap<MaterialId, GpuMaterial>,
@@ -190,7 +194,7 @@ pub fn create_material_uniform_from_desc(
     device: &wgpu::Device,
     material_desc: &MaterialDesc,
 ) -> wgpu::Buffer {
-    let uniform = crate::uniform::MaterialUniform::from(material_desc);
+    let uniform = MaterialUniform::from(material_desc);
 
     let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Material Uniform Buffer"),

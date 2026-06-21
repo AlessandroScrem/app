@@ -2,8 +2,11 @@ use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::app::application::AppRenderData;
 use crate::assets::ibl_asset::IblAsset;
 use crate::assets::TextureAsset;
+use crate::assets::asset_manager::AssetManager;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
+use crate::ui::DomainEvent;
+use crate::ui::AssetEvent;
 
 use crate::prelude::*;
 

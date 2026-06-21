@@ -1,7 +1,7 @@
 // use super::*;
-use crate::gpu::asset_manager::GlobalAssetId;
+use crate::assets::GlobalAssetId;
 use crate::math::*;
-use crate::uniform::Mat3Std140;
+use crate::renderer::uniform::{Mat3Std140, MaterialUniform};
 use std::ops::{Index, IndexMut};
 
 pub const IOR: f32 = 1.5;
@@ -445,7 +445,7 @@ fn gen_transform_array(desc: &MaterialDesc) -> [Mat3Std140; MATERIAL_TEXTURE_COU
     })
 }
 
-impl From<&MaterialDesc> for crate::uniform::MaterialUniform {
+impl From<&MaterialDesc> for MaterialUniform {
     fn from(value: &MaterialDesc) -> Self {
         let (alpha_mode, alpha_cutoff) = AlphaMode::to_uniform(value.alpha_mode);
         let is_trasmissive = value.is_transmissive().into();

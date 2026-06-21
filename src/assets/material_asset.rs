@@ -1,6 +1,5 @@
 use crate::assets::material_desc::{MaterialDesc};
-use crate::assets::asset_manager::asset_storage::Asset;
-use crate::gpu::asset_manager::GlobalAssetId;
+use crate::assets::asset_manager::{GlobalAssetId, Asset};
 
 
 #[derive(Clone)]

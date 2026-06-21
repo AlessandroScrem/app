@@ -3,6 +3,7 @@ use crate::prelude::*;
 use legion::Entity;
 
 use crate::assets::MeshId;
+use crate::renderer::uniform::*;
 
 // Ecs Components
 #[derive(Clone)]
@@ -27,7 +28,7 @@ impl Default for LightComponent {
     }
 }
 
-impl From<&LightComponent> for uniform::LightUniform {
+impl From<&LightComponent> for LightUniform {
     fn from(value: &LightComponent) -> Self {
         Self {
             color: value.color,

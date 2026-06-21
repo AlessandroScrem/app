@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     assets::{MeshId, MeshVertexData},
-    renderer::{GpuResourceStats, HasGpuStats},
+    gpu::{GpuResourceStats, HasGpuStats},
 };
 
 use wgpu::util::DeviceExt;

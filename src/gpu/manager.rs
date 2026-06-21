@@ -1,7 +1,7 @@
 use super::*;
 
-use crate::uniform::{CameraUniform, GlobalUniform};
-use crate::renderer::ibl::ibl_manager::GpuIbl;
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
+use crate::gpu::ibl::GpuIbl;
 
 pub struct GpuManager {
     layout_cache: BindgroupLayoutCache,

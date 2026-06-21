@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use super::*;
 use crate::prelude::*;
 
+use crate::entities::components::*;
+
 use crate::assets::MaterialId;
-use crate::assets::asset_manager::GlobalAssetId;
-use crate::assets::ResourceStats;
+use crate::assets::asset_manager::{AssetManager, GlobalAssetId, ResourceStats};
 use crate::assets::MeshAsset;
 use crate::assets::MaterialAsset;
 use crate::gpu::caches::internalcounter::GpuInternalCounters;

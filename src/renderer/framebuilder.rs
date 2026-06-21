@@ -2,12 +2,16 @@ use std::collections::HashMap;
 
 use super::*;
 
-use crate::entities::EntityRawU64;
+use crate::entities::components::*;
+use crate::entities::{EntityRawU64, bounding_box_impl::BBoxVertexData};
 use crate::input::Input;
+use crate::globals::Globals;
 use crate::picking::PickObject;
-use crate::prelude::math::*;
-use crate::uniform::LightsUniform;
-use crate::{entities::bounding_box_impl::BBoxVertexData, uniform::LightUniform};
+use crate::math::*;
+use crate::renderer::uniform::{LightsUniform, LightUniform, };
+use crate::assets::VertexInstance;
+use crate::assets::asset_manager::AssetManager;
+
 use legion::{Entity, World};
 
 pub struct InstanceBatch {
@@ -56,7 +60,7 @@ pub struct FrameData {
     pub transmission_batches: Vec<InstanceBatch>,
     pub bbox_vertexdata: Vec<BBoxVertexData>,
     pub lights: Option<LightsUniform>,
-    pub instances: Vec<vertexdata::VertexInstance>,
+    pub instances: Vec<VertexInstance>,
 
     // flags / tasks
     pub axis_enable: bool,
@@ -117,8 +121,8 @@ impl FrameBuilder {
 
     fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
-        let mut opaque_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> = HashMap::new();
-        let mut transmission_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> =
+        let mut opaque_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
+        let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> =
             HashMap::new();
         use crate::assets::mesh_asset::MeshAsset;
         use crate::assets::material_asset::MaterialAsset;
@@ -151,7 +155,7 @@ impl FrameBuilder {
                 // -------------------------------------------------
 
                 let model = global_mat.mat;
-                let instance = vertexdata::VertexInstance::new(model, entity.as_raw_u64());
+                let instance = VertexInstance::new(model, entity.as_raw_u64());
 
                 // -------------------------------------------------
                 // CLASSIFY
@@ -169,9 +173,9 @@ impl FrameBuilder {
         // BUILD FINAL BATCHES
         // ---------------------------------------------------------
         fn flush_batches(
-            map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>>,
+            map: HashMap<BatchKey, Vec<VertexInstance>>,
             batches: &mut Vec<InstanceBatch>,
-            instances: &mut Vec<vertexdata::VertexInstance>,
+            instances: &mut Vec<VertexInstance>,
         ) {
             for (key, batch_instances) in map {
                 let start = instances.len() as u32;
@@ -251,7 +255,7 @@ impl FrameBuilder {
             .enumerate()
         {
             let data = LightUniform {
-                entity_id: entities::EntityRawU64::as_raw_u64(entity),
+                entity_id: EntityRawU64::as_raw_u64(entity),
                 ..light.into()
             };
             light_uniform.count = (i + 1) as u32;

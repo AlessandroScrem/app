@@ -1,22 +1,23 @@
-pub mod entities;
-
 mod app;
-pub(crate) mod assets;
-pub(crate) mod bounding_box;
+mod assets;
+mod bounding_box;
 mod camera;
 mod engine;
-pub(crate) mod error;
-pub(crate) mod gpu;
-pub(crate) mod input;
+mod error;
+mod gpu;
+mod input;
 mod picking;
-pub(crate) mod renderer;
+mod renderer;
 mod scene;
 mod systems;
-pub(crate) mod test_utils;
+mod test_utils;
 mod timer;
-pub(crate) mod timestep;
+mod timestep;
 mod transform;
-pub(crate) mod ui;
+mod ui;
+mod globals;
+
+pub mod entities;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,
@@ -34,19 +35,27 @@ impl Engine {
 }
 
 pub(crate) mod prelude {
-    pub(crate) use crate::assets::material_desc::MaterialDesc;
-    pub use crate::assets::asset_manager::*;
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
-    pub use crate::entities::components::*;
     pub use crate::renderer::SceneRenderer;
-    pub(crate) use crate::renderer::uniform;
-    pub(crate) use crate::ui::*;
-    pub use error::*;
     pub(crate) use log::{debug, error, info, trace, warn};
 }
 
 pub(crate) use prelude::*;
+
+
+pub (crate) use globals::Globals;
+
+#[macro_export]
+macro_rules! impl_debug_drop {
+    ($t:ty) => {
+        impl Drop for $t {
+            fn drop(&mut self) {
+                println!("Dropped {}", std::any::type_name::<Self>());
+            }
+        }
+    };
+}
 
 
 #[allow(unused_imports)]
@@ -95,39 +104,4 @@ pub(crate) mod colors {
     // pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Globals {
-    pub mips_cs: bool,
-    pub light_enable: bool,
-    pub ibl_enable: bool,
-    pub skybox_enable: bool,
-    pub skybox_enable_blur: bool,
-    pub env_rotation: f32,
-    pub exposure: f32,
-    pub ibl_intensity: f32,
-    pub tonemap_filter: u32,
-    pub axis_enable: bool,
-    pub bbox_enable: bool,
-    pub bbox_axis_aligned: bool,
-    pub debug_code: u32,
-}
 
-impl Default for Globals {
-    fn default() -> Self {
-        Self {
-            mips_cs: false,
-            light_enable: false,
-            ibl_enable: true,
-            skybox_enable: true,
-            skybox_enable_blur: true,
-            exposure: 1.0,
-            env_rotation: 0.0,
-            ibl_intensity: 1.0,
-            tonemap_filter: 0,
-            axis_enable: true,
-            bbox_enable: false,
-            bbox_axis_aligned: false,
-            debug_code: 0,
-        }
-    }
-}

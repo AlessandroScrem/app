@@ -1,7 +1,6 @@
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::prelude::*;
 
-use crate::input::Input;
 use std::sync::Arc;
 use winit::window::WindowAttributes;
 use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
@@ -12,6 +11,8 @@ use crate::app::{Application, HasAssetMgr};
 use crate::gpu::{
     GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, IblManager,
 };
+use crate::input::Input;
+use crate::ui::UiLayer;
 use crate::picking::PickObject;
 use crate::renderer::ImguiRender;
 
