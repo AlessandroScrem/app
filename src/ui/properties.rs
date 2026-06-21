@@ -1,14 +1,15 @@
 use super::*;
-use crate::assets::MaterialId;
-use crate::assets::material_desc::MaterialTextureSlot;
-use crate::assets::material_asset::MaterialAsset;
 use imgui::*;
+
+use crate::assets::MaterialId;
+use crate::assets::material_asset::MaterialAsset;
+use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
 
-use crate::{
-    BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, assets::MaterialDesc,
+use crate::entities::{
+    BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
 };
+use crate::ui::DomainEvent;
 
 pub struct PropertyUi {}
 
@@ -265,7 +266,6 @@ fn draw_sheen_ui(ui: &Ui, material: &mut MaterialDesc) -> bool {
     }
 }
 
-
 fn draw_materials(
     ui: &Ui,
     materials: &HashMap<MaterialId, MaterialAsset>,
@@ -340,7 +340,9 @@ fn draw_materials(
                         ui.separator();
                         dirty |= material_asset.desc.draw_ui_slot(ui, Occlusion, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, MetallicRoughness, resolver);
+                        dirty |= material_asset
+                            .desc
+                            .draw_ui_slot(ui, MetallicRoughness, resolver);
                         ui.separator();
                         dirty |= material_asset.desc.draw_ui_slot(ui, Normal, resolver);
                         ui.separator();

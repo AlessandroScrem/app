@@ -5,10 +5,10 @@ use crate::ui::UiRuntimeContext;
 use crate::{Camera, Globals};
 use legion::{Entity, World};
 
-use crate::assets::global_asset_manager::GlobalAssetManager;
+use crate::assets::asset_manager::AssetManager;
 
 pub struct AppRenderData<'a> {
-    pub asset_mgr: &'a GlobalAssetManager,
+    pub asset_mgr: &'a AssetManager,
     pub world: &'a World,
     pub camera: &'a Camera,
     pub globals: &'a Globals,
@@ -16,7 +16,7 @@ pub struct AppRenderData<'a> {
 }
 
 pub trait HasAssetMgr {
-    fn asset_mgr_mut(&mut self) -> &mut GlobalAssetManager;
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
 }
 
 pub trait HandlesPicking {

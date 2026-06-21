@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::assets::MaterialId;
-use crate::assets::global_asset_manager::GlobalAssetId;
-use crate::assets::global_asset_manager::resource_stats::ResourceStats;
-use crate::assets::mesh_asset::MeshAsset;
-use crate::assets::material_asset::MaterialAsset;
-use crate::gpu::caches::internalcounter::GpuInternalCounters;
 use crate::prelude::*;
+
+use crate::assets::MaterialId;
+use crate::assets::asset_manager::GlobalAssetId;
+use crate::assets::ResourceStats;
+use crate::assets::MeshAsset;
+use crate::assets::MaterialAsset;
+use crate::gpu::caches::internalcounter::GpuInternalCounters;
 use crate::ui::traits::UiTextureResolver;
 use legion::*;
 
@@ -65,7 +66,7 @@ pub struct UiComponentState {
 }
 
 impl UiComponentState {
-    pub fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &GlobalAssetManager) -> Self {
+    pub fn from_world(selected: Option<Entity>, world: &World, asset_mgr: &AssetManager) -> Self {
         let mut state = UiComponentState::default();
 
         let Some(entity) = selected else {
@@ -107,7 +108,7 @@ impl<'a> UiSnapshot<'a> {
     pub fn from_world(
         world: &legion::World,
         selected: Option<Entity>,
-        asset_mgr: &GlobalAssetManager,
+        asset_mgr: &AssetManager,
         camera: &'a Camera,
         globals: &'a Globals,
         texture_resolver: &'a dyn UiTextureResolver,

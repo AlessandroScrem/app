@@ -7,7 +7,7 @@ use std::{path::Path, time::Instant};
 
 use crate::{TransformComponent, assets::vertexdata::MeshVertexData, math::*, prelude::*};
 
-use crate::assets::global_asset_manager::{GlobalAssetId, GlobalAssetManager};
+use crate::assets::asset_manager::{GlobalAssetId, AssetManager};
 use crate::assets::material_desc;
 use crate::assets::mesh_asset::*;
 use crate::assets::texture_asset::*;
@@ -28,7 +28,7 @@ pub struct NodeData {
 // public wrapper manage error messages
 pub fn load_gltf<P: AsRef<Path>>(
     path: P,
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
 ) -> Option<LoadedScene> {
     match load_gltf_internal(&path, asset_mgr) {
         Ok(scene) => Some(scene),
@@ -52,7 +52,7 @@ pub fn load_gltf<P: AsRef<Path>>(
 //   spawn_scene ECS
 fn load_gltf_internal<P: AsRef<Path>>(
     path: P,
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
 ) -> Result<LoadedScene, ImportError> {
     let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
@@ -118,10 +118,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
             bounds: extract_bbox(&g_mesh),
         };
 
-        let asset = MeshAsset {
-            desc,
-            mesh_source,
-        };
+        let asset = MeshAsset { desc, mesh_source };
 
         let mesh_id = asset_mgr.add(asset);
 
@@ -458,7 +455,7 @@ fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<material_desc::Shee
 fn create_texture(
     path: Option<std::path::PathBuf>,
     usage: TextureUsage,
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
 ) -> Option<GlobalAssetId> {
     let path = path?;
 
@@ -478,7 +475,7 @@ fn create_texture(
 
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
     path: P,
 ) -> GlobalAssetId {
     use material_desc::MaterialTextureSlot::*;
@@ -634,7 +631,7 @@ fn create_material<P: AsRef<Path>>(
 fn create_materials<P: AsRef<Path>>(
     gltf: &Document,
     path: P,
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
 ) -> HashMap<usize, GlobalAssetId> {
     let mut materials = HashMap::new();
     for material in gltf.materials().into_iter() {
@@ -653,7 +650,7 @@ mod tests {
     #[test]
     fn should_load_scene() {
         let path = "./assets/cube/cube.gltf";
-        let mut asset_mgr = GlobalAssetManager::default();
+        let mut asset_mgr = AssetManager::default();
 
         let e = load_gltf_internal(path, &mut asset_mgr);
 

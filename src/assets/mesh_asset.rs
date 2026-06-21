@@ -1,5 +1,5 @@
-use crate::assets::global_asset_manager::asset_storage::Asset;
-use crate::assets::global_asset_manager::GlobalAssetId;
+use crate::assets::asset_manager::asset_storage::Asset;
+use crate::assets::asset_manager::GlobalAssetId;
 
 use std::path::PathBuf;
 

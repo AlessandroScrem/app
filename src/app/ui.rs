@@ -1,8 +1,5 @@
-use crate::gpu::ibl_asset::IblAsset;
-use crate::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
-use crate::assets::mesh_asset::MeshAsset;
-use crate::assets::texture_asset::TextureAsset;
-use crate::assets::material_asset::MaterialAsset;
+use crate::ui::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
+use crate::assets::{IblAsset, MaterialAsset, MeshAsset, TextureAsset};
 
 use super::app::App;
 

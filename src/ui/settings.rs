@@ -4,7 +4,8 @@ use imgui::*;
 use prelude::math::*;
 
 use crate::renderer::GpuResourceStats;
-use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
+use crate::ui::{DomainEvent, Globals, camera::Camera, text_fmt};
+use crate::assets::ResourceStats;
 
 use std::fmt;
 

@@ -1,5 +1,5 @@
 // use super::*;
-use crate::gpu::global_asset_manager::GlobalAssetId;
+use crate::gpu::asset_manager::GlobalAssetId;
 use crate::math::*;
 use crate::uniform::Mat3Std140;
 use std::ops::{Index, IndexMut};

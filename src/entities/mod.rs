@@ -45,7 +45,7 @@ impl From<EntityId> for Entity {
 }
 
 use crate::{
-    assets::{global_asset_manager::GlobalAssetManager, gltf_loader::LoadedScene, material_desc::MaterialTextureSlot},
+    assets::{asset_manager::AssetManager, gltf_loader::LoadedScene, material_desc::MaterialTextureSlot},
     gpu::{material_asset::MaterialAsset, mesh_asset::MeshAsset},
 };
 
@@ -122,7 +122,7 @@ struct IDCollection {
 }
 fn collect_asset_ids_from_entity(
     world: &legion::World,
-    asset_mgr: &GlobalAssetManager,
+    asset_mgr: &AssetManager,
     entities: &Vec<Entity>,
 ) -> IDCollection {
     let mut mesh_ids = vec![];
@@ -168,7 +168,7 @@ pub(crate) fn collect_hierarchy_root_entities(world: &legion::World) -> Vec<Enti
 }
 
 pub(crate) fn remove_entity_from_all(
-    asset_mgr: &mut GlobalAssetManager,
+    asset_mgr: &mut AssetManager,
     entity: Entity,
     world: &mut legion::World,
 ) {
@@ -213,7 +213,7 @@ pub(crate) fn enable_all_lights(enable: bool, world: &mut legion::World) {
     }
 }
 
-pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &GlobalAssetManager) {
+pub fn spawn_scene(world: &mut legion::World, loaded: &LoadedScene, asset_mgr: &AssetManager) {
     let mut node_to_entity = Vec::with_capacity(loaded.nodes.len());
 
     // 1️⃣ crea tutte le entity

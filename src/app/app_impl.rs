@@ -1,14 +1,14 @@
 use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::app::application::AppRenderData;
 use crate::assets::ibl_asset::IblAsset;
-use crate::assets::texture_asset::TextureAsset;
+use crate::assets::TextureAsset;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 
 use crate::prelude::*;
 
 impl HasAssetMgr for App {
-    fn asset_mgr_mut(&mut self) -> &mut GlobalAssetManager {
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager {
         &mut self.asset_mgr
     }
 }

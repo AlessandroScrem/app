@@ -80,9 +80,9 @@ impl RunningApp {
         self.input.clear();
     }
 
-    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut GlobalAssetManager) {
+    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
         use crate::assets::TextureId;
-        use crate::assets::global_asset_manager::AssetEventKind;
+        use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
         use crate::assets::mesh_asset::MeshAsset;
         use crate::assets::texture_asset::{TextureAsset, TextureDesc};

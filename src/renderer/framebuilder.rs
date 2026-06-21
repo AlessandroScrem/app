@@ -74,7 +74,7 @@ pub struct FrameBuilder {}
 impl FrameBuilder {
     pub fn build(
         world: &World,
-        asset: &GlobalAssetManager,
+        asset: &AssetManager,
         selected: Option<Entity>,
         pickobject: &PickObject,
         input: &Input,
@@ -115,7 +115,7 @@ impl FrameBuilder {
         frame
     }
 
-    fn build_geometry(world: &World, asset: &GlobalAssetManager, frame: &mut FrameData) {
+    fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
         let mut opaque_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> = HashMap::new();
         let mut transmission_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> =

@@ -1,4 +1,4 @@
-use crate::assets::global_asset_manager::asset_storage::Asset;
+use crate::assets::asset_manager::asset_storage::Asset;
 use std::path::PathBuf;
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]

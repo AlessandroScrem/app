@@ -1,5 +1,5 @@
-use crate::gpu::global_asset_manager::GlobalAssetId;
-use crate::gpu::global_asset_manager::GlobalAssetManager;
+use crate::gpu::asset_manager::GlobalAssetId;
+use crate::gpu::asset_manager::AssetManager;
 use crate::prelude::*;
 
 use crate::scene::Scene;
@@ -10,7 +10,7 @@ use legion::Resources;
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
-    pub asset_mgr: GlobalAssetManager,
+    pub asset_mgr: AssetManager,
     pub resources: Resources,
     pub globals: Globals,
     pub camera: Camera,
