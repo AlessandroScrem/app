@@ -6,10 +6,10 @@ use crate::assets::material_asset::MaterialAsset;
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
 
+use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent};
 use crate::entities::components::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
 };
-use crate::ui::DomainEvent;
 
 pub struct PropertyUi {}
 

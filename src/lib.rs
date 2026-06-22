@@ -4,6 +4,7 @@ mod bounding_box;
 mod camera;
 mod engine;
 mod error;
+mod globals;
 mod gpu;
 mod input;
 mod picking;
@@ -15,9 +16,10 @@ mod timer;
 mod timestep;
 mod transform;
 mod ui;
-mod globals;
 
-pub mod entities;
+pub(crate) mod entities;
+
+pub use entities::EntityRawU64;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,
@@ -37,14 +39,12 @@ impl Engine {
 pub(crate) mod prelude {
     pub use crate::bounding_box::BoundingBox;
     pub use crate::camera::Camera;
-    pub use crate::renderer::SceneRenderer;
     pub(crate) use log::{debug, error, info, trace, warn};
 }
 
 pub(crate) use prelude::*;
 
-
-pub (crate) use globals::Globals;
+pub(crate) use globals::Globals;
 
 #[macro_export]
 macro_rules! impl_debug_drop {
@@ -56,7 +56,6 @@ macro_rules! impl_debug_drop {
         }
     };
 }
-
 
 #[allow(unused_imports)]
 pub(crate) mod math {
@@ -103,5 +102,3 @@ pub(crate) mod colors {
     // pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
     // pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }
-
-

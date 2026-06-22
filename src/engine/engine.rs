@@ -14,7 +14,7 @@ use crate::gpu::{
 use crate::input::Input;
 use crate::ui::UiLayer;
 use crate::picking::PickObject;
-use crate::renderer::ImguiRender;
+use crate::renderer::{ImguiRender, SceneRenderer};
 
 #[derive(Default)]
 pub struct Engine<A: Application> {

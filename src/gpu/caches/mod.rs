@@ -1,11 +1,11 @@
-pub(crate) mod bindgroup;
-pub(crate) mod bindgroup_layout;
-pub(crate) mod buffer;
-pub(crate) mod framebuffer;
-pub(crate) mod internalcounter;
-pub(crate) mod material;
-pub(crate) mod mesh;
-pub(crate) mod texture;
+mod bindgroup;
+mod bindgroup_layout;
+mod buffer;
+mod framebuffer;
+mod internalcounter;
+mod material;
+mod mesh;
+mod texture;
 
 
 pub(crate) use super::static_textures;
@@ -18,8 +18,6 @@ pub(crate) use internalcounter::*;
 pub(crate) use material::*;
 pub(crate) use mesh::*;
 pub(crate) use texture::*;
-
-pub(crate) use super::manager::*;
 
 pub struct GpuCache {
     pub mesh: GpuMeshCache,

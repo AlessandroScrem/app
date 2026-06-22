@@ -1,5 +1,5 @@
 use crate::assets::TextureId;
-use crate::gpu::caches::internalcounter::GpuInternalCounters;
+use crate::gpu::GpuInternalCounters;
 use imgui::TextureId as ImguiTextureId;
 
 #[allow(dead_code)]

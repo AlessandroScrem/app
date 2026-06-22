@@ -1,15 +1,20 @@
+use core::fmt;
+
+use super::tools;
 use super::*;
+use crate::math::*;
+use crate::text_fmt;
+use crate::{Camera, Globals};
+
+use crate::assets::asset_manager::ResourceStats;
+use crate::gpu::GpuResourceStats;
+use crate::renderer::framebuilder::DrawStats;
+
+use crate::app::domain::events::{AssetEvent, DomainEvent, GlobalEvent, CameraEvent};
 
 use imgui::*;
-use crate::math::*;
 
-use crate::gpu::GpuResourceStats;
-use crate::ui::{DomainEvent, Globals, camera::Camera, text_fmt};
-use crate::assets::asset_manager::ResourceStats;
-
-use std::fmt;
-
-impl fmt::Display for ResourceStats {
+impl core::fmt::Display for ResourceStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const BYTES_TO_MB: f32 = 1.0 / (1024.0 * 1024.0);
         write!(
@@ -34,7 +39,7 @@ impl fmt::Display for GpuResourceStats {
     }
 }
 
-impl fmt::Display for renderer::framebuilder::DrawStats {
+impl fmt::Display for DrawStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

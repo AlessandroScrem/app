@@ -1,12 +1,12 @@
-pub(crate) mod axis;
-pub(crate) mod bbox;
-pub(crate) mod build_mipmaps;
-pub(crate) mod light;
-pub(crate) mod linearize;
-pub(crate) mod mesh;
-pub(crate) mod outline;
-pub(crate) mod pickobject;
-pub(crate) mod skybox;
+mod axis;
+mod bbox;
+mod build_mipmaps;
+mod light;
+mod linearize;
+mod mesh;
+mod outline;
+mod pickobject;
+mod skybox;
 
 pub(crate) use axis::*;
 pub(crate) use bbox::*;
@@ -22,7 +22,7 @@ use crate::renderer::FrameData;
 use crate::gpu::pipeline_manager::PipelineKind;
 use crate::renderer::scene_renderer::RenderContext;
 
-pub(crate) use crate::gpu::caches::*;
+use crate::gpu::caches::*;
 use wgpu::IndexFormat;
 
 use super::rendergraph::ResourceId;

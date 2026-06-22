@@ -4,9 +4,8 @@ use super::RuntimeEvent;
 use crate::ui::UiLayer;
 use crate::assets::IblAsset;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
-use crate::gpu::caches::internalcounter::HasGpuStats;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, IblManager};
+use crate::gpu::{BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, IblManager};
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::renderer::FrameBuilder;
@@ -14,10 +13,10 @@ use crate::renderer::ImguiRender;
 use crate::renderer::gpu_sync::GpuSync;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::UiRuntimeContext;
-use crate::ui::traits::InternalCounter;
+use crate::ui::InternalCounter;
 use winit::{event::Event, window::Window};
 use crate::assets::asset_manager::AssetManager;
-use crate::prelude::*;
+use crate::renderer::SceneRenderer;
 
 impl InternalCounter for GpuCache {
     fn internal_counter(&self) -> GpuInternalCounters {
@@ -88,8 +87,8 @@ impl RunningApp {
         use crate::assets::mesh_asset::MeshAsset;
         use crate::assets::texture_asset::{TextureAsset, TextureDesc};
         use crate::assets::texture_upload::load_cpu_textures_par;
-        use crate::gpu::material::GpuMaterial;
-        use crate::gpu::mesh::GpuMesh;
+        use crate::gpu::GpuMaterial;
+        use crate::gpu::GpuMesh;
         use crate::gpu::texture::GpuTextureBuilder;
 
         let Self {

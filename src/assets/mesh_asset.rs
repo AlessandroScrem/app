@@ -1,9 +1,8 @@
-use crate::assets::GlobalAssetId;
+use crate::assets::{GlobalAssetId, MeshVertexData};
 use crate::assets::asset_manager::Asset;
 
 use std::path::PathBuf;
 
-use crate::renderer::MeshVertexData;
 use crate::BoundingBox;
 
 #[derive(Default)]

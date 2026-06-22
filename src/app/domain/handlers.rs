@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::app::domain::SceneEvent;
-use crate::app::domain::{DomainEvent, events::*};
+// use crate::app::domain::events::SceneEvent;
+use crate::app::domain::events::*;
 use crate::app::*;
 use crate::assets::IblAsset;
 use crate::assets::MaterialAsset;

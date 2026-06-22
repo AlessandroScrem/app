@@ -1,7 +1,8 @@
 use super::gpu_sync::GpuSync;
 use super::*;
 
-use crate::gpu::GpuContext;
+use crate::gpu::{GpuCache, GpuContext, GpuManager};
+use crate::gpu::pipeline_manager::PipelineManager;
 use crate::renderer::framebuilder::DrawStats;
 use crate::assets::VertexInstance;
 
@@ -11,6 +12,8 @@ use wgpu::{Device, Queue};
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
 use crate::globals::Globals;
+use crate::camera::Camera;
+use crate::prelude::{info, debug};
 
 
 pub struct SceneRenderContext<'a> {

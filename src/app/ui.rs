@@ -1,4 +1,4 @@
-use crate::ui::{RenderStats, UiSnapshot, ui::UiRuntimeContext};
+use crate::ui::{RenderStats, UiSnapshot, UiRuntimeContext};
 use crate::assets::{IblAsset, MaterialAsset, MeshAsset, TextureAsset};
 
 use super::app::App;

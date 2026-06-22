@@ -45,7 +45,9 @@ pub enum AssetEventKind {
     Created,
     Updated,
     Removed,
+    #[allow(unused)]
     DependencyAdded,
+    #[allow(unused)]
     DependencyRemoved,
 }
 
@@ -143,7 +145,6 @@ impl<T: Asset> ErasedStorage for TypedStorage<T> {
     }
 }
 
-#[derive(Default)]
 pub struct AssetManager {
     storages: HashMap<TypeId, Box<dyn ErasedStorage>>,
     stats: HashMap<TypeId, ResourceStats>,
@@ -155,6 +156,12 @@ pub struct AssetManager {
     graph: DependencyGraph,
 
     events: VecDeque<AssetEvent>,
+}
+
+impl Default for AssetManager {
+    fn default() -> Self {
+        AssetManager::new()
+    }
 }
 
 impl AssetManager {
@@ -342,27 +349,11 @@ impl AssetManager {
     }
 }
 
-impl AssetManager {
-    pub fn drain_events(&mut self) -> Vec<AssetEvent> {
-        self.events.drain(..).collect()
-    }
-}
-
 #[derive(Default)]
 pub struct GroupedEvents {
     inner: HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>>,
 }
 
-impl GroupedEvents {
-    pub fn type_groups(
-        &self,
-        type_id: TypeId,
-    ) -> impl Iterator<Item = (AssetEventKind, &Vec<AssetEvent>)> {
-        self.inner
-            .iter()
-            .filter_map(move |((tid, kind), events)| (*tid == type_id).then_some((*kind, events)))
-    }
-}
 
 impl GroupedEvents {
     pub fn process_type<T: 'static, F>(&self, mut f: F)

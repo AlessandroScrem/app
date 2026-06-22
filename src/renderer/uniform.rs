@@ -1,5 +1,6 @@
 use crate::math::*;
 use crate::globals::Globals;
+use crate::camera::Camera;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
@@ -25,7 +26,7 @@ impl Default for CameraUniform {
 }
 
 impl CameraUniform {
-    pub fn from_camera_size(camera: &super::Camera, size: (u32, u32)) -> Self {
+    pub fn from_camera_size(camera: &Camera, size: (u32, u32)) -> Self {
         let screen_size = [size.0 as f32, size.1 as f32];
         Self {
             view_position: camera.get_position().to_homogeneous().into(),

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::gpu::*;
 use crate::assets::TextureId;
 use crate::prelude::*;
-use crate::ui::traits::{UiTexture, UiTextureResolver};
+use crate::ui::{UiTexture, UiTextureResolver};
 use wgpu::*;
 use imgui_wgpu::*;
 

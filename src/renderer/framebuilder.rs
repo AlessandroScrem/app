@@ -2,15 +2,16 @@ use std::collections::HashMap;
 
 use super::*;
 
+use crate::assets::{MaterialId, MeshId, VertexInstance};
+use crate::assets::asset_manager::AssetManager;
 use crate::entities::components::*;
 use crate::entities::{EntityRawU64, bounding_box_impl::BBoxVertexData};
-use crate::input::Input;
 use crate::globals::Globals;
-use crate::picking::PickObject;
+use crate::input::Input;
 use crate::math::*;
-use crate::renderer::uniform::{LightsUniform, LightUniform, };
-use crate::assets::VertexInstance;
-use crate::assets::asset_manager::AssetManager;
+use crate::picking::PickObject;
+use crate::prelude::debug;
+use crate::renderer::uniform::{LightUniform, LightsUniform};
 
 use legion::{Entity, World};
 
@@ -122,10 +123,9 @@ impl FrameBuilder {
     fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
         let mut opaque_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
-        let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> =
-            HashMap::new();
-        use crate::assets::mesh_asset::MeshAsset;
+        let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
         use crate::assets::material_asset::MaterialAsset;
+        use crate::assets::mesh_asset::MeshAsset;
 
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
@@ -213,11 +213,7 @@ impl FrameBuilder {
         }
     }
 
-    fn build_bbox_data(
-        world: &World,
-        globals: &Globals,
-        frame: &mut FrameData,
-    ) {
+    fn build_bbox_data(world: &World, globals: &Globals, frame: &mut FrameData) {
         if !globals.bbox_enable {
             return;
         }
