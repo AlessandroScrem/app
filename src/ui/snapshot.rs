@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::assets::material_desc::MaterialDesc;
 use crate::entities::components::*;
 
 use crate::assets::MaterialId;
@@ -64,7 +65,7 @@ pub struct UiComponentState {
     pub mesh: Option<MeshComponent>,
     pub transform: Option<TransformComponent>,
     pub bounding_box: Option<BoundingBoxComponent>,
-    pub materials: Option<HashMap<MaterialId, MaterialAsset>>,
+    pub materials: Option<HashMap<MaterialId, MaterialDesc>>,
     pub light: Option<LightComponent>,
 }
 
@@ -89,13 +90,13 @@ impl UiComponentState {
 
 
             if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
-                let materials: HashMap<MaterialId, MaterialAsset> = mesh_asset.desc
+                let materials: HashMap<MaterialId, MaterialDesc> = mesh_asset.desc
                     .submeshes
                     .iter()
                     .filter_map(|sm| {
                         asset_mgr
                             .get::<MaterialAsset>(sm.material)
-                            .map(|mat_asset| (sm.material, mat_asset.clone()))
+                            .map(|mat_asset| (sm.material, mat_asset.desc.clone()))
                     })
                     .collect();
 

@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, path::PathBuf};
 
 use crate::assets::MaterialId;
-use crate::assets::material_asset::MaterialAsset;
+use crate::assets::material_desc::MaterialDesc;
 use crate::entities::components::*;
 use crate::math::*;
 
@@ -33,7 +33,7 @@ pub enum SelectionEvent {
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     ChangeSkybox(PathBuf),
-    UpdateMaterial(MaterialId, MaterialAsset),
+    UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {
     RemoveEntity(Entity),

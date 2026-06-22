@@ -1,22 +1,25 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::ui::UiLayer;
-use crate::assets::IblAsset;
 use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
+use crate::assets::IblAsset;
+use crate::assets::asset_manager::AssetManager;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, IblManager};
+use crate::gpu::{
+    BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface,
+    HasGpuStats, IblManager,
+};
 use crate::input::Input;
 use crate::picking::PickObject;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
+use crate::renderer::SceneRenderer;
 use crate::renderer::gpu_sync::GpuSync;
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::ui::UiRuntimeContext;
 use crate::ui::InternalCounter;
+use crate::ui::UiLayer;
+use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
-use crate::assets::asset_manager::AssetManager;
-use crate::renderer::SceneRenderer;
 
 impl InternalCounter for GpuCache {
     fn internal_counter(&self) -> GpuInternalCounters {
@@ -188,14 +191,12 @@ impl RunningApp {
                     .filter_map(|ev| {
                         asset_mgr
                             .get::<MaterialAsset>(ev.id)
-                            .map(|asset| (ev.id, asset))
+                            .map(|asset| (ev.id, &asset.desc))
                     })
-                    .for_each(|(id, asset)| {
-                        let material_layout =
-                            gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
-                        let gpu_material =
-                            GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
-                        material_cache.insert(id, gpu_material);
+                    .for_each(|(id, desc)| {
+                        material_cache.update(&id, |gpu_mat| {
+                            gpu_mat.update_uniform(queue, desc);
+                        });
                     });
             }
 

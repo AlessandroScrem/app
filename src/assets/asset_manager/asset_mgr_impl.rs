@@ -144,7 +144,7 @@ impl<T: Asset> ErasedStorage for TypedStorage<T> {
         self.inner.remove_by_id(id)
     }
 }
-
+#[derive(Default)]
 pub struct AssetManager {
     storages: HashMap<TypeId, Box<dyn ErasedStorage>>,
     stats: HashMap<TypeId, ResourceStats>,
@@ -158,22 +158,11 @@ pub struct AssetManager {
     events: VecDeque<AssetEvent>,
 }
 
-impl Default for AssetManager {
-    fn default() -> Self {
-        AssetManager::new()
-    }
-}
 
 impl AssetManager {
+    #[allow(unused)]
     pub fn new() -> AssetManager {
-        AssetManager {
-            storages: HashMap::new(),
-            key_index: Default::default(),
-            ref_count: HashMap::new(),
-            graph: Default::default(),
-            events: VecDeque::new(),
-            stats: HashMap::new(),
-        }
+        AssetManager::default()
     }
 
     fn storage<T: Asset>(&self) -> &AssetStorage<T> {
@@ -260,26 +249,25 @@ impl AssetManager {
         self.storage::<T>().get_by_id(id.id)
     }
 
-    pub fn update<T: Asset>(&mut self, id: GlobalAssetId, asset: T) {
+    pub fn update<T: Asset>(&mut self, id: GlobalAssetId, f: impl FnOnce(&mut T)) {
         if id.type_id != TypeId::of::<T>() {
             return;
         }
-
         if self.storage::<T>().get_by_id(id.id).is_none() {
             return;
         }
-
+        
         let handle = AssetHandle::<T>::new(id.id);
-
+    
         if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
-            *existing = asset;
-
+            f(existing);
+    
             self.events.push_back(AssetEvent {
                 id,
                 kind: AssetEventKind::Updated,
             });
         }
-    }
+    } 
 
     pub fn get_stats<T: Asset>(&self) -> ResourceStats {
         self.stats

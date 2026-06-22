@@ -143,8 +143,10 @@ pub fn handle_asset_event(
     next_queue: &mut VecDeque<DomainEvent>,
 ) {
     match event {
-        AssetEvent::UpdateMaterial(material_id, asset) => {
-            app.asset_mgr.update::<MaterialAsset>(material_id, asset);
+        AssetEvent::UpdateMaterial(material_id, desc) => {
+            app.asset_mgr.update::<MaterialAsset>(material_id, |asset| {
+                asset.desc = desc;
+            });
         }
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
@@ -159,8 +161,10 @@ pub fn handle_asset_event(
             let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
 
             if let Some(id) = app.ibl_id {
-                let asset = IblAsset::new(hdr_id, path);
-                app.asset_mgr.update::<IblAsset>(id, asset)
+                app.asset_mgr.update::<IblAsset>(id, |asset| {
+                    asset.hrd_id = hdr_id;
+                    asset.path = path;
+                })
             }
         }
     }

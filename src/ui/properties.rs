@@ -2,7 +2,6 @@ use super::*;
 use imgui::*;
 
 use crate::assets::MaterialId;
-use crate::assets::material_asset::MaterialAsset;
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
 
@@ -104,7 +103,6 @@ impl MaterialDesc {
     fn draw_ui_slot(
         &mut self,
         ui: &imgui::Ui,
-        // material: &mut MaterialDesc,
         slot: MaterialTextureSlot,
         resolver: &dyn UiTextureResolver,
     ) -> bool {
@@ -268,11 +266,11 @@ fn draw_sheen_ui(ui: &Ui, material: &mut MaterialDesc) -> bool {
 
 fn draw_materials(
     ui: &Ui,
-    materials: &HashMap<MaterialId, MaterialAsset>,
+    materials: &HashMap<MaterialId, MaterialDesc>,
     resolver: &dyn UiTextureResolver,
-) -> Option<(MaterialAsset, MaterialId)> {
+) -> Option<(MaterialDesc, MaterialId)> {
     let mut dirty = false;
-    let mut result: Option<(MaterialAsset, MaterialId)> = None;
+    let mut result: Option<(MaterialDesc, MaterialId)> = None;
 
     if ui.collapsing_header(
         "Material",
@@ -328,33 +326,30 @@ fn draw_materials(
 
                 use crate::assets::material_desc::MaterialTextureSlot::*;
 
-                if let Some(mut material_asset) = materials.get(&selected_id).cloned() {
-                    // let material = material_asset.desc;
-                    let name = material_asset.desc.get_name();
+                if let Some(mut material) = materials.get(&selected_id).cloned() {
+                    let name = material.get_name();
 
                     if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF)
                     {
-                        dirty |= material_asset.desc.draw_ui_slot(ui, BaseColor, resolver);
+                        dirty |= material.draw_ui_slot(ui, BaseColor, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, Emissive, resolver);
+                        dirty |= material.draw_ui_slot(ui, Emissive, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, Occlusion, resolver);
+                        dirty |= material.draw_ui_slot(ui, Occlusion, resolver);
                         ui.separator();
-                        dirty |= material_asset
-                            .desc
-                            .draw_ui_slot(ui, MetallicRoughness, resolver);
+                        dirty |= material.draw_ui_slot(ui, MetallicRoughness, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, Normal, resolver);
+                        dirty |= material.draw_ui_slot(ui, Normal, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, Transmission, resolver);
+                        dirty |= material.draw_ui_slot(ui, Transmission, resolver);
                         ui.separator();
-                        dirty |= material_asset.desc.draw_ui_slot(ui, Volume, resolver);
+                        dirty |= material.draw_ui_slot(ui, Volume, resolver);
                         ui.separator();
-                        dirty |= draw_sheen_ui(ui, &mut material_asset.desc);
+                        dirty |= draw_sheen_ui(ui, &mut material);
                     }
 
                     if dirty {
-                        result = Some((material_asset.clone(), selected_id.clone()));
+                        result = Some((material.clone(), selected_id.clone()));
                     }
                 }
             });

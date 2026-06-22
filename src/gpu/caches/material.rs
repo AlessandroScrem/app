@@ -10,12 +10,10 @@ use crate::{
 };
 use wgpu::util::DeviceExt;
 
-
 #[derive(Default)]
 pub struct GpuMaterial {
     pub bind_group: Option<wgpu::BindGroup>,
-    #[allow(unused)]
-    pub uniform_buffer: Option<wgpu::Buffer>,
+    uniform_buffer: Option<wgpu::Buffer>,
 }
 
 impl GpuMaterial {
@@ -23,7 +21,7 @@ impl GpuMaterial {
     fn estimated_size() -> usize {
         Self::MATERIAL_SIZE
     }
-    
+
     pub fn new(
         texture_cache: &GpuTextureCache,
         material_desc: &MaterialDesc,
@@ -45,8 +43,14 @@ impl GpuMaterial {
             uniform_buffer: Some(uniform_buffer),
         }
     }
-}
 
+    pub fn update_uniform(&self, queue: &wgpu::Queue, material_desc: &MaterialDesc) {
+        let uniform = &MaterialUniform::from(material_desc);
+        if let Some(buffer) = &self.uniform_buffer {
+            queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct GpuMaterialCache {
@@ -72,6 +76,14 @@ impl GpuMaterialCache {
         self.map.get(id)
     }
 
+    pub fn update(&mut self, id: &MaterialId, f: impl FnOnce(&mut GpuMaterial)) {
+        if !self.map.contains_key(id) {
+            return;
+        }
+
+        self.map.entry(*id).and_modify(|v| f(v));
+    }
+
     #[allow(unused)]
     pub fn len(&self) -> usize {
         self.map.len()
@@ -83,7 +95,6 @@ impl GpuMaterialCache {
         }
     }
 }
-
 
 pub fn create_material_bindgroup_from_desc(
     device: &wgpu::Device,
