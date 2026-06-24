@@ -4,6 +4,7 @@ use crate::app::domain::events::{AssetEvent, DomainEvent};
 use crate::assets::ibl_asset::IblAsset;
 use crate::assets::TextureAsset;
 use crate::assets::asset_manager::AssetManager;
+use crate::ecs::components::light;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 
@@ -47,7 +48,7 @@ impl Application for App {
         self.ibl_id = Some(ibl_id);
         //***************************** 
 
-        crate::entities::light::create(&mut self.current_scene.world, &self.resources);
+        light::create(&mut self.current_scene.world, &self.resources);
         self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
 
         debug!("App initialized in {} ms", timer.elapsed().as_millis());

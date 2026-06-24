@@ -5,7 +5,7 @@ use gltf::{
 use std::collections::hash_map::HashMap;
 use std::{path::Path, time::Instant};
 
-use crate::entities::components::{TransformComponent};
+use crate::ecs::components::{TransformComponent};
 use crate::prelude::*;
 use crate::math::*;
 use crate::error::ImportError;

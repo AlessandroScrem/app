@@ -1,4 +1,4 @@
-use crate::entities::components::{BoundingBoxComponent, GlobalModelComponent};
+use crate::ecs::components::{BoundingBoxComponent, GlobalModelComponent};
 use legion::*;
 
 #[system(for_each)]

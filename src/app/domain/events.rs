@@ -2,7 +2,7 @@ use std::{collections::VecDeque, path::PathBuf};
 
 use crate::assets::MaterialId;
 use crate::assets::material_desc::MaterialDesc;
-use crate::entities::components::*;
+use crate::ecs::components::*;
 use crate::math::*;
 
 use legion::Entity;

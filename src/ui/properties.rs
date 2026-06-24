@@ -6,7 +6,7 @@ use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
 
 use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent};
-use crate::entities::components::{
+use crate::ecs::components::{
     BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
 };
 

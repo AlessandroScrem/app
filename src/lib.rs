@@ -14,12 +14,11 @@ mod systems;
 mod test_utils;
 mod timer;
 mod timestep;
-mod transform;
 mod ui;
+mod ecs;
 
-pub(crate) mod entities;
 
-pub use entities::EntityRawU64;
+pub use ecs::entity::EntityRawU64;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,

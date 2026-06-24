@@ -1,7 +1,7 @@
 use crate::app::App;
+use crate::ecs::components::BoundingBoxComponent;
 use crate::input::Input;
 use crate::prelude::*;
-use crate::entities::components::BoundingBoxComponent;
 use legion::Entity;
 use legion::EntityStore;
 

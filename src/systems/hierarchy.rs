@@ -1,6 +1,6 @@
 use legion::{systems::CommandBuffer, world::SubWorld, *};
 
-use crate::entities::components::{GlobalModelComponent, HierarchyComponent, TransformComponent};
+use crate::ecs::components::{GlobalModelComponent, HierarchyComponent, TransformComponent};
 use crate::math::*;
 
 #[system]

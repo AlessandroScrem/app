@@ -1,4 +1,4 @@
-use crate::entities::EntityRawU64;
+use crate::EntityRawU64;
 use crate::gpu::GpuManager;
 use crate::prelude::*;
 use crate::globals::Globals;

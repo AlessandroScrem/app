@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::assets::material_desc::MaterialDesc;
-use crate::entities::components::*;
+use crate::ecs::components::*;
 
 use crate::assets::MaterialId;
 use crate::assets::asset_manager::{AssetManager, GlobalAssetId, ResourceStats};

@@ -4,8 +4,9 @@ use super::*;
 
 use crate::assets::{MaterialId, MeshId, VertexInstance};
 use crate::assets::asset_manager::AssetManager;
-use crate::entities::components::*;
-use crate::entities::{EntityRawU64, bounding_box_impl::BBoxVertexData};
+use crate::ecs::components::bounding_box_impl::BBoxVertexData;
+use crate::ecs::components::*;
+use crate::EntityRawU64;
 use crate::globals::Globals;
 use crate::input::Input;
 use crate::math::*;
