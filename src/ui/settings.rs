@@ -1,14 +1,20 @@
+use core::fmt;
+
+use super::tools;
 use super::*;
+use crate::math::*;
+use crate::text_fmt;
+use crate::{Camera, Globals};
+
+use crate::assets::asset_manager::ResourceStats;
+use crate::gpu::GpuResourceStats;
+use crate::renderer::framebuilder::DrawStats;
+
+use crate::app::domain::events::{AssetEvent, DomainEvent, GlobalEvent, CameraEvent};
 
 use imgui::*;
-use prelude::math::*;
 
-use crate::renderer::GpuResourceStats;
-use crate::{DomainEvent, Globals, assets::ResourceStats, camera::Camera, text_fmt};
-
-use std::fmt;
-
-impl fmt::Display for ResourceStats {
+impl core::fmt::Display for ResourceStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         const BYTES_TO_MB: f32 = 1.0 / (1024.0 * 1024.0);
         write!(
@@ -33,7 +39,7 @@ impl fmt::Display for GpuResourceStats {
     }
 }
 
-impl fmt::Display for renderer::framebuilder::DrawStats {
+impl fmt::Display for DrawStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -55,7 +61,7 @@ impl Layer for SettimgsUi {
         let hovered_entity = ctx.snapshot.hovered;
         let selected_entity = &ctx.snapshot.selected;
         let adapter_name = &ctx.adapter_string;
-        let hdr_texture_id = ctx.snapshot.hdr_texture_id;
+        let hdr_texture_id = ctx.snapshot.hdr_id;
         let timestep = &ctx.timestep;
         let texture_resolver = &ctx.snapshot.texture_resolver;
         let gpu_counters = &ctx.snapshot.gpu_counters;
@@ -116,11 +122,13 @@ impl Layer for SettimgsUi {
                     }
 
                     ui.separator();
-                    if let Some(command) = draw_ui_skybox_selector(
-                        &ui,
-                        texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
-                    ) {
-                        ctx.write.push(command);
+                    if let Some(hdr_texture_id) = hdr_texture_id {
+                        if let Some(command) = draw_ui_skybox_selector(
+                            &ui,
+                            texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
+                        ) {
+                            ctx.write.push(command);
+                        }
                     }
                 }
 

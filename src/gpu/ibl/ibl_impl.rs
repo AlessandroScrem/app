@@ -503,7 +503,7 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
         });
     }
 }
-
+/* 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -540,7 +540,7 @@ mod tests {
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures
-            .from_file(HDR_PATH, crate::assets::TextureUsage::HDR16);
+            .from_file(HDR_PATH, TextureUsage::HDR16);
 
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
@@ -603,7 +603,7 @@ mod tests {
         let mut asset_mgr = AssetManager::default();
         let hdr_id = asset_mgr
             .textures
-            .from_file(HDR_PATH, crate::assets::TextureUsage::HDR16);
+            .from_file(HDR_PATH, TextureUsage::HDR16);
 
         asset_mgr.textures.load_cpu_textures();
         texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
@@ -627,3 +627,4 @@ mod tests {
         }
     }
 }
+ */

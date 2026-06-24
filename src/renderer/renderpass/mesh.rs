@@ -132,10 +132,9 @@ impl RenderPass for MeshPass {
         // SORT BY MATERIAL
         // -------------------------------------------------
         let mut sorted_batches: Vec<_> = batches.iter().collect();
-        sorted_batches.sort_by_key(|b| b.material);
+        sorted_batches.sort_by_key(|b| b.material.type_id);
 
-        let mut current_material: Option<MaterialId> = None;
-
+        let mut current_material: Option<MaterialId> = None;    
         // -------------------------------------------------
         // DRAW
         // -------------------------------------------------

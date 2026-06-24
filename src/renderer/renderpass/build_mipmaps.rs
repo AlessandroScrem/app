@@ -1,7 +1,7 @@
 use log::warn;
 
 use super::*;
-use crate::renderer;
+use crate::{gpu::pipeline_manager::CsPipelineKind};
 
 #[derive(Default)]
 pub struct BuildMipmapsPass {}
@@ -44,7 +44,7 @@ impl RenderPass for BuildMipmapsPass {
 
         let pipeline = ctx
             .pip_mgr
-            .get_compute_pipeline(renderer::CsPipelineKind::CopyToMip0);
+            .get_compute_pipeline(CsPipelineKind::CopyToMip0);
 
         copy_to_mip0(device, encoder, pipeline, src_texture, mip_texture);
 
@@ -52,7 +52,7 @@ impl RenderPass for BuildMipmapsPass {
         if mips_enable_cp {
             let cs_pipeline = ctx
                 .pip_mgr
-                .get_compute_pipeline(renderer::CsPipelineKind::BuildMipmaps);
+                .get_compute_pipeline(CsPipelineKind::BuildMipmaps);
 
             compute_mipmaps(device, encoder, cs_pipeline, mip_texture);
         }

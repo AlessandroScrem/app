@@ -2,12 +2,18 @@ use std::collections::HashMap;
 
 use super::*;
 
-use crate::entities::EntityRawU64;
+use crate::assets::{MaterialId, MeshId, VertexInstance};
+use crate::assets::asset_manager::AssetManager;
+use crate::ecs::components::bounding_box_impl::BBoxVertexData;
+use crate::ecs::components::*;
+use crate::EntityRawU64;
+use crate::globals::Globals;
 use crate::input::Input;
+use crate::math::*;
 use crate::picking::PickObject;
-use crate::prelude::math::*;
-use crate::uniform::LightsUniform;
-use crate::{entities::bounding_box_impl::BBoxVertexData, uniform::LightUniform};
+use crate::prelude::debug;
+use crate::renderer::uniform::{LightUniform, LightsUniform};
+
 use legion::{Entity, World};
 
 pub struct InstanceBatch {
@@ -56,7 +62,7 @@ pub struct FrameData {
     pub transmission_batches: Vec<InstanceBatch>,
     pub bbox_vertexdata: Vec<BBoxVertexData>,
     pub lights: Option<LightsUniform>,
-    pub instances: Vec<vertexdata::VertexInstance>,
+    pub instances: Vec<VertexInstance>,
 
     // flags / tasks
     pub axis_enable: bool,
@@ -117,18 +123,19 @@ impl FrameBuilder {
 
     fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
         use legion::IntoQuery;
-        let mut opaque_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> = HashMap::new();
-        let mut transmission_map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>> =
-            HashMap::new();
+        let mut opaque_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
+        let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
+        use crate::assets::material_asset::MaterialAsset;
+        use crate::assets::mesh_asset::MeshAsset;
 
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
-            let Some(mesh) = asset.meshes.get(mesh_comp.handle) else {
+            let Some(mesh) = asset.get::<MeshAsset>(mesh_comp.handle) else {
                 continue;
             };
 
-            for submesh in mesh.submeshes.iter() {
-                let Some(material) = asset.materials.get_desc(submesh.material) else {
+            for submesh in mesh.desc.submeshes.iter() {
+                let Some(material) = asset.get::<MaterialAsset>(submesh.material) else {
                     continue;
                 };
                 debug_assert!(
@@ -149,15 +156,15 @@ impl FrameBuilder {
                 // -------------------------------------------------
 
                 let model = global_mat.mat;
-                let instance = vertexdata::VertexInstance::new(model, entity.as_raw_u64());
+                let instance = VertexInstance::new(model, entity.as_raw_u64());
 
                 // -------------------------------------------------
                 // CLASSIFY
                 // -------------------------------------------------
 
-                if material.is_transmissive() {
+                if material.desc.is_transmissive() {
                     transmission_map.entry(key).or_default().push(instance);
-                } else if !material.is_transparent() {
+                } else if !material.desc.is_transparent() {
                     opaque_map.entry(key).or_default().push(instance);
                 }
             }
@@ -167,9 +174,9 @@ impl FrameBuilder {
         // BUILD FINAL BATCHES
         // ---------------------------------------------------------
         fn flush_batches(
-            map: HashMap<BatchKey, Vec<vertexdata::VertexInstance>>,
+            map: HashMap<BatchKey, Vec<VertexInstance>>,
             batches: &mut Vec<InstanceBatch>,
-            instances: &mut Vec<vertexdata::VertexInstance>,
+            instances: &mut Vec<VertexInstance>,
         ) {
             for (key, batch_instances) in map {
                 let start = instances.len() as u32;
@@ -207,11 +214,7 @@ impl FrameBuilder {
         }
     }
 
-    fn build_bbox_data(
-        world: &World,
-        globals: &Globals,
-        frame: &mut FrameData,
-    ) {
+    fn build_bbox_data(world: &World, globals: &Globals, frame: &mut FrameData) {
         if !globals.bbox_enable {
             return;
         }
@@ -249,7 +252,7 @@ impl FrameBuilder {
             .enumerate()
         {
             let data = LightUniform {
-                entity_id: entities::EntityRawU64::as_raw_u64(entity),
+                entity_id: EntityRawU64::as_raw_u64(entity),
                 ..light.into()
             };
             light_uniform.count = (i + 1) as u32;

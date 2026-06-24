@@ -1,9 +1,9 @@
-use crate::assets::{MaterialId, asset_manager::AssetManager};
-use crate::entities::EntityRawU64;
-use crate::gpu::{GpuCache, GpuContext, GpuManager};
+use crate::EntityRawU64;
+use crate::gpu::GpuManager;
 use crate::prelude::*;
+use crate::globals::Globals;
 use crate::renderer::scene_renderer::{MAX_INSTANCES, RenderContext};
-use crate::uniform::{CameraUniform, GlobalUniform};
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use legion::Entity;
 
 use super::FrameData;
@@ -11,15 +11,6 @@ use super::FrameData;
 pub struct GpuSync;
 
 impl GpuSync {
-    pub fn sync_caches(
-        gpu_cache: &mut GpuCache,
-        gpu_context: &GpuContext,
-        gpu_manager: &mut GpuManager,
-        asset_mgr: &AssetManager,
-    ) {
-        gpu_manager.sync_ibl(gpu_cache, gpu_context, asset_mgr);
-        gpu_cache.sync_caches(gpu_context, gpu_manager, asset_mgr);
-    }
 
     pub fn update_camera_and_globals_to_gpu(
         ctx: &mut RenderContext,
@@ -49,41 +40,6 @@ impl GpuSync {
             0,
             bytemuck::cast_slice(&frame.instances),
         );
-    }
-
-    pub fn update_meshes_materials_to_gpu(
-        queue: &wgpu::Queue,
-        gpu_cache: &GpuCache,
-        asset_mgr: &AssetManager,
-        frame: &FrameData,
-    ) {
-        let mut updated_materials = std::collections::HashSet::new();
-
-        fn gpu_update(
-            asset_mgr: &AssetManager,
-            gpu_cache: &GpuCache,
-            queue: &wgpu::Queue,
-            material_id: MaterialId,
-        ) {
-            if let Some(material_desc) = asset_mgr.materials.get_desc(material_id) {
-                let updated_uniform = uniform::MaterialUniform::from(material_desc);
-                gpu_cache
-                    .material
-                    .update(&material_id, queue, &updated_uniform);
-            }
-        }
-
-        for batch in frame.opaque_batches.iter() {
-            if updated_materials.insert(batch.material) {
-                gpu_update(asset_mgr, gpu_cache, queue, batch.material);
-            }
-        }
-
-        for batch in frame.transmission_batches.iter() {
-            if updated_materials.insert(batch.material) {
-                gpu_update(asset_mgr, gpu_cache, queue, batch.material);
-            }
-        }
     }
 
     pub fn update_lights_to_gpu(queue: &wgpu::Queue, gpu_manager: &GpuManager, frame: &FrameData) {

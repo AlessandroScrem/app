@@ -1,21 +1,11 @@
-#[derive(Default)]
-pub struct GpuInternalCounters {
-    pub textures: GpuResourceStats,
-    pub materials: GpuResourceStats,
-    pub meshes: GpuResourceStats,
-}
-
-pub trait HasGpuStats {
-    fn get_stats(&self) -> GpuResourceStats;
-}
-
 #[derive(Default, Debug, Clone)]
-pub struct GpuResourceStats {
+pub struct ResourceStats {
     pub count: usize,
+    pub shared: usize,
     pub estimated_bytes: usize,
 }
 
-impl GpuResourceStats {
+impl ResourceStats {
     pub fn add(&mut self, size: usize) {
         self.estimated_bytes += size;
         self.count += 1;
@@ -27,5 +17,15 @@ impl GpuResourceStats {
             self.count -= 1;
         }
     }
+    #[allow(unused)]
+    pub fn add_shared(&mut self) {
+        self.shared += 1;
+    }
+    
+    #[allow(unused)]
+    pub fn remove_sahred(&mut self) {
+        if self.shared > 0 {
+            self.shared -= 1;
+        }
+    }
 }
-

@@ -1,4 +1,9 @@
+use crate::app::domain::events::DomainEvents;
+use crate::assets::asset_manager::GlobalAssetId;
+use crate::assets::asset_manager::AssetManager;
 use crate::prelude::*;
+
+use crate::globals::Globals;
 
 use crate::scene::Scene;
 
@@ -16,6 +21,7 @@ pub struct App {
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
+    pub ibl_id: Option<GlobalAssetId>,
 }
 
 impl App {

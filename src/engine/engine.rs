@@ -1,7 +1,6 @@
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::prelude::*;
 
-use crate::input::Input;
 use std::sync::Arc;
 use winit::window::WindowAttributes;
 use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
@@ -10,10 +9,12 @@ use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
 use crate::gpu::{
-    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, IblManager,
 };
+use crate::input::Input;
+use crate::ui::UiLayer;
 use crate::picking::PickObject;
-use crate::renderer::ImguiRender;
+use crate::renderer::{ImguiRender, SceneRenderer};
 
 #[derive(Default)]
 pub struct Engine<A: Application> {
@@ -57,17 +58,10 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &mut imgui_context,
             gpu_surface.get_config().format,
         );
-        //
-
-        let asset_mgr = self.app.asset_mgr_mut();
 
         // gpu resources
-        let mut texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
-        texture_cache.upload_textures(
-            &mut asset_mgr.textures,
-            &gpu_context.device,
-            &gpu_context.queue,
-        );
+        let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+
         let gpu_cache = GpuCache {
             textures: texture_cache,
             material: GpuMaterialCache::default(),
@@ -79,9 +73,9 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             &gpu_context.queue,
             gpu_surface.get_config().width,
             gpu_surface.get_config().height,
-            &gpu_cache.textures,
-            asset_mgr.skybox.get_id(),
         );
+
+        let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
 
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
@@ -101,12 +95,12 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             pickobject,
             imgui_render,
             uilayer,
-            timer: Timer::new(),
             events: Vec::new(),
             gpu_context,
             gpu_surface,
             gpu_cache,
             gpu_manager,
+            ibl_manager,
             pipeline_manager,
         });
 

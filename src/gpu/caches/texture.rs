@@ -1,17 +1,14 @@
+use std::collections::HashMap;
+
 use crate::{
-    assets::{
-        TextureId,
-        texture_upload::{self, UploadPayload},
-    },
+    assets::TextureId,
     gpu::static_textures,
-    renderer::{
+    gpu::{
         GpuResourceStats, HasGpuStats,
         texture::{GpuTexture, GpuTextureBuilder},
     },
 };
 
-use super::*;
-use slotmap::SecondaryMap;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use wgpu::{Device, Queue};
@@ -23,12 +20,12 @@ pub enum CacheTextureSlot {
     Normal,
 }
 
-struct GpuBuiltinTextures {
+pub struct GpuBuiltinTextures {
     builtin: Vec<GpuTexture>,
 }
 
 impl GpuBuiltinTextures {
-    fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let builtin: Vec<GpuTexture> = CacheTextureSlot::iter()
             .map(|slot| Self::create(device, queue, slot))
             .collect();
@@ -36,7 +33,7 @@ impl GpuBuiltinTextures {
         Self { builtin }
     }
 
-    fn get(&self, slot: CacheTextureSlot) -> &GpuTexture {
+    pub fn get(&self, slot: CacheTextureSlot) -> &GpuTexture {
         &self.builtin[slot as usize]
     }
 
@@ -59,7 +56,7 @@ impl GpuBuiltinTextures {
 }
 
 pub struct GpuTextureCache {
-    map: SecondaryMap<TextureId, GpuTexture>,
+    map: HashMap<TextureId, GpuTexture>,
     builtin: GpuBuiltinTextures,
     stats: GpuResourceStats,
 }
@@ -74,96 +71,42 @@ impl GpuTextureCache {
         let builtin = GpuBuiltinTextures::new(device, queue);
 
         Self {
-            map: SecondaryMap::new(),
+            map: HashMap::new(),
             stats: GpuResourceStats::default(),
             builtin,
         }
     }
 
-    pub fn get_or_fallback_white(&self, id: TextureId) -> &GpuTexture {
-        self.map
-            .get(id)
-            .unwrap_or(self.builtin.get(CacheTextureSlot::White))
-    }
-
-    fn create_from_cpu(
-        &mut self,
-        id: TextureId,
-        payload: UploadPayload,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
-        match payload {
-            UploadPayload::Ready(data) => {
-                let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
-                self.stats.add(texture.estimated_size);
-                self.map.insert(id, texture);
-            }
-            UploadPayload::Fallback => {}
-        }
-    }
-
-    fn retain<F>(&mut self, contains: F)
-    where
-        F: Fn(&TextureId) -> bool,
-    {
-        // Sync cleanup
-        self.map.retain(|id, tex| {
-            let keep = contains(&id);
-            if !keep {
-                // remove id
-                // update stats
-                self.stats.remove(tex.estimated_size);
-                trace!("removed gpu tex {:?}", id);
-            }
-            keep
-        });
-    }
-    
     #[allow(unused)]
-    pub fn view(&self, id: TextureId) -> &wgpu::TextureView {
-        &self.get_or_fallback_white(id).view
+    pub fn len(&self) -> usize {
+        self.map.len()
     }
 
-    pub fn view_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &wgpu::TextureView {
-        &id.and_then(|id| self.map.get(id))
+    pub fn insert(&mut self, id: TextureId, texture: GpuTexture) {
+        self.stats.add(texture.estimated_size);
+        self.map.insert(id, texture);
+    }
+
+    pub fn get(&self, id: TextureId) -> Option<&GpuTexture> {
+        self.map.get(&id)
+    }
+
+    pub fn get_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &GpuTexture {
+        id.and_then(|id| self.map.get(&id))
             .unwrap_or_else(|| self.builtin.get(slot))
-            .view
     }
 
     pub fn contains_key(&self, id: &TextureId) -> bool {
-        self.map.contains_key(*id)
+        self.map.contains_key(id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (TextureId, &GpuTexture)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&TextureId, &GpuTexture)> {
         self.map.iter()
     }
 
-    pub fn sync(&mut self, inputs: &[SyncInput<TextureId, Option<TextureDesc>>]) {
-        let desired: HashSet<_> = inputs.iter().map(|i| i.id).collect();
-
-        self.retain(|id| desired.contains(id));
-
-        // for input in inputs {
-        //     if !self.map.contains_key(input.id) {
-        //         unimplemented!("TextureID not found ..")
-        //     }
-        // }
-    }
-
-    pub fn upload_textures(
-        &mut self,
-        source: &mut impl texture_upload::TextureUploadSource,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) {
-        let dirty = source.drain_dirty_textures();
-
-        for (id, cpu_texture) in dirty {
-            if let Some(asset) = source.get_texture_asset(id) {
-                self.create_from_cpu(id, cpu_texture, device, queue);
-                trace!("Gpu Upload texture {:?} {:?} ", id, asset.state);
-            }
+    pub fn remove(&mut self, id: TextureId) {
+        if let Some(gpu_texture) = self.map.remove(&id) {
+            self.stats.remove(gpu_texture.estimated_size);
         }
     }
 }
@@ -171,11 +114,7 @@ impl GpuTextureCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        assets::{SamplerDesc, TextureDesc},
-        test_utils,
-    };
-    const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
+    use crate::test_utils;
 
     #[test]
     fn should_create_gpu_texture_cache() {
@@ -183,54 +122,5 @@ mod tests {
         let gpu_texture_cache = GpuTextureCache::new(device, queue);
 
         assert!(gpu_texture_cache.map.is_empty());
-    }
-
-    #[test]
-    fn should_load_hdr_texture_rgba32float() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let mut gpu_texture_cache = GpuTextureCache::new(device, queue);
-        let mut texture_assets = TextureAssets::new();
-
-        let desc = TextureDesc::File {
-            path: HDR_PATH.into(),
-            usage: crate::assets::TextureUsage::HDR32,
-            sampler: SamplerDesc::LinearRepeat,
-            mipmaps: false,
-        };
-
-        let texture_id = texture_assets.get_or_create(desc);
-
-        texture_assets.load_cpu_textures();
-        gpu_texture_cache.upload_textures(&mut texture_assets, device, queue);
-
-        assert!(gpu_texture_cache.map.contains_key(texture_id));
-    }
-
-    #[test]
-    fn should_contain_builtin() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_texture_cache = GpuTextureCache::new(&device, &queue);
-
-        let _fallback_texture = gpu_texture_cache.get_or_fallback_white(TextureId::default());
-
-        #[cfg(feature = "save_tests")]
-        {
-            test_utils::save_texture(
-                device,
-                queue,
-                "fallback_texture.png",
-                &_fallback_texture.inner,
-                0,
-            )
-            .unwrap();
-            test_utils::save_texture(
-                device,
-                queue,
-                "fallback_texture.png",
-                &_fallback_texture.inner,
-                0,
-            )
-            .unwrap();
-        }
     }
 }

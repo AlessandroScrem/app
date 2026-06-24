@@ -1,86 +1,33 @@
-pub(crate) mod axis;
-pub(crate) mod bbox;
-pub(crate) mod build_mipmaps;
-pub(crate) mod light;
-pub(crate) mod linearize;
-pub(crate) mod mesh;
-pub(crate) mod outline;
-pub(crate) mod pickobject;
-pub(crate) mod skybox;
+mod axis;
+mod bbox;
+mod build_mipmaps;
+mod light;
+mod linearize;
+mod mesh;
+mod outline;
+mod pickobject;
+mod skybox;
 
-pub(crate) use axis::AxisPass;
-pub(crate) use bbox::BoundingboxPass;
-pub(crate) use build_mipmaps::BuildMipmapsPass;
-pub(crate) use light::LightPass;
-pub(crate) use linearize::LinearizePass;
-pub(crate) use mesh::MeshPass;
-pub(crate) use outline::OutlinePass;
-pub(crate) use pickobject::PickObjectPass;
-pub(crate) use skybox::SkyboxPass;
+pub(crate) use axis::*;
+pub(crate) use bbox::*;
+pub(crate) use build_mipmaps::*;
+pub(crate) use light::*;
+pub(crate) use linearize::*;
+pub(crate) use mesh::*;
+pub(crate) use outline::*;
+pub(crate) use pickobject::*;
+pub(crate) use skybox::*;
 
 use crate::renderer::FrameData;
-use crate::renderer::pipeline_manager::PipelineKind;
+use crate::gpu::pipeline_manager::PipelineKind;
 use crate::renderer::scene_renderer::RenderContext;
 
-pub(crate) use crate::gpu::caches::*;
+use crate::gpu::caches::*;
 use wgpu::IndexFormat;
 
-pub(crate) use super::renderer::rendergraph::*;
+use super::rendergraph::ResourceId;
+use crate::assets::MaterialId;
 
-// resources needeed
-// mesh :
-//      gpu_mesh: &'a GpuMesh,
-//      gpu_manager = ctx.gpu_mgr;
-//      material_bg: &'a wgpu::BindGroup,
-//      index_range: &'a std::ops::Range<u32>,
-//      pipeline_manager = ctx.pip_mgr;
-
-// skybox:
-//      globals:
-//      gpu_manager = ctx.gpu_mgr;
-//      pipeline_manager = ctx.pip_mgr;
-//      skybox_manager = ctx.skb_mgr;
-
-// build mipmaps:
-//      globals:
-//      gpu_manager = ctx.gpu_mgr;
-//      pipeline_manager = ctx.pip_mgr;
-//
-
-// light:
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
-//
-
-// axis:
-//      globals:
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
-//
-
-// bbox:
-//      globals:
-//      vertexbuffer;
-//      count;
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
-//
-
-// linearize:
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
-//
-
-// outline:
-//      selected;
-//      pipeline_manager = ctx.pip_mgr;
-//      gpu_manager = ctx.gpu_mgr;
-//
-
-// pickobject:
-//      input;
-//      pickobject = ctx.pickobject;
-//      gpu_manager = ctx.gpu_mgr;
 
 pub(crate) trait RenderPass {
     #[allow(dead_code)]

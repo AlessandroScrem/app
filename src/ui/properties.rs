@@ -1,12 +1,13 @@
 use super::*;
-use crate::assets::MaterialId;
-use crate::assets::material_pbr::MaterialTextureSlot;
 use imgui::*;
+
+use crate::assets::MaterialId;
+use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
 
-use crate::{
-    BoundingBoxComponent, DomainEvent, LightComponent, MeshComponent, TagComponent,
-    TransformComponent, assets::MaterialDesc,
+use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent};
+use crate::ecs::components::{
+    BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
 };
 
 pub struct PropertyUi {}
@@ -57,12 +58,12 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(materials) = &cv.materials {
-        if let Some((desc_updated, mat_id)) = draw_materials(ui, materials, texture_resolver) {
+        if let Some((mat_updated, mat_id)) = draw_materials(ui, materials, texture_resolver) {
             trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
             ctx.write
                 .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(
                     mat_id,
-                    desc_updated,
+                    mat_updated,
                 )));
         }
     }
@@ -102,7 +103,6 @@ impl MaterialDesc {
     fn draw_ui_slot(
         &mut self,
         ui: &imgui::Ui,
-        // material: &mut MaterialDesc,
         slot: MaterialTextureSlot,
         resolver: &dyn UiTextureResolver,
     ) -> bool {
@@ -289,7 +289,7 @@ fn draw_materials(
                 let mut selected_id = *id_cell.borrow();
 
                 let mut keys: Vec<MaterialId> = materials.keys().cloned().collect();
-                keys.sort();
+                keys.sort_by_key(|id| id.id.index);
 
                 // select first id if not exist
                 if !materials.contains_key(&selected_id) {
@@ -324,7 +324,7 @@ fn draw_materials(
             SELECTED_INDEX.with(|idx_cell| {
                 let selected_id = *idx_cell.borrow();
 
-                use crate::assets::material_pbr::MaterialTextureSlot::*;
+                use crate::assets::material_desc::MaterialTextureSlot::*;
 
                 if let Some(mut material) = materials.get(&selected_id).cloned() {
                     let name = material.get_name();

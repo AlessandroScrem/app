@@ -1,12 +1,21 @@
 use std::collections::HashMap;
 
-use super::*;
+use crate::assets::material_desc::MaterialDesc;
+use crate::ecs::components::*;
+
 use crate::assets::MaterialId;
-use crate::assets::asset_manager::{AssetManager, ResourceStats};
-use crate::gpu::caches::internalcounter::GpuInternalCounters;
-use crate::prelude::*;
+use crate::assets::asset_manager::{AssetManager, GlobalAssetId, ResourceStats};
+use crate::assets::MeshAsset;
+use crate::assets::MaterialAsset;
+use crate::gpu::GpuInternalCounters;
 use crate::ui::traits::UiTextureResolver;
+use crate::renderer::scene_renderer::FrameStats;
+use crate::Globals;
+use crate::Camera;
+use crate::assets::TextureId;
+
 use legion::*;
+
 
 pub struct HierarchyNode {
     pub name: String,
@@ -31,7 +40,7 @@ pub struct RenderStats {
     pub texture: ResourceStats,
     pub mesh: ResourceStats,
     pub material: ResourceStats,
-    pub frame: renderer::scene_renderer::FrameStats,
+    pub frame: FrameStats,
 }
 
 pub struct UiSnapshot<'a> {
@@ -42,10 +51,10 @@ pub struct UiSnapshot<'a> {
     pub comp_state: UiComponentState,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    pub hdr_texture_id: assets::TextureId,
-    pub debug_texture_id: Option<assets::TextureId>,
+    pub debug_texture_id: Option<TextureId>,
     pub render_stats: RenderStats,
     pub gpu_counters: GpuInternalCounters,
+    pub hdr_id: Option<GlobalAssetId>,
 }
 
 /// UiComponentView is a per-frame snapshot.
@@ -79,15 +88,15 @@ impl UiComponentState {
         if let Ok(mesh) = entry.get_component::<MeshComponent>() {
             state.mesh = Some(mesh.clone());
 
-            if let Some(mesh_desc) = asset_mgr.meshes.get(mesh.handle) {
-                let materials: HashMap<MaterialId, MaterialDesc> = mesh_desc
+
+            if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
+                let materials: HashMap<MaterialId, MaterialDesc> = mesh_asset.desc
                     .submeshes
                     .iter()
                     .filter_map(|sm| {
                         asset_mgr
-                            .materials
-                            .get_desc(sm.material)
-                            .map(|mat| (sm.material, mat.clone()))
+                            .get::<MaterialAsset>(sm.material)
+                            .map(|mat_asset| (sm.material, mat_asset.desc.clone()))
                     })
                     .collect();
 
@@ -108,8 +117,9 @@ impl<'a> UiSnapshot<'a> {
         globals: &'a Globals,
         texture_resolver: &'a dyn UiTextureResolver,
         gpu_counters: GpuInternalCounters,
-        debug_texture_id: Option<assets::TextureId>,
+        debug_texture_id: Option<TextureId>,
         render_stats: RenderStats,
+        hdr_id: Option<TextureId>,
     ) -> Self {
         let root_snapshot = RootSnapshot {
             root_nodes: get_hierarchy_roots(world),
@@ -117,7 +127,6 @@ impl<'a> UiSnapshot<'a> {
         };
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
-        let hdr_texture_id = asset_mgr.skybox.get_id();
 
         Self {
             texture_resolver,
@@ -127,10 +136,10 @@ impl<'a> UiSnapshot<'a> {
             comp_state,
             selected,
             hovered: None,
-            hdr_texture_id,
             debug_texture_id,
             gpu_counters,
             render_stats,
+            hdr_id,
         }
     }
 }

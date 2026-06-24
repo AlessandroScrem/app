@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::time::{Duration, Instant};
 
 pub struct Timer {
@@ -76,6 +77,7 @@ impl Timer {
     /// }
     /// ```
     ///  
+    #[allow(dead_code)]
     pub fn trigger_every<F>(&mut self, interval: Duration, mut callback: F)
     where
         F: FnMut(),

@@ -1,4 +1,4 @@
-use crate::assets::{ColorSpace, SamplerDesc};
+use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 
 use super::*;
 
@@ -105,7 +105,6 @@ impl FramebufferCache {
             FramebufferKind::OpaqueWithMips => {
                 const HDR_MIPS_COUNT: u32 = 8;
                 let texture = GpuTextureBuilder::from_empty(width, height)
-                    // .format(ColorSpace::Rgbaf16)
                     .format(ColorSpace::Rgba8)
                     .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTextureStorage)

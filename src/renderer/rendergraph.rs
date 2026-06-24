@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::renderpass::*;
+use super::*;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]

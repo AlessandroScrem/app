@@ -1,6 +1,7 @@
-use crate::assets::vertexdata::LinesVertexData;
-
 use super::*;
+
+use crate::assets;
+
 use wgpu::DepthStencilState;
 
 /// A description of a render pipeline.
@@ -236,7 +237,7 @@ fn create_pipeline(
                 });
             let shader =
                 device.create_shader_module(wgpu::include_wgsl!("shaders/blinn_phong.wgsl"));
-            let buffer_desc = &[crate::assets::vertexdata::MeshVertexData::get_layout()];
+            let buffer_desc = &[assets::MeshVertexData::get_layout()];
 
             let pipeline_desc = PipelineDesc::default();
 
@@ -260,7 +261,7 @@ fn create_pipeline(
                     immediate_size: 0,
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/lines.wgsl"));
-            let buffer_desc = &[LinesVertexData::get_layout()];
+            let buffer_desc = &[assets::LinesVertexData::get_layout()];
 
             let pipeline_desc = PipelineDesc {
                 primitive: wgpu::PrimitiveState {
@@ -295,8 +296,8 @@ fn create_pipeline(
                 });
             let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/pbr.wgsl"));
             let buffer_desc = &[
-                crate::assets::vertexdata::MeshVertexData::get_layout(),
-                crate::assets::vertexdata::VertexInstance::get_layout(),
+                assets::MeshVertexData::get_layout(),
+                assets::VertexInstance::get_layout(),
             ];
 
             let targets = &[

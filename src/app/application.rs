@@ -2,8 +2,10 @@ use std::path::PathBuf;
 
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
-use crate::{AssetManager, Camera, Globals};
+use crate::{Camera, Globals};
 use legion::{Entity, World};
+
+use crate::assets::asset_manager::AssetManager;
 
 pub struct AppRenderData<'a> {
     pub asset_mgr: &'a AssetManager,

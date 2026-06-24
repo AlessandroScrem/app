@@ -1,16 +1,20 @@
 use super::gpu_sync::GpuSync;
 use super::*;
 
-use crate::gpu::GpuContext;
+use crate::gpu::{GpuCache, GpuContext, GpuManager};
+use crate::gpu::pipeline_manager::PipelineManager;
 use crate::renderer::framebuilder::DrawStats;
+use crate::assets::VertexInstance;
 
 use legion::Entity;
 use wgpu::{Device, Queue};
 
 use crate::picking::PickObject;
 use crate::renderer::renderpass::*;
+use crate::globals::Globals;
+use crate::camera::Camera;
+use crate::prelude::{info, debug};
 
-use crate::Globals;
 
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
@@ -55,7 +59,7 @@ impl SceneRenderer {
 
         let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: (std::mem::size_of::<vertexdata::VertexInstance>() * MAX_INSTANCES) as u64, // TODO! dynamic
+            size: (std::mem::size_of::<VertexInstance>() * MAX_INSTANCES) as u64, // TODO! dynamic
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

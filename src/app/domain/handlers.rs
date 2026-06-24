@@ -1,8 +1,13 @@
-use crate::app::domain::SceneEvent;
-use crate::app::*;
-use crate::prelude::*;
-use legion::*;
 use std::collections::VecDeque;
+
+use crate::app::domain::events::*;
+use crate::app::*;
+use crate::assets::IblAsset;
+use crate::assets::MaterialAsset;
+use crate::ecs::components::*;
+use crate::prelude::*;
+
+use legion::*;
 
 impl App {
     pub fn update_domain_event(&mut self) {
@@ -61,8 +66,8 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent) {
         SceneEvent::ClearScene => {
             let world = &mut app.current_scene.world;
 
-            for entity in entities::collect_hierarchy_root_entities(world).iter() {
-                crate::entities::remove_entity_from_all(&mut app.asset_mgr, *entity, world);
+            for entity in hierarchy::collect_hierarchy_root_entities(world).iter() {
+                hierarchy::remove_entity_from_all(&mut app.asset_mgr, *entity, world);
             }
             app.selected = None;
         }
@@ -97,11 +102,11 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     let world = &mut app.current_scene.world;
     match event {
         EntityEvent::RemoveEntity(entity) => {
-            crate::entities::remove_entity_from_all(&mut app.asset_mgr, entity, world);
+            hierarchy::remove_entity_from_all(&mut app.asset_mgr, entity, world);
             app.selected = None;
         }
         EntityEvent::AddParent(entity) => {
-            crate::entities::add_parent(entity, world);
+            hierarchy::add_parent(entity, world);
         }
         EntityEvent::UpdateTag(entity, c) => {
             if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
@@ -125,7 +130,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
             }
         }
         EntityEvent::EnableAllLight(enable) => {
-            crate::entities::enable_all_lights(enable, world);
+            enable_all_lights(enable, world);
         }
     }
 }
@@ -136,22 +141,29 @@ pub fn handle_asset_event(
     next_queue: &mut VecDeque<DomainEvent>,
 ) {
     match event {
-        AssetEvent::UpdateMaterial(material_id, c) => {
-            app.asset_mgr.materials.update(material_id, &c);
+        AssetEvent::UpdateMaterial(material_id, desc) => {
+            app.asset_mgr.update::<MaterialAsset>(material_id, |asset| {
+                asset.desc = desc;
+            });
         }
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                entities::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
+                spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
                 next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
             }
         }
         AssetEvent::ChangeSkybox(path) => {
-            let hdr_id = app
-                .asset_mgr
-                .textures
-                .from_file(path, crate::assets::TextureUsage::HDR16);
-            app.asset_mgr.skybox.set_id(hdr_id);
+            use crate::assets::texture_asset::*;
+            let texture_asset = create_texture(path.clone(), TextureUsage::HDR16);
+            let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
+
+            if let Some(id) = app.ibl_id {
+                app.asset_mgr.update::<IblAsset>(id, |asset| {
+                    asset.hrd_id = hdr_id;
+                    asset.path = path;
+                })
+            }
         }
     }
 }

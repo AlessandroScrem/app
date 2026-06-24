@@ -1,5 +1,9 @@
-use crate::{assets::MaterialId, prelude::*};
 use std::{collections::VecDeque, path::PathBuf};
+
+use crate::assets::MaterialId;
+use crate::assets::material_desc::MaterialDesc;
+use crate::ecs::components::*;
+use crate::math::*;
 
 use legion::Entity;
 
@@ -57,7 +61,7 @@ pub enum GlobalEvent {
 
 pub enum CameraEvent {
     RecenterCamera,
-    CameraFov(math::Rad<f32>),
+    CameraFov(Rad<f32>),
     CameraDistance(f32),
     CameraNearFar((f32, f32)),
 }

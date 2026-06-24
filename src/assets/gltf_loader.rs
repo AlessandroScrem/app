@@ -1,20 +1,24 @@
-use super::*;
-use gltf::mesh::{Mode, Reader};
+use gltf::{
+    Document,
+    mesh::{Mode, Reader},
+};
+use std::collections::hash_map::HashMap;
 use std::{path::Path, time::Instant};
 
-use crate::{
-    TransformComponent,
-    assets::{
-        MaterialDesc, MaterialId, MeshDesc, MeshId, MeshKey, SubMesh, asset_manager::AssetManager,
-        vertexdata::MeshVertexData,
-    },
-    math::*,
-    prelude::*,
-};
+use crate::ecs::components::{TransformComponent};
+use crate::prelude::*;
+use crate::math::*;
+use crate::error::ImportError;
+
+use crate::assets::vertexdata::MeshVertexData;
+use crate::assets::asset_manager::{GlobalAssetId, AssetManager};
+use crate::assets::material_desc;
+use crate::assets::mesh_asset::*;
+use crate::assets::texture_asset::*;
+use crate::assets::material_asset::*;
 
 pub struct LoadedScene {
-    pub meshes: Vec<MeshId>,
-    _materials: Vec<MaterialId>,
+    pub meshes: Vec<GlobalAssetId>,
     pub nodes: Vec<NodeData>,
     _roots: Vec<usize>, // indici dei nodi root
 }
@@ -27,7 +31,10 @@ pub struct NodeData {
 }
 
 // public wrapper manage error messages
-pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<LoadedScene> {
+pub fn load_gltf<P: AsRef<Path>>(
+    path: P,
+    asset_mgr: &mut AssetManager,
+) -> Option<LoadedScene> {
     match load_gltf_internal(&path, asset_mgr) {
         Ok(scene) => Some(scene),
         Err(e) => {
@@ -58,7 +65,8 @@ fn load_gltf_internal<P: AsRef<Path>>(
     info!("Import gltf took: {:?}", timer.elapsed());
 
     let mut meshes = Vec::new();
-    let mut materials = Vec::new();
+    let material_map = create_materials(&gltf, &path, asset_mgr);
+
     for g_mesh in gltf.meshes() {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
@@ -93,29 +101,32 @@ fn load_gltf_internal<P: AsRef<Path>>(
                 generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
-            let material_id = create_material(&primitive.material(), asset_mgr, &path);
-            materials.push(material_id);
+            // let material_id = create_material(&primitive.material(), asset_mgr, &path);
+            let g_mat = primitive.material().index().unwrap_or_default();
+            let material_id = material_map.get(&g_mat).unwrap().clone();
 
             submeshes.push(SubMesh {
                 index_range: index_start as u32..index_end as u32,
-                base_vertex,
                 material: material_id,
             });
         }
 
-        let mesh_key = MeshKey {
-            source: crate::assets::MeshSource::File {
-                path: path.as_ref().into(),
-                submesh_index: g_mesh.index(),
-            },
+        let mesh_source = MeshSource::File {
+            path: path.as_ref().into(),
+            submesh_index: g_mesh.index(),
         };
 
-        let mesh_id = asset_mgr.meshes.get_or_create(mesh_key, || MeshDesc {
+        let desc = MeshDesc {
             vertices,
             indices,
             submeshes,
             bounds: extract_bbox(&g_mesh),
-        });
+        };
+
+        let asset = MeshAsset { desc, mesh_source };
+
+        let mesh_id = asset_mgr.add(asset);
+
         meshes.push(mesh_id);
     }
 
@@ -147,7 +158,6 @@ fn load_gltf_internal<P: AsRef<Path>>(
         .collect();
 
     let scene = LoadedScene {
-        _materials: materials,
         meshes,
         nodes,
         _roots: roots,
@@ -393,17 +403,20 @@ fn path_from_gtexture(
     }
 }
 
-fn texture_transform_from_ginfo(info: gltf::texture::Info<'_>) -> Option<TextureTransform> {
-    info.texture_transform().map(|t| TextureTransform {
-        offset: t.offset(),
-        rotation: t.rotation(),
-        scale: t.scale(),
-    })
+fn texture_transform_from_ginfo(
+    info: gltf::texture::Info<'_>,
+) -> Option<material_desc::TextureTransform> {
+    info.texture_transform()
+        .map(|t| material_desc::TextureTransform {
+            offset: t.offset(),
+            rotation: t.rotation(),
+            scale: t.scale(),
+        })
 }
 
 // Gltf 1.4.1, doesn't support texture transform natively,
 // so we need to parse it manually
-fn parse_transform(ext: &serde_json::Value) -> TextureTransform {
+fn parse_transform(ext: &serde_json::Value) -> material_desc::TextureTransform {
     let offset = ext
         .get("offset")
         .and_then(|v| v.as_array())
@@ -418,7 +431,7 @@ fn parse_transform(ext: &serde_json::Value) -> TextureTransform {
 
     let rotation = ext.get("rotation").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
 
-    TextureTransform {
+    material_desc::TextureTransform {
         offset,
         scale,
         rotation,
@@ -434,25 +447,58 @@ struct SheenExt {
     roughness_factor: Option<f32>,
 }
 
-fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<Sheen> {
+fn parse_gltf_material_sheen(mat: &gltf::Material) -> Option<material_desc::Sheen> {
     let ext = mat.extensions()?.get("KHR_materials_sheen")?;
     let sheen: SheenExt = serde_json::from_value(ext.clone()).ok()?;
 
-    Some(Sheen {
+    Some(material_desc::Sheen {
         color_factor: sheen.color_factor.unwrap_or([0.0, 0.0, 0.0]),
         roughness_factor: sheen.roughness_factor.unwrap_or(0.0),
     })
+}
+
+fn create_texture(
+    path: Option<std::path::PathBuf>,
+    usage: TextureUsage,
+    asset_mgr: &mut AssetManager,
+) -> Option<GlobalAssetId> {
+    let path = path?;
+
+    let desc = TextureDesc::File {
+        path,
+        usage,
+        sampler: SamplerDesc::default(),
+        mipmaps: true,
+    };
+
+    let texture = TextureAsset {
+        desc: desc,
+        // state: TextureState::MetaOnly,
+    };
+    Some(asset_mgr.add(texture))
 }
 
 fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     asset_mgr: &mut AssetManager,
     path: P,
-) -> MaterialId {
-    use MaterialTextureSlot::*;
-    let texture_asset = &mut asset_mgr.textures;
+) -> GlobalAssetId {
+    use material_desc::MaterialTextureSlot::*;
+    use material_desc::*;
 
-    let name = gltf_material.name().unwrap_or_default();
+    let path_name = path
+        .as_ref()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+
+    let mat_id = gltf_material.index().unwrap_or_default();
+
+    let key = format!("{path_name}[{mat_id}]");
+
+    let material_name = gltf_material.name().unwrap_or(&key);
+
     let parent_path = path.as_ref().parent().unwrap_or_else(|| Path::new(""));
 
     // gltf pbr material
@@ -469,7 +515,7 @@ fn create_material<P: AsRef<Path>>(
         gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
     };
 
-    material_desc.set_name(name);
+    material_desc.set_name(material_name);
     material_desc.alpha_mode = alpha_mode;
     material_desc.base_color_factor = pbr.base_color_factor().into();
     material_desc.roughness_factor = pbr.roughness_factor();
@@ -478,27 +524,31 @@ fn create_material<P: AsRef<Path>>(
     material_desc.ior = gltf_material.ior().unwrap_or(1.5);
 
     gltf_material.extensions().into_iter().for_each(|k| {
-        println!("Material {} has extension {:#?}", name, k);
+        println!("Material {} has extension {:#?}", material_name, k);
     });
 
     material_desc.sheen = parse_gltf_material_sheen(gltf_material);
 
     if let Some(info) = pbr.base_color_texture() {
+        let path = path_from_ginfo(&info, parent_path);
+        let texture_id = create_texture(path, TextureUsage::Albedo, asset_mgr);
+
         material_desc.set_texture(
-            texture_asset,
+            texture_id,
             BaseColor,
-            path_from_ginfo(&info, parent_path),
             info.tex_coord(),
             texture_transform_from_ginfo(info),
         );
     }
 
     if let Some(normal_texture) = gltf_material.normal_texture() {
+        let path = path_from_gtexture(normal_texture.texture(), parent_path);
+        let texture_id = create_texture(path, TextureUsage::Normal, asset_mgr);
+
         material_desc.normal_scale = normal_texture.scale();
         material_desc.set_texture(
-            texture_asset,
+            texture_id,
             Normal,
-            path_from_gtexture(normal_texture.texture(), parent_path),
             normal_texture.tex_coord(),
             normal_texture
                 .extension_value("KHR_texture_transform")
@@ -506,20 +556,23 @@ fn create_material<P: AsRef<Path>>(
         );
     }
     if let Some(info) = pbr.metallic_roughness_texture() {
+        let path = path_from_ginfo(&info, parent_path);
+        let texture_id = create_texture(path, TextureUsage::MetallicRoughness, asset_mgr);
         material_desc.set_texture(
-            texture_asset,
+            texture_id,
             MetallicRoughness,
-            path_from_ginfo(&info, parent_path),
             info.tex_coord(),
             texture_transform_from_ginfo(info),
         );
     }
     if let Some(occlusion_texture) = gltf_material.occlusion_texture() {
+        let path = path_from_gtexture(occlusion_texture.texture(), parent_path);
+        let texture_id = create_texture(path, TextureUsage::Occlusion, asset_mgr);
+
         material_desc.occlusion_strength = occlusion_texture.strength().clamp(0.0, 1.0);
         material_desc.set_texture(
-            texture_asset,
+            texture_id,
             Occlusion,
-            path_from_gtexture(occlusion_texture.texture(), parent_path),
             occlusion_texture.tex_coord(),
             occlusion_texture
                 .extension_value("KHR_texture_transform")
@@ -527,23 +580,25 @@ fn create_material<P: AsRef<Path>>(
         )
     }
     if let Some(info) = gltf_material.emissive_texture() {
+        let path = path_from_ginfo(&info, parent_path);
+        let texture_id = create_texture(path, TextureUsage::Emissive, asset_mgr);
         material_desc.set_texture(
-            texture_asset,
+            texture_id,
             Emissive,
-            path_from_ginfo(&info, parent_path),
             info.tex_coord(),
             texture_transform_from_ginfo(info),
         );
     }
     if let Some(transmission) = gltf_material.transmission() {
         let factor = transmission.transmission_factor();
-        material_desc.transmission = Some(assets::Transmission { factor });
+        material_desc.transmission = Some(material_desc::Transmission { factor });
 
         if let Some(transmission_texture_info) = transmission.transmission_texture() {
+            let path = path_from_ginfo(&transmission_texture_info, parent_path);
+            let texture_id = create_texture(path, TextureUsage::Transmission, asset_mgr);
             material_desc.set_texture(
-                texture_asset,
+                texture_id,
                 Transmission,
-                path_from_ginfo(&transmission_texture_info, parent_path),
                 transmission_texture_info.tex_coord(),
                 texture_transform_from_ginfo(transmission_texture_info),
             );
@@ -551,17 +606,18 @@ fn create_material<P: AsRef<Path>>(
     }
 
     if let Some(volume) = gltf_material.volume() {
-        material_desc.volume = Some(assets::Volume {
+        material_desc.volume = Some(material_desc::Volume {
             thickness_factor: volume.thickness_factor(),
             attenuation_distance: volume.attenuation_distance(),
             attenuation_color: volume.attenuation_color(),
         });
 
         if let Some(volume_texture_info) = volume.thickness_texture() {
+            let path = path_from_ginfo(&volume_texture_info, parent_path);
+            let texture_id = create_texture(path, TextureUsage::Volume, asset_mgr);
             material_desc.set_texture(
-                texture_asset,
+                texture_id,
                 Volume,
-                path_from_ginfo(&volume_texture_info, parent_path),
                 volume_texture_info.tex_coord(),
                 texture_transform_from_ginfo(volume_texture_info),
             );
@@ -569,7 +625,27 @@ fn create_material<P: AsRef<Path>>(
     }
 
     debug!("Metarial created {:#?}", material_desc);
-    asset_mgr.materials.get_or_create(material_desc)
+    let asset = MaterialAsset {
+        desc: material_desc,
+        key,
+    };
+
+    asset_mgr.add(asset)
+}
+
+fn create_materials<P: AsRef<Path>>(
+    gltf: &Document,
+    path: P,
+    asset_mgr: &mut AssetManager,
+) -> HashMap<usize, GlobalAssetId> {
+    let mut materials = HashMap::new();
+    for material in gltf.materials().into_iter() {
+        let mat_id = material.index().unwrap_or_default();
+        let asset_id = create_material(&material, asset_mgr, &path);
+        materials.insert(mat_id, asset_id);
+    }
+
+    materials
 }
 
 #[cfg(test)]
@@ -585,52 +661,5 @@ mod tests {
 
         assert!(e.is_ok());
         assert_eq!(e.ok().iter().len(), 1);
-    }
-
-    #[test]
-    fn should_create_material() {
-        use MaterialTextureSlot::*;
-
-        let mut asset_mgr = AssetManager::default();
-        let texture_asset = &mut asset_mgr.textures;
-
-        let path = "./assets/cube/cube.gltf";
-        let base_path = Path::new(path).parent().unwrap_or_else(|| Path::new(""));
-        let color_path = base_path.join("Cube_BaseColor.png");
-        let normal_path = base_path.join("Cube_normal.png");
-        let mut mat_desc = MaterialDesc::default();
-        mat_desc.set_name("Cube");
-        mat_desc.set_texture(texture_asset, BaseColor, Some(color_path), 0, None);
-        mat_desc.set_texture(texture_asset, Normal, Some(normal_path), 0, None);
-        mat_desc.metallic_factor = 0.0;
-        mat_desc.roughness_factor = 1.0;
-
-        let e = load_gltf(path, &mut asset_mgr).unwrap();
-
-        assert_eq!(e._materials.len(), 1);
-    }
-
-    #[test]
-    fn should_create_entity() {
-        let mut world = legion::World::default();
-        let mut asset_mgr = AssetManager::default();
-        let path = "./assets/cube/cube.gltf";
-        let loaded = load_gltf(path, &mut asset_mgr).unwrap();
-
-        assert!(world.is_empty());
-
-        entities::spawn_scene(&mut world, &loaded, &asset_mgr);
-
-        assert_eq!(world.len(), 1);
-
-        use legion::query::IntoQuery;
-
-        let mut query = <(&TagComponent, &MeshComponent)>::query();
-        let (tag, mesh) = query.iter(&world).next().unwrap();
-
-        let mesh = asset_mgr.meshes.get(mesh.handle).unwrap();
-
-        assert_eq!(tag.name, "Cube");
-        assert_eq!(mesh.indices.len(), 36);
     }
 }

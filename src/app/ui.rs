@@ -1,15 +1,22 @@
-use crate::{RenderStats, UiSnapshot, assets::asset_manager::HasStats, ui::UiRuntimeContext};
+use crate::ui::{RenderStats, UiSnapshot, UiRuntimeContext};
+use crate::assets::{IblAsset, MaterialAsset, MeshAsset, TextureAsset};
 
 use super::app::App;
 
 impl App {
     pub fn update_uilayer(&mut self, ctx: UiRuntimeContext<'_>) {
         let render_stats = RenderStats {
-            texture: self.asset_mgr.textures.get_stats(),
-            mesh: self.asset_mgr.meshes.get_stats(),
-            material: self.asset_mgr.materials.get_stats(),
+            texture: self.asset_mgr.get_stats::<TextureAsset>(),
+            mesh: self.asset_mgr.get_stats::<MeshAsset>(),
+            material: self.asset_mgr.get_stats::<MaterialAsset>(),
             frame: ctx.frame_stats,
         };
+
+        let hdr_id = self.ibl_id.and_then(|ibl_id| {
+            self.asset_mgr
+                .get::<IblAsset>(ibl_id)
+                .map(|asset| asset.hrd_id)
+        });
 
         let snapshot = UiSnapshot::from_world(
             &self.current_scene.world,
@@ -21,6 +28,7 @@ impl App {
             ctx.gpu_counters,
             None, // no debug texture_id
             render_stats,
+            hdr_id,
         );
 
         // Main operation: update_ui

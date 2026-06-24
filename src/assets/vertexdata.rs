@@ -1,4 +1,5 @@
 use crate::math::*;
+use crate::renderer::uniform::Mat3Std140;
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,8 +42,6 @@ impl LinesVertexData {
         }
     }
 }
-
-use crate::uniform::Mat3Std140;
 
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

@@ -1,4 +1,6 @@
 use crate::math::*;
+use crate::globals::Globals;
+use crate::camera::Camera;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
@@ -24,7 +26,7 @@ impl Default for CameraUniform {
 }
 
 impl CameraUniform {
-    pub fn from_camera_size(camera: &super::Camera, size: (u32, u32)) -> Self {
+    pub fn from_camera_size(camera: &Camera, size: (u32, u32)) -> Self {
         let screen_size = [size.0 as f32, size.1 as f32];
         Self {
             view_position: camera.get_position().to_homogeneous().into(),
@@ -37,7 +39,7 @@ impl CameraUniform {
 }
 
 impl GlobalUniform {
-    pub fn from_global_id(globals: &super::Globals, entity_id: u64) -> Self {
+    pub fn from_global_id(globals: &Globals, entity_id: u64) -> Self {
         Self {
             ibl_enable: globals.ibl_enable as u32,
             skybox_enable: globals.skybox_enable as u32,
@@ -185,7 +187,7 @@ pub struct MaterialUniform {
     pub sheen_color_factor: [f32; 3],
     pub sheen_roughness_factor: f32,
 
-    pub texture_transforms: [Mat3Std140; super::MATERIAL_TEXTURE_COUNT],
+    pub texture_transforms: [Mat3Std140; crate::assets::material_desc::MATERIAL_TEXTURE_COUNT],
 
     pub coord_flags: u32,
     pub is_sheen: u32,
