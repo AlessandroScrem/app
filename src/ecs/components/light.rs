@@ -15,3 +15,13 @@ pub fn create(world: &mut World, _resources: &Resources) {
         light,
     ));
 }
+
+pub fn enable_all_lights(enable: bool, world: &mut legion::World) {
+    use legion::query::IntoQuery;
+
+    let mut query = <&mut LightComponent>::query();
+
+    for light in query.iter_mut(world) {
+        light.enabled = enable;
+    }
+}

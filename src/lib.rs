@@ -17,7 +17,7 @@ mod timer;
 mod timestep;
 mod ui;
 
-pub use ecs::entity::EntityRawU64;
+pub use ecs::entity_id::EntityRawU64;
 
 pub struct Engine {
     inner: engine::MyApplication<app::App>,
@@ -49,7 +49,7 @@ macro_rules! impl_debug_drop {
     ($t:ty) => {
         impl Drop for $t {
             fn drop(&mut self) {
-                println!("Dropped {}", std::any::type_name::<Self>());
+                log::debug!("Dropped {}", std::any::type_name::<Self>());
             }
         }
     };

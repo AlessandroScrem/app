@@ -83,7 +83,7 @@ impl GpuManager {
         device: &wgpu::Device,
     ) {
         if let Some(ibl) = ibl {
-            println!("update Ibl");
+            info!("update Ibl");
 
             let entries = ibl.get_bindgroup_entry();
             let bg = create_bindgroup(

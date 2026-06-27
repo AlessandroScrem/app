@@ -5,6 +5,8 @@ use crate::app::*;
 use crate::assets::IblAsset;
 use crate::assets::MaterialAsset;
 use crate::ecs::components::*;
+use crate::ecs::components::light;
+use crate::scene;
 use crate::prelude::*;
 
 use legion::*;
@@ -130,7 +132,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
             }
         }
         EntityEvent::EnableAllLight(enable) => {
-            enable_all_lights(enable, world);
+            light::enable_all_lights(enable, world);
         }
     }
 }
@@ -149,7 +151,7 @@ pub fn handle_asset_event(
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
+                scene::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
                 next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
             }
         }

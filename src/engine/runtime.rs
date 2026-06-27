@@ -11,6 +11,7 @@ use crate::gpu::{
 };
 use crate::input::Input;
 use crate::picking::PickObject;
+use crate::prelude::info;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
@@ -111,7 +112,7 @@ impl RunningApp {
 
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
-                println!("loading textures len {}", events.len());
+                info!("loading textures len {}", events.len());
 
                 let jobs: Vec<(TextureId, TextureDesc)> = events
                     .iter()
@@ -130,12 +131,10 @@ impl RunningApp {
                 }
             }
 
-            AssetEventKind::Updated => {
-                // batch update textures
-            }
+            AssetEventKind::Updated => {}
 
             AssetEventKind::Removed => {
-                println!("Removed texture len {}", events.len());
+                info!("Removed texture len {}", events.len());
                 events.iter().for_each(|ev| {
                     texture_cache.remove(ev.id);
                 });
@@ -145,7 +144,7 @@ impl RunningApp {
 
         grouped.process_type::<IblAsset, _>(|kind, events| match kind {
             AssetEventKind::Created | AssetEventKind::Updated => {
-                println!("loading/Updating Ibl len {}", events.len());
+                info!("loading/Updating Ibl len {}", events.len());
 
                 events
                     .iter()
@@ -158,15 +157,13 @@ impl RunningApp {
                 gpu_manager.sync_ibl(&ibl_manager.ibl, device);
             }
 
-            AssetEventKind::Removed => {
-                // batch remove textures
-            }
+            AssetEventKind::Removed => {}
             _ => {}
         });
 
         grouped.process_type::<MaterialAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
-                println!("loading material len {}", events.len());
+                info!("loading material len {}", events.len());
                 events
                     .iter()
                     .filter_map(|ev| {
@@ -184,7 +181,7 @@ impl RunningApp {
             }
 
             AssetEventKind::Updated => {
-                println!("updating material len {}", events.len());
+                info!("updating material len {}", events.len());
                 events
                     .iter()
                     .filter_map(|ev| {
@@ -200,7 +197,7 @@ impl RunningApp {
             }
 
             AssetEventKind::Removed => {
-                println!("Removed material len {}", events.len());
+                info!("Removed material len {}", events.len());
                 events.iter().for_each(|ev| {
                     material_cache.remove(ev.id);
                 });
@@ -210,7 +207,7 @@ impl RunningApp {
 
         grouped.process_type::<MeshAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
-                println!("loading meshes len {}", events.len());
+                info!("loading meshes len {}", events.len());
                 events
                     .iter()
                     .filter_map(|ev| {
@@ -225,12 +222,10 @@ impl RunningApp {
                     });
             }
 
-            AssetEventKind::Updated => {
-                // batch update textures
-            }
+            AssetEventKind::Updated => {}
 
             AssetEventKind::Removed => {
-                println!("Removed meshes len {}", events.len());
+                info!("Removed meshes len {}", events.len());
                 events.iter().for_each(|ev| {
                     mesh_cache.remove(ev.id);
                 });

@@ -20,7 +20,6 @@ use crate::assets::material_asset::*;
 pub struct LoadedScene {
     pub meshes: Vec<GlobalAssetId>,
     pub nodes: Vec<NodeData>,
-    _roots: Vec<usize>, // indici dei nodi root
 }
 
 pub struct NodeData {
@@ -150,17 +149,9 @@ fn load_gltf_internal<P: AsRef<Path>>(
         }
     }
 
-    let roots: Vec<usize> = has_parent
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| !**p)
-        .map(|(i, _)| i)
-        .collect();
-
     let scene = LoadedScene {
         meshes,
         nodes,
-        _roots: roots,
     };
 
     // print_gltf_document(&gltf);
