@@ -14,7 +14,6 @@ use crate::picking::PickObject;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
-use crate::renderer::gpu_sync::GpuSync;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::InternalCounter;
 use crate::ui::UiLayer;
@@ -305,8 +304,6 @@ impl RunningApp {
                     render_data.globals,
                 );
 
-                GpuSync::update_lights_to_gpu(&gpu_context.queue, &gpu_manager, &frame);
-
                 let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
@@ -348,8 +345,6 @@ impl RunningApp {
                 }
                 self.gpu_manager
                     .resize_frame(&self.gpu_context.device, width, height);
-                // self.gpu_manager
-                //     .update_ibl_bind_group(&self.gpu_context.device);
 
                 self.gpu_surface
                     .resize_frame(&self.gpu_context.device, width, height);

@@ -1,5 +1,5 @@
 mod axis;
-mod bbox;
+mod lines;
 mod build_mipmaps;
 mod light;
 mod linearize;
@@ -9,7 +9,7 @@ mod pickobject;
 mod skybox;
 
 pub(crate) use axis::*;
-pub(crate) use bbox::*;
+pub(crate) use lines::*;
 pub(crate) use build_mipmaps::*;
 pub(crate) use light::*;
 pub(crate) use linearize::*;
@@ -51,7 +51,7 @@ pub(crate) enum RenderPassEnum {
     Light(LightPass),
     Skybox(SkyboxPass),
     Axis(AxisPass),
-    BBox(BoundingboxPass),
+    Lines(LinesPass),
     Linearize(LinearizePass),
     Outline(OutlinePass),
     PickObject(PickObjectPass),
@@ -66,7 +66,7 @@ macro_rules! impl_render_pass_enum {
             Self::BuildMipmaps(p) => p.$method($($arg),*),
             Self::Light(p) => p.$method($($arg),*),
             Self::Axis(p) => p.$method($($arg),*),
-            Self::BBox(p) => p.$method($($arg),*),
+            Self::Lines(p) => p.$method($($arg),*),
             Self::Linearize(p) => p.$method($($arg),*),
             Self::Outline(p) => p.$method($($arg),*),
             Self::PickObject(p) => p.$method($($arg),*),

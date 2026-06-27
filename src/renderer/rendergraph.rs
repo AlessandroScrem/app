@@ -257,7 +257,7 @@ mod tests {
         let transmission = MeshPass::transmission();
         let lightpass = LightPass::new();
         let axispass = AxisPass::new();
-        let bboxpass = BoundingboxPass::new();
+        let bboxpass = LinesPass::new();
         let linearizepass = LinearizePass::new();
         let outlinepass = OutlinePass::new();
         let pickobjectpass = PickObjectPass::new();

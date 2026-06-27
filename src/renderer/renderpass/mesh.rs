@@ -126,7 +126,7 @@ impl RenderPass for MeshPass {
         // -------------------------------------------------
         // INSTANCE BUFFER
         // -------------------------------------------------
-        renderpass.set_vertex_buffer(1, ctx.instance_buffer.slice(..));
+        renderpass.set_vertex_buffer(1, gpu_manager.get_buffer(BufferKind::Instances).slice(..));
 
         // -------------------------------------------------
         // SORT BY MATERIAL

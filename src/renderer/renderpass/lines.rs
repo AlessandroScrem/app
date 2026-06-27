@@ -1,22 +1,20 @@
-use crate::ecs::components::bounding_box_impl::{BBoxVertexData, VERTICES};
-
 use super::*;
 
-pub struct BBoxData {
-    pub vertexbuffer: wgpu::Buffer,
-    pub count: u32,
+struct VertexData {
+    vertexbuffer: wgpu::Buffer,
+    count: u32,
 }
 
 #[derive(Default)]
-pub struct BoundingboxPass {}
+pub struct LinesPass {}
 
-impl BoundingboxPass {
+impl LinesPass {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl RenderPass for BoundingboxPass {
+impl RenderPass for LinesPass {
     fn name(&self) -> &'static str {
         "BoundingboxPass"
     }
@@ -34,14 +32,11 @@ impl RenderPass for BoundingboxPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        if  frame.bbox_vertexdata.is_empty()   {
+        if frame.lines.is_empty() {
             return;
         };
 
-        let bufferdata = create_buffer(ctx.device, &frame.bbox_vertexdata);
-
-        let count = bufferdata.count;
-        let vertexbuffer = &bufferdata.vertexbuffer;
+        let vertexdata = create_vertexdata(ctx.device, frame);
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
@@ -69,23 +64,24 @@ impl RenderPass for BoundingboxPass {
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Camera), &[]);
 
-        renderpass.set_vertex_buffer(0, vertexbuffer.slice(0..));
-        renderpass.draw(0..count, 0..1);
+        renderpass.set_vertex_buffer(0, vertexdata.vertexbuffer.slice(0..));
+        renderpass.draw(0..vertexdata.count, 0..1);
     }
 }
 
-fn create_buffer(device: &wgpu::Device, vertices: &Vec<BBoxVertexData>) -> BBoxData {
+
+fn create_vertexdata(device: &wgpu::Device, frame: &FrameData) -> VertexData {
     use wgpu::util::DeviceExt;
+    let vertices = &frame.lines;
     let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("BBox Vertex Buffer"),
-        contents: bytemuck::cast_slice(&vertices),
+        contents: bytemuck::cast_slice(vertices),
         usage: wgpu::BufferUsages::VERTEX,
     });
+    let count = vertices.len() as u32;
 
-    let count = (vertices.len() * VERTICES) as u32;
-
-    BBoxData {
-        count,
+    VertexData {
         vertexbuffer,
+        count,
     }
 }

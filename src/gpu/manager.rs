@@ -1,6 +1,4 @@
 use super::*;
-
-use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::gpu::ibl::GpuIbl;
 
 pub struct GpuManager {
@@ -67,20 +65,8 @@ impl GpuManager {
         self.buffer_cache.get(kind)
     }
 
-    pub fn update_camera(&self, queue: &wgpu::Queue, uniform: &CameraUniform) {
-        queue.write_buffer(
-            self.get_buffer(BufferKind::Camera),
-            0,
-            bytemuck::bytes_of(uniform),
-        );
-    }
-
-    pub fn update_globals(&self, queue: &wgpu::Queue, uniform: &GlobalUniform) {
-        queue.write_buffer(
-            self.get_buffer(BufferKind::Globals),
-            0,
-            bytemuck::bytes_of(uniform),
-        );
+    pub fn update_buffer<T: bytemuck::Pod>(&self, queue: &wgpu::Queue,  kind: BufferKind, data: &[T]) {
+        self.buffer_cache.write(queue, kind, data);
     }
 
     pub fn get_ibl_skybox_bg(&self, blur_flag: bool) -> &wgpu::BindGroup {
@@ -90,7 +76,6 @@ impl GpuManager {
             &self.bindgroup_cache.get(BindgroupKind::Skybox)
         }
     }
-
 
     pub fn sync_ibl(
         &mut self,

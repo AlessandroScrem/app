@@ -425,9 +425,14 @@ impl LightComponent {
 
         let light = self;
         if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
-            dirty |= Drag::new("Position")
+            let mut position = light.get_position();
+            if Drag::new("Position")
                 .speed(0.1)
-                .build_array(ui, &mut light.position);
+                .build_array(ui, &mut position) {
+                    dirty = true;
+                    light.update_position(position);
+                };
+
             dirty |= ui.color_edit3("Color", &mut light.color);
             {
                 let mut enabled = light.enabled;

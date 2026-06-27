@@ -10,21 +10,64 @@ use crate::renderer::uniform::*;
 pub struct LightComponent {
     pub color: [f32; 3],
     pub directional: bool,
-    pub position: [f32; 3],
+    position: [f32; 3],
     pub cast_shadow: bool,
     pub entity_id: u64,
     pub enabled: bool,
+    view_matrix: Mat4,
+    proj_matrix: Mat4,
 }
 impl Default for LightComponent {
     fn default() -> Self {
+        const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
+        const POSITION: [f32; 3] = [0.0, 0.0, -1.0];
+        const SIZE: f32 = 20.0;
+        const NEAR: f32 = 2.0;
+        const FAR: f32 = 200.0;
+        let proj_matrix = ortho(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
+        let view_matrix = Self::view_matrix(POSITION);
+
         Self {
-            color: [1.0, 1.0, 1.0],
+            color: WHITE,
             enabled: true,
             cast_shadow: false,
             directional: true,
-            position: [0.0, 0.0, -1.0],
+            position: POSITION,
             entity_id: 0,
+            proj_matrix,
+            view_matrix,
         }
+    }
+}
+
+impl LightComponent {
+    pub fn get_view_proj_matrix(&self) -> Mat4 {
+        self.proj_matrix * self.view_matrix
+    }
+
+    pub fn get_position(&self) ->[f32;3] {
+        self.position
+    }
+
+    pub fn update_position<P>(&mut self, position: P)
+        where
+        P: Into<[f32;3]>,
+    {
+        self.position = position.into();
+        self.update_view_matrix();
+    }
+
+    fn update_view_matrix(&mut self) {
+        self.view_matrix = Self::view_matrix(self.position);
+    }
+
+    fn view_matrix<P>(position: P) -> Mat4
+    where
+        P: Into<Point3f>,
+    {
+        let eye: Point3f = position.into();
+
+        Mat4::look_at_rh(eye, Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
     }
 }
 
@@ -97,7 +140,6 @@ impl TransformComponent {
         t * r * s
     }
 }
-
 
 #[derive(Clone)]
 pub struct GlobalModelComponent {

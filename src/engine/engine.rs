@@ -84,7 +84,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
         );
         //
 
-        let scene_renderer = SceneRenderer::new(&gpu_context);
+        let scene_renderer = SceneRenderer::new();
         let pickobject = PickObject::new(&gpu_context.device);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 

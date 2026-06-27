@@ -1,13 +1,9 @@
 use super::*;
-use crate::{colors, math::*};
+use crate::math::*;
 
-use crate::assets::LinesVertexData;
 use crate::bounding_box::BoundingBox;
 
 const CORNERS: usize = 8;
-pub const VERTICES: usize = CORNERS * 3;
-
-pub type BBoxVertexData = [LinesVertexData; VERTICES];
 type BBoxCornerData = [Vec3; CORNERS];
 
 impl BoundingBoxComponent {
@@ -18,59 +14,10 @@ impl BoundingBoxComponent {
             global_bounding_box: bbox.clone(),
         }
     }
-
-    pub fn gen_aabb_vertices(&self) -> BBoxVertexData {
-        let corners = self.global_bounding_box.gen_corners();
-        Self::gen_vertices(corners)
-    }
-
-    pub fn gen_obb_vertices(&self, model: &Mat4) -> BBoxVertexData {
-        let local_corners = self.bounding_box.gen_corners();
-
-        // Trasforma i corner con la Mat4 dell'oggetto
-        let corners = local_corners.map(|c| (model * c.extend(1.0)).truncate());
-
-        Self::gen_vertices(corners)
-    }
-
-    fn gen_vertices(corners: BBoxCornerData) -> BBoxVertexData {
-        let edges = [
-            // bottom
-            (0, 1),
-            (1, 2),
-            (2, 3),
-            (3, 0),
-            // top
-            (4, 5),
-            (5, 6),
-            (6, 7),
-            (7, 4),
-            // vertical
-            (0, 4),
-            (1, 5),
-            (2, 6),
-            (3, 7),
-        ];
-
-        let color = colors::CYAN_COLOR;
-        let mut vertices = [LinesVertexData::default(); VERTICES];
-        for (i, &(a, b)) in edges.iter().enumerate() {
-            let base = i * 2;
-            vertices[base] = LinesVertexData {
-                position: corners[a].into(),
-                color,
-            };
-            vertices[base + 1] = LinesVertexData {
-                position: corners[b].into(),
-                color,
-            }
-        }
-        vertices
-    }
 }
 
 impl BoundingBox {
-    fn gen_corners(&self) -> BBoxCornerData {
+    pub fn gen_corners(&self) -> BBoxCornerData {
         /*
         bbox vertices order:
             y  7----------6

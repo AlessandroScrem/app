@@ -2,17 +2,16 @@ use std::collections::HashMap;
 
 use super::*;
 
-use crate::assets::{MaterialId, MeshId, VertexInstance};
 use crate::assets::asset_manager::AssetManager;
-use crate::ecs::components::bounding_box_impl::BBoxVertexData;
+use crate::assets::{LinesVertexData, MaterialId, MeshId, VertexInstance};
 use crate::ecs::components::*;
-use crate::EntityRawU64;
 use crate::globals::Globals;
 use crate::input::Input;
 use crate::math::*;
 use crate::picking::PickObject;
 use crate::prelude::debug;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
+use crate::EntityRawU64;
 
 use legion::{Entity, World};
 
@@ -56,11 +55,149 @@ fn compute_stats(batches: &[InstanceBatch]) -> DrawStats {
     }
 }
 
+pub trait LineSink {
+    fn line(&mut self, a: Vec3, b: Vec3, color: Vec3);
+    fn arrow(&mut self, a: Vec3, b: Vec3, color: Vec3);
+}
+
+pub trait LineDrawable {
+    fn emit(&self, sink: &mut dyn LineSink);
+}
+
+impl LineSink for LineBuilder {
+    fn line(&mut self, a: Vec3, b: Vec3, color: Vec3) {
+        self.push(LinesVertexData {
+            position: a.into(),
+            color: color.into(),
+        });
+
+        self.push(LinesVertexData {
+            position: b.into(),
+            color: color.into(),
+        });
+    }
+
+    fn arrow(&mut self, a: Vec3, b: Vec3, color: Vec3) {
+        // linea principale
+        self.line(a, b, color);
+
+        let dir = (b - a).normalize();
+        let length = (b - a).magnitude();
+
+        let head_len = length * 0.2;
+        let head_width = head_len * 0.5;
+
+        let tip = b;
+        let base = b - dir * head_len;
+
+        let mut side = dir.cross(Vec3::unit_y()).normalize();
+        if side.magnitude2() < 0.001 {
+            side = dir.cross(Vec3::unit_x()).normalize();
+        }
+
+        let left = base - side * head_width;
+        let right = base + side * head_width;
+
+        self.line(left, tip, color);
+        self.line(right, tip, color);
+    }
+}
+
+pub struct ObjectOrientedBoundingBox<'a> {
+    pub bbox: &'a crate::BoundingBox,
+    pub transform: &'a Mat4,
+}
+pub struct AxisAlignedBoundingBox<'a> {
+    pub bbox: &'a crate::BoundingBox,
+}
+
+fn emit_box_edges(corners: &[Vec3; 8], color: Vec3, sink: &mut dyn LineSink) {
+    #[rustfmt::skip]
+    const BOX_EDGES: [(usize, usize); 12] = [
+        (0, 1), (1, 2), (2, 3), (3, 0), 
+        (4, 5), (5, 6), (6, 7), (7, 4), 
+        (0, 4), (1, 5), (2, 6), (3, 7), 
+    ];
+
+    for (a, b) in BOX_EDGES {
+        sink.line(corners[a], corners[b], color);
+    }
+}
+
+impl<'a> LineDrawable for ObjectOrientedBoundingBox<'a> {
+    fn emit(&self, sink: &mut dyn LineSink) {
+        let color = crate::colors::CYAN_COLOR.into();
+        let corners = self.bbox.gen_corners();
+
+        let corners = corners.map(|c| (self.transform * c.extend(1.0)).truncate());
+
+        emit_box_edges(&corners, color, sink);
+    }
+}
+
+impl<'a> LineDrawable for AxisAlignedBoundingBox<'a> {
+    fn emit(&self, sink: &mut dyn LineSink) {
+        let color: Vec3 = crate::colors::CYAN_COLOR.into();
+        let corners = self.bbox.gen_corners();
+
+        emit_box_edges(&corners, color, sink);
+    }
+}
+
+impl LineDrawable for LightComponent {
+    fn emit(&self, sink: &mut dyn LineSink) {
+        let color: Vec3 = crate::colors::GREEN_COLOR.into();
+
+        let mut corners = vec![
+            Vec3::new(-1.0, -1.0, -1.0), // Near-bottom-left
+            Vec3::new(1.0, -1.0, -1.0),  // Near-bottom-right
+            Vec3::new(1.0, 1.0, -1.0),   // Near-top-right
+            Vec3::new(-1.0, 1.0, -1.0),  // Near-top-left
+            Vec3::new(-1.0, -1.0, 1.0),  // Far-bottom-left
+            Vec3::new(1.0, -1.0, 1.0),   // Far-bottom-right
+            Vec3::new(1.0, 1.0, 1.0),    // Far-top-right
+            Vec3::new(-1.0, 1.0, 1.0),   // Far-top-left
+        ];
+
+        let mat = self.get_view_proj_matrix();
+        let inverse_light_space_matrix = mat.invert().unwrap_or(Mat4::identity());
+        for vertex in corners.iter_mut() {
+            let v = inverse_light_space_matrix * vertex.extend(1.0);
+            *vertex = v.truncate();
+        }
+
+        // Near clip
+        sink.line(corners[0], corners[1], color);
+        sink.line(corners[1], corners[2], color);
+        sink.line(corners[2], corners[3], color);
+        sink.line(corners[3], corners[0], color);
+        // Far clip
+        sink.line(corners[4], corners[5], color);
+        sink.line(corners[5], corners[6], color);
+        sink.line(corners[6], corners[7], color);
+        sink.line(corners[7], corners[4], color);
+        // Linees connecting near
+        sink.line(corners[0], corners[4], color);
+        sink.line(corners[1], corners[5], color);
+        sink.line(corners[2], corners[6], color);
+        sink.line(corners[3], corners[7], color);
+
+        const DISTANCE: f32 = 20.0;
+        let position: Vec3 = self.get_position().into();
+        let direction = -position.normalize();
+        let target = direction * DISTANCE;
+
+        sink.arrow(position, target, color);
+    }
+}
+
+type LineBuilder = Vec<LinesVertexData>;
+
 pub struct FrameData {
     // geometry
     pub opaque_batches: Vec<InstanceBatch>,
     pub transmission_batches: Vec<InstanceBatch>,
-    pub bbox_vertexdata: Vec<BBoxVertexData>,
+    pub lines: Vec<LinesVertexData>,
     pub lights: Option<LightsUniform>,
     pub instances: Vec<VertexInstance>,
 
@@ -89,7 +226,7 @@ impl FrameBuilder {
         let mut frame = FrameData {
             opaque_batches: Vec::new(),
             transmission_batches: Vec::new(),
-            bbox_vertexdata: Vec::new(),
+            lines: Vec::new(),
             lights: None,
             outline_selected: false,
             picking: None,
@@ -104,6 +241,7 @@ impl FrameBuilder {
         Self::build_picking(input, pickobject, &mut frame);
         Self::build_bbox_data(world, globals, &mut frame);
         Self::build_light_data(world, globals, &mut frame);
+        Self::build_light_frustum(world, globals, &mut frame);
         frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
         frame.outline_selected = selected.is_some();
         frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
@@ -125,8 +263,8 @@ impl FrameBuilder {
         use legion::IntoQuery;
         let mut opaque_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
         let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
-        use crate::assets::material_asset::MaterialAsset;
-        use crate::assets::mesh_asset::MeshAsset;
+        use crate::assets::MaterialAsset;
+        use crate::assets::MeshAsset;
 
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
@@ -225,18 +363,32 @@ impl FrameBuilder {
         use legion::IntoQuery;
         let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
 
-        let vertexdata = bbox_query
-            .iter(world)
-            .map(|(bbox, global_model)| {
-                if axis_aligned {
-                    bbox.gen_aabb_vertices()
-                } else {
-                    bbox.gen_obb_vertices(&global_model.mat)
+        bbox_query.for_each(world, |(b, gm)| {
+            if axis_aligned {
+                AxisAlignedBoundingBox {
+                    bbox: &b.global_bounding_box,
                 }
-            })
-            .collect::<Vec<_>>();
+                .emit(&mut frame.lines);
+            } else {
+                ObjectOrientedBoundingBox {
+                    bbox: &b.bounding_box,
+                    transform: &gm.mat,
+                }
+                .emit(&mut frame.lines);
+            }
+        });
+    }
 
-        frame.bbox_vertexdata = vertexdata;
+    fn build_light_frustum(world: &World, _globals: &Globals, frame: &mut FrameData) {
+        use legion::IntoQuery;
+        let mut light_query = <&LightComponent>::query();
+        for light in light_query
+            .iter(world)
+            .take(uniform::MAX_LIGHTS)
+            .filter(|l| l.enabled)
+        {
+            light.emit(&mut frame.lines);
+        }
     }
 
     fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {
