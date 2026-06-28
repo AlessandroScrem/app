@@ -46,14 +46,14 @@ impl PipelineDesc {
         self,
         label: &str,
         device: &wgpu::Device,
-        layout: wgpu::PipelineLayout,
+        layout: Option<&wgpu::PipelineLayout>,
         format: wgpu::TextureFormat,
         shader: wgpu::ShaderModule,
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(&label),
-            layout: Some(&layout),
+            layout,
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -120,14 +120,14 @@ impl PipelineExt {
         self,
         label: &str,
         device: &wgpu::Device,
-        layout: wgpu::PipelineLayout,
+        layout: Option<&wgpu::PipelineLayout>,
         targets: &[Option<wgpu::ColorTargetState>],
         shader: wgpu::ShaderModule,
         buffers: &[wgpu::VertexBufferLayout<'static>],
     ) -> wgpu::RenderPipeline {
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some(&label),
-            layout: Some(&layout),
+            layout,
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -164,6 +164,8 @@ pub enum PipelineKind {
     Skybox,
     Outline,
     BuildMipmaps,
+    ShadowMap,
+    Convert,
 }
 
 #[derive(Debug, Clone, Copy, EnumIter)]
@@ -244,7 +246,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "BlinnPhong Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 hdr_format,
                 shader,
                 buffer_desc,
@@ -275,7 +277,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Lines Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 hdr_format,
                 shader,
                 buffer_desc,
@@ -320,7 +322,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Pbr Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 targets,
                 shader,
                 buffer_desc,
@@ -348,7 +350,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Hdr Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 final_format,
                 shader,
                 buffer_desc,
@@ -375,7 +377,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Light Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 hdr_format,
                 shader,
                 buffer_desc,
@@ -412,7 +414,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Skybox Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 hdr_format,
                 shader,
                 buffer_desc,
@@ -444,7 +446,7 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "Outline Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
                 final_format,
                 shader,
                 buffer_desc,
@@ -474,7 +476,72 @@ fn create_pipeline(
             pipeline_desc.build_pipeline(
                 "BuildMipmaps Pipeline",
                 device,
-                render_pipeline_layout,
+                Some(&render_pipeline_layout),
+                wgpu::TextureFormat::Rgba8Unorm,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::ShadowMap => {
+            let layouts = [
+                Some(
+                    gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::ShadowMapCreate),
+                ), //0
+                None, //1
+                None, //2
+                None, //3
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("ShadowMapCreate Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    immediate_size: 0,
+                });
+            let shader =
+                device.create_shader_module(wgpu::include_wgsl!("shaders/shadow_map.wgsl"));
+            let buffer_desc = &[
+                assets::MeshVertexData::get_layout(),
+                assets::VertexInstance::get_layout(),
+            ];
+
+            let pipeline_desc = PipelineExt::default();
+
+            let target = &[];
+
+            pipeline_desc.build_pipeline(
+                "ShadowMap Pipeline",
+                device,
+                Some(&render_pipeline_layout),
+                target,
+                shader,
+                buffer_desc,
+            )
+        }
+        PipelineKind::Convert => {
+            let layouts = [
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Depth)), //0
+                None,                                                                        //1
+                None,                                                                        //2
+                None,                                                                        //3
+            ];
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("ShadowMap Pipeline Layout"),
+                    bind_group_layouts: &layouts,
+                    immediate_size: 0,
+                });
+
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/convert.wgsl"));
+            let buffer_desc = &[];
+            let pipeline_desc = PipelineDesc {
+                depth_stencil: None,
+                ..Default::default()
+            };
+
+            pipeline_desc.build_pipeline(
+                "Convert Pipeline",
+                device,
+                Some(&render_pipeline_layout),
                 wgpu::TextureFormat::Rgba8Unorm,
                 shader,
                 buffer_desc,

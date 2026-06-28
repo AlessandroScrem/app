@@ -1,5 +1,6 @@
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+use wgpu::TextureSampleType::Depth;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum BindgroupLayoutKind {
@@ -14,6 +15,9 @@ pub enum BindgroupLayoutKind {
     Hdr,
     Depth,
     EntityId,
+    ShadowMap,
+    ShadowMapCreate,
+    TextureRgba,
 }
 
 pub struct BindgroupLayoutCache {
@@ -370,11 +374,11 @@ impl BindgroupLayoutCache {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Depth_Texture_bind_group_layout"),
                     entries: &[
-                        // sampler
+                        // // sampler
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
                             visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                             count: None,
                         },
                         // depth texture
@@ -410,6 +414,65 @@ impl BindgroupLayoutCache {
                                 multisampled: false,
                                 view_dimension: wgpu::TextureViewDimension::D2,
                                 sample_type: wgpu::TextureSampleType::Uint,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            BindgroupLayoutKind::ShadowMap => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("ShadowMap_bind_group_layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        // Depth Texture
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: Depth,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    }],
+                })
+            }
+            BindgroupLayoutKind::ShadowMapCreate => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("ShadowMapCreate_bind_group_layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            // Ligth
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
+                })
+            }
+            BindgroupLayoutKind::TextureRgba => {
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("TextureRgba_bind_group_layout"),
+                    entries: &[
+                        // sampler
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        // texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             },
                             count: None,
                         },

@@ -6,8 +6,7 @@ use crate::assets::IblAsset;
 use crate::assets::asset_manager::AssetManager;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface,
-    HasGpuStats, IblManager,
+    BindgroupLayoutKind, FramebufferKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::picking::PickObject;
@@ -16,7 +15,7 @@ use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::ui::InternalCounter;
+use crate::ui::{InternalCounter, UiTexture};
 use crate::ui::UiLayer;
 use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
@@ -39,6 +38,7 @@ pub struct RunningApp {
     pub gpu_manager: GpuManager,
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
+    pub shadow_manager: ShadowManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
@@ -75,6 +75,8 @@ impl RunningApp {
         let input = self.input.clone();
         app.update(&input);
         self.sync_gpu_assets(app.asset_mgr_mut());
+        self.imgui_render.sync_imgui_framebuffer(&self.gpu_context, self.gpu_manager.get_framebuffers());
+
         self.update_app_ui(app);
 
         self.render(app);
@@ -236,7 +238,7 @@ impl RunningApp {
         // If texture cache is changed -> sync imgui texture
         grouped.process_type::<TextureAsset, _>(|_, _| {
             self.imgui_render
-                .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache);
+                .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
         });
     }
 
@@ -256,12 +258,15 @@ impl RunningApp {
             ..
         } = self;
 
+        let debug_texture_id = UiTexture::Framebuffer(FramebufferKind::ShadowMapRgba);
+
         let context = UiRuntimeContext {
             window: window.as_ref(),
             uilayer,
             texture_resolver: imgui_render,
             gpu_counters: self.gpu_cache.internal_counter(),
             frame_stats: scene_renderer.get_render_stats(),
+            debug_texture: Some(debug_texture_id),
         };
 
         app.update_ui(context);
@@ -277,7 +282,6 @@ impl RunningApp {
                 self.gpu_surface.get_config().height,
             );
             let render_data = app.render_data();
-
             {
                 let RunningApp {
                     scene_renderer,

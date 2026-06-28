@@ -33,8 +33,8 @@ impl TextureUsage {
 pub enum SamplerDesc {
     #[default]
     LinearRepeat,
-    LinearMipmap,
-    Nearest,
+    LinearClampMipmap,
+    NearestClamp,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]

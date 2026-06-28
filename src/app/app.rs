@@ -6,6 +6,7 @@ use crate::prelude::*;
 use crate::globals::Globals;
 
 use crate::scene::Scene;
+use crate::ui::UiTexture;
 
 use legion::Entity;
 use legion::Resources;
@@ -22,6 +23,7 @@ pub struct App {
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
     pub ibl_id: Option<GlobalAssetId>,
+    pub debug_texture_id: Option<UiTexture>
 }
 
 impl App {

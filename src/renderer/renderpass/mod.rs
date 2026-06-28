@@ -7,6 +7,7 @@ mod mesh;
 mod outline;
 mod pickobject;
 mod skybox;
+mod shadow_map;
 
 pub(crate) use axis::*;
 pub(crate) use lines::*;
@@ -17,6 +18,7 @@ pub(crate) use mesh::*;
 pub(crate) use outline::*;
 pub(crate) use pickobject::*;
 pub(crate) use skybox::*;
+pub(crate) use shadow_map::*;
 
 use crate::renderer::FrameData;
 use crate::gpu::pipeline_manager::PipelineKind;
@@ -45,6 +47,7 @@ pub(crate) trait RenderPass {
 }
 
 pub(crate) enum RenderPassEnum {
+    Shadow(ShadowPass),
     Mesh(MeshPass),
     Transmission(MeshPass),
     BuildMipmaps(BuildMipmapsPass),
@@ -60,6 +63,7 @@ pub(crate) enum RenderPassEnum {
 macro_rules! impl_render_pass_enum {
     ($self:ident, $method:ident $(, $arg:ident)*) => {
         match $self {
+            Self::Shadow(p) => p.$method($($arg),*),
             Self::Mesh(p) => p.$method($($arg),*),
             Self::Transmission(p) => p.$method($($arg),*),
             Self::Skybox(p) => p.$method($($arg),*),

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 use crate::gpu::ibl::GpuIbl;
 
@@ -48,6 +50,9 @@ impl GpuManager {
 
     pub fn get_framebuffer_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
         self.framebuffer_cache.get_texture(kind)
+    }
+    pub fn get_framebuffers(&self)  ->HashMap<FramebufferKind, &GpuTexture>{
+        self.framebuffer_cache.get_map()
     }
     pub fn get_framebuffer_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
         self.framebuffer_cache.get_bg(kind)

@@ -1,20 +1,22 @@
-use std::collections::HashMap;
-use crate::gpu::*;
 use crate::assets::TextureId;
+use crate::gpu::*;
 use crate::prelude::*;
 use crate::ui::{UiTexture, UiTextureResolver};
-use wgpu::*;
 use imgui_wgpu::*;
+use std::collections::HashMap;
+use wgpu::*;
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
+    pub framebuffer_ids: HashMap<FramebufferKind, imgui::TextureId>,
 }
 
 impl ImGuiTextureRegistry {
     pub fn new() -> Self {
         Self {
             ids: HashMap::new(),
+            framebuffer_ids: HashMap::new(),
         }
     }
 }
@@ -24,6 +26,7 @@ impl UiTextureResolver for ImguiRender {
         match tex {
             UiTexture::Engine(id) => self.registry.ids.get(&id).cloned(),
             UiTexture::Builtin(id) => Some(id),
+            UiTexture::Framebuffer(id) => self.registry.framebuffer_ids.get(&id).cloned(),
         }
     }
 }
@@ -104,10 +107,13 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-    pub fn sync_imgui_texture(&mut self, gpu_context: &GpuContext, gpu_cache: &mut GpuCache) {
-        let registry = &mut self.registry;
+    pub fn sync_imgui_texture(
+        &mut self,
+        gpu_context: &GpuContext,
+        texture_cache: &GpuTextureCache,
+    ) {
         let renderer = &mut self.renderer;
-        let texture_cache = &gpu_cache.textures;
+        let registry = &mut self.registry;
         let device = &gpu_context.device;
 
         debug!("Sync_with_registry: ");
@@ -144,6 +150,57 @@ impl ImguiRender {
         // rimuove quelle che non esistono più nel texture manager
         registry.ids.retain(|gpu_id, id| {
             if !texture_cache.contains_key(gpu_id) {
+                renderer.textures.remove(*id);
+                debug!("remove from registry [no mame] with id {}", id.id());
+                false
+            } else {
+                true
+            }
+        });
+    }
+    pub fn sync_imgui_framebuffer<'a>(
+        &mut self,
+        gpu_context: &GpuContext,
+        textures: HashMap<FramebufferKind, &'a GpuTexture>,
+    ) {
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry.framebuffer_ids;
+        let device = &gpu_context.device;
+
+        debug!("Sync_with_registry: ");
+
+        // record new textures
+        use imgui_wgpu::RawTextureConfig;
+        for (gpu_id, tex) in textures.iter() {
+            if !registry.contains_key(&gpu_id) {
+                let texture_config = RawTextureConfig {
+                    label: None,
+                    sampler_desc: wgpu::SamplerDescriptor {
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                        ..Default::default()
+                    },
+                };
+                let id = renderer
+                    .textures
+                    .insert(imgui_wgpu::Texture::from_raw_parts(
+                        device,
+                        renderer,
+                        tex.inner.clone(),
+                        tex.view.clone(),
+                        None,
+                        Some(&texture_config),
+                        tex.extent,
+                    ));
+                registry.insert(gpu_id.clone(), id);
+                debug!("add to registry texture [no name] with id {}", id.id());
+            }
+        }
+
+        // rimuove quelle che non esistono più nel texture manager
+        registry.retain(|gpu_id, id| {
+            if !textures.contains_key(gpu_id) {
                 renderer.textures.remove(*id);
                 debug!("remove from registry [no mame] with id {}", id.id());
                 false

@@ -11,6 +11,7 @@ pub enum ResourceId {
     LDR,
     OPAQUE,
     PICKBUFFER,
+    SHADOWMAP,
 }
 
 use std::fmt;
@@ -23,6 +24,7 @@ impl fmt::Display for ResourceId {
             Self::ENTITY => "EntityID",
             Self::LDR => "LDR",
             Self::PICKBUFFER => "PickBuffer",
+            Self::SHADOWMAP => "ShadowMap",
         };
         write!(f, "{}", name)
     }

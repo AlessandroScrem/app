@@ -32,7 +32,6 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
-
         light::create(&mut self.current_scene.world, &self.resources);
         // Turn Off All Lights
         self.domain_events

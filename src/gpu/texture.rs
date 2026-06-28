@@ -102,7 +102,7 @@ impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
 
                 ..Default::default()
             },
-            SamplerDesc::LinearMipmap => wgpu::SamplerDescriptor {
+            SamplerDesc::LinearClampMipmap => wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -111,7 +111,7 @@ impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
                 mipmap_filter: wgpu::MipmapFilterMode::Linear,
                 ..Default::default()
             },
-            SamplerDesc::Nearest => wgpu::SamplerDescriptor {
+            SamplerDesc::NearestClamp => wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,

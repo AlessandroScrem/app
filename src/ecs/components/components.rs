@@ -5,6 +5,24 @@ use legion::Entity;
 use crate::assets::MeshId;
 use crate::renderer::uniform::*;
 
+fn ortho_rh(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> Mat4 {
+    let rcp_w = 1.0 / (right - left);
+    let rcp_h = 1.0 / (top - bottom);
+    let r = 1.0 / (near - far);
+
+    Mat4::from_cols(
+        Vec4::new(rcp_w + rcp_w, 0.0, 0.0, 0.0),
+        Vec4::new(0.0, rcp_h + rcp_h, 0.0, 0.0),
+        Vec4::new(0.0, 0.0, r, 0.0),
+        Vec4::new(
+            -(left + right) * rcp_w,
+            -(top + bottom) * rcp_h,
+            r * near,
+            1.0,
+        ),
+    )
+}
+
 // Ecs Components
 #[derive(Clone)]
 pub struct LightComponent {
@@ -22,9 +40,9 @@ impl Default for LightComponent {
         const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
         const POSITION: [f32; 3] = [0.0, 0.0, -1.0];
         const SIZE: f32 = 20.0;
-        const NEAR: f32 = 2.0;
-        const FAR: f32 = 200.0;
-        let proj_matrix = ortho(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
+        const NEAR: f32 = 0.0;
+        const FAR: f32 = 40.0;
+        let proj_matrix = ortho_rh(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
         let view_matrix = Self::view_matrix(POSITION);
 
         Self {
@@ -45,13 +63,13 @@ impl LightComponent {
         self.proj_matrix * self.view_matrix
     }
 
-    pub fn get_position(&self) ->[f32;3] {
+    pub fn get_position(&self) -> [f32; 3] {
         self.position
     }
 
     pub fn update_position<P>(&mut self, position: P)
-        where
-        P: Into<[f32;3]>,
+    where
+        P: Into<[f32; 3]>,
     {
         self.position = position.into();
         self.update_view_matrix();
@@ -65,9 +83,7 @@ impl LightComponent {
     where
         P: Into<Point3f>,
     {
-        let eye: Point3f = position.into();
-
-        Mat4::look_at_rh(eye, Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
+        Mat4::look_at_rh(position.into(), Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
     }
 }
 
@@ -80,6 +96,7 @@ impl From<&LightComponent> for LightUniform {
             cast_shadow: value.cast_shadow.into(),
             entity_id: value.entity_id,
             enabled: value.enabled.into(),
+            view_proj: value.get_view_proj_matrix().into(),
             ..Default::default()
         }
     }

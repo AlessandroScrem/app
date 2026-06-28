@@ -8,6 +8,8 @@ struct Camera {
 };
 
 struct Light {
+    view_proj: mat4x4<f32>,
+    
     color: vec3<f32>,
     directional: u32,
 

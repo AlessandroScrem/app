@@ -8,6 +8,7 @@ use crate::assets::asset_manager::{AssetManager, GlobalAssetId, ResourceStats};
 use crate::assets::MeshAsset;
 use crate::assets::MaterialAsset;
 use crate::gpu::GpuInternalCounters;
+use crate::ui::UiTexture;
 use crate::ui::traits::UiTextureResolver;
 use crate::renderer::scene_renderer::FrameStats;
 use crate::Globals;
@@ -51,7 +52,7 @@ pub struct UiSnapshot<'a> {
     pub comp_state: UiComponentState,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    pub debug_texture_id: Option<TextureId>,
+    pub debug_texture_id: Option<UiTexture>,
     pub render_stats: RenderStats,
     pub gpu_counters: GpuInternalCounters,
     pub hdr_id: Option<GlobalAssetId>,
@@ -117,7 +118,7 @@ impl<'a> UiSnapshot<'a> {
         globals: &'a Globals,
         texture_resolver: &'a dyn UiTextureResolver,
         gpu_counters: GpuInternalCounters,
-        debug_texture_id: Option<TextureId>,
+        debug_texture_id: Option<UiTexture>,
         render_stats: RenderStats,
         hdr_id: Option<TextureId>,
     ) -> Self {

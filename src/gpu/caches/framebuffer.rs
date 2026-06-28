@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 
 use super::*;
@@ -5,12 +7,14 @@ use super::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, EnumIter)]
+#[derive(Debug, Clone, Copy, EnumIter, PartialEq, Eq, Hash)]
 pub enum FramebufferKind {
     Hdr,
     OpaqueWithMips,
     EntityId,
     Depth,
+    ShadowMap,
+    ShadowMapRgba,
 }
 
 pub struct Framebuffer {
@@ -62,6 +66,18 @@ impl FramebufferCache {
     pub fn get_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
         &self.framebuffers[kind as usize].bind_group
     }
+
+    pub fn get_map(&self) -> HashMap<FramebufferKind, &GpuTexture> {
+        let list = vec![FramebufferKind::ShadowMapRgba, FramebufferKind::Hdr];
+
+        list.iter()
+            .map(|k| (k.clone(), &self.framebuffers[*k as usize].texture))
+            .collect()
+
+        //     FramebufferKind::iter()
+        //         .map(|kind| (kind, &self.framebuffers[kind as usize].texture))
+        //         .collect()
+    }
 }
 
 impl FramebufferCache {
@@ -77,7 +93,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rgbaf16)
                     .usage(GpuTextureUsage::RenderTarget)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("Hdr texture")
                     .build(device, None);
 
@@ -108,7 +124,7 @@ impl FramebufferCache {
                     .format(ColorSpace::Rgba8)
                     .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTextureStorage)
-                    .sampler(SamplerDesc::LinearMipmap)
+                    .sampler(SamplerDesc::LinearClampMipmap)
                     .label("Hdr Opaque texture_with_mips")
                     .build(device, None);
 
@@ -138,7 +154,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rg32ui)
                     .usage(GpuTextureUsage::EntityId)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("entity_id_texture")
                     .build(device, None);
 
@@ -167,13 +183,70 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Depth32f)
                     .usage(GpuTextureUsage::DepthTarget)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("depth_texture")
                     .build(device, None);
 
                 let layout = layouts.get(BindgroupLayoutKind::Depth);
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("depth_bind_group"),
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                        },
+                    ],
+                });
+
+                Framebuffer {
+                    texture,
+                    bind_group,
+                }
+            }
+            FramebufferKind::ShadowMap => {
+                let texture = GpuTextureBuilder::from_empty(width, height)
+                    .format(ColorSpace::Depth32f)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::NearestClamp)
+                    .label("shadow_texture depth")
+                    .build(device, None);
+
+                let layout = layouts.get(BindgroupLayoutKind::Depth);
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("shadowmap_bind_group"),
+                    layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                        },
+                    ],
+                });
+                Framebuffer {
+                    texture,
+                    bind_group,
+                }
+            }
+            FramebufferKind::ShadowMapRgba => {
+                let texture = GpuTextureBuilder::from_empty(width, height)
+                    .format(ColorSpace::Rgba8)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::LinearRepeat)
+                    .label("shadow_texture rgba")
+                    .build(device, None);
+
+                let layout = layouts.get(BindgroupLayoutKind::TextureRgba);
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("ShadowMapRgba_bind_group"),
                     layout,
                     entries: &[
                         wgpu::BindGroupEntry {

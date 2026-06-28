@@ -9,12 +9,13 @@ use super::RunningApp;
 use super::winit_bridge::CenterWindow;
 use crate::app::{Application, HasAssetMgr};
 use crate::gpu::{
-    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, IblManager,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+    IblManager, ShadowManager,
 };
 use crate::input::Input;
-use crate::ui::UiLayer;
 use crate::picking::PickObject;
 use crate::renderer::{ImguiRender, SceneRenderer};
+use crate::ui::UiLayer;
 
 #[derive(Default)]
 pub struct Engine<A: Application> {
@@ -75,6 +76,8 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_surface.get_config().height,
         );
 
+        let shadow_manager = ShadowManager::new(&gpu_context.device, 1024);
+
         let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
 
         let pipeline_manager = PipelineManager::new(
@@ -102,6 +105,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_manager,
             ibl_manager,
             pipeline_manager,
+            shadow_manager,
         });
 
         window.request_redraw();
