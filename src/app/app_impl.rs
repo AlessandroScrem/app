@@ -1,6 +1,6 @@
 use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
 use crate::app::application::AppRenderData;
-use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent};
+use crate::app::domain::events::{AssetEvent, DomainEvent};
 use crate::assets::TextureAsset;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
@@ -32,11 +32,15 @@ impl Application for App {
     fn init(&mut self) {
         let timer = std::time::Instant::now();
 
+        //*****************************
+        // Create Light
         light::create(&mut self.current_scene.world, &self.resources);
         // Turn Off All Lights
-        self.domain_events
-            .queue
-            .push_back(DomainEvent::Entity(EntityEvent::EnableAllLight(false)));
+        // self.domain_events
+        //     .queue
+        //     .push_back(DomainEvent::Global(GlobalEvent::LightEnable(false)));
+
+        //*****************************
 
         //*****************************
         // Create Ibl
@@ -54,7 +58,7 @@ impl Application for App {
         self.ibl_id = Some(ibl_id);
         //*****************************
 
-        self.current_scene.schedule = crate::systems::create_current_scene_schedule_builder();
+        self.current_scene.schedule = crate::ecs::create_current_scene_schedule_builder();
 
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }

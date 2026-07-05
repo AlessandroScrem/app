@@ -51,6 +51,7 @@ impl GpuManager {
     pub fn get_framebuffer_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
         self.framebuffer_cache.get_texture(kind)
     }
+    #[allow(unused)]
     pub fn get_framebuffers(&self)  ->HashMap<FramebufferKind, &GpuTexture>{
         self.framebuffer_cache.get_map()
     }

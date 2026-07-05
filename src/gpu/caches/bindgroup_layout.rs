@@ -8,15 +8,14 @@ pub enum BindgroupLayoutKind {
     PerFrame,
     Lines,
     LightTexture,
-    PbrMaps,
     Material,
+    PbrMaps,
     Model,
     Skybox,
     Hdr,
     Depth,
     EntityId,
     ShadowMap,
-    ShadowMapCreate,
     TextureRgba,
 }
 
@@ -434,24 +433,6 @@ impl BindgroupLayoutCache {
                         },
                         count: None,
                     }],
-                })
-            }
-            BindgroupLayoutKind::ShadowMapCreate => {
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("ShadowMapCreate_bind_group_layout"),
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            // Ligth
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                    ],
                 })
             }
             BindgroupLayoutKind::TextureRgba => {

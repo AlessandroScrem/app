@@ -9,6 +9,7 @@ pub enum UiTexture {
     Engine(TextureId),
     Builtin(ImguiTextureId),
     Framebuffer(FramebufferKind),
+    ShadowMap,
 }
 
 pub trait UiTextureResolver {

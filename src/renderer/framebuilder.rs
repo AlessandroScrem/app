@@ -145,54 +145,6 @@ impl<'a> LineDrawable for AxisAlignedBoundingBox<'a> {
 }
 
 impl LineDrawable for LightComponent {
-    /*     fn emit(&self, sink: &mut dyn LineSink) {
-        use crate::colors;
-        let color: Vec3 = colors::GREEN_COLOR.into();
-
-        let mut corners = [
-            Vec3::new(-1.0, -1.0, 0.0),
-            Vec3::new(1.0, -1.0, 0.0),
-            Vec3::new(1.0, 1.0, 0.0),
-            Vec3::new(-1.0, 1.0, 0.0),
-            Vec3::new(-1.0, -1.0, 1.0),
-            Vec3::new(1.0, -1.0, 1.0),
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(-1.0, 1.0, 1.0),
-        ];
-
-        let mat = self.get_view_proj_matrix();
-        let inverse_light_space_matrix = mat.invert().unwrap_or(Mat4::identity());
-        for vertex in corners.iter_mut() {
-            let v = inverse_light_space_matrix * vertex.extend(1.0);
-            *vertex = v.truncate();
-        }
-
-        let near = [corners[0], corners[1], corners[2], corners[3]];
-        let far = [corners[4], corners[5], corners[6], corners[7]];
-
-        // Near clip (rosso)
-        sink.line(near[0], near[1], colors::RED_COLOR.into());
-        sink.line(near[1], near[2], colors::RED_COLOR.into());
-        sink.line(near[2], near[3], colors::RED_COLOR.into());
-        sink.line(near[3], near[0], colors::RED_COLOR.into());
-
-        // Far clip
-        sink.line(far[0], far[1], color);
-        sink.line(far[1], far[2], color);
-        sink.line(far[2], far[3], color);
-        sink.line(far[3], far[0], color);
-
-        // Connessioni
-        sink.line(near[0], far[0], color);
-        sink.line(near[1], far[1], color);
-        sink.line(near[2], far[2], color);
-        sink.line(near[3], far[3], color);
-
-        // Draw Light direction Arrow ---->
-        let position: Vec3 = self.get_position().into();
-        let target = -position.normalize() * 20.0;
-        sink.arrow(position, target, color);
-    } */
     fn emit(&self, sink: &mut dyn LineSink) {
         use crate::colors;
 
@@ -249,12 +201,14 @@ pub struct FrameData {
     pub opaque_batches: Vec<InstanceBatch>,
     pub transmission_batches: Vec<InstanceBatch>,
     pub lines: Vec<LinesVertexData>,
-    pub lights: Option<LightsUniform>,
     pub instances: Vec<VertexInstance>,
+
+    // runtime data
+    pub lights: Option<LightsUniform>,
 
     // flags / tasks
     pub axis_enable: bool,
-    pub outline_selected: bool,
+    pub entity_selected: Option<Entity>,
     pub picking: Option<PickingData>,
     pub skybox_enable: Option<bool>,
     pub build_mips: Option<bool>,
@@ -279,7 +233,7 @@ impl FrameBuilder {
             transmission_batches: Vec::new(),
             lines: Vec::new(),
             lights: None,
-            outline_selected: false,
+            entity_selected: None,
             picking: None,
             skybox_enable: None,
             build_mips: None,
@@ -294,7 +248,7 @@ impl FrameBuilder {
         Self::build_light_data(world, globals, &mut frame);
         Self::build_light_frustum(world, globals, &mut frame);
         frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
-        frame.outline_selected = selected.is_some();
+        frame.entity_selected = selected;
         frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
         frame.axis_enable = globals.axis_enable;
 
@@ -456,7 +410,6 @@ impl FrameBuilder {
         {
             let data = LightUniform {
                 entity_id: EntityRawU64::as_raw_u64(entity),
-                // view_proj: light.get_view_proj_matrix().into(),
                 ..light.into()
             };
             lights_uniform.count = (i + 1) as u32;

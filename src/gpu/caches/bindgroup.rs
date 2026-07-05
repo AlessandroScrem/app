@@ -13,8 +13,6 @@ pub enum BindgroupKind {
     PbrMap,
     Skybox,
     SkyboxBlur,
-    ShadowMap,
-    ShadowMapCreate,
 }
 
 pub struct BindgroupCache {
@@ -212,30 +210,6 @@ impl BindgroupCache {
                         },
                     ],
                     label: Some("skybox_blur_bind_group"),
-                })
-            }
-            BindgroupKind::ShadowMap => {
-                let view = framebuffer_cache.get_view(FramebufferKind::ShadowMap);
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(BindgroupLayoutKind::ShadowMap),
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(view),
-                    }],
-                    label: Some("ShadowMap_bind_group"),
-                })
-            }
-            BindgroupKind::ShadowMapCreate => {
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(BindgroupLayoutKind::ShadowMapCreate),
-                    entries: &[
-                        // Light
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: buffer_cache.get(BufferKind::Light).as_entire_binding(),
-                        },
-                    ],
-                    label: Some("ShadowMapCreate_bind_group"),
                 })
             }
         }

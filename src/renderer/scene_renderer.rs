@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager};
+use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager};
 use crate::renderer::framebuilder::DrawStats;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 
@@ -17,6 +17,7 @@ use crate::renderer::renderpass::*;
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
     pub gpu_manager: &'a mut GpuManager,
+    pub shadow_manager: &'a mut ShadowManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
     pub pickobject: &'a PickObject,
@@ -25,8 +26,9 @@ pub struct SceneRenderContext<'a> {
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub gpu_cache: &'a GpuCache,
-
+    
     pub gpu_mgr: &'a GpuManager,
+    pub shadow_mgr: &'a ShadowManager,
     pub pip_mgr: &'a PipelineManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
@@ -88,6 +90,7 @@ impl SceneRenderer {
         let SceneRenderContext {
             gpu_context,
             gpu_manager,
+            shadow_manager,
             pipeline_manager,
             gpu_cache,
             pickobject,
@@ -97,6 +100,7 @@ impl SceneRenderer {
             device: &gpu_context.device,
             gpu_cache: &gpu_cache,
             gpu_mgr: &gpu_manager,
+            shadow_mgr: &shadow_manager,
             pip_mgr: &pipeline_manager,
             pickobject,
             target,

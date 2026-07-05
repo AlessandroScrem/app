@@ -26,7 +26,7 @@ impl RenderPass for OutlinePass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        if !frame.outline_selected {
+        if frame.entity_selected.is_none() {
             return;
         }
 

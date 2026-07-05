@@ -23,7 +23,7 @@ pub struct App {
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
     pub ibl_id: Option<GlobalAssetId>,
-    pub debug_texture_id: Option<UiTexture>
+    pub debug_texture_id: Option<UiTexture>,
 }
 
 impl App {

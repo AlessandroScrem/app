@@ -11,7 +11,6 @@ mod input;
 mod picking;
 mod renderer;
 mod scene;
-mod systems;
 mod test_utils;
 mod timer;
 mod timestep;
