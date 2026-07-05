@@ -118,21 +118,26 @@ impl BindgroupCache {
                 let dummy_texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                         .build(device, Some(queue));
+                    
+                    let dummy_cube =
+                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    .dimension(Dimension::Cube)
+                    .format(ColorSpace::Rgba8)
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::LinearRepeat)
+                    .label("dummy Cube white texture")
+                    .build(device, Some(queue));
+                
+                //Dummy Shadowmaps
+                const MAX_SHADOWS:usize = 64;
                 let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
                     .format(ColorSpace::Depth32f)
                     .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::NearestClamp)
+                    .sampler(SamplerDesc::DepthComparison)
                     .label("dummy shadow_texture depth")
                     .build(device, None);
 
-                let dummy_cube =
-                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                        .dimension(Dimension::Cube)
-                        .format(ColorSpace::Rgba8)
-                        .usage(GpuTextureUsage::SampledTexture)
-                        .sampler(SamplerDesc::LinearRepeat)
-                        .label("dummy Cube white texture")
-                        .build(device, Some(queue));
+                let shadow_views = vec![dummy_depth_texture.view.as_ref();MAX_SHADOWS];
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
@@ -167,13 +172,18 @@ impl BindgroupCache {
                             binding: 5,
                             resource: wgpu::BindingResource::TextureView(&scene_view),
                         },
-                        // shadowmap texture
+                        // shadowmap sampler
                         wgpu::BindGroupEntry {
                             binding: 6,
-                            resource: wgpu::BindingResource::TextureView(&dummy_depth_texture.view),
+                            resource: wgpu::BindingResource::Sampler(&dummy_depth_texture.sampler),
+                        },
+                        // shadowmap texture
+                        wgpu::BindGroupEntry {
+                            binding: 7,
+                            resource: wgpu::BindingResource::TextureViewArray(&shadow_views),
                         },
                     ],
-                    label: Some("Fake Ibl Bind Group"),
+                    label: Some("Dummy PbrMap BindGroup"),
                 })
             }
             BindgroupKind::Skybox => {
@@ -197,7 +207,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&cube.view),
                         },
                     ],
-                    label: Some("skybox_bind_group"),
+                    label: Some("Dummy Skybox BindGroup"),
                 })
             }
             BindgroupKind::SkyboxBlur => {
@@ -221,7 +231,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&cube.view),
                         },
                     ],
-                    label: Some("skybox_blur_bind_group"),
+                    label: Some("Dummy SkyboxBlur BindGroup"),
                 })
             }
         }

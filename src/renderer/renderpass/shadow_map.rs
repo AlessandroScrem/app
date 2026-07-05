@@ -32,7 +32,7 @@ impl RenderPass for ShadowPass {
             if light.cast_shadow.is_zero() {
                 continue;
             }
-            if let Some(shadow_map) = ctx.shadow_mgr.get(id) {
+            if let Some(shadow_map) = ctx.shadow_mgr.get_shadowmap(id) {
                 build_shadowmap(encoder, ctx, frame, shadow_map);
                 if let Some(entity) = frame.entity_selected {
                     if EntityId(light.entity_id) == EntityId::from(entity) {

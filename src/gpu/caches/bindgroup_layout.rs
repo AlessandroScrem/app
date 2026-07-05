@@ -135,8 +135,9 @@ impl BindgroupLayoutCache {
                 })
             }
             BindgroupLayoutKind::PbrMaps => {
+                const MAX_SHADOWS: u32 = 64;
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Ibl_bind_group_layout"),
+                    label: Some("PbrMaps_bind_group_layout"),
                     entries: &[
                         // sampler
                         wgpu::BindGroupLayoutEntry {
@@ -196,16 +197,23 @@ impl BindgroupLayoutCache {
                             },
                             count: None,
                         },
-                        // shadow map texture
+                        // shadow map sampler
                         wgpu::BindGroupLayoutEntry {
                             binding: 6,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                            count: None,
+                        },
+                        // shadow map texture
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 7,
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
                                 multisampled: false,
                                 view_dimension: wgpu::TextureViewDimension::D2,
                                 sample_type: wgpu::TextureSampleType::Depth,
                             },
-                            count: None,
+                            count: std::num::NonZeroU32::new(MAX_SHADOWS),
                         },
                     ],
                 })

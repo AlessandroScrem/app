@@ -18,8 +18,8 @@ pub struct GpuShadow {
 
 impl GpuShadow {
     #[allow(unused)]
-    fn estimated_size() -> usize {
-        0
+    fn estimated_size(&self) -> usize {
+        self.texture.estimated_size
     }
 }
 
@@ -33,14 +33,6 @@ impl GpuShadow {
     }
     pub fn get_gpu_texture(&self) -> &GpuTexture {
         &self.texture
-    }
-    #[allow(unused)]
-    pub fn get_sampler(&self) -> &wgpu::Sampler {
-        &self.texture.sampler
-    }
-    #[allow(unused)]
-    pub fn get_view_mips(&self) -> &wgpu::TextureView {
-        &self.texture.view_mips
     }
     pub fn get_bg(&self) -> &wgpu::BindGroup {
         &self.bind_group
@@ -63,6 +55,7 @@ pub struct ShadowManager {
     texture_rgba: GpuShadow,
     pipeline: RenderPipeline,
     shadow_maps: Vec<GpuShadow>,
+    sampler: wgpu::Sampler,
     stats: GpuResourceStats,
 }
 
@@ -72,26 +65,52 @@ impl ShadowManager {
             .map(|_| Self::create_gpu_shadow(device, layout))
             .collect();
 
+        let stats = shadow_maps
+            .iter()
+            .fold(GpuResourceStats::default(), |mut s, shadow| {
+                s.add(shadow.estimated_size());
+                s
+            });
+
         let texture_rgba = Self::crate_texture_rgba(device);
         let layout = &Self::create_shadowmap_create_layout(device);
         let shadowmap_create_bindgroup =
             Self::crate_shadowmap_create_bg(device, &light_buffer, layout);
-        let pipeline = Self::create_pipeline(device, layout);
+            let pipeline = Self::create_pipeline(device, layout);
+            
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                compare: Some(wgpu::CompareFunction::LessEqual),
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                ..Default::default()
+            });
 
         Self {
             pipeline,
             shadowmap_create_bindgroup,
             shadow_maps,
+            sampler,
             texture_rgba,
-            stats: GpuResourceStats::default(),
+            stats,
         }
     }
 }
 
 impl ShadowManager {
-    pub fn get(&self, id: LightId) -> Option<&GpuShadow> {
+    pub fn get_shadowmap(&self, id: LightId) -> Option<&GpuShadow> {
         self.shadow_maps.get(id)
     }
+
+    pub fn get_sampler(&self) -> &wgpu::Sampler {
+        &self.sampler
+    }
+
+    pub fn get_views(&self) -> Vec<&wgpu::TextureView> {
+        self.shadow_maps.iter().map(|s| s.get_view()).collect()
+    }
+
     pub fn get_rgba(&self) -> &GpuShadow {
         &self.texture_rgba
     }

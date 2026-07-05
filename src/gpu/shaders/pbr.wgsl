@@ -224,7 +224,8 @@ const ShennRoughness         : u32 = 17;
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 @group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
 @group(3) @binding(5) var scene_color: texture_2d<f32>; 
-@group(3) @binding(6) var shadow_map: texture_depth_2d; 
+@group(3) @binding(6) var shadow_sampler: sampler; 
+@group(3) @binding(7) var shadow_map: binding_array<texture_depth_2d>; 
 
 struct MaterialInfo {
     albedo: vec3<f32>,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::gpu::{ibl::GpuIbl, shadow_manager::GpuShadow};
+use crate::gpu::ibl::GpuIbl;
 
 pub struct GpuManager {
     layout_cache: BindgroupLayoutCache,
@@ -96,16 +96,16 @@ impl GpuManager {
     pub fn replace_pbrmap_skybox_bindgroup(
         &mut self,
         ibl: Option<&GpuIbl>,
-        gpu_shadow: Option<&GpuShadow>,
+        shadow_mgr: &ShadowManager,
         device: &wgpu::Device,
     ) {
-        if let (Some(ibl), Some(gpu_shadow)) = (ibl, gpu_shadow) {
+        if let Some(ibl) = ibl {
             info!("updating pbrmap bindgroup");
 
             let bg = create_pbrmap_bindgroup(
                 device,
                 ibl,
-                gpu_shadow,
+                shadow_mgr,
                 &self.layout_cache,
                 &self.framebuffer_cache,
             );
@@ -129,11 +129,12 @@ impl GpuManager {
 fn create_pbrmap_bindgroup(
     device: &wgpu::Device,
     ibl: &GpuIbl,
-    gpu_shadow: &GpuShadow,
+    shadow_mgr: &ShadowManager,
     layout_cache: &BindgroupLayoutCache,
     framebuffer_cache: &FramebufferCache,
 ) -> wgpu::BindGroup {
-    let shadow_map_view = gpu_shadow.get_view();
+    let shadow_map_sampler = shadow_mgr.get_sampler();
+    let shadow_map_views = shadow_mgr.get_views();
     let sampler = ibl.get_sampler();
     let brdf_lut_view = ibl.get_brdf_lut_view();
     let irradiance_view = ibl.get_irradiance_view();
@@ -173,10 +174,15 @@ fn create_pbrmap_bindgroup(
             binding: 5,
             resource: wgpu::BindingResource::TextureView(opaque_view),
         },
-        // shadowmap texture
+        // shadowmap sampler
         wgpu::BindGroupEntry {
             binding: 6,
-            resource: wgpu::BindingResource::TextureView(shadow_map_view),
+            resource: wgpu::BindingResource::Sampler(shadow_map_sampler),
+        },
+        // shadowmap texture
+        wgpu::BindGroupEntry {
+            binding: 7,
+            resource: wgpu::BindingResource::TextureViewArray(&shadow_map_views),
         },
     ];
 

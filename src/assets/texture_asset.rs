@@ -35,6 +35,7 @@ pub enum SamplerDesc {
     LinearRepeat,
     LinearClampMipmap,
     NearestClamp,
+    DepthComparison
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]

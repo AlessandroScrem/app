@@ -21,12 +21,13 @@ use crate::ui::UiLayer;
 use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
 
-impl InternalCounter for GpuCache {
+impl InternalCounter for RunningApp {
     fn internal_counter(&self) -> GpuInternalCounters {
         GpuInternalCounters {
-            textures: self.textures.get_stats(),
-            meshes: self.mesh.get_stats(),
-            materials: self.material.get_stats(),
+            textures: self.gpu_cache.textures.get_stats(),
+            meshes: self.gpu_cache.mesh.get_stats(),
+            materials: self.gpu_cache.material.get_stats(),
+            shadows: self.shadow_manager.get_stats(),
         }
     }
 }
@@ -82,7 +83,7 @@ impl RunningApp {
         if self.gpu_manager.bindgroup_diry() {
             self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                 self.ibl_manager.get_ibl(),
-                self.shadow_manager.get(0),
+                &self.shadow_manager,
                 &self.gpu_context.device,
             );
         }
@@ -264,6 +265,8 @@ impl RunningApp {
     }
 
     fn update_app_ui<A: HasUi>(&mut self, app: &mut A) {
+        let gpu_counters = self.internal_counter();
+
         let RunningApp {
             window,
             uilayer,
@@ -276,7 +279,7 @@ impl RunningApp {
             window: window.as_ref(),
             uilayer,
             texture_resolver: imgui_render,
-            gpu_counters: self.gpu_cache.internal_counter(),
+            gpu_counters,
             frame_stats: scene_renderer.get_render_stats(),
             debug_texture: None,
         };
