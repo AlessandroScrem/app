@@ -23,6 +23,7 @@ pub struct App {
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
     pub ibl_id: Option<GlobalAssetId>,
+    #[allow(unused)]
     pub debug_texture_id: Option<UiTexture>,
 }
 

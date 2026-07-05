@@ -1,22 +1,18 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::gpu::ibl::GpuIbl;
+use crate::gpu::{ibl::GpuIbl, shadow_manager::GpuShadow};
 
 pub struct GpuManager {
     layout_cache: BindgroupLayoutCache,
     framebuffer_cache: FramebufferCache,
     buffer_cache: BufferCache,
     bindgroup_cache: BindgroupCache,
+    bg_dirty: bool,
 }
 
 impl GpuManager {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        width: u32,
-        height: u32,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
         let layout_cache = BindgroupLayoutCache::new(device);
         let buffer_cache = BufferCache::new(device);
         let framebuffer_cache = FramebufferCache::new(device, &layout_cache, width, height);
@@ -33,6 +29,7 @@ impl GpuManager {
             framebuffer_cache,
             buffer_cache,
             bindgroup_cache,
+            bg_dirty: true,
         }
     }
 
@@ -52,7 +49,7 @@ impl GpuManager {
         self.framebuffer_cache.get_texture(kind)
     }
     #[allow(unused)]
-    pub fn get_framebuffers(&self)  ->HashMap<FramebufferKind, &GpuTexture>{
+    pub fn get_framebuffers(&self) -> HashMap<FramebufferKind, &GpuTexture> {
         self.framebuffer_cache.get_map()
     }
     pub fn get_framebuffer_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
@@ -71,7 +68,12 @@ impl GpuManager {
         self.buffer_cache.get(kind)
     }
 
-    pub fn update_buffer<T: bytemuck::Pod>(&self, queue: &wgpu::Queue,  kind: BufferKind, data: &[T]) {
+    pub fn update_buffer<T: bytemuck::Pod>(
+        &self,
+        queue: &wgpu::Queue,
+        kind: BufferKind,
+        data: &[T],
+    ) {
         self.buffer_cache.write(queue, kind, data);
     }
 
@@ -83,45 +85,40 @@ impl GpuManager {
         }
     }
 
-    pub fn sync_ibl(
+    pub fn bindgroup_diry(&self) -> bool {
+        self.bg_dirty
+    }
+
+    pub fn set_bindgroup_diry(&mut self) {
+        self.bg_dirty = true;
+    }
+
+    pub fn replace_pbrmap_skybox_bindgroup(
         &mut self,
-        ibl: &Option<GpuIbl>,
+        ibl: Option<&GpuIbl>,
+        gpu_shadow: Option<&GpuShadow>,
         device: &wgpu::Device,
     ) {
-        if let Some(ibl) = ibl {
-            info!("update Ibl");
+        if let (Some(ibl), Some(gpu_shadow)) = (ibl, gpu_shadow) {
+            info!("updating pbrmap bindgroup");
 
-            let entries = ibl.get_bindgroup_entry();
-            let bg = create_bindgroup(
+            let bg = create_pbrmap_bindgroup(
                 device,
-                BindgroupLayoutKind::PbrMaps,
+                ibl,
+                gpu_shadow,
                 &self.layout_cache,
                 &self.framebuffer_cache,
-                &entries,
             );
             self.update_bindgroup(BindgroupKind::PbrMap, bg);
 
-            let entries = ibl.get_skybox_bindgroup_entry();
-            let bg = create_bindgroup(
-                device,
-                BindgroupLayoutKind::Skybox,
-                &self.layout_cache,
-                &self.framebuffer_cache,
-                &entries,
-            );
+            let bg = create_skybox_bindgroup(device, ibl, &self.layout_cache);
             self.update_bindgroup(BindgroupKind::Skybox, bg);
 
-            let entries = ibl.get_skybox_bindgroup_entry_blur();
-            let bg = create_bindgroup(
-                device,
-                BindgroupLayoutKind::Skybox,
-                &self.layout_cache,
-                &self.framebuffer_cache,
-                &entries,
-            );
+            let bg = create_skybox_blur_bindgroup(device, ibl, &self.layout_cache);
             self.update_bindgroup(BindgroupKind::SkyboxBlur, bg);
         }
-    } 
+        self.bg_dirty = false;
+    }
 
     //mutables
     fn update_bindgroup(&mut self, kind: BindgroupKind, bg: wgpu::BindGroup) {
@@ -129,39 +126,118 @@ impl GpuManager {
     }
 }
 
-fn create_bindgroup(
+fn create_pbrmap_bindgroup(
     device: &wgpu::Device,
-    layout: BindgroupLayoutKind,
+    ibl: &GpuIbl,
+    gpu_shadow: &GpuShadow,
     layout_cache: &BindgroupLayoutCache,
     framebuffer_cache: &FramebufferCache,
-    entries: &Vec<wgpu::BindGroupEntry>,
 ) -> wgpu::BindGroup {
-    let (label, all_entries) = match layout {
-        BindgroupLayoutKind::PbrMaps => {
-            let hdr_t_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
-            let hdr_t_view = framebuffer_cache.get_view_mips(FramebufferKind::OpaqueWithMips);
+    let shadow_map_view = gpu_shadow.get_view();
+    let sampler = ibl.get_sampler();
+    let brdf_lut_view = ibl.get_brdf_lut_view();
+    let irradiance_view = ibl.get_irradiance_view();
+    let prefilter_view = ibl.get_prefilter_view();
 
-            let mut e = entries.clone();
-            e.extend([
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::Sampler(hdr_t_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::TextureView(hdr_t_view),
-                },
-            ]);
-            (Some("Ibl Bindgroup"), e)
-        }
-        BindgroupLayoutKind::Skybox => (Some("Skybox bind_group"), entries.clone()),
-        _ => unimplemented!("Layout kind unimplemented for bindgroup creation"),
-    };
+    let opaque_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
+    let opaque_view = framebuffer_cache.get_view_mips(FramebufferKind::OpaqueWithMips);
+
+    let entries = vec![
+        // sampler
+        wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::Sampler(sampler),
+        },
+        // irradiance texture
+        wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::TextureView(irradiance_view),
+        },
+        // prefiltered texture
+        wgpu::BindGroupEntry {
+            binding: 2,
+            resource: wgpu::BindingResource::TextureView(prefilter_view),
+        },
+        // brdf_lut texture
+        wgpu::BindGroupEntry {
+            binding: 3,
+            resource: wgpu::BindingResource::TextureView(brdf_lut_view),
+        },
+        // opaque scene sampler
+        wgpu::BindGroupEntry {
+            binding: 4,
+            resource: wgpu::BindingResource::Sampler(opaque_sampler),
+        },
+        // opaque scene texture
+        wgpu::BindGroupEntry {
+            binding: 5,
+            resource: wgpu::BindingResource::TextureView(opaque_view),
+        },
+        // shadowmap texture
+        wgpu::BindGroupEntry {
+            binding: 6,
+            resource: wgpu::BindingResource::TextureView(shadow_map_view),
+        },
+    ];
 
     device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label,
-        layout: layout_cache.get(layout),
-        entries: &all_entries,
+        label: Some("PbrMap Bindgroup"),
+        layout: layout_cache.get(BindgroupLayoutKind::PbrMaps),
+        entries: &entries,
     })
 }
 
+fn create_skybox_bindgroup(
+    device: &wgpu::Device,
+    ibl: &GpuIbl,
+    layout_cache: &BindgroupLayoutCache,
+) -> wgpu::BindGroup {
+    let label = Some("Skybox bind_group");
+
+    let sampler = ibl.get_sampler();
+    let cubemap_view = ibl.get_cubemap_view();
+
+    let entries = vec![
+        wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::Sampler(sampler),
+        },
+        wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::TextureView(cubemap_view),
+        },
+    ];
+
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label,
+        layout: layout_cache.get(BindgroupLayoutKind::Skybox),
+        entries: &entries,
+    })
+}
+fn create_skybox_blur_bindgroup(
+    device: &wgpu::Device,
+    ibl: &GpuIbl,
+    layout_cache: &BindgroupLayoutCache,
+) -> wgpu::BindGroup {
+    let label = Some("Skybox blur bind_group");
+
+    let sampler = ibl.get_sampler();
+    let irradiance_view = ibl.get_irradiance_view();
+
+    let entries = vec![
+        wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::Sampler(sampler),
+        },
+        wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::TextureView(irradiance_view),
+        },
+    ];
+
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label,
+        layout: layout_cache.get(BindgroupLayoutKind::Skybox),
+        entries: &entries,
+    })
+}

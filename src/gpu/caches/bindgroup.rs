@@ -115,17 +115,24 @@ impl BindgroupCache {
                 let scene_view = framebuffer_cache.get_view(FramebufferKind::OpaqueWithMips);
                 let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
 
-                let texture =
+                let dummy_texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                         .build(device, Some(queue));
-
-                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .dimension(Dimension::Cube)
-                    .format(ColorSpace::Rgba8)
+                let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
+                    .format(ColorSpace::Depth32f)
                     .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::LinearRepeat)
-                    .label("Cube white texture")
-                    .build(device, Some(queue));
+                    .sampler(SamplerDesc::NearestClamp)
+                    .label("dummy shadow_texture depth")
+                    .build(device, None);
+
+                let dummy_cube =
+                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                        .dimension(Dimension::Cube)
+                        .format(ColorSpace::Rgba8)
+                        .usage(GpuTextureUsage::SampledTexture)
+                        .sampler(SamplerDesc::LinearRepeat)
+                        .label("dummy Cube white texture")
+                        .build(device, Some(queue));
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
@@ -133,22 +140,22 @@ impl BindgroupCache {
                         // sampler
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&cube.sampler),
+                            resource: wgpu::BindingResource::Sampler(&dummy_cube.sampler),
                         },
                         // irradiance texture
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_cube.view),
                         },
                         // prefiltered texture
                         wgpu::BindGroupEntry {
                             binding: 2,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_cube.view),
                         },
                         // brdf_lut texture
                         wgpu::BindGroupEntry {
                             binding: 3,
-                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_texture.view),
                         },
                         // opaque scene sampler
                         wgpu::BindGroupEntry {
@@ -159,6 +166,11 @@ impl BindgroupCache {
                         wgpu::BindGroupEntry {
                             binding: 5,
                             resource: wgpu::BindingResource::TextureView(&scene_view),
+                        },
+                        // shadowmap texture
+                        wgpu::BindGroupEntry {
+                            binding: 6,
+                            resource: wgpu::BindingResource::TextureView(&dummy_depth_texture.view),
                         },
                     ],
                     label: Some("Fake Ibl Bind Group"),

@@ -73,9 +73,20 @@ impl RunningApp {
         }
 
         self.update_app_hover(app);
-        let input = self.input.clone();
-        app.update(&input);
+
+        app.update(&self.input);
+
         self.sync_gpu_assets(app.asset_mgr_mut());
+
+        // replace pbrmap & skybox bindgroups
+        if self.gpu_manager.bindgroup_diry() {
+            self.gpu_manager.replace_pbrmap_skybox_bindgroup(
+                self.ibl_manager.get_ibl(),
+                self.shadow_manager.get(0),
+                &self.gpu_context.device,
+            );
+        }
+
         self.imgui_render.sync_imgui_shadowmap(
             &self.gpu_context,
             self.shadow_manager.get_rgba().get_gpu_texture(),
@@ -159,8 +170,7 @@ impl RunningApp {
                         let hdr = texture_cache.get(asset.hrd_id);
                         ibl_manager.create(hdr, device, queue);
                     });
-
-                gpu_manager.sync_ibl(&ibl_manager.ibl, device);
+                gpu_manager.set_bindgroup_diry();
             }
 
             AssetEventKind::Removed => {}
