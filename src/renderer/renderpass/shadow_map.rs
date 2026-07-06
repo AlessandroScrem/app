@@ -1,4 +1,4 @@
-use crate::{ecs::entity_id::EntityId, gpu::shadow_manager::GpuShadow};
+use crate::ecs::entity_id::EntityId;
 use crate::math::*;
 
 use super::*;
@@ -32,11 +32,11 @@ impl RenderPass for ShadowPass {
             if light.cast_shadow.is_zero() {
                 continue;
             }
-            if let Some(shadow_map) = ctx.shadow_mgr.get_shadowmap(id) {
-                build_shadowmap(encoder, ctx, frame, shadow_map);
+            if let Some(shadow_view) = ctx.shadow_mgr.get_shadowmap_view(id) {
+                build_shadowmap(encoder, ctx, frame, &shadow_view);
                 if let Some(entity) = frame.entity_selected {
                     if EntityId(light.entity_id) == EntityId::from(entity) {
-                        convert_texture(encoder, ctx, shadow_map);
+                        convert_texture(encoder, ctx, &shadow_view);
                     }
                 }
             }
@@ -48,13 +48,12 @@ fn build_shadowmap(
     encoder: &mut wgpu::CommandEncoder,
     ctx: &mut RenderContext,
     frame: &FrameData,
-    shadow_map: &GpuShadow,
+    view: &wgpu::TextureView,
 ) {
     let batches = &frame.opaque_batches;
 
     let gpu_manager = ctx.gpu_mgr;
-    let view = shadow_map.get_view();
-    let bindgroup = ctx.shadow_mgr.get_create_bg();
+    let bindgroup = ctx.shadow_mgr.get_bg();
     let pipeline = ctx.shadow_mgr.get_pipeline();
 
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -111,17 +110,38 @@ fn build_shadowmap(
 fn convert_texture(
     encoder: &mut wgpu::CommandEncoder,
     ctx: &mut RenderContext,
-    shadow_map: &GpuShadow,
+    shadow_view: &wgpu::TextureView,
 ) {
-    // let gpu_manager = ctx.gpu_mgr;
+    let layout = ctx.gpu_mgr.get_bindgroup_layout(BindgroupLayoutKind::Depth);
+    let sampler = ctx.device.create_sampler(&wgpu::SamplerDescriptor {
+        mag_filter: wgpu::FilterMode::Nearest,
+        min_filter: wgpu::FilterMode::Nearest,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        ..Default::default()
+    });
+
+    let bindgroup = ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("shadowmap_bind_group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Sampler(&sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(shadow_view),
+            },
+        ],
+    });
+
+    let view = &ctx.shadow_mgr.get_rgba().view;
     let pipeline_manager = ctx.pip_mgr;
-    let bindgroup = shadow_map.get_bg();
-    let view = ctx.shadow_mgr.get_rgba().get_view();
 
     let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("Convert Render Pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            // view: gpu_manager.get_framebuffer_view(FramebufferKind::ShadowMapRgba),
             view,
             ops: wgpu::Operations {
                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -136,7 +156,7 @@ fn convert_texture(
     let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Convert);
 
     renderpass.set_pipeline(pipeline);
-    renderpass.set_bind_group(0, bindgroup, &[]);
+    renderpass.set_bind_group(0, &bindgroup, &[]);
 
     renderpass.draw(0..3, 0..1);
 }

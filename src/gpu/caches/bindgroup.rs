@@ -1,4 +1,4 @@
-use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
+use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::Dimension::Array};
 
 use super::*;
 
@@ -129,15 +129,14 @@ impl BindgroupCache {
                     .build(device, Some(queue));
                 
                 //Dummy Shadowmaps
-                const MAX_SHADOWS:usize = 64;
                 let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
                     .format(ColorSpace::Depth32f)
+                    .dimension(Array(1))
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::DepthComparison)
                     .label("dummy shadow_texture depth")
                     .build(device, None);
 
-                let shadow_views = vec![dummy_depth_texture.view.as_ref();MAX_SHADOWS];
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
@@ -180,7 +179,7 @@ impl BindgroupCache {
                         // shadowmap texture
                         wgpu::BindGroupEntry {
                             binding: 7,
-                            resource: wgpu::BindingResource::TextureViewArray(&shadow_views),
+                            resource: wgpu::BindingResource::TextureView(&dummy_depth_texture.view),
                         },
                     ],
                     label: Some("Dummy PbrMap BindGroup"),

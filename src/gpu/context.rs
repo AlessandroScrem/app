@@ -19,21 +19,9 @@ impl Default for GpuContext {
             pollster::block_on(instance.request_adapter(&RequestAdapterOptions::default()))
                 .expect("unable to  crate adapter");
 
-        // let (device, queue) =
-        //     pollster::block_on(adapter.request_device(&DeviceDescriptor::default()))
-        //         .expect("unable to create device");
-
-        let limits = wgpu::Limits {
-            max_binding_array_elements_per_shader_stage: 64, // o MAX_SHADOWS
-            ..Default::default()
-        };
-
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::TEXTURE_BINDING_ARRAY,
-            required_limits: limits,
-            ..Default::default()
-        }))
-        .expect("unable to create device");
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&DeviceDescriptor::default()))
+                .expect("unable to create device");
 
         debug!("Device initialized in {} ms", timer.elapsed().as_millis());
         Self {

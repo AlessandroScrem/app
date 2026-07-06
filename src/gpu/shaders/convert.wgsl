@@ -27,9 +27,5 @@ fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let d = textureSample(depth_tex, depth_sampler, uv);
     let c = pow(1.0 - d, 0.1);
 
-    // if (d < 0.99999) {
-    //     return vec4(1.0, 0.0, 0.0, 1.0);
-    // }
-
   return vec4<f32>(vec3(c), 1.0);
 }

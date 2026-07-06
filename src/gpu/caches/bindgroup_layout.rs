@@ -135,7 +135,6 @@ impl BindgroupLayoutCache {
                 })
             }
             BindgroupLayoutKind::PbrMaps => {
-                const MAX_SHADOWS: u32 = 64;
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("PbrMaps_bind_group_layout"),
                     entries: &[
@@ -210,10 +209,10 @@ impl BindgroupLayoutCache {
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
                                 multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
+                                view_dimension: wgpu::TextureViewDimension::D2Array,
                                 sample_type: wgpu::TextureSampleType::Depth,
                             },
-                            count: std::num::NonZeroU32::new(MAX_SHADOWS),
+                            count: None,
                         },
                     ],
                 })
@@ -441,17 +440,26 @@ impl BindgroupLayoutCache {
             BindgroupLayoutKind::ShadowMap => {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("ShadowMap_bind_group_layout"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        // Depth Texture
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: Depth,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            // // sampler
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                            count: None,
                         },
-                        count: None,
-                    }],
+                        wgpu::BindGroupLayoutEntry {
+                            // Depth Texture
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                sample_type: Depth,
+                                view_dimension: wgpu::TextureViewDimension::D2Array,
+                                multisampled: false,
+                            },
+                            count: None,
+                        },
+                    ],
                 })
             }
             BindgroupLayoutKind::TextureRgba => {

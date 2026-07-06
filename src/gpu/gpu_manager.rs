@@ -182,7 +182,7 @@ fn create_pbrmap_bindgroup(
         // shadowmap texture
         wgpu::BindGroupEntry {
             binding: 7,
-            resource: wgpu::BindingResource::TextureViewArray(&shadow_map_views),
+            resource: wgpu::BindingResource::TextureView(&shadow_map_views),
         },
     ];
 

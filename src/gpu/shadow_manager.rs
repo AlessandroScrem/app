@@ -6,38 +6,10 @@ use crate::{
         texture_asset::{ColorSpace, SamplerDesc},
     },
     gpu::{
-        GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage, HasGpuStats,
-        pipeline_manager::PipelineExt,
+        Dimension::Array, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage,
+        HasGpuStats, pipeline_manager::PipelineExt,
     },
 };
-
-pub struct GpuShadow {
-    texture: GpuTexture,
-    bind_group: BindGroup,
-}
-
-impl GpuShadow {
-    #[allow(unused)]
-    fn estimated_size(&self) -> usize {
-        self.texture.estimated_size
-    }
-}
-
-impl GpuShadow {
-    pub fn get_view(&self) -> &wgpu::TextureView {
-        &self.texture.view
-    }
-    #[allow(unused)]
-    pub fn get_texture(&self) -> &wgpu::Texture {
-        &self.texture.inner
-    }
-    pub fn get_gpu_texture(&self) -> &GpuTexture {
-        &self.texture
-    }
-    pub fn get_bg(&self) -> &wgpu::BindGroup {
-        &self.bind_group
-    }
-}
 
 type LightId = usize;
 
@@ -51,72 +23,85 @@ impl HasGpuStats for ShadowManager {
 }
 
 pub struct ShadowManager {
-    shadowmap_create_bindgroup: BindGroup,
-    texture_rgba: GpuShadow,
+    bindgroup: BindGroup,
+    texture_rgba: GpuTexture,
     pipeline: RenderPipeline,
-    shadow_maps: Vec<GpuShadow>,
-    sampler: wgpu::Sampler,
+    shadow_map: GpuTexture, //max layer = MAX_SHADOWS
+    layer_views: Vec<wgpu::TextureView>,
     stats: GpuResourceStats,
 }
 
 impl ShadowManager {
-    pub fn new(device: &wgpu::Device, layout: &BindGroupLayout, light_buffer: &Buffer) -> Self {
-        let shadow_maps: Vec<GpuShadow> = (0..MAX_SHADOWS)
-            .map(|_| Self::create_gpu_shadow(device, layout))
+    pub fn new(device: &wgpu::Device, light_buffer: &Buffer) -> Self {
+        let shadow_map = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
+            .format(ColorSpace::Depth32f)
+            .usage(GpuTextureUsage::SampledTexture)
+            .dimension(Array(64))
+            .sampler(SamplerDesc::DepthComparison)
+            .label("shadow_texture depth array")
+            .build(device, None);
+
+        let layer_views = (0..MAX_SHADOWS as u32)
+            .map(|layer| {
+                shadow_map.inner.create_view(&wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::D2),
+                    base_array_layer: layer,
+                    array_layer_count: Some(1),
+                    ..Default::default()
+                })
+            })
             .collect();
 
-        let stats = shadow_maps
-            .iter()
-            .fold(GpuResourceStats::default(), |mut s, shadow| {
-                s.add(shadow.estimated_size());
-                s
-            });
+        // debug rgba8 texture
+        let texture_rgba = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
+            .format(ColorSpace::Rgba8)
+            .usage(GpuTextureUsage::SampledTexture)
+            .sampler(SamplerDesc::NearestClamp)
+            .label("shadow_texture rgba")
+            .build(device, None);
 
-        let texture_rgba = Self::crate_texture_rgba(device);
-        let layout = &Self::create_shadowmap_create_layout(device);
-        let shadowmap_create_bindgroup =
-            Self::crate_shadowmap_create_bg(device, &light_buffer, layout);
-            let pipeline = Self::create_pipeline(device, layout);
-            
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                compare: Some(wgpu::CompareFunction::LessEqual),
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                ..Default::default()
-            });
+        let stats = GpuResourceStats {
+            count: MAX_SHADOWS,
+            estimated_bytes: shadow_map.estimated_size,
+        };
+
+        let (bindgroup, pipeline) = {
+            let layout = Self::create_layout(device);
+            let bindgroup = Self::create_bg(device, &light_buffer, &layout);
+            let pipeline = Self::create_pipeline(device, &layout);
+            (bindgroup, pipeline)
+        };
 
         Self {
-            pipeline,
-            shadowmap_create_bindgroup,
-            shadow_maps,
-            sampler,
-            texture_rgba,
+            shadow_map,
+            layer_views,
             stats,
+            texture_rgba,
+            pipeline,
+            bindgroup,
         }
     }
 }
 
 impl ShadowManager {
-    pub fn get_shadowmap(&self, id: LightId) -> Option<&GpuShadow> {
-        self.shadow_maps.get(id)
+    pub fn get_shadowmap_view(&self, id: LightId) -> Option<&wgpu::TextureView> {
+        self.layer_views.get(id as usize)
     }
 
     pub fn get_sampler(&self) -> &wgpu::Sampler {
-        &self.sampler
+        &self.shadow_map.sampler
     }
 
-    pub fn get_views(&self) -> Vec<&wgpu::TextureView> {
-        self.shadow_maps.iter().map(|s| s.get_view()).collect()
+    pub fn get_views(&self) -> &wgpu::TextureView {
+        &self.shadow_map.view
     }
 
-    pub fn get_rgba(&self) -> &GpuShadow {
+    pub fn get_rgba(&self) -> &GpuTexture {
         &self.texture_rgba
     }
 
-    pub fn get_create_bg(&self) -> &BindGroup {
-        &self.shadowmap_create_bindgroup
+    pub fn get_bg(&self) -> &BindGroup {
+        &self.bindgroup
     }
     pub fn get_pipeline(&self) -> &RenderPipeline {
         &self.pipeline
@@ -124,91 +109,7 @@ impl ShadowManager {
 }
 
 impl ShadowManager {
-    fn create_gpu_shadow(device: &Device, layout: &BindGroupLayout) -> GpuShadow {
-        let texture = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
-            .format(ColorSpace::Depth32f)
-            .usage(GpuTextureUsage::SampledTexture)
-            .sampler(SamplerDesc::NearestClamp)
-            .label("shadow_texture depth")
-            .build(device, None);
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("shadowmap_bind_group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-            ],
-        });
-        GpuShadow {
-            texture,
-            bind_group,
-        }
-    }
-
-    fn crate_texture_rgba(device: &Device) -> GpuShadow {
-        let texture = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
-            .format(ColorSpace::Rgba8)
-            .usage(GpuTextureUsage::SampledTexture)
-            .sampler(SamplerDesc::LinearRepeat)
-            .label("shadow_texture rgba")
-            .build(device, None);
-
-        let layout = &Self::create_rgba_layout(device);
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("ShadowMapRgba_bind_group"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-            ],
-        });
-
-        GpuShadow {
-            texture,
-            bind_group,
-        }
-    }
-
-    fn create_rgba_layout(device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("TextureRgba_bind_group_layout"),
-            entries: &[
-                // sampler
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // texture
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn create_shadowmap_create_layout(device: &Device) -> BindGroupLayout {
+    fn create_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ShadowMapCreate_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -224,11 +125,7 @@ impl ShadowManager {
             }],
         })
     }
-    fn crate_shadowmap_create_bg(
-        device: &Device,
-        uniform_buffer: &Buffer,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
+    fn create_bg(device: &Device, uniform_buffer: &Buffer, layout: &BindGroupLayout) -> BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[

@@ -90,7 +90,7 @@ impl RunningApp {
 
         self.imgui_render.sync_imgui_shadowmap(
             &self.gpu_context,
-            self.shadow_manager.get_rgba().get_gpu_texture(),
+            self.shadow_manager.get_rgba(),
         );
 
         self.update_app_ui(app);
