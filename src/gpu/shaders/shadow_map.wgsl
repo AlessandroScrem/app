@@ -55,27 +55,15 @@ fn mat4_from_instance(i: InstanceInput) -> mat4x4<f32> {
 
 @group(0) @binding(0) var<uniform> lights  : Lights;
 
-struct VertexOutput {
-    @builtin(position) clip_position : vec4<f32>,
-};
-
 @vertex
 fn vs_main(
     in: VertexInput,
     instance: InstanceInput,
-) -> VertexOutput {
+) ->  @builtin(position) vec4<f32> {
 
-    var out: VertexOutput;
     let model = mat4_from_instance(instance);
 
-    let world_position = model * vec4<f32>(in.position, 1.0);
-
-    let clip = lights.lights[0].view_proj * world_position;
-
-    out.clip_position = clip;
-
-
-    return out;
+    return lights.lights[0].view_proj * model * vec4<f32>(in.position, 1.0);
 }
 
 

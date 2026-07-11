@@ -224,7 +224,7 @@ const ShennRoughness         : u32 = 17;
 @group(3) @binding(3) var brdf_lut_map: texture_2d<f32>;
 @group(3) @binding(4) var scene_sampler: sampler;           // transmission input scene sampler
 @group(3) @binding(5) var scene_color: texture_2d<f32>; 
-@group(3) @binding(6) var shadow_sampler: sampler; 
+@group(3) @binding(6) var shadow_sampler: sampler_comparison; 
 @group(3) @binding(7) var shadow_map: texture_depth_2d_array; // max layer = 64
 
 struct MaterialInfo {
@@ -278,7 +278,14 @@ fn CalculateLight(
             continue;
         }
 
-        let L =  normalize(light.position - frag_pos);
+        // let L =  normalize(light.position - frag_pos);
+
+        let L = select(
+            normalize(light.position - frag_pos),
+            normalize(light.position),
+            light.directional == True
+        );
+
         let H = normalize(V + L);
         let NdotV = max(dot(N, V), 0.0);
         let NdotL = max(dot(N, L), 0.0);
@@ -340,14 +347,110 @@ fn CalculateLight(
         let diffuse = (albedo / PI);
 
         // -------------------------------
+        // Shadow 
+        // 1.0 = in light
+        // 0.0 = shadow
+        // -------------------------------
+        var shadow = 1.0;
+        if light.cast_shadow == True {
+            shadow = ShadowCalculation(i, frag_pos, N);
+        } 
+
+        // -------------------------------
         // Final contribution
         // -------------------------------
-        result.diffuse  += kD * diffuse * radiance * NdotL;  
-        result.specular += specular * radiance * NdotL;  
+        result.diffuse  += kD * diffuse * shadow * radiance * NdotL;  
+        result.specular += specular * shadow * radiance * NdotL;  
     }
 
     return result;
 }
+
+fn ShadowCalculation(
+    light_index: u32,
+    frag_pos: vec3<f32>,
+    normal: vec3<f32>,
+) -> f32 {
+
+    let light_pos = lights.lights[light_index].position;
+    let space_matrix = lights.lights[light_index].view_proj;
+
+    // Trasformazione nello spazio della luce
+    let frag_pos_light_space = space_matrix * vec4<f32>(frag_pos, 1.0);
+
+    // Perspective divide: clip space -> NDC
+    // x,y are in [-1,1], z is already [0,1] in wgpu
+    let ndc = frag_pos_light_space.xyz / frag_pos_light_space.w;
+
+    // NDC -> shadow texture UV
+    // Flip Y because NDC Y is bottom-up, texture UV Y is top-down
+    let proj_coords = vec3<f32>(
+        ndc.x * 0.5 + 0.5,
+        1.0 - (ndc.y * 0.5 + 0.5),
+        ndc.z,
+    );
+
+    if (
+        proj_coords.z < 0.0 ||
+        proj_coords.z > 1.0 ||
+        proj_coords.x < 0.0 ||
+        proj_coords.x > 1.0 ||
+        proj_coords.y < 0.0 ||
+        proj_coords.y > 1.0
+    ) {
+        return 1.0;
+    }
+
+
+    let current_depth = proj_coords.z;
+
+
+    // Direzione della luce direzionale
+    // dalla luce verso la scena
+    let light_dir = normalize(-light_pos);
+
+
+    // Bias basato sull'angolo
+    let ndotl = max(dot(normal, light_dir), 0.0);
+
+    let bias = max(
+        0.002 * (1.0 - ndotl),
+        0.0005
+    );
+
+
+    let tex_size = vec2<f32>(textureDimensions(shadow_map));
+    let texel_size = 1.0 / tex_size;
+
+    let half_kernel: i32 = 1;
+
+    var visibility = 0.0;
+
+    for (var x: i32 = -half_kernel; x <= half_kernel; x++) {
+        for (var y: i32 = -half_kernel; y <= half_kernel; y++) {
+
+            let uv =
+                proj_coords.xy +
+                vec2<f32>(f32(x), f32(y)) * texel_size;
+
+            visibility += textureSampleCompare(
+                shadow_map,
+                shadow_sampler,
+                uv,
+                i32(light_index),
+                current_depth - bias
+            );
+        }
+    }
+
+    let kernel_size =
+        f32((half_kernel * 2 + 1) * (half_kernel * 2 + 1));
+    
+    visibility /= kernel_size;
+
+    return visibility;
+}
+
 
 fn CalculateAmbient(
     N: vec3<f32>,

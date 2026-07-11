@@ -458,7 +458,7 @@ impl LightComponent {
                 }
             }
         }
-        if light.cast_shadow {
+        if light.enabled & light.cast_shadow {
             let iconsize = [200.0, 200.0];
             draw_ui_texture_icon(ui, resolver.resolve(UiTexture::ShadowMap), iconsize);
         }

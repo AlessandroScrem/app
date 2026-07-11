@@ -482,41 +482,6 @@ fn create_pipeline(
                 buffer_desc,
             )
         }
-        // PipelineKind::ShadowMap => {
-        //     let layouts = [
-        //         Some(
-        //             gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::ShadowMapCreate),
-        //         ), //0
-        //         None, //1
-        //         None, //2
-        //         None, //3
-        //     ];
-        //     let render_pipeline_layout =
-        //         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //             label: Some("ShadowMapCreate Pipeline Layout"),
-        //             bind_group_layouts: &layouts,
-        //             immediate_size: 0,
-        //         });
-        //     let shader =
-        //         device.create_shader_module(wgpu::include_wgsl!("shaders/shadow_map.wgsl"));
-        //     let buffer_desc = &[
-        //         assets::MeshVertexData::get_layout(),
-        //         assets::VertexInstance::get_layout(),
-        //     ];
-
-        //     let pipeline_desc = PipelineExt::default();
-
-        //     let target = &[];
-
-        //     pipeline_desc.build_pipeline(
-        //         "ShadowMap Pipeline",
-        //         device,
-        //         Some(&render_pipeline_layout),
-        //         target,
-        //         shader,
-        //         buffer_desc,
-        //     )
-        // }
         PipelineKind::Convert => {
             let layouts = [
                 Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::Depth)), //0

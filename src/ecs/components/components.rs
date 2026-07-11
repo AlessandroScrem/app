@@ -5,24 +5,6 @@ use legion::Entity;
 use crate::assets::MeshId;
 use crate::renderer::uniform::*;
 
-fn ortho_rh(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> Mat4 {
-    let rcp_w = 1.0 / (right - left);
-    let rcp_h = 1.0 / (top - bottom);
-    let r = 1.0 / (near - far);
-
-    Mat4::from_cols(
-        Vec4::new(rcp_w + rcp_w, 0.0, 0.0, 0.0),
-        Vec4::new(0.0, rcp_h + rcp_h, 0.0, 0.0),
-        Vec4::new(0.0, 0.0, r, 0.0),
-        Vec4::new(
-            -(left + right) * rcp_w,
-            -(top + bottom) * rcp_h,
-            r * near,
-            1.0,
-        ),
-    )
-}
-
 // Ecs Components
 #[derive(Clone)]
 pub struct LightComponent {
@@ -38,11 +20,11 @@ pub struct LightComponent {
 impl Default for LightComponent {
     fn default() -> Self {
         const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
-        const POSITION: [f32; 3] = [0.0, 0.0, -1.0];
+        const POSITION: [f32; 3] = [3.0, 20.0, 10.0];
         const SIZE: f32 = 20.0;
-        const NEAR: f32 = 0.0;
-        const FAR: f32 = 40.0;
-        let proj_matrix = ortho_rh(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
+        const NEAR: f32 = 0.1;
+        const FAR: f32 = 100.0;
+        let proj_matrix = ortho(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
         let view_matrix = Self::view_matrix(POSITION);
 
         Self {

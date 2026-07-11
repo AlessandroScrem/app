@@ -25,7 +25,14 @@ fn vs_main(@builtin(vertex_index) vi: u32,
 @fragment
 fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let d = textureSample(depth_tex, depth_sampler, uv);
-    let c = pow(1.0 - d, 0.1);
 
-  return vec4<f32>(vec3(c), 1.0);
+    // depth:
+    // near objects = 0
+    // far objets   = 1
+    return vec4<f32>(d, d, d, 1.0);
+
+    // let c = pow(1.0 - d, 0.1);
+//   return vec4<f32>(vec3(c), 1.0);
+
+
 }
