@@ -1,5 +1,7 @@
 /// Vertex shader
 
+const MAX_LIGHTS             : u32 = 64;
+
 struct Camera {
     view_pos: vec3<f32>,
     view: mat4x4<f32>,
@@ -18,12 +20,18 @@ struct Light {
     
     entity_id_low: u32,
     entity_id_high: u32,
-    enabled: u32,
+}
+
+struct Lights {
+    lights: array<Light, MAX_LIGHTS>,
+    
+    count: u32,
+    enabled: u32, 
 }
 
 // PerFrame
 @group(0) @binding(0) var<uniform> camera: Camera;
-@group(0) @binding(2) var<uniform> light: Light;
+@group(0) @binding(2) var<uniform> lights: Lights;
 
 // Light Texture
 @group(1) @binding(0) var tex_sampler: sampler;
@@ -37,7 +45,10 @@ struct VertexOutput {
 const BILLBOARD_SIZE = 50.0; // dimensione del billboard in unità di schermo
 
 @vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+fn vs_main(
+    @builtin(vertex_index) vertex_index: u32,
+    @builtin(instance_index) instance_id: u32
+) -> VertexOutput {
     var out: VertexOutput;
 
     // quad locale [-0.5,0.5] in XY
@@ -64,7 +75,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let quad_uv = uv[vertex_index];
 
     // calcola centro in clip space
-    let world_center = vec4<f32>(light.position, 1.0);
+    let world_center = vec4<f32>(lights.lights[instance_id].position, 1.0);
     let clip_center = camera.proj * camera.view * world_center;
 
     // calcola offset in pixel → NDC

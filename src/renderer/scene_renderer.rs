@@ -26,7 +26,7 @@ pub struct SceneRenderContext<'a> {
 pub struct RenderContext<'a> {
     pub device: &'a Device,
     pub gpu_cache: &'a GpuCache,
-    
+
     pub gpu_mgr: &'a GpuManager,
     pub shadow_mgr: &'a ShadowManager,
     pub pip_mgr: &'a PipelineManager,
@@ -53,12 +53,12 @@ impl SceneRenderer {
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         let default_pass = vec![
-            RenderPassEnum::Shadow(ShadowPass{}),
+            RenderPassEnum::Shadow(ShadowPass {}),
             RenderPassEnum::Mesh(MeshPass::opaque()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
             RenderPassEnum::Transmission(MeshPass::transmission()),
-            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Light(LightsIconPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::Lines(LinesPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),
@@ -110,7 +110,7 @@ impl SceneRenderer {
         if let Some(light_uniform) = frame.lights {
             gpu_manager.update_buffer(
                 &gpu_context.queue,
-                BufferKind::Light,
+                BufferKind::Lights,
                 std::slice::from_ref(&light_uniform),
             );
         }

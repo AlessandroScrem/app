@@ -7,7 +7,7 @@ pub enum BindgroupLayoutKind {
     Camera,
     PerFrame,
     Lines,
-    LightTexture,
+    LightIcon,
     Material,
     PbrMaps,
     Model,
@@ -109,9 +109,9 @@ impl BindgroupLayoutCache {
                     }],
                 })
             }
-            BindgroupLayoutKind::LightTexture => {
+            BindgroupLayoutKind::LightIcon => {
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Light Texture_bind_group_layout"),
+                    label: Some("Light Icon_bind_group_layout"),
                     entries: &[
                         // sampler
                         wgpu::BindGroupLayoutEntry {
@@ -120,7 +120,7 @@ impl BindgroupLayoutCache {
                             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
-                        // main
+                        // texture
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
                             visibility: wgpu::ShaderStages::FRAGMENT,

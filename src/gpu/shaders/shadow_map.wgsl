@@ -13,15 +13,8 @@ struct Light {
     
     entity_id_low: u32,
     entity_id_high: u32,
-    enabled: u32,
 }
 
-struct Lights {
-    lights: array<Light, MAX_LIGHTS>,
-    
-    count: u32,
-    enabled: u32, 
-}
 
 struct VertexInput {
     @location(0) position : vec3<f32>,
@@ -53,7 +46,7 @@ fn mat4_from_instance(i: InstanceInput) -> mat4x4<f32> {
     );
 }
 
-@group(0) @binding(0) var<uniform> lights  : Lights;
+@group(0) @binding(0) var<uniform> light  : Light;
 
 @vertex
 fn vs_main(
@@ -63,7 +56,7 @@ fn vs_main(
 
     let model = mat4_from_instance(instance);
 
-    return lights.lights[0].view_proj * model * vec4<f32>(in.position, 1.0);
+    return light.view_proj * model * vec4<f32>(in.position, 1.0);
 }
 
 

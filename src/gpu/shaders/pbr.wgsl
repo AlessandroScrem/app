@@ -45,7 +45,6 @@ struct Light {
     
     entity_id_low: u32,
     entity_id_high: u32,
-    enabled: u32,
 }
 
 struct Lights {
@@ -274,9 +273,6 @@ fn CalculateLight(
 
     for (var i: u32 = 0u; i < lights.count; i += 1u) {
         let light = lights.lights[i];
-        if light.enabled == False {
-            continue;
-        }
 
         // let L =  normalize(light.position - frag_pos);
 
@@ -791,10 +787,6 @@ fn CalculateSheenDirectLight(
     for (var i: u32 = 0u; i < lights.count; i += 1u) {
 
         let light = lights.lights[i];
-
-        if light.enabled == False {
-            continue;
-        }
 
         let L = normalize(light.position - frag_pos);
         let H = normalize(V + L);

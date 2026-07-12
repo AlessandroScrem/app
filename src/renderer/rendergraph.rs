@@ -257,7 +257,7 @@ mod tests {
         let skyboxpass = SkyboxPass::new();
         let build_mipmaps = BuildMipmapsPass::new();
         let transmission = MeshPass::transmission();
-        let lightpass = LightPass::new();
+        let lightpass = LightsIconPass::new();
         let axispass = AxisPass::new();
         let bboxpass = LinesPass::new();
         let linearizepass = LinearizePass::new();

@@ -14,13 +14,14 @@ pub struct LightComponent {
     pub cast_shadow: bool,
     pub entity_id: u64,
     pub enabled: bool,
+    pub frustum: bool,
     view_matrix: Mat4,
     proj_matrix: Mat4,
 }
 impl Default for LightComponent {
     fn default() -> Self {
         const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
-        const POSITION: [f32; 3] = [3.0, 20.0, 10.0];
+        const POSITION: [f32; 3] = [10.0, 10.0, 10.0];
         const SIZE: f32 = 20.0;
         const NEAR: f32 = 0.1;
         const FAR: f32 = 100.0;
@@ -30,6 +31,7 @@ impl Default for LightComponent {
         Self {
             color: WHITE,
             enabled: true,
+            frustum: false,
             cast_shadow: false,
             directional: true,
             position: POSITION,
@@ -77,7 +79,6 @@ impl From<&LightComponent> for LightUniform {
             position: value.position,
             cast_shadow: value.cast_shadow.into(),
             entity_id: value.entity_id,
-            enabled: value.enabled.into(),
             view_proj: value.get_view_proj_matrix().into(),
             ..Default::default()
         }

@@ -1,4 +1,4 @@
-use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPipeline};
+use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPipeline, util::DeviceExt};
 
 use crate::{
     assets::{
@@ -9,9 +9,8 @@ use crate::{
         Dimension::Array, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage,
         HasGpuStats, pipeline_manager::PipelineExt,
     },
+    renderer::uniform::LightUniform,
 };
-
-type LightId = usize;
 
 const MAX_SHADOWS: usize = 64;
 const SHADOWS_SIZE: u32 = 1024;
@@ -23,16 +22,17 @@ impl HasGpuStats for ShadowManager {
 }
 
 pub struct ShadowManager {
-    bindgroup: BindGroup,
     texture_rgba: GpuTexture,
+    buffer: wgpu::Buffer,
     pipeline: RenderPipeline,
+    bindgroup: BindGroup,
     shadow_map: GpuTexture, //max layer = MAX_SHADOWS
     layer_views: Vec<wgpu::TextureView>,
     stats: GpuResourceStats,
 }
 
 impl ShadowManager {
-    pub fn new(device: &wgpu::Device, light_buffer: &Buffer) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let shadow_map = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
             .format(ColorSpace::Depth32f)
             .usage(GpuTextureUsage::SampledTexture)
@@ -65,11 +65,12 @@ impl ShadowManager {
             estimated_bytes: shadow_map.estimated_size,
         };
 
-        let (bindgroup, pipeline) = {
+        let (buffer, bindgroup, pipeline) = {
             let layout = Self::create_layout(device);
-            let bindgroup = Self::create_bg(device, &light_buffer, &layout);
+            let buffer = Self::create_buffer(device);
+            let bindgroup = Self::create_bg(device, &buffer, &layout);
             let pipeline = Self::create_pipeline(device, &layout);
-            (bindgroup, pipeline)
+            (buffer, bindgroup, pipeline)
         };
 
         Self {
@@ -77,15 +78,16 @@ impl ShadowManager {
             layer_views,
             stats,
             texture_rgba,
-            pipeline,
+            buffer,
             bindgroup,
+            pipeline,
         }
     }
 }
 
 impl ShadowManager {
-    pub fn get_shadowmap_view(&self, id: LightId) -> Option<&wgpu::TextureView> {
-        self.layer_views.get(id as usize)
+    pub fn get_shadowmap_view(&self, slot: usize) -> Option<&wgpu::TextureView> {
+        self.layer_views.get(slot)
     }
 
     pub fn get_sampler(&self) -> &wgpu::Sampler {
@@ -103,12 +105,25 @@ impl ShadowManager {
     pub fn get_bg(&self) -> &BindGroup {
         &self.bindgroup
     }
+
+    pub fn get_buffer(&self) -> &Buffer {
+        &self.buffer
+    }
+
     pub fn get_pipeline(&self) -> &RenderPipeline {
         &self.pipeline
     }
 }
 
 impl ShadowManager {
+    fn create_buffer(device: &Device) -> Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[LightUniform::default()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
+
     fn create_layout(device: &Device) -> BindGroupLayout {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("ShadowMapCreate_bind_group_layout"),

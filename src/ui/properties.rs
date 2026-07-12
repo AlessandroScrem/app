@@ -457,6 +457,14 @@ impl LightComponent {
                     dirty = true;
                 }
             }
+            light.cast_shadow.then(|| {
+                let mut frustum = light.frustum;
+                ui.same_line();
+                if ui.checkbox("Frustum", &mut frustum) {
+                    light.frustum = frustum;
+                    dirty = true;
+                }
+            });
         }
         if light.enabled & light.cast_shadow {
             let iconsize = [200.0, 200.0];

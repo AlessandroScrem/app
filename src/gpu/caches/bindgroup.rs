@@ -9,7 +9,7 @@ use strum_macros::EnumIter;
 pub enum BindgroupKind {
     Camera,
     Perframe,
-    LightTexture,
+    LightIcon,
     PbrMap,
     Skybox,
     SkyboxBlur,
@@ -81,23 +81,23 @@ impl BindgroupCache {
                             binding: 1,
                             resource: buffer_cache.get(BufferKind::Globals).as_entire_binding(),
                         },
-                        // Light
+                        // Lights
                         wgpu::BindGroupEntry {
                             binding: 2,
-                            resource: buffer_cache.get(BufferKind::Light).as_entire_binding(),
+                            resource: buffer_cache.get(BufferKind::Lights).as_entire_binding(),
                         },
                     ],
                     label: Some("PerFrame Bind Group"),
                 })
             }
-            BindgroupKind::LightTexture => {
+            BindgroupKind::LightIcon => {
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
                         .sampler(SamplerDesc::LinearRepeat)
                         .build(device, Some(queue));
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(BindgroupLayoutKind::LightTexture),
+                    layout: layouts.get(BindgroupLayoutKind::LightIcon),
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
@@ -108,7 +108,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                     ],
-                    label: Some("light texture_bind_group"),
+                    label: Some("light icon_bind_group"),
                 })
             }
             BindgroupKind::PbrMap => {

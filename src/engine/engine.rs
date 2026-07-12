@@ -76,8 +76,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             gpu_surface.get_config().height,
         );
 
-        let light_buffer = gpu_manager.get_buffer(crate::gpu::BufferKind::Light);
-        let shadow_manager = ShadowManager::new(&gpu_context.device, light_buffer);
+        let shadow_manager = ShadowManager::new(&gpu_context.device);
 
         let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
 

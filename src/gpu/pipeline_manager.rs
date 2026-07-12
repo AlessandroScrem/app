@@ -160,7 +160,7 @@ pub enum PipelineKind {
     Lines,
     Pbr,
     Hdr,
-    Light,
+    LightIcon,
     Skybox,
     Outline,
     BuildMipmaps,
@@ -356,10 +356,10 @@ fn create_pipeline(
                 buffer_desc,
             )
         }
-        PipelineKind::Light => {
+        PipelineKind::LightIcon => {
             let layouts = [
                 Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame)), //0
-                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::LightTexture)), //1
+                Some(gpu_resource_manager.get_bindgroup_layout(BindgroupLayoutKind::LightIcon)), //1
             ];
 
             let render_pipeline_layout =
@@ -369,7 +369,7 @@ fn create_pipeline(
                     immediate_size: 0,
                 });
 
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/light.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/light_icon.wgsl"));
 
             let buffer_desc = &[];
             let pipeline_desc = PipelineDesc::default();

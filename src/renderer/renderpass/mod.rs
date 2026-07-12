@@ -1,7 +1,7 @@
 mod axis;
 mod lines;
 mod build_mipmaps;
-mod light;
+mod light_icon;
 mod linearize;
 mod mesh;
 mod outline;
@@ -12,7 +12,7 @@ mod shadow_map;
 pub(crate) use axis::*;
 pub(crate) use lines::*;
 pub(crate) use build_mipmaps::*;
-pub(crate) use light::*;
+pub(crate) use light_icon::*;
 pub(crate) use linearize::*;
 pub(crate) use mesh::*;
 pub(crate) use outline::*;
@@ -51,7 +51,7 @@ pub(crate) enum RenderPassEnum {
     Mesh(MeshPass),
     Transmission(MeshPass),
     BuildMipmaps(BuildMipmapsPass),
-    Light(LightPass),
+    Light(LightsIconPass),
     Skybox(SkyboxPass),
     Axis(AxisPass),
     Lines(LinesPass),

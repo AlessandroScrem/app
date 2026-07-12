@@ -34,7 +34,7 @@ impl Application for App {
 
         //*****************************
         // Create Light
-        light::create(&mut self.current_scene.world, &self.resources);
+        light::create(&mut self.current_scene.world);
         // Turn Off All Lights
         // self.domain_events
         //     .queue

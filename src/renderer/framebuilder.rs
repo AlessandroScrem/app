@@ -389,8 +389,8 @@ impl FrameBuilder {
         let mut light_query = <&LightComponent>::query();
         for light in light_query
             .iter(world)
+            .filter(|l| l.frustum)
             .take(uniform::MAX_LIGHTS)
-            .filter(|l| l.enabled)
         {
             light.emit(&mut frame.lines);
         }
@@ -405,6 +405,7 @@ impl FrameBuilder {
         let mut light_query = <(Entity, &LightComponent)>::query();
         for (i, (entity, light)) in light_query
             .iter(world)
+            .filter(|(_, l)| l.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
         {

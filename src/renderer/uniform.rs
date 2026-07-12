@@ -125,8 +125,7 @@ pub struct LightUniform {
     pub cast_shadow: u32,
     
     pub entity_id: u64,
-    pub enabled: u32,
-    pub pad: [i32; 1],
+    pub pad: [i32; 2],
 }
 
 impl LightUniform {
@@ -134,7 +133,6 @@ impl LightUniform {
         Self {
             view_proj: Mat4::identity().into(),
             color: [1.0, 1.0, 1.0],
-            enabled: 1,
             directional: 1,
             position: [0.0, 0.0, -1.0],
             ..Default::default()

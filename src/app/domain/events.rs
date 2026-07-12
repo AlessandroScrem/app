@@ -36,6 +36,7 @@ pub enum AssetEvent {
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {
+    AddLight,
     RemoveEntity(Entity),
     AddParent(Entity),
     UpdateTag(Entity, TagComponent),
