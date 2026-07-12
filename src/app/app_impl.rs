@@ -35,19 +35,11 @@ impl Application for App {
         //*****************************
         // Create Light
         light::create(&mut self.current_scene.world);
-        // Turn Off All Lights
-        // self.domain_events
-        //     .queue
-        //     .push_back(DomainEvent::Global(GlobalEvent::LightEnable(false)));
-
         //*****************************
 
         //*****************************
         // Create Ibl
-        const HDRPATH: &str = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/core/Cannon_Exterior.hdr"
-        );
+        const HDRPATH: &str = crate::asset_path!("core/Cannon_Exterior.hdr");
         let hdr_texture_asset =
             TextureAsset::from_file(HDRPATH, crate::assets::texture_asset::TextureUsage::HDR16);
 

@@ -5,11 +5,7 @@ use stb_image::image::{LoadResult, load};
 use std::time::Instant;
 
 fn main() {
-    // let path = "test.hdr";
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/core/clarens_night_02_2k.hdr"
-    );
+    let path = app_wgpu::asset_path!("core/clarens_night_02_2k.hdr");
 
     // --- image-rs ---
     let dyn_img = ImageReader::open(path)

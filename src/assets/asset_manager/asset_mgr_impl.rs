@@ -158,7 +158,6 @@ pub struct AssetManager {
     events: VecDeque<AssetEvent>,
 }
 
-
 impl AssetManager {
     #[allow(unused)]
     pub fn new() -> AssetManager {
@@ -256,18 +255,18 @@ impl AssetManager {
         if self.storage::<T>().get_by_id(id.id).is_none() {
             return;
         }
-        
+
         let handle = AssetHandle::<T>::new(id.id);
-    
+
         if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
             f(existing);
-    
+
             self.events.push_back(AssetEvent {
                 id,
                 kind: AssetEventKind::Updated,
             });
         }
-    } 
+    }
 
     pub fn get_stats<T: Asset>(&self) -> ResourceStats {
         self.stats
@@ -341,7 +340,6 @@ impl AssetManager {
 pub struct GroupedEvents {
     inner: HashMap<(TypeId, AssetEventKind), Vec<AssetEvent>>,
 }
-
 
 impl GroupedEvents {
     pub fn process_type<T: 'static, F>(&self, mut f: F)
@@ -471,8 +469,6 @@ mod tests {
         assert!(mgr.ref_count.get(&id).is_none());
     }
 
-    
-    
     #[test]
     fn same_texture_same_id() {
         use crate::assets::texture_asset::*;
@@ -484,23 +480,23 @@ mod tests {
             sampler: SamplerDesc::default(),
             mipmaps: true,
         };
-        
+
         let texture = TextureAsset { desc: desc };
 
         let a = mgr.add(texture.clone());
         let b = mgr.add(texture);
-        
+
         assert_eq!(a, b);
     }
-    
+
     #[test]
     fn texture_created_event() {
         use crate::assets::texture_asset::*;
         use crate::assets::texture_upload::load_and_decode;
-        use crate::test_utils;
         use crate::gpu::{GpuTextureBuilder, GpuTextureCache};
-        
-        const TEXTURE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/white.png");
+        use crate::test_utils;
+
+        const TEXTURE_PATH: &str = crate::asset_path!("core/white.png");
 
         let (device, queue) = test_utils::get_device_and_queue();
 
@@ -522,9 +518,9 @@ mod tests {
         assert!(mgr.get::<TextureAsset>(id).is_some());
 
         let mut texture_cache = GpuTextureCache::new(device, queue);
-        
+
         let events: Vec<super::AssetEvent> = mgr.events.drain(..).collect();
-        
+
         for ev in events {
             let asset = mgr.get::<TextureAsset>(ev.id).unwrap();
             let data = load_and_decode(asset.desc.clone()).unwrap();
@@ -536,14 +532,14 @@ mod tests {
         assert!(mgr.events.is_empty());
         assert!(texture_cache.contains_key(&id))
     }
-    
+
     #[test]
     fn material_created_event() {
-        use crate::gpu::{BindgroupLayoutCache, BindgroupLayoutKind, GpuTextureCache};
-                use crate::test_utils;
-        use crate::assets::*;
         use crate::assets::material_desc::MaterialDesc;
+        use crate::assets::*;
         use crate::gpu::GpuMaterial;
+        use crate::gpu::{BindgroupLayoutCache, BindgroupLayoutKind, GpuTextureCache};
+        use crate::test_utils;
 
         let (device, queue) = test_utils::get_device_and_queue();
         let layout_cache = BindgroupLayoutCache::new(device);
@@ -585,14 +581,14 @@ mod tests {
     #[test]
     fn mesh_created_event() {
         use crate::assets::mesh_asset::*;
-        use crate::test_utils;
         use crate::gpu::GpuMesh;
+        use crate::test_utils;
 
         let (device, _queue) = test_utils::get_device_and_queue();
 
         let mut mgr = AssetManager::new();
 
-        const MESH_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/cube/cube.gltf");
+        const MESH_PATH: &str = crate::asset_path!("core/cube/cube.gltf");
         let mesh_source = MeshSource::File {
             path: MESH_PATH.into(),
             submesh_index: 0,
@@ -628,192 +624,188 @@ mod tests {
 
 #[cfg(test)]
 mod test_api {
-use super::*;
-/// -----------------------------
-/// MOCK ASSETS (USER SIDE)
-/// -----------------------------
+    use super::*;
+    /// -----------------------------
+    /// MOCK ASSETS (USER SIDE)
+    /// -----------------------------
 
-#[derive(Clone)]
-struct Texture {
-    name: String,
-}
-
-
-#[derive(Clone)]
-struct Material {
-    name: String,
-    albedo: Option<GlobalAssetId>,
-    normal: Option<GlobalAssetId>,
-}
-
-
-#[derive(Clone)]
-struct Mesh {
-    name: String,
-    material: Option<GlobalAssetId>,
-}
-
-/// -----------------------------
-/// IMPLEMENT Asset TRAIT
-/// -----------------------------
-
-
-impl Asset for Texture {
-    type Key = String;
-    
-    fn key(&self) -> &Self::Key {
-        &self.name
-    }
-}
-
-impl Asset for Material {
-    type Key = String;
-
-    fn key(&self) -> &Self::Key {
-        &self.name
+    #[derive(Clone)]
+    struct Texture {
+        name: String,
     }
 
-    fn dependencies(&self) -> Vec<GlobalAssetId> {
-        let mut deps = Vec::new();
+    #[derive(Clone)]
+    struct Material {
+        name: String,
+        albedo: Option<GlobalAssetId>,
+        normal: Option<GlobalAssetId>,
+    }
 
-        if let Some(a) = self.albedo {
-            deps.push(a);
+    #[derive(Clone)]
+    struct Mesh {
+        name: String,
+        material: Option<GlobalAssetId>,
+    }
+
+    /// -----------------------------
+    /// IMPLEMENT Asset TRAIT
+    /// -----------------------------
+
+    impl Asset for Texture {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.name
+        }
+    }
+
+    impl Asset for Material {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.name
         }
 
-        if let Some(n) = self.normal {
-            deps.push(n);
+        fn dependencies(&self) -> Vec<GlobalAssetId> {
+            let mut deps = Vec::new();
+
+            if let Some(a) = self.albedo {
+                deps.push(a);
+            }
+
+            if let Some(n) = self.normal {
+                deps.push(n);
+            }
+
+            deps
+        }
+    }
+
+    impl Asset for Mesh {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.name
         }
 
-        deps
-    }
-}
+        fn dependencies(&self) -> Vec<GlobalAssetId> {
+            let mut deps = Vec::new();
 
-impl Asset for Mesh {
-    type Key = String;
+            if let Some(m) = self.material {
+                deps.push(m);
+            }
 
-    fn key(&self) -> &Self::Key {
-        &self.name
-    }
-
-    fn dependencies(&self) -> Vec<GlobalAssetId> {
-        let mut deps = Vec::new();
-
-        if let Some(m) = self.material {
-            deps.push(m);
+            deps
         }
-
-        deps
     }
-}
 
-#[test]
-fn mesh_removal_reduces_material_refcount() {
-    let mut mgr = AssetManager::new();
+    #[test]
+    fn mesh_removal_reduces_material_refcount() {
+        let mut mgr = AssetManager::new();
 
-    let mat = mgr.add(Material {
-        name: "Mat".into(),
-        albedo: None,
-        normal: None,
-    });
+        let mat = mgr.add(Material {
+            name: "Mat".into(),
+            albedo: None,
+            normal: None,
+        });
 
-    let mesh1 = mgr.add(Mesh {
-        name: "M1".into(),
-        material: Some(mat),
-    });
+        let mesh1 = mgr.add(Mesh {
+            name: "M1".into(),
+            material: Some(mat),
+        });
 
-    let mesh2 = mgr.add(Mesh {
-        name: "M2".into(),
-        material: Some(mat),
-    });
+        let mesh2 = mgr.add(Mesh {
+            name: "M2".into(),
+            material: Some(mat),
+        });
 
-    assert_eq!(mgr.ref_count.get(&mat), Some(&2));
+        assert_eq!(mgr.ref_count.get(&mat), Some(&2));
 
-    mgr.remove(mesh1);
-    // ✔ mesh1 tolto → materiale ancora vivo
-    assert_eq!(mgr.ref_count.get(&mat), Some(&1));
+        mgr.remove(mesh1);
+        // ✔ mesh1 tolto → materiale ancora vivo
+        assert_eq!(mgr.ref_count.get(&mat), Some(&1));
 
-    mgr.remove(mesh2);
-    // ✔ mesh2 tolto → materiale ancora vivo
-    assert!(mgr.ref_count.get(&mat).is_none());
-}
+        mgr.remove(mesh2);
+        // ✔ mesh2 tolto → materiale ancora vivo
+        assert!(mgr.ref_count.get(&mat).is_none());
+    }
 
-#[test]
-fn material_removal_reduces_texture_refcount() {
-    let mut mgr = AssetManager::new();
+    #[test]
+    fn material_removal_reduces_texture_refcount() {
+        let mut mgr = AssetManager::new();
 
-    let tex = mgr.add(Texture {
-        name: "T.png".into(),
-    });
+        let tex = mgr.add(Texture {
+            name: "T.png".into(),
+        });
 
-    let mat1 = mgr.add(Material {
-        name: "M1".into(),
-        albedo: Some(tex),
-        normal: None,
-    });
+        let mat1 = mgr.add(Material {
+            name: "M1".into(),
+            albedo: Some(tex),
+            normal: None,
+        });
 
-    let mat2 = mgr.add(Material {
-        name: "M2".into(),
-        albedo: Some(tex),
-        normal: None,
-    });
+        let mat2 = mgr.add(Material {
+            name: "M2".into(),
+            albedo: Some(tex),
+            normal: None,
+        });
 
-    assert_eq!(mgr.ref_count.get(&tex), Some(&2));
+        assert_eq!(mgr.ref_count.get(&tex), Some(&2));
 
-    mgr.remove(mat1);
-    // texture ancora viva
-    assert_eq!(mgr.ref_count.get(&tex), Some(&1));
+        mgr.remove(mat1);
+        // texture ancora viva
+        assert_eq!(mgr.ref_count.get(&tex), Some(&1));
 
-    mgr.remove(mat2);
-    // texture distrutta
-    assert!(mgr.ref_count.get(&tex).is_none());
-}
+        mgr.remove(mat2);
+        // texture distrutta
+        assert!(mgr.ref_count.get(&tex).is_none());
+    }
 
-#[test]
-fn retain_release_behavior() {
-    let mut mgr = AssetManager::new();
+    #[test]
+    fn retain_release_behavior() {
+        let mut mgr = AssetManager::new();
 
-    let tex = mgr.add(Texture {
-        name: "Tex.png".into(),
-    });
+        let tex = mgr.add(Texture {
+            name: "Tex.png".into(),
+        });
 
-    // add crea già l'asset vivo (ref = 1 o 0 dipende da design, ma NON 0 stabile)
-    assert!(mgr.ref_count.get(&tex).is_some());
+        // add crea già l'asset vivo (ref = 1 o 0 dipende da design, ma NON 0 stabile)
+        assert!(mgr.ref_count.get(&tex).is_some());
 
-    // primo retain
-    mgr.retain(tex);
-    assert_eq!(mgr.ref_count.get(&tex), Some(&1));
+        // primo retain
+        mgr.retain(tex);
+        assert_eq!(mgr.ref_count.get(&tex), Some(&1));
 
-    // release finale → DEVE essere rimosso
-    mgr.release(tex);
-    assert!(mgr.ref_count.get(&tex).is_none());
-}
+        // release finale → DEVE essere rimosso
+        mgr.release(tex);
+        assert!(mgr.ref_count.get(&tex).is_none());
+    }
 
-#[test]
-fn dedup_chain_mesh_material_texture() {
-    let mut mgr = AssetManager::new();
+    #[test]
+    fn dedup_chain_mesh_material_texture() {
+        let mut mgr = AssetManager::new();
 
-    let tex = mgr.add(Texture {
-        name: "T.png".into(),
-    });
+        let tex = mgr.add(Texture {
+            name: "T.png".into(),
+        });
 
-    let mat = mgr.add(Material {
-        name: "M".into(),
-        albedo: Some(tex),
-        normal: None,
-    });
+        let mat = mgr.add(Material {
+            name: "M".into(),
+            albedo: Some(tex),
+            normal: None,
+        });
 
-    let mesh1 = mgr.add(Mesh {
-        name: "A".into(),
-        material: Some(mat),
-    });
+        let mesh1 = mgr.add(Mesh {
+            name: "A".into(),
+            material: Some(mat),
+        });
 
-    let mesh2 = mgr.add(Mesh {
-        name: "A".into(),
-        material: Some(mat),
-    });
+        let mesh2 = mgr.add(Mesh {
+            name: "A".into(),
+            material: Some(mat),
+        });
 
-    // mesh dedup
-    assert_eq!(mesh1, mesh2);
-}
-
+        // mesh dedup
+        assert_eq!(mesh1, mesh2);
+    }
 }

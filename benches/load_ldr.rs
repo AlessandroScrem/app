@@ -39,10 +39,7 @@ fn load_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 
 // Benchmark
 fn bench_loaders(c: &mut Criterion) {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/avocado/Avocado_baseColor.png"
-    );
+    let path = app_wgpu::asset_path!("avocado/Avocado_baseColor.png");
     let raw_u8 = load_ldr_to_buffer_u8(path);
 
     c.bench_function("load mage_rs ", |b| b.iter(|| load_image_rs(&raw_u8)));

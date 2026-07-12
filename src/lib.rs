@@ -54,6 +54,28 @@ macro_rules! impl_debug_drop {
     };
 }
 
+#[macro_export]
+macro_rules! asset_bytes {
+    ($path:expr) => {
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/",
+            $path
+        ))
+    };
+}
+
+#[macro_export]
+macro_rules! asset_path {
+    ($path:expr) => {
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/",
+            $path
+        )
+    };
+}
+
 #[allow(unused_imports)]
 pub(crate) mod math {
 

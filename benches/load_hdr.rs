@@ -122,10 +122,7 @@ fn decode_stb_image_parallel2(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 
 // Benchmark
 fn bench_conversions(c: &mut Criterion) {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/core/clarens_night_02_2k.hdr"
-    );
+    let path = app_wgpu::asset_path!("core/clarens_night_02_2k.hdr");
     let raw_u8 = load_hdr_to_buffer_u8(path);
 
     c.bench_function("conversion: image_rs ser", |b| {
@@ -170,10 +167,7 @@ fn load_stb_image(buffer: &[u8]) -> (Vec<f32>, u32, u32) {
 
 // Benchmark
 fn bench_loaders(c: &mut Criterion) {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/core/clarens_night_02_2k.hdr"
-    );
+    let path = app_wgpu::asset_path!("core/clarens_night_02_2k.hdr");
     let raw_u8 = load_hdr_to_buffer_u8(path);
 
     c.bench_function("load image_rs ", |b| b.iter(|| load_image_rs(&raw_u8)));

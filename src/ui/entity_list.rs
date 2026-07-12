@@ -25,7 +25,7 @@ impl Layer for EntityListUi {
                         menu_bar::file_open(FileFilter::Gltf)
                             .map(|f| ctx.write.push(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
                     });
-                    ui.menu_item("Add Light ..").then(|| {
+                    ui.menu_item("Add Light..").then(|| {
                         ctx.write.push(DomainEvent::Entity(EntityEvent::AddLight));
                     });
                     popup.end();
@@ -117,6 +117,12 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 }
 
+const ICON_LIGHTBULB: &str = "\u{EA61}"; // 💡
+const ICON_TRASH: &str = "\u{EA81}"; // 🗑
+const ICON_ADD: &str = "\u{EA60}"; //➕
+const ICON_GEAR: &str = "\u{EAF8}"; //⚙
+const ICON_EYE: &str = "\u{EA70}"; // 👁
+
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     let selected = ctx.snapshot.selected;
     let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
@@ -124,47 +130,71 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.separator();
     ui.text("Lights");
 
-    let mut active_light = None;
+    let style = ui.clone_style();
+
+    let padding = style.frame_padding[0];
+    let buttons = 4.0;
+    let spacing = style.item_spacing[0] * buttons - 1.0;
+
+    let button_width = ui.calc_text_size(ICON_TRASH)[0] + padding * 2.0;
+    let total_width = buttons * button_width + spacing;
 
     for (i, node) in lights_nodes.nodes.iter().enumerate() {
         let entity = node.entity;
-        let label = format!("{}:{:?}", node.name, i);
+        let label = format!("{ICON_LIGHTBULB} {}:{:?}", node.name, i); // 💡 name:#
 
-        let flags = TreeNodeFlags::SPAN_AVAIL_WIDTH
-            | TreeNodeFlags::LEAF
+        let flags = TreeNodeFlags::LEAF
             | if selected == Some(entity) {
                 TreeNodeFlags::SELECTED
             } else {
                 TreeNodeFlags::empty()
             };
 
-        ui.tree_node_config(label).flags(flags).build(|| {
-            if ui.is_item_clicked_with_button(imgui::MouseButton::Left) {
-                ctx.write
-                    .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
-                        entity,
-                    ))));
-                active_light = Some(entity);
-            }
+        let opened = ui.tree_node_config(label.clone()).flags(flags).push();
+        let clicked = ui.is_item_clicked();
 
-            if ui.is_item_clicked_with_button(imgui::MouseButton::Right) {
-                ctx.write
-                    .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
-                        entity,
-                    ))));
-                active_light = Some(entity);
-            }
+        // Right Buttons           👁 + 🗑 ⚙
+        // Spinge i pulsanti a destra
+        ui.same_line();
+        ui.same_line_with_pos(ui.window_content_region_max()[0] - total_width);
 
-            if let Some(_popup) = ui.begin_popup_context_item() {
-                if ui.menu_item("Rename") {
-                    // TODO
-                }
+        if ui.small_button(ICON_EYE) {
+            // visible
+            let mut light = node.comp.clone();
+            light.enabled = !light.enabled;
+            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateLight(
+                node.entity.clone(),
+                light,
+            )));
+        }
+        ui.same_line();
+        if ui.small_button(ICON_ADD) {
+            // Add
+            ctx.write.push(DomainEvent::Entity(EntityEvent::AddLight));
+        }
 
-                if ui.menu_item("Delete") {
-                    ctx.write
-                        .push(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
-                }
-            }
-        });
+        ui.same_line();
+        if ui.small_button(ICON_TRASH) {
+            // Delete
+            ctx.write
+                .push(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
+        }
+
+        ui.same_line();
+        if ui.small_button(ICON_GEAR) {
+            // property
+            ctx.write
+                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                    entity,
+                ))));
+        }
+        if let Some(_token) = opened {}
+
+        if clicked {
+            ctx.write
+                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                    entity,
+                ))));
+        }
     }
 }
