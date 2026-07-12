@@ -45,33 +45,49 @@ impl Layer for EntityListUi {
 
 fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option<Entity>) {
     let entity = node.entity;
-    let name = &node.name;
     let children = &node.children;
+    let is_active = selected.is_some_and(|e| e == entity);
 
-    let mut flags = TreeNodeFlags::SPAN_AVAIL_WIDTH;
-    if children.is_empty() {
-        flags |= TreeNodeFlags::LEAF;
+    let flags = children
+        .is_empty()
+        .then_some(TreeNodeFlags::LEAF)
+        .unwrap_or(TreeNodeFlags::empty())
+        | is_active
+            .then_some(TreeNodeFlags::SELECTED)
+            .unwrap_or(TreeNodeFlags::empty());
+
+    let icon = if node.parent.is_none() {
+        ICON_LAYER_DOT
+    } else if is_active {
+        ICON_LAYER_ACTIVE
+    } else {
+        ICON_LAYER
     };
-    if selected.is_some_and(|e| e == entity) {
-        flags |= TreeNodeFlags::SELECTED;
-    }
 
-    let label = if name.is_empty() { "##Node" } else { name };
-    ui.tree_node_config(label)
+    let label = format!("{icon} {}", node.name,); // ◈ Name
+    let opened = ui
+        .tree_node_config(label)
         .flags(flags)
         .default_open(true)
-        .build(|| {
-            // Controlla se il nodo è stato cliccato e aggiorna la selezione
-            if ui.is_item_clicked() {
-                *selected = Some(entity);
-            }
-            for child in children {
-                draw_entity_node_recurse(ui, child, selected);
-            }
-        });
+        .push();
+
+    let clicked = ui.is_item_clicked();
+
+    if let Some(_token) = opened {
+        for child in children {
+            draw_entity_node_recurse(ui, child, selected);
+        }
+    }
+
+    if clicked {
+        *selected = Some(entity);  
+    };
+
 }
 
 fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
+    ui.text("Meshes");
+    ui.separator();
     let mut selected = ctx.snapshot.selected.clone();
 
     ui.group(|| {
@@ -122,6 +138,10 @@ const ICON_TRASH: &str = "\u{EA81}"; // 🗑
 const ICON_ADD: &str = "\u{EA60}"; //➕
 const ICON_GEAR: &str = "\u{EAF8}"; //⚙
 const ICON_EYE: &str = "\u{EA70}"; // 👁
+
+const ICON_LAYER: &str = "\u{EBD2}"; // ◈
+const ICON_LAYER_DOT: &str = "\u{EBD3}"; // ◈
+const ICON_LAYER_ACTIVE: &str = "\u{EBD4}"; // ◈
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     let selected = ctx.snapshot.selected;
