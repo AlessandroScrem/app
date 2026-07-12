@@ -58,7 +58,7 @@ impl SceneRenderer {
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
             RenderPassEnum::Transmission(MeshPass::transmission()),
-            RenderPassEnum::Light(LightsIconPass::new()),
+            RenderPassEnum::LightsIcon(LightsIconPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::Lines(LinesPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),

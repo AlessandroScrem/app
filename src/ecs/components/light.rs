@@ -10,7 +10,7 @@ pub fn create(world: &mut World) ->Entity {
 
     world.push((
         TagComponent {
-            name: "Directional1".to_string(),
+            name: "Directional".to_string(),
         },
         light,
     ))

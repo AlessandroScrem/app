@@ -369,16 +369,32 @@ fn create_pipeline(
                     immediate_size: 0,
                 });
 
-            let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/light_icon.wgsl"));
+            let shader =
+                device.create_shader_module(wgpu::include_wgsl!("shaders/light_icon.wgsl"));
 
             let buffer_desc = &[];
-            let pipeline_desc = PipelineDesc::default();
+
+            let targets = &[
+                // 0:
+                Some(wgpu::ColorTargetState {
+                    format: hdr_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+                // 1:
+                Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rg32Uint,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                }),
+            ];
+            let pipeline_desc = PipelineExt::default();
 
             pipeline_desc.build_pipeline(
                 "Light Pipeline",
                 device,
                 Some(&render_pipeline_layout),
-                hdr_format,
+                targets,
                 shader,
                 buffer_desc,
             )

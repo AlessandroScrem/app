@@ -40,6 +40,7 @@ struct Lights {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) entity_id: vec2<u32>,
 };
 
 const BILLBOARD_SIZE = 50.0; // dimensione del billboard in unità di schermo
@@ -87,6 +88,7 @@ fn vs_main(
 
     out.clip_position = clip_center + offset_clip;
     out.uv = quad_uv;
+    out.entity_id = vec2<u32>(lights.lights[instance_id].entity_id_low, lights.lights[instance_id].entity_id_high);
 
     return out;
 }
@@ -94,14 +96,25 @@ fn vs_main(
 /// Fragment shader
 ///
 
+
+struct FSOutput {
+    @location(0) color : vec4<f32>,
+    @location(1) entity_id : vec2<u32>,
+}
+
 @fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let object_color = textureSample(main_map, tex_sampler, input.uv);
+fn fs_main(in: VertexOutput) -> 
+    FSOutput {
+    var out: FSOutput;
+
+    let object_color = textureSample(main_map, tex_sampler, in.uv);
 
     if (object_color.a < 0.1) {
         discard; // se il colore è trasparente, non disegnare
     }
 
-    return object_color * vec4<f32>(1.0, 1.0, 1.0, 1.0); 
+    out.color = object_color * vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    out.entity_id =  in.entity_id;
 
+    return out; 
 }

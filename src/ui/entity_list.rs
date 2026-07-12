@@ -11,7 +11,6 @@ impl Layer for EntityListUi {
             .size([300.0, 100.0], Condition::FirstUseEver)
             .build(|| {
                 draw_hierarchy_nodes(ui, ctx);
-                ui.separator();
                 draw_lights_nodes(ui, ctx);
 
                 if ui.is_window_hovered()
@@ -122,17 +121,50 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     let selected = ctx.snapshot.selected;
     let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
 
-    for node in lights_nodes.nodes.iter() {
+    ui.separator();
+    ui.text("Lights");
+
+    let mut active_light = None;
+
+    for (i, node) in lights_nodes.nodes.iter().enumerate() {
         let entity = node.entity;
-        if ui
-            .selectable_config(format!("{} {:?}", node.name, node.entity))
-            .selected(selected.map(|e| e == entity).unwrap_or(false))
-            .build()
-        {
-            ctx.write
-                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
-                    entity,
-                ))));
-        }
+        let label = format!("{}:{:?}", node.name, i);
+
+        let flags = TreeNodeFlags::SPAN_AVAIL_WIDTH
+            | TreeNodeFlags::LEAF
+            | if selected == Some(entity) {
+                TreeNodeFlags::SELECTED
+            } else {
+                TreeNodeFlags::empty()
+            };
+
+        ui.tree_node_config(label).flags(flags).build(|| {
+            if ui.is_item_clicked_with_button(imgui::MouseButton::Left) {
+                ctx.write
+                    .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                        entity,
+                    ))));
+                active_light = Some(entity);
+            }
+
+            if ui.is_item_clicked_with_button(imgui::MouseButton::Right) {
+                ctx.write
+                    .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                        entity,
+                    ))));
+                active_light = Some(entity);
+            }
+
+            if let Some(_popup) = ui.begin_popup_context_item() {
+                if ui.menu_item("Rename") {
+                    // TODO
+                }
+
+                if ui.menu_item("Delete") {
+                    ctx.write
+                        .push(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
+                }
+            }
+        });
     }
 }

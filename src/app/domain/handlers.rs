@@ -69,7 +69,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent) {
             let world = &mut app.current_scene.world;
 
             for entity in hierarchy::collect_hierarchy_root_entities(world).iter() {
-                hierarchy::remove_entity_from_all(&mut app.asset_mgr, *entity, world);
+                hierarchy::remove_entity(&mut app.asset_mgr, *entity, world);
             }
             app.selected = None;
         }
@@ -104,7 +104,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     let world = &mut app.current_scene.world;
     match event {
         EntityEvent::RemoveEntity(entity) => {
-            hierarchy::remove_entity_from_all(&mut app.asset_mgr, entity, world);
+            hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
             app.selected = None;
         }
         EntityEvent::AddParent(entity) => {

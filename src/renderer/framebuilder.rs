@@ -10,7 +10,7 @@ use crate::globals::Globals;
 use crate::input::Input;
 use crate::math::*;
 use crate::picking::PickObject;
-use crate::prelude::debug;
+use crate::prelude::trace;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
 
 use legion::{Entity, World};
@@ -255,7 +255,7 @@ impl FrameBuilder {
         frame.opaque_stats = compute_stats(&frame.opaque_batches);
         frame.transmission_stats = compute_stats(&frame.transmission_batches);
 
-        debug!(
+        trace!(
             "Opaque Stats: {:?}, Transmission Stats: {:?}, Total DrawCall: {}",
             frame.opaque_stats,
             frame.transmission_stats,

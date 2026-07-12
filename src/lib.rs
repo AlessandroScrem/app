@@ -48,7 +48,7 @@ macro_rules! impl_debug_drop {
     ($t:ty) => {
         impl Drop for $t {
             fn drop(&mut self) {
-                log::debug!("Dropped {}", std::any::type_name::<Self>());
+                log::info!("Dropped {}", std::any::type_name::<Self>());
             }
         }
     };

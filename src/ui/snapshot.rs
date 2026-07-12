@@ -25,15 +25,26 @@ pub struct HierarchyNode {
     pub children: Vec<HierarchyNode>,
 }
 
+pub struct LightNode {
+    pub name: String,
+    pub comp: LightComponent,
+    pub entity: Entity,
+}
+
 #[derive(Default)]
 pub struct RootNodes {
     pub nodes: Vec<HierarchyNode>,
 }
 
 #[derive(Default)]
+pub struct LightNodes {
+    pub nodes: Vec<LightNode>,
+}
+
+#[derive(Default)]
 pub struct RootSnapshot {
     pub root_nodes: RootNodes,
-    pub lights_nodes: RootNodes,
+    pub lights_nodes: LightNodes,
 }
 
 #[derive(Default)]
@@ -58,7 +69,7 @@ pub struct UiSnapshot<'a> {
     pub hdr_id: Option<GlobalAssetId>,
 }
 
-/// UiComponentView is a per-frame snapshot.
+/// UiComponentState is a per-frame snapshot.
 /// It must never be stored or reused across frames.
 #[derive(Default)]
 pub struct UiComponentState {
@@ -124,7 +135,7 @@ impl<'a> UiSnapshot<'a> {
     ) -> Self {
         let root_snapshot = RootSnapshot {
             root_nodes: get_hierarchy_roots(world),
-            lights_nodes: get_lights_roots(world),
+            lights_nodes: get_lights_nodes(world),
         };
 
         let comp_state = UiComponentState::from_world(selected, world, asset_mgr);
@@ -160,16 +171,15 @@ fn get_hierarchy_roots(world: &legion::World) -> RootNodes {
 }
 
 /// Costruisce i nodi root per le luci
-fn get_lights_roots(world: &legion::World) -> RootNodes {
-    let mut roots = RootNodes::default();
+fn get_lights_nodes(world: &legion::World) -> LightNodes {
+    let mut roots = LightNodes::default();
     let mut query = <(Entity, &LightComponent, &TagComponent)>::query();
 
-    for (entity, _light, tag) in query.iter(world) {
-        roots.nodes.push(HierarchyNode {
+    for (entity, light, tag) in query.iter(world) {
+        roots.nodes.push(LightNode {
             name: tag.name.clone(),
-            parent: None,
+            comp: light.clone(), 
             entity: *entity,
-            children: Vec::new(),
         });
     }
 

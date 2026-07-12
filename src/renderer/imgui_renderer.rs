@@ -166,7 +166,7 @@ impl ImguiRender {
         let registry = &mut self.registry.shadowmap_id;
         let device = &gpu_context.device;
 
-        debug!("Sync_with_registry: ");
+        trace!("Sync_with_registry: ");
         let texture_config = RawTextureConfig {
             label: None,
             sampler_desc: wgpu::SamplerDescriptor {

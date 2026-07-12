@@ -46,7 +46,18 @@ impl RenderPass for LightsIconPass {
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
-                })],
+                }),
+                // 1: entity ID
+                Some(wgpu::RenderPassColorAttachment {
+                    view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                    resolve_target: None,
+                    depth_slice: None,
+                }),
+                ],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
                     depth_ops: Some(wgpu::Operations {
