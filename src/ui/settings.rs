@@ -90,6 +90,7 @@ impl Layer for SettimgsUi {
                         text_fmt!(ui, "Gpu Textures       : {}", gpu_counters.textures);
                         text_fmt!(ui, "Gpu Materials      : {}", gpu_counters.materials);
                         text_fmt!(ui, "Gpu Meshes         : {}", gpu_counters.meshes);
+                        text_fmt!(ui, "Gpu Shadows        : {}", gpu_counters.shadows);
                         text_fmt!(ui, "Gpu int Buffers    : {}", 0);
                         text_fmt!(ui, "Gpu VB             : {}", 0);
                         text_fmt!(ui, "Gpu FB             : {}", 0);

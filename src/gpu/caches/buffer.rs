@@ -1,6 +1,5 @@
 use crate::{
-    assets::VertexInstance,
-    renderer::uniform::{CameraUniform, GlobalUniform, LightsUniform},
+    assets::VertexInstance, renderer::uniform::{CameraUniform, GlobalUniform, LightUniform, LightsUniform},
 };
 
 use strum::IntoEnumIterator;
@@ -32,6 +31,7 @@ pub static AXIS_VERICES: AxisData = [
 pub enum BufferKind {
     Camera,
     Globals,
+    Lights,
     Light,
     Axis,
     Instances,
@@ -43,7 +43,8 @@ impl BufferKind {
             BufferKind::Instances => size_of::<VertexInstance>() * MAX_INSTANCES,
             BufferKind::Camera => size_of::<CameraUniform>(),
             BufferKind::Globals => size_of::<GlobalUniform>(),
-            BufferKind::Light => size_of::<LightsUniform>(),
+            BufferKind::Lights => size_of::<LightsUniform>(),
+            BufferKind::Light => size_of::<LightUniform>(),
             BufferKind::Axis => size_of::<AxisData>(),
         }
     }
@@ -95,9 +96,14 @@ impl BufferCache {
                     usage: wgpu::BufferUsages::VERTEX,
                 })
             }
+            BufferKind::Lights => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Lights Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[LightsUniform::default()]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            }),
             BufferKind::Light => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Light Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[LightsUniform::default()]),
+                contents: bytemuck::cast_slice(&[LightUniform::default()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }),
             BufferKind::Instances => device.create_buffer(&wgpu::BufferDescriptor {

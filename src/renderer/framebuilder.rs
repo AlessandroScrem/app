@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::*;
 
+use crate::EntityRawU64;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{LinesVertexData, MaterialId, MeshId, VertexInstance};
 use crate::ecs::components::*;
@@ -11,7 +12,6 @@ use crate::math::*;
 use crate::picking::PickObject;
 use crate::prelude::debug;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
-use crate::EntityRawU64;
 
 use legion::{Entity, World};
 
@@ -146,17 +146,17 @@ impl<'a> LineDrawable for AxisAlignedBoundingBox<'a> {
 
 impl LineDrawable for LightComponent {
     fn emit(&self, sink: &mut dyn LineSink) {
-        let color: Vec3 = crate::colors::GREEN_COLOR.into();
+        use crate::colors;
 
         let mut corners = vec![
-            Vec3::new(-1.0, -1.0, -1.0), // Near-bottom-left
-            Vec3::new(1.0, -1.0, -1.0),  // Near-bottom-right
-            Vec3::new(1.0, 1.0, -1.0),   // Near-top-right
-            Vec3::new(-1.0, 1.0, -1.0),  // Near-top-left
-            Vec3::new(-1.0, -1.0, 1.0),  // Far-bottom-left
-            Vec3::new(1.0, -1.0, 1.0),   // Far-bottom-right
-            Vec3::new(1.0, 1.0, 1.0),    // Far-top-right
-            Vec3::new(-1.0, 1.0, 1.0),   // Far-top-left
+            Vec3::new(-1.0, -1.0, 0.0), // Near-bottom-left
+            Vec3::new(1.0, -1.0, 0.0),  // Near-bottom-right
+            Vec3::new(1.0, 1.0, 0.0),   // Near-top-right
+            Vec3::new(-1.0, 1.0, 0.0),  // Near-top-left
+            Vec3::new(-1.0, -1.0, 1.0), // Far-bottom-left
+            Vec3::new(1.0, -1.0, 1.0),  // Far-bottom-right
+            Vec3::new(1.0, 1.0, 1.0),   // Far-top-right
+            Vec3::new(-1.0, 1.0, 1.0),  // Far-top-left
         ];
 
         let mat = self.get_view_proj_matrix();
@@ -166,28 +166,31 @@ impl LineDrawable for LightComponent {
             *vertex = v.truncate();
         }
 
+        let near = [corners[0], corners[1], corners[2], corners[3]];
+        let far = [corners[4], corners[5], corners[6], corners[7]];
+
         // Near clip
-        sink.line(corners[0], corners[1], color);
-        sink.line(corners[1], corners[2], color);
-        sink.line(corners[2], corners[3], color);
-        sink.line(corners[3], corners[0], color);
+        sink.line(near[0], near[1], colors::RED_COLOR.into());
+        sink.line(near[1], near[2], colors::RED_COLOR.into());
+        sink.line(near[2], near[3], colors::RED_COLOR.into());
+        sink.line(near[3], near[0], colors::RED_COLOR.into());
         // Far clip
-        sink.line(corners[4], corners[5], color);
-        sink.line(corners[5], corners[6], color);
-        sink.line(corners[6], corners[7], color);
-        sink.line(corners[7], corners[4], color);
+        sink.line(far[0], far[1], colors::BLUE_COLOR.into());
+        sink.line(far[1], far[2], colors::BLUE_COLOR.into());
+        sink.line(far[2], far[3], colors::BLUE_COLOR.into());
+        sink.line(far[3], far[0], colors::BLUE_COLOR.into());
         // Linees connecting near
-        sink.line(corners[0], corners[4], color);
-        sink.line(corners[1], corners[5], color);
-        sink.line(corners[2], corners[6], color);
-        sink.line(corners[3], corners[7], color);
+        sink.line(near[0], far[0], colors::GREEN_COLOR.into());
+        sink.line(near[1], far[1], colors::GREEN_COLOR.into());
+        sink.line(near[2], far[2], colors::GREEN_COLOR.into());
+        sink.line(near[3], far[3], colors::GREEN_COLOR.into());
 
-        const DISTANCE: f32 = 20.0;
+        let origin = Vec3::new(0.0, 0.0, 0.0);
         let position: Vec3 = self.get_position().into();
-        let direction = -position.normalize();
-        let target = direction * DISTANCE;
+        let direction = (origin - position).normalize();
+        let target = position + direction * 20.0;
 
-        sink.arrow(position, target, color);
+        sink.arrow(position, target, colors::GREEN_COLOR.into());
     }
 }
 
@@ -198,12 +201,14 @@ pub struct FrameData {
     pub opaque_batches: Vec<InstanceBatch>,
     pub transmission_batches: Vec<InstanceBatch>,
     pub lines: Vec<LinesVertexData>,
-    pub lights: Option<LightsUniform>,
     pub instances: Vec<VertexInstance>,
+
+    // runtime data
+    pub lights: Option<LightsUniform>,
 
     // flags / tasks
     pub axis_enable: bool,
-    pub outline_selected: bool,
+    pub entity_selected: Option<Entity>,
     pub picking: Option<PickingData>,
     pub skybox_enable: Option<bool>,
     pub build_mips: Option<bool>,
@@ -228,7 +233,7 @@ impl FrameBuilder {
             transmission_batches: Vec::new(),
             lines: Vec::new(),
             lights: None,
-            outline_selected: false,
+            entity_selected: None,
             picking: None,
             skybox_enable: None,
             build_mips: None,
@@ -243,7 +248,7 @@ impl FrameBuilder {
         Self::build_light_data(world, globals, &mut frame);
         Self::build_light_frustum(world, globals, &mut frame);
         frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
-        frame.outline_selected = selected.is_some();
+        frame.entity_selected = selected;
         frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
         frame.axis_enable = globals.axis_enable;
 
@@ -384,8 +389,8 @@ impl FrameBuilder {
         let mut light_query = <&LightComponent>::query();
         for light in light_query
             .iter(world)
+            .filter(|l| l.frustum)
             .take(uniform::MAX_LIGHTS)
-            .filter(|l| l.enabled)
         {
             light.emit(&mut frame.lines);
         }
@@ -393,13 +398,14 @@ impl FrameBuilder {
 
     fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {
         // -------- Lights --------
-        let mut light_uniform = LightsUniform::default();
-        light_uniform.enabled = globals.light_enable.into();
+        let mut lights_uniform = LightsUniform::default();
+        lights_uniform.enabled = globals.light_enable.into();
 
         use legion::IntoQuery;
         let mut light_query = <(Entity, &LightComponent)>::query();
         for (i, (entity, light)) in light_query
             .iter(world)
+            .filter(|(_, l)| l.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
         {
@@ -407,10 +413,10 @@ impl FrameBuilder {
                 entity_id: EntityRawU64::as_raw_u64(entity),
                 ..light.into()
             };
-            light_uniform.count = (i + 1) as u32;
-            light_uniform.lights[i] = data;
+            lights_uniform.count = (i + 1) as u32;
+            lights_uniform.lights[i] = data;
         }
 
-        frame.lights = Some(light_uniform);
+        frame.lights = Some(lights_uniform);
     }
 }

@@ -134,6 +134,9 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         EntityEvent::EnableAllLight(enable) => {
             light::enable_all_lights(enable, world);
         }
+        EntityEvent::AddLight => {
+            light::create(world);
+        }
     }
 }
 

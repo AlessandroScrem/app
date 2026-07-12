@@ -1,4 +1,4 @@
-use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
+use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::Dimension::Array};
 
 use super::*;
 
@@ -9,7 +9,7 @@ use strum_macros::EnumIter;
 pub enum BindgroupKind {
     Camera,
     Perframe,
-    LightTexture,
+    LightIcon,
     PbrMap,
     Skybox,
     SkyboxBlur,
@@ -81,23 +81,23 @@ impl BindgroupCache {
                             binding: 1,
                             resource: buffer_cache.get(BufferKind::Globals).as_entire_binding(),
                         },
-                        // Light
+                        // Lights
                         wgpu::BindGroupEntry {
                             binding: 2,
-                            resource: buffer_cache.get(BufferKind::Light).as_entire_binding(),
+                            resource: buffer_cache.get(BufferKind::Lights).as_entire_binding(),
                         },
                     ],
                     label: Some("PerFrame Bind Group"),
                 })
             }
-            BindgroupKind::LightTexture => {
+            BindgroupKind::LightIcon => {
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
                         .sampler(SamplerDesc::LinearRepeat)
                         .build(device, Some(queue));
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: layouts.get(BindgroupLayoutKind::LightTexture),
+                    layout: layouts.get(BindgroupLayoutKind::LightIcon),
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
@@ -108,24 +108,35 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&texture.view),
                         },
                     ],
-                    label: Some("light texture_bind_group"),
+                    label: Some("light icon_bind_group"),
                 })
             }
             BindgroupKind::PbrMap => {
                 let scene_view = framebuffer_cache.get_view(FramebufferKind::OpaqueWithMips);
                 let scene_sampler = framebuffer_cache.get_sampler(FramebufferKind::OpaqueWithMips);
 
-                let texture =
+                let dummy_texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                         .build(device, Some(queue));
-
-                let cube = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
+                    
+                    let dummy_cube =
+                    GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                     .dimension(Dimension::Cube)
                     .format(ColorSpace::Rgba8)
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::LinearRepeat)
-                    .label("Cube white texture")
+                    .label("dummy Cube white texture")
                     .build(device, Some(queue));
+                
+                //Dummy Shadowmaps
+                let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
+                    .format(ColorSpace::Depth32f)
+                    .dimension(Array(1))
+                    .usage(GpuTextureUsage::SampledTexture)
+                    .sampler(SamplerDesc::DepthComparison)
+                    .label("dummy shadow_texture depth")
+                    .build(device, None);
+
 
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
@@ -133,22 +144,22 @@ impl BindgroupCache {
                         // sampler
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: wgpu::BindingResource::Sampler(&cube.sampler),
+                            resource: wgpu::BindingResource::Sampler(&dummy_cube.sampler),
                         },
                         // irradiance texture
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_cube.view),
                         },
                         // prefiltered texture
                         wgpu::BindGroupEntry {
                             binding: 2,
-                            resource: wgpu::BindingResource::TextureView(&cube.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_cube.view),
                         },
                         // brdf_lut texture
                         wgpu::BindGroupEntry {
                             binding: 3,
-                            resource: wgpu::BindingResource::TextureView(&texture.view),
+                            resource: wgpu::BindingResource::TextureView(&dummy_texture.view),
                         },
                         // opaque scene sampler
                         wgpu::BindGroupEntry {
@@ -160,8 +171,18 @@ impl BindgroupCache {
                             binding: 5,
                             resource: wgpu::BindingResource::TextureView(&scene_view),
                         },
+                        // shadowmap sampler
+                        wgpu::BindGroupEntry {
+                            binding: 6,
+                            resource: wgpu::BindingResource::Sampler(&dummy_depth_texture.sampler),
+                        },
+                        // shadowmap texture
+                        wgpu::BindGroupEntry {
+                            binding: 7,
+                            resource: wgpu::BindingResource::TextureView(&dummy_depth_texture.view),
+                        },
                     ],
-                    label: Some("Fake Ibl Bind Group"),
+                    label: Some("Dummy PbrMap BindGroup"),
                 })
             }
             BindgroupKind::Skybox => {
@@ -185,7 +206,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&cube.view),
                         },
                     ],
-                    label: Some("skybox_bind_group"),
+                    label: Some("Dummy Skybox BindGroup"),
                 })
             }
             BindgroupKind::SkyboxBlur => {
@@ -209,7 +230,7 @@ impl BindgroupCache {
                             resource: wgpu::BindingResource::TextureView(&cube.view),
                         },
                     ],
-                    label: Some("skybox_blur_bind_group"),
+                    label: Some("Dummy SkyboxBlur BindGroup"),
                 })
             }
         }

@@ -1,4 +1,4 @@
-use super::{Layer, UiContext, UiTexture};
+use super::{Layer, UiContext};
 use imgui::*;
 
 pub struct DebugUi {}
@@ -9,7 +9,7 @@ impl Layer for DebugUi {
         let texture_resolver = ctx.snapshot.texture_resolver;
 
         if let Some(id) = debug_texture_id {
-            if let Some(id) = texture_resolver.resolve(UiTexture::Engine(id)) {
+            if let Some(id) = texture_resolver.resolve(id) {
                 let window = ui.window("Debug Texture");
                 let name = "No Name";
                 window

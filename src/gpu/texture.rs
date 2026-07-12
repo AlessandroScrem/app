@@ -13,6 +13,7 @@ pub enum TextureSource<'a> {
 pub enum Dimension {
     D2,
     Cube,
+    Array(u32),
 }
 
 pub struct GpuTexture {
@@ -102,7 +103,7 @@ impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
 
                 ..Default::default()
             },
-            SamplerDesc::LinearMipmap => wgpu::SamplerDescriptor {
+            SamplerDesc::LinearClampMipmap => wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -111,13 +112,21 @@ impl From<SamplerDesc> for wgpu::SamplerDescriptor<'_> {
                 mipmap_filter: wgpu::MipmapFilterMode::Linear,
                 ..Default::default()
             },
-            SamplerDesc::Nearest => wgpu::SamplerDescriptor {
+            SamplerDesc::NearestClamp => wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: wgpu::FilterMode::Nearest,
                 min_filter: wgpu::FilterMode::Nearest,
                 mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            },
+            SamplerDesc::DepthComparison => wgpu::SamplerDescriptor {
+                compare: Some(wgpu::CompareFunction::LessEqual),
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
                 ..Default::default()
             },
         }
@@ -203,6 +212,7 @@ impl<'a> GpuTextureBuilder<'a> {
         let (layers, view_dimension) = match self.dimension {
             Dimension::D2 => (1, wgpu::TextureViewDimension::D2),
             Dimension::Cube => (6, wgpu::TextureViewDimension::Cube),
+            Dimension::Array(layers) => (layers, wgpu::TextureViewDimension::D2Array),
         };
 
         let width = self.width;
@@ -238,7 +248,11 @@ impl<'a> GpuTextureBuilder<'a> {
             view_formats: &[],
         });
 
-        let mut estimated_size = 0;
+        let mut estimated_size = (extent.height
+            * extent.height
+            * extent.depth_or_array_layers
+            * format.target_pixel_byte_cost().unwrap_or(4))
+            as usize;
 
         if let (Some(source), Some(queue)) = (self.source, queue) {
             let pixels = match source {
@@ -280,8 +294,6 @@ impl<'a> GpuTextureBuilder<'a> {
             estimated_size = pixels.len();
         }
 
-        // let estimated_size = (self.width * self.height * format.target_pixel_byte_cost().unwrap_or(4)) as usize;
-
         let _sampler = match self.sampler {
             Some(sd) => device.create_sampler(&sd.into()),
             None => device.create_sampler(&Default::default()),
@@ -310,4 +322,3 @@ impl<'a> GpuTextureBuilder<'a> {
         }
     }
 }
-

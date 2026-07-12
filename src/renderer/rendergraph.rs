@@ -11,6 +11,7 @@ pub enum ResourceId {
     LDR,
     OPAQUE,
     PICKBUFFER,
+    SHADOWMAP,
 }
 
 use std::fmt;
@@ -23,6 +24,7 @@ impl fmt::Display for ResourceId {
             Self::ENTITY => "EntityID",
             Self::LDR => "LDR",
             Self::PICKBUFFER => "PickBuffer",
+            Self::SHADOWMAP => "ShadowMap",
         };
         write!(f, "{}", name)
     }
@@ -255,7 +257,7 @@ mod tests {
         let skyboxpass = SkyboxPass::new();
         let build_mipmaps = BuildMipmapsPass::new();
         let transmission = MeshPass::transmission();
-        let lightpass = LightPass::new();
+        let lightpass = LightsIconPass::new();
         let axispass = AxisPass::new();
         let bboxpass = LinesPass::new();
         let linearizepass = LinearizePass::new();

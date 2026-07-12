@@ -14,22 +14,24 @@ pub struct LightComponent {
     pub cast_shadow: bool,
     pub entity_id: u64,
     pub enabled: bool,
+    pub frustum: bool,
     view_matrix: Mat4,
     proj_matrix: Mat4,
 }
 impl Default for LightComponent {
     fn default() -> Self {
         const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
-        const POSITION: [f32; 3] = [0.0, 0.0, -1.0];
+        const POSITION: [f32; 3] = [10.0, 10.0, 10.0];
         const SIZE: f32 = 20.0;
-        const NEAR: f32 = 2.0;
-        const FAR: f32 = 200.0;
+        const NEAR: f32 = 0.1;
+        const FAR: f32 = 100.0;
         let proj_matrix = ortho(-SIZE, SIZE, -SIZE, SIZE, NEAR, FAR);
         let view_matrix = Self::view_matrix(POSITION);
 
         Self {
             color: WHITE,
             enabled: true,
+            frustum: false,
             cast_shadow: false,
             directional: true,
             position: POSITION,
@@ -45,13 +47,13 @@ impl LightComponent {
         self.proj_matrix * self.view_matrix
     }
 
-    pub fn get_position(&self) ->[f32;3] {
+    pub fn get_position(&self) -> [f32; 3] {
         self.position
     }
 
     pub fn update_position<P>(&mut self, position: P)
-        where
-        P: Into<[f32;3]>,
+    where
+        P: Into<[f32; 3]>,
     {
         self.position = position.into();
         self.update_view_matrix();
@@ -65,9 +67,7 @@ impl LightComponent {
     where
         P: Into<Point3f>,
     {
-        let eye: Point3f = position.into();
-
-        Mat4::look_at_rh(eye, Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
+        Mat4::look_at_rh(position.into(), Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
     }
 }
 
@@ -79,7 +79,7 @@ impl From<&LightComponent> for LightUniform {
             position: value.position,
             cast_shadow: value.cast_shadow.into(),
             entity_id: value.entity_id,
-            enabled: value.enabled.into(),
+            view_proj: value.get_view_proj_matrix().into(),
             ..Default::default()
         }
     }

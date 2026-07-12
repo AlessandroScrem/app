@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager};
+use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager};
 use crate::renderer::framebuilder::DrawStats;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 
@@ -17,6 +17,7 @@ use crate::renderer::renderpass::*;
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
     pub gpu_manager: &'a mut GpuManager,
+    pub shadow_manager: &'a mut ShadowManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
     pub pickobject: &'a PickObject,
@@ -27,6 +28,7 @@ pub struct RenderContext<'a> {
     pub gpu_cache: &'a GpuCache,
 
     pub gpu_mgr: &'a GpuManager,
+    pub shadow_mgr: &'a ShadowManager,
     pub pip_mgr: &'a PipelineManager,
     pub pickobject: &'a PickObject,
     pub target: &'a wgpu::TextureView,
@@ -51,11 +53,12 @@ impl SceneRenderer {
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
         let default_pass = vec![
+            RenderPassEnum::Shadow(ShadowPass {}),
             RenderPassEnum::Mesh(MeshPass::opaque()),
             RenderPassEnum::Skybox(SkyboxPass::new()),
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
             RenderPassEnum::Transmission(MeshPass::transmission()),
-            RenderPassEnum::Light(LightPass::new()),
+            RenderPassEnum::Light(LightsIconPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::Lines(LinesPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),
@@ -87,6 +90,7 @@ impl SceneRenderer {
         let SceneRenderContext {
             gpu_context,
             gpu_manager,
+            shadow_manager,
             pipeline_manager,
             gpu_cache,
             pickobject,
@@ -96,6 +100,7 @@ impl SceneRenderer {
             device: &gpu_context.device,
             gpu_cache: &gpu_cache,
             gpu_mgr: &gpu_manager,
+            shadow_mgr: &shadow_manager,
             pip_mgr: &pipeline_manager,
             pickobject,
             target,
@@ -105,7 +110,7 @@ impl SceneRenderer {
         if let Some(light_uniform) = frame.lights {
             gpu_manager.update_buffer(
                 &gpu_context.queue,
-                BufferKind::Light,
+                BufferKind::Lights,
                 std::slice::from_ref(&light_uniform),
             );
         }

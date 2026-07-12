@@ -4,7 +4,7 @@ use super::components::{LightComponent, TagComponent};
 use legion::world::World;
 
 /// A function to help create a light entity.
-pub fn create(world: &mut World, _resources: &Resources) {
+pub fn create(world: &mut World) ->Entity {
     let mut light = LightComponent::default();
     light.update_position([3.0, 20.0, 10.0]);
 
@@ -13,7 +13,7 @@ pub fn create(world: &mut World, _resources: &Resources) {
             name: "Directional1".to_string(),
         },
         light,
-    ));
+    ))
 }
 
 pub fn enable_all_lights(enable: bool, world: &mut legion::World) {

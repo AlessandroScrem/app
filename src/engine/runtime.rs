@@ -7,7 +7,7 @@ use crate::assets::asset_manager::AssetManager;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface,
-    HasGpuStats, IblManager,
+    HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::picking::PickObject;
@@ -21,12 +21,13 @@ use crate::ui::UiLayer;
 use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
 
-impl InternalCounter for GpuCache {
+impl InternalCounter for RunningApp {
     fn internal_counter(&self) -> GpuInternalCounters {
         GpuInternalCounters {
-            textures: self.textures.get_stats(),
-            meshes: self.mesh.get_stats(),
-            materials: self.material.get_stats(),
+            textures: self.gpu_cache.textures.get_stats(),
+            meshes: self.gpu_cache.mesh.get_stats(),
+            materials: self.gpu_cache.material.get_stats(),
+            shadows: self.shadow_manager.get_stats(),
         }
     }
 }
@@ -39,6 +40,7 @@ pub struct RunningApp {
     pub gpu_manager: GpuManager,
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
+    pub shadow_manager: ShadowManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
@@ -72,9 +74,25 @@ impl RunningApp {
         }
 
         self.update_app_hover(app);
-        let input = self.input.clone();
-        app.update(&input);
+
+        app.update(&self.input);
+
         self.sync_gpu_assets(app.asset_mgr_mut());
+
+        // replace pbrmap & skybox bindgroups
+        if self.gpu_manager.bindgroup_diry() {
+            self.gpu_manager.replace_pbrmap_skybox_bindgroup(
+                self.ibl_manager.get_ibl(),
+                &self.shadow_manager,
+                &self.gpu_context.device,
+            );
+        }
+
+        self.imgui_render.sync_imgui_shadowmap(
+            &self.gpu_context,
+            self.shadow_manager.get_rgba(),
+        );
+
         self.update_app_ui(app);
 
         self.render(app);
@@ -153,8 +171,7 @@ impl RunningApp {
                         let hdr = texture_cache.get(asset.hrd_id);
                         ibl_manager.create(hdr, device, queue);
                     });
-
-                gpu_manager.sync_ibl(&ibl_manager.ibl, device);
+                gpu_manager.set_bindgroup_diry();
             }
 
             AssetEventKind::Removed => {}
@@ -236,7 +253,7 @@ impl RunningApp {
         // If texture cache is changed -> sync imgui texture
         grouped.process_type::<TextureAsset, _>(|_, _| {
             self.imgui_render
-                .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache);
+                .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
         });
     }
 
@@ -248,6 +265,8 @@ impl RunningApp {
     }
 
     fn update_app_ui<A: HasUi>(&mut self, app: &mut A) {
+        let gpu_counters = self.internal_counter();
+
         let RunningApp {
             window,
             uilayer,
@@ -260,8 +279,9 @@ impl RunningApp {
             window: window.as_ref(),
             uilayer,
             texture_resolver: imgui_render,
-            gpu_counters: self.gpu_cache.internal_counter(),
+            gpu_counters,
             frame_stats: scene_renderer.get_render_stats(),
+            debug_texture: None,
         };
 
         app.update_ui(context);
@@ -277,12 +297,12 @@ impl RunningApp {
                 self.gpu_surface.get_config().height,
             );
             let render_data = app.render_data();
-
             {
                 let RunningApp {
                     scene_renderer,
                     gpu_context,
                     gpu_manager,
+                    shadow_manager,
                     pipeline_manager,
                     gpu_cache,
                     input,
@@ -302,6 +322,7 @@ impl RunningApp {
                 let mut context = SceneRenderContext {
                     gpu_context,
                     gpu_manager,
+                    shadow_manager,
                     pipeline_manager,
                     gpu_cache,
                     pickobject,

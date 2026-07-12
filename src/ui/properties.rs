@@ -69,7 +69,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if let Some(f) = &mut cv.light.clone() {
-        if f.draw_ui(ui) {
+        if f.draw_ui(ui, texture_resolver) {
             ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateLight(
                 selected.clone(),
                 f.clone(),
@@ -420,7 +420,7 @@ impl MeshComponent {
 }
 
 impl LightComponent {
-    fn draw_ui(&mut self, ui: &Ui) -> bool {
+    fn draw_ui(&mut self, ui: &Ui, resolver: &dyn UiTextureResolver) -> bool {
         let mut dirty = false;
 
         let light = self;
@@ -428,10 +428,11 @@ impl LightComponent {
             let mut position = light.get_position();
             if Drag::new("Position")
                 .speed(0.1)
-                .build_array(ui, &mut position) {
-                    dirty = true;
-                    light.update_position(position);
-                };
+                .build_array(ui, &mut position)
+            {
+                dirty = true;
+                light.update_position(position);
+            };
 
             dirty |= ui.color_edit3("Color", &mut light.color);
             {
@@ -456,7 +457,20 @@ impl LightComponent {
                     dirty = true;
                 }
             }
+            light.cast_shadow.then(|| {
+                let mut frustum = light.frustum;
+                ui.same_line();
+                if ui.checkbox("Frustum", &mut frustum) {
+                    light.frustum = frustum;
+                    dirty = true;
+                }
+            });
         }
+        if light.enabled & light.cast_shadow {
+            let iconsize = [200.0, 200.0];
+            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::ShadowMap), iconsize);
+        }
+
         dirty
     }
 }

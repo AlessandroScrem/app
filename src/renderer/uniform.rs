@@ -116,20 +116,23 @@ pub struct GlobalUniform {
 #[repr(C, align(16))]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
+    pub view_proj: [[f32; 4]; 4],
+    
     pub color: [f32; 3],
     pub directional: u32,
+
     pub position: [f32; 3],
     pub cast_shadow: u32,
+    
     pub entity_id: u64,
-    pub enabled: u32,
-    pub pad: [i32; 1],
+    pub pad: [i32; 2],
 }
 
 impl LightUniform {
     fn new() -> Self {
         Self {
+            view_proj: Mat4::identity().into(),
             color: [1.0, 1.0, 1.0],
-            enabled: 1,
             directional: 1,
             position: [0.0, 0.0, -1.0],
             ..Default::default()

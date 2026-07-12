@@ -11,7 +11,6 @@ mod input;
 mod picking;
 mod renderer;
 mod scene;
-mod systems;
 mod test_utils;
 mod timer;
 mod timestep;
@@ -57,6 +56,7 @@ macro_rules! impl_debug_drop {
 
 #[allow(unused_imports)]
 pub(crate) mod math {
+
     use cgmath::*;
     pub type Mat3 = Matrix3<f32>;
     pub type Mat4 = Matrix4<f32>;
@@ -69,8 +69,31 @@ pub(crate) mod math {
         Angle, Array, Deg, EuclideanSpace, Euler, InnerSpace as _, Matrix as _, One, Rad,
         Rotation3 as _, SquareMatrix as _, Transform as _, Zero,
         num_traits::{one, zero},
-        ortho, perspective, vec3, vec4,
+        vec3, vec4,
     };
+    
+    // cgmath matrix is RH OpenGL-style (Z NDC is [-1 e 1])
+    // (OPENGL_TO_WGPU_MATRIX) will correct Z NDC from opengl [-1, 1] to Vulkan(wgpu) Z [0, 1]
+    // TODO: implement projection LH with Z [0, 1]
+    #[rustfmt::skip]
+    pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 0.5, 0.0,
+        0.0, 0.0, 0.5, 1.0,
+    );
+    pub fn perspective<A: Into<Rad<f32>>>(
+        fovy: A,
+        aspect: f32,
+        near: f32,
+        far: f32,
+    ) -> cgmath::Matrix4<f32> {
+        OPENGL_TO_WGPU_MATRIX * cgmath::perspective(fovy, aspect, near, far)
+    }
+
+    pub fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) ->cgmath::Matrix4<f32> {
+        OPENGL_TO_WGPU_MATRIX * cgmath::ortho(left, right, bottom, top, near, far)
+    }
 
     // pub fn vec3_min(a: &Vec3, b: &Vec3) -> Vec3 {
     //     Vec3 {
@@ -92,11 +115,11 @@ pub(crate) mod math {
 pub(crate) mod colors {
     pub const CYAN_COLOR: [f32; 3] = [0.0, 1.0, 1.0];
     pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
+    pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
+    pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
     // pub const BACKGROUND_COLOR: [f32; 3] = [0.188, 0.208, 0.259]; // from GltfViewer
     // pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
     // pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
     // pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
-    // pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
-    // pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
     // pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }

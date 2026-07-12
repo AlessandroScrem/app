@@ -1,15 +1,15 @@
 use super::*;
 
 #[derive(Default)]
-pub struct LightPass {}
+pub struct LightsIconPass {}
 
-impl LightPass {
+impl LightsIconPass {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl RenderPass for LightPass {
+impl RenderPass for LightsIconPass {
     fn name(&self) -> &'static str {
         "LightPass"
     }
@@ -37,7 +37,7 @@ impl RenderPass for LightPass {
 
             // Render pass
             let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Light Render Pass"),
+                label: Some("LightIcon Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
                     resolve_target: None,
@@ -60,22 +60,14 @@ impl RenderPass for LightPass {
                 multiview_mask: None,
             });
 
-            let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::Light);
-            let light_texture_bind_group = gpu_manager.get_bindgroup(BindgroupKind::LightTexture);
+            let pipeline = pipeline_manager.get_render_pipeline(PipelineKind::LightIcon);
+            let perframe_bg = gpu_manager.get_bindgroup(BindgroupKind::Perframe);
+            let light_bg = gpu_manager.get_bindgroup(BindgroupKind::LightIcon);
 
             renderpass.set_pipeline(&pipeline);
-            renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
-            renderpass.set_bind_group(1, light_texture_bind_group, &[]);
-
-            for light in light_uniform
-                .lights
-                .iter()
-                .take(light_uniform.count as usize)
-            {
-                if light.enabled == 1 {
-                    renderpass.draw(0..6, 0..1);
-                }
-            }
+            renderpass.set_bind_group(0, perframe_bg, &[]);
+            renderpass.set_bind_group(1, light_bg, &[]);
+            renderpass.draw(0..6, 0..light_uniform.count);
         }
     }
 }

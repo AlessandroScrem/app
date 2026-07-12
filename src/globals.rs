@@ -19,7 +19,7 @@ impl Default for Globals {
     fn default() -> Self {
         Self {
             mips_cs: false,
-            light_enable: false,
+            light_enable: true,
             ibl_enable: true,
             skybox_enable: true,
             skybox_enable_blur: true,

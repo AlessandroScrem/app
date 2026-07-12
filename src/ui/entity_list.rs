@@ -26,6 +26,9 @@ impl Layer for EntityListUi {
                         menu_bar::file_open(FileFilter::Gltf)
                             .map(|f| ctx.write.push(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
                     });
+                    ui.menu_item("Add Light ..").then(|| {
+                        ctx.write.push(DomainEvent::Entity(EntityEvent::AddLight));
+                    });
                     popup.end();
                 }
 

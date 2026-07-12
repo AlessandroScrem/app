@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 
 use super::*;
@@ -5,7 +7,7 @@ use super::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, EnumIter)]
+#[derive(Debug, Clone, Copy, EnumIter, PartialEq, Eq, Hash)]
 pub enum FramebufferKind {
     Hdr,
     OpaqueWithMips,
@@ -62,6 +64,14 @@ impl FramebufferCache {
     pub fn get_bg(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
         &self.framebuffers[kind as usize].bind_group
     }
+    #[allow(unused)]
+    pub fn get_map(&self) -> HashMap<FramebufferKind, &GpuTexture> {
+        let list = vec![FramebufferKind::Hdr];
+
+        list.iter()
+            .map(|k| (k.clone(), &self.framebuffers[*k as usize].texture))
+            .collect()
+    }
 }
 
 impl FramebufferCache {
@@ -77,7 +87,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rgbaf16)
                     .usage(GpuTextureUsage::RenderTarget)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("Hdr texture")
                     .build(device, None);
 
@@ -108,7 +118,7 @@ impl FramebufferCache {
                     .format(ColorSpace::Rgba8)
                     .with_mips(HDR_MIPS_COUNT)
                     .usage(GpuTextureUsage::SampledTextureStorage)
-                    .sampler(SamplerDesc::LinearMipmap)
+                    .sampler(SamplerDesc::LinearClampMipmap)
                     .label("Hdr Opaque texture_with_mips")
                     .build(device, None);
 
@@ -138,7 +148,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Rg32ui)
                     .usage(GpuTextureUsage::EntityId)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("entity_id_texture")
                     .build(device, None);
 
@@ -167,7 +177,7 @@ impl FramebufferCache {
                 let texture = GpuTextureBuilder::from_empty(width, height)
                     .format(ColorSpace::Depth32f)
                     .usage(GpuTextureUsage::DepthTarget)
-                    .sampler(SamplerDesc::Nearest)
+                    .sampler(SamplerDesc::NearestClamp)
                     .label("depth_texture")
                     .build(device, None);
 

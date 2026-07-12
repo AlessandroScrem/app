@@ -1,13 +1,5 @@
 use crate::math::*;
 
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
-
 #[derive(Clone, Debug)]
 pub struct Camera {
     position: Vec3,
@@ -98,11 +90,8 @@ impl Camera {
         self.view_matrix
     }
 
-    // La matrice di cgmath è RH e OpenGL-style (z in NDC tra -1 e 1)
-    // (OPENGL_TO_WGPU_MATRIX) corregge lo z NDC da opengl [-1, 1] a Vulkan(wgpu) Z [0, 1]
-    // TODO: implementare una projection LH con z [0, 1]
     pub fn get_projection_mat(&self) -> Mat4 {
-        OPENGL_TO_WGPU_MATRIX * perspective(self.fov, self.aspect, self.near, self.far)
+        perspective(self.fov, self.aspect, self.near, self.far)
     }
 
     pub fn get_position(&self) -> Point3f {
@@ -281,7 +270,7 @@ mod tests {
         let far = 100.0;
 
         // Proiezione di cgmath
-        let proj: Mat4 = perspective(fovy, aspect, near, far);
+        let proj: Mat4 = cgmath::perspective(fovy, aspect, near, far);
 
         // Near plane: z = -near (perché RH guarda lungo -Z)
         let near_point = vec4(0.0, 0.0, -near, 1.0);
@@ -317,7 +306,7 @@ mod tests {
         let far = 100.0;
 
         // Proiezione di cgmath (RH, OpenGL-style [-1,1])
-        let cgmath_proj: Mat4 = perspective(fovy, aspect, near, far);
+        let cgmath_proj: Mat4 = cgmath::perspective(fovy, aspect, near, far);
 
         // Applico la correzione OpenGL → wgpu ([-1,1] → [0,1])
         let proj = OPENGL_TO_WGPU_MATRIX * cgmath_proj;

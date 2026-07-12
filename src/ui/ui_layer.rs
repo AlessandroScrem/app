@@ -19,6 +19,7 @@ pub struct UiRuntimeContext<'a> {
     pub texture_resolver: &'a dyn UiTextureResolver,
     pub gpu_counters: GpuInternalCounters,
     pub frame_stats: FrameStats,
+    pub debug_texture: Option<UiTexture>,
 }
 
 pub struct UiContext<'a> {

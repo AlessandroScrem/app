@@ -9,7 +9,7 @@ use super::*;
 
 pub struct GpuIbl {
     _cube_map: wgpu::Texture,
-    _cube_map_view: wgpu::TextureView,
+    cube_map_view: wgpu::TextureView,
     _irradiance_map: wgpu::Texture,
     _prefilter_map: wgpu::Texture,
     sampler: wgpu::Sampler,
@@ -19,78 +19,28 @@ pub struct GpuIbl {
 }
 
 impl GpuIbl {
-    pub fn get_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let GpuIbl {
-            sampler,
-            irradiance_view,
-            prefilter_view,
-            brdf_lut_view,
-            ..
-        } = self;
 
-        vec![
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Sampler(sampler),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(irradiance_view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: wgpu::BindingResource::TextureView(prefilter_view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 3,
-                resource: wgpu::BindingResource::TextureView(brdf_lut_view),
-            },
-        ]
+    pub fn get_sampler(&self) -> &wgpu::Sampler {
+        &self.sampler
     }
-
-    pub fn get_skybox_bindgroup_entry<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let GpuIbl {
-            sampler,
-            _cube_map_view,
-            ..
-        } = self;
-
-        vec![
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Sampler(&sampler),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(&_cube_map_view),
-            },
-        ]
+    pub fn get_irradiance_view(&self) -> &wgpu::TextureView {
+        &self.irradiance_view
     }
-
-    pub fn get_skybox_bindgroup_entry_blur<'a>(&'a self) -> Vec<wgpu::BindGroupEntry<'a>> {
-        let GpuIbl {
-            sampler,
-            irradiance_view,
-            ..
-        } = self;
-
-        vec![
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Sampler(&sampler),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(&irradiance_view),
-            },
-        ]
+    pub fn get_prefilter_view(&self) -> &wgpu::TextureView {
+        &self.prefilter_view
+    }
+    pub fn get_brdf_lut_view(&self) -> &wgpu::TextureView {
+        &self.brdf_lut_view
+    }
+    pub fn get_cubemap_view(&self) -> &wgpu::TextureView {
+        &self.cube_map_view
     }
 }
 
 pub struct IblManager {
     _brdf_lut: wgpu::Texture,
     brdf_lut_view: wgpu::TextureView,
-    pub ibl: Option<GpuIbl>,
+    ibl: Option<GpuIbl>,
 }
 
 impl IblManager {
@@ -108,6 +58,10 @@ impl IblManager {
 
     pub fn create(&mut self, hdr: Option<&GpuTexture>, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.ibl = Self::create_ibl(hdr, self.brdf_lut_view.clone(), device, queue);
+    }
+
+    pub fn get_ibl(&self)-> Option<&GpuIbl> {
+        self.ibl.as_ref()
     }
 
     fn create_ibl(
@@ -147,7 +101,7 @@ impl IblManager {
 
         Some(GpuIbl {
             _cube_map: cube_map,
-            _cube_map_view: cube_map_view,
+            cube_map_view,
             _irradiance_map,
             irradiance_view,
             _prefilter_map,

@@ -18,6 +18,7 @@ impl App {
                 .map(|asset| asset.hrd_id)
         });
 
+
         let snapshot = UiSnapshot::from_world(
             &self.current_scene.world,
             self.selected,
@@ -26,7 +27,7 @@ impl App {
             &self.globals,
             ctx.texture_resolver,
             ctx.gpu_counters,
-            None, // no debug texture_id
+            ctx.debug_texture,
             render_stats,
             hdr_id,
         );

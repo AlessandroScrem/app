@@ -1,20 +1,24 @@
-use std::collections::HashMap;
-use crate::gpu::*;
 use crate::assets::TextureId;
+use crate::gpu::*;
 use crate::prelude::*;
 use crate::ui::{UiTexture, UiTextureResolver};
-use wgpu::*;
 use imgui_wgpu::*;
+use std::collections::HashMap;
+use wgpu::*;
 
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
+    pub framebuffer_ids: HashMap<FramebufferKind, imgui::TextureId>,
+    pub shadowmap_id: Option<imgui::TextureId>,
 }
 
 impl ImGuiTextureRegistry {
     pub fn new() -> Self {
         Self {
             ids: HashMap::new(),
+            framebuffer_ids: HashMap::new(),
+            shadowmap_id: None,
         }
     }
 }
@@ -24,6 +28,8 @@ impl UiTextureResolver for ImguiRender {
         match tex {
             UiTexture::Engine(id) => self.registry.ids.get(&id).cloned(),
             UiTexture::Builtin(id) => Some(id),
+            UiTexture::Framebuffer(id) => self.registry.framebuffer_ids.get(&id).cloned(),
+            UiTexture::ShadowMap => self.registry.shadowmap_id,
         }
     }
 }
@@ -104,10 +110,13 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-    pub fn sync_imgui_texture(&mut self, gpu_context: &GpuContext, gpu_cache: &mut GpuCache) {
-        let registry = &mut self.registry;
+    pub fn sync_imgui_texture(
+        &mut self,
+        gpu_context: &GpuContext,
+        texture_cache: &GpuTextureCache,
+    ) {
         let renderer = &mut self.renderer;
-        let texture_cache = &gpu_cache.textures;
+        let registry = &mut self.registry;
         let device = &gpu_context.device;
 
         debug!("Sync_with_registry: ");
@@ -151,5 +160,37 @@ impl ImguiRender {
                 true
             }
         });
+    }
+    pub fn sync_imgui_shadowmap<'a>(&mut self, gpu_context: &GpuContext, texture: &GpuTexture) {
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry.shadowmap_id;
+        let device = &gpu_context.device;
+
+        debug!("Sync_with_registry: ");
+        let texture_config = RawTextureConfig {
+            label: None,
+            sampler_desc: wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            },
+        };
+        let updated_texture = imgui_wgpu::Texture::from_raw_parts(
+            device,
+            renderer,
+            texture.inner.clone(),
+            texture.view.clone(),
+            None,
+            Some(&texture_config),
+            texture.extent,
+        );
+
+        if let Some(id) = registry {
+            renderer.textures.replace(*id, updated_texture);
+        } else {
+            let id = renderer.textures.insert(updated_texture);
+            *registry = Some(id.clone());
+        }
     }
 }
