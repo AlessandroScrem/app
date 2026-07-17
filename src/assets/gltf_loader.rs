@@ -5,17 +5,17 @@ use gltf::{
 use std::collections::hash_map::HashMap;
 use std::{path::Path, time::Instant};
 
-use crate::ecs::components::{TransformComponent};
-use crate::prelude::*;
-use crate::math::*;
+use crate::ecs::components::TransformComponent;
 use crate::error::ImportError;
+use crate::math::*;
+use crate::prelude::*;
 
-use crate::assets::vertexdata::MeshVertexData;
-use crate::assets::asset_manager::{GlobalAssetId, AssetManager};
+use crate::assets::asset_manager::{AssetManager, GlobalAssetId};
+use crate::assets::material_asset::*;
 use crate::assets::material_desc;
 use crate::assets::mesh_asset::*;
 use crate::assets::texture_asset::*;
-use crate::assets::material_asset::*;
+use crate::assets::vertexdata::MeshVertexData;
 
 pub struct LoadedScene {
     pub meshes: Vec<GlobalAssetId>,
@@ -30,10 +30,7 @@ pub struct NodeData {
 }
 
 // public wrapper manage error messages
-pub fn load_gltf<P: AsRef<Path>>(
-    path: P,
-    asset_mgr: &mut AssetManager,
-) -> Option<LoadedScene> {
+pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<LoadedScene> {
     match load_gltf_internal(&path, asset_mgr) {
         Ok(scene) => Some(scene),
         Err(e) => {
@@ -129,9 +126,51 @@ fn load_gltf_internal<P: AsRef<Path>>(
         meshes.push(mesh_id);
     }
 
+    let nodes = load_nodes(path, gltf);
+
+    let scene = LoadedScene { meshes, nodes };
+
+    // print_gltf_document(&gltf);
+    info!("loading gltf took: {:?}", timer.elapsed());
+
+    Ok(scene)
+}
+
+fn create_virtual_root_node<P: AsRef<Path>>(path: P) -> NodeData {
+    let name = path
+        .as_ref()
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("__gltf_root__")
+        .to_string();
+
+    NodeData {
+        name,
+        local_transform: TransformComponent::default(),
+        mesh: None,
+        children: Vec::new(),
+    }
+}
+
+fn load_nodes<P: AsRef<Path>>(path: P, gltf: Document) -> Vec<NodeData> {
     let mut nodes = Vec::new();
+
+    // Aggiunge il root virtuale del file glTF
+    nodes.push(create_virtual_root_node(&path));
+
+    // Tiene traccia dei parent del glTF
+    let mut has_parent = vec![false; gltf.nodes().len()];
+
+    // Copia i nodi del glTF
     for node in gltf.nodes() {
-        let children = node.children().map(|c| c.index()).collect();
+        let children = node
+            .children()
+            .map(|c| c.index() + 1) // +1 per il root virtuale
+            .collect();
+
+        for child in node.children() {
+            has_parent[child.index()] = true;
+        }
 
         nodes.push(NodeData {
             name: node.name().unwrap_or("no-name").to_string(),
@@ -141,23 +180,13 @@ fn load_gltf_internal<P: AsRef<Path>>(
         });
     }
 
-    let mut has_parent = vec![false; nodes.len()];
-
-    for node in gltf.nodes() {
-        for child in node.children() {
-            has_parent[child.index()] = true;
+    // Collega il root virtuale a tutti i root del glTF
+    for (i, has_parent) in has_parent.iter().enumerate() {
+        if !*has_parent {
+            nodes[0].children.push(i + 1);
         }
     }
-
-    let scene = LoadedScene {
-        meshes,
-        nodes,
-    };
-
-    // print_gltf_document(&gltf);
-    info!("loading gltf took: {:?}", timer.elapsed());
-
-    Ok(scene)
+    nodes
 }
 
 fn generate_mikktspace_tangents(vertices: &mut [MeshVertexData], indices: &[u32]) {

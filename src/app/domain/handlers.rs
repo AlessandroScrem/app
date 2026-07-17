@@ -4,10 +4,10 @@ use crate::app::domain::events::*;
 use crate::app::*;
 use crate::assets::IblAsset;
 use crate::assets::MaterialAsset;
-use crate::ecs::components::*;
 use crate::ecs::components::light;
-use crate::scene;
+use crate::ecs::components::*;
 use crate::prelude::*;
+use crate::scene;
 
 use legion::*;
 
@@ -154,7 +154,12 @@ pub fn handle_asset_event(
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                scene::spawn_scene(&mut app.current_scene.world, &loaded, &app.asset_mgr);
+                scene::spawn_scene_transform(
+                    &mut app.current_scene.world,
+                    &loaded,
+                    &app.asset_mgr,
+                    TransformComponent::default(),
+                );
                 next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
             }
         }
