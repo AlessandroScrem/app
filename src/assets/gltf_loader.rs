@@ -22,6 +22,7 @@ pub struct LoadedScene {
     pub nodes: Vec<NodeData>,
 }
 
+#[derive(Clone)]
 pub struct NodeData {
     pub name: String,
     pub local_transform: TransformComponent,
