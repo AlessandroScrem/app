@@ -76,13 +76,22 @@ pub fn handle_scene_event(
                 hierarchy::remove_entity(&mut app.asset_mgr, *entity, world);
             }
             app.selected = None;
+            app.current_scene.filename = None;
         }
-        SceneEvent::Save(path) => {
+        SceneEvent::SaveAs(path) => {
             let world = &mut app.current_scene.world;
-            let _ = scene::save_scene_json(world, path);
+            let scene_name = scene::save_scene_json(world, path); 
+            app.current_scene.filename = scene_name.ok();
+        }
+        SceneEvent::Save => {
+            let scene = &mut app.current_scene;
+            scene.save(next_queue);
         }
         SceneEvent::Open(path) => {
-            let _ = scene::open_scene(path, &mut app.asset_mgr, next_queue);
+            app.selected = None;
+            let scene_name = scene::open_scene(path, &mut app.asset_mgr, next_queue);
+            app.current_scene.filename = scene_name.ok();
+
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
             scene::spawn_scene(

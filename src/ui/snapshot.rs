@@ -67,6 +67,7 @@ pub struct UiSnapshot<'a> {
     pub render_stats: RenderStats,
     pub gpu_counters: GpuInternalCounters,
     pub hdr_id: Option<GlobalAssetId>,
+    pub scene_name: Option<String>,
 }
 
 /// UiComponentState is a per-frame snapshot.
@@ -132,6 +133,7 @@ impl<'a> UiSnapshot<'a> {
         debug_texture_id: Option<UiTexture>,
         render_stats: RenderStats,
         hdr_id: Option<TextureId>,
+        scene_name: Option<String>,
     ) -> Self {
         let root_snapshot = RootSnapshot {
             root_nodes: get_hierarchy_roots(world),
@@ -152,6 +154,7 @@ impl<'a> UiSnapshot<'a> {
             gpu_counters,
             render_stats,
             hdr_id,
+            scene_name
         }
     }
 }

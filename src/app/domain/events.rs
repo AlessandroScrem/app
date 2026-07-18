@@ -25,7 +25,8 @@ pub enum DomainEvent {
 }
 
 pub enum SceneEvent {
-    Save(PathBuf),
+    Save,
+    SaveAs(PathBuf),
     Open(PathBuf),
     AddComponent(LoadedScene, TransformComponent),
     ClearScene,

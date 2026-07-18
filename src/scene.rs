@@ -4,11 +4,13 @@ use legion::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::domain::events::{DomainEvent, SceneEvent}, assets::{
+    app::domain::events::{DomainEvent, SceneEvent},
+    assets::{
         MeshAsset,
         asset_manager::AssetManager,
         gltf_loader::{LoadedScene, NodeData, load_gltf},
-    }, ecs::components::*,
+    },
+    ecs::components::*,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -25,6 +27,7 @@ pub struct SceneEntry {
 }
 
 pub struct Scene {
+    pub filename: Option<String>,
     pub world: World,
     pub schedule: Schedule,
 }
@@ -36,7 +39,20 @@ impl Default for Scene {
         let mut schedule_builder = Schedule::builder();
         let schedule = schedule_builder.build();
 
-        Scene { world, schedule }
+        Scene {
+            world,
+            schedule,
+            filename: None,
+        }
+    }
+}
+
+impl Scene {
+    pub fn save(&mut self, event_queue: &mut VecDeque<DomainEvent>) {
+        if let Some(filename) = self.filename.as_ref() {
+            event_queue.push_back(DomainEvent::Scene(SceneEvent::SaveAs(filename.into())));
+        } else {
+        }
     }
 }
 
@@ -163,7 +179,10 @@ pub fn spawn_scene(
     }
 }
 
-pub fn save_scene_json<P: AsRef<Path>>(world: &legion::World, filename: P) -> anyhow::Result<()> {
+pub fn save_scene_json<P: AsRef<Path>>(
+    world: &legion::World,
+    filename: P,
+) -> anyhow::Result<String, anyhow::Error> {
     let mut scenes = Vec::new();
 
     let mut query = <(&SceneComponent, &TransformComponent)>::query();
@@ -179,18 +198,19 @@ pub fn save_scene_json<P: AsRef<Path>>(world: &legion::World, filename: P) -> an
 
     let json = serde_json::to_string_pretty(&file)?;
 
-    fs::write(filename, json)?;
+    fs::write(&filename, json)?;
+    let string_name = filename.as_ref().to_string_lossy().to_string();
 
-    Ok(())
+    Ok(string_name)
 }
 
 pub fn open_scene<P: AsRef<Path>>(
     filename: P,
     asset_mgr: &mut AssetManager,
     event_queue: &mut VecDeque<DomainEvent>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String, anyhow::Error> {
     // 1. leggi file scena
-    let json = fs::read_to_string(filename)?;
+    let json = fs::read_to_string(&filename)?;
 
     // 2. deserialize
     let scene_file: SceneFile = serde_json::from_str(&json)?;
@@ -207,9 +227,14 @@ pub fn open_scene<P: AsRef<Path>>(
 
         if let Some(loaded) = loaded {
             // 5. ricrea entity ECS
-            event_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(loaded, root_transform)));
+            event_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
+                loaded,
+                root_transform,
+            )));
         }
     }
 
-    Ok(())
+    let string_name = filename.as_ref().to_string_lossy().to_string();
+
+    Ok(string_name)
 }

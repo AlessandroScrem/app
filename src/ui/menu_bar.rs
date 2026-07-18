@@ -24,8 +24,15 @@ impl Layer for MenuBarUi {
                 if ui.menu_item("Open Scene") {
                     menu_bar::file_open(FileFilter::Json).map(|f| ctx.write.push(Scene(Open(f))));
                 }
-                if ui.menu_item("Save Scene") {
-                    menu_bar::file_save(FileFilter::Json).map(|f| ctx.write.push(Scene(Save(f))));
+                if ui.menu_item("Save As..") {
+                    menu_bar::file_save(FileFilter::Json).map(|f| ctx.write.push(Scene(SaveAs(f))));
+                }
+                if ui.menu_item("Save") {
+                    if ctx.snapshot.scene_name.is_some() {
+                        ctx.write.push(Scene(Save));
+                    } else {
+                        menu_bar::file_save(FileFilter::Json).map(|f| ctx.write.push(Scene(SaveAs(f))));
+                    }
                 }
                 ui.separator();
                 if ui.menu_item("Load Gltf") {

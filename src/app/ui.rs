@@ -30,6 +30,7 @@ impl App {
             ctx.debug_texture,
             render_stats,
             hdr_id,
+            self.current_scene.filename.clone()
         );
 
         // Main operation: update_ui
