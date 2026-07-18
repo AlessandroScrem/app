@@ -77,11 +77,13 @@ pub fn handle_scene_event(
             }
             app.selected = None;
             app.current_scene.filename = None;
+            app.current_scene.dirty = true;
         }
         SceneEvent::SaveAs(path) => {
             let world = &mut app.current_scene.world;
             let scene_name = scene::save_scene_json(world, path); 
             app.current_scene.filename = scene_name.ok();
+            app.current_scene.dirty = true;
         }
         SceneEvent::Save => {
             let scene = &mut app.current_scene;
@@ -91,7 +93,7 @@ pub fn handle_scene_event(
             app.selected = None;
             let scene_name = scene::open_scene(path, &mut app.asset_mgr, next_queue);
             app.current_scene.filename = scene_name.ok();
-
+            app.current_scene.dirty = true;
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
             scene::spawn_scene(

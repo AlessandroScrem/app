@@ -5,6 +5,7 @@ use crate::assets::TextureAsset;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::ecs::components::light;
+use crate::engine::RuntimeEvent;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 
@@ -55,12 +56,20 @@ impl Application for App {
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
-    fn update(&mut self, input: &Input) {
+    fn update(&mut self, input: &Input )->Option<RuntimeEvent> {
         self.update_domain_event();
 
         self.update_camera(input);
         self.handle_selection_input(input);
         self.update_scene();
+
+        if self.current_scene.is_dirty() {
+            self.current_scene.dirty = false;
+            let title = self.current_scene.filename.clone().unwrap_or("Untitled scene *".into());
+            return Some(RuntimeEvent::SetWindowTitle(title));
+        }
+
+        None
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {

@@ -30,6 +30,7 @@ pub struct Scene {
     pub filename: Option<String>,
     pub world: World,
     pub schedule: Schedule,
+    pub dirty: bool,
 }
 
 impl Default for Scene {
@@ -43,6 +44,7 @@ impl Default for Scene {
             world,
             schedule,
             filename: None,
+            dirty: true,
         }
     }
 }
@@ -53,6 +55,12 @@ impl Scene {
             event_queue.push_back(DomainEvent::Scene(SceneEvent::SaveAs(filename.into())));
         } else {
         }
+    }
+}
+
+impl Scene {
+    pub fn is_dirty(&self)->bool {
+        self.dirty
     }
 }
 

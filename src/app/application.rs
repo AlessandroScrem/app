@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::engine::RuntimeEvent;
 use crate::input::Input;
 use crate::ui::UiRuntimeContext;
 use crate::{Camera, Globals};
@@ -33,7 +34,7 @@ impl<T> RuntimeApp for T where T: Application + HasAssetMgr + HandlesPicking + H
 
 pub trait Application {
     fn init(&mut self);
-    fn update(&mut self, input: &Input);
+    fn update(&mut self, input: &Input) -> Option<RuntimeEvent>;
     fn render_data(&self) -> AppRenderData<'_>;
     fn on_resize(&mut self, width: u32, height: u32);
     fn on_drop(&mut self, path: PathBuf);

@@ -75,7 +75,9 @@ impl RunningApp {
 
         self.update_app_hover(app);
 
-        app.update(&self.input);
+        if let Some(event) = app.update(&self.input) {
+            self.events.push(event);
+        }
 
         self.sync_gpu_assets(app.asset_mgr_mut());
 
@@ -371,6 +373,10 @@ impl RunningApp {
             }
             RuntimeEvent::DroppedFile(path) => {
                 app.on_drop(path);
+            }
+            RuntimeEvent::SetWindowTitle(title) =>{
+                self.window.set_title(&title);
+                info!("Set Window title");
             }
         }
     }
