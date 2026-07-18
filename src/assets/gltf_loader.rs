@@ -20,6 +20,7 @@ use crate::assets::vertexdata::MeshVertexData;
 pub struct LoadedScene {
     pub meshes: Vec<GlobalAssetId>,
     pub nodes: Vec<NodeData>,
+    pub name: String,
 }
 
 #[derive(Clone)]
@@ -59,7 +60,8 @@ fn load_gltf_internal<P: AsRef<Path>>(
     let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
 
-    info!("Import gltf took: {:?}", timer.elapsed());
+    let name = path.as_ref().display();
+    info!("Import gltf {:?} ,took: {:?}", name, timer.elapsed());
 
     let mut meshes = Vec::new();
     let material_map = create_materials(&gltf, &path, asset_mgr);
@@ -98,7 +100,6 @@ fn load_gltf_internal<P: AsRef<Path>>(
                 generate_mikktspace_tangents(&mut vertices, &indices[index_start..index_end]);
             }
 
-            // let material_id = create_material(&primitive.material(), asset_mgr, &path);
             let g_mat = primitive.material().index().unwrap_or_default();
             let material_id = material_map.get(&g_mat).unwrap().clone();
 
@@ -127,9 +128,21 @@ fn load_gltf_internal<P: AsRef<Path>>(
         meshes.push(mesh_id);
     }
 
-    let nodes = load_nodes(path, gltf);
+    let root_name = path
+        .as_ref()
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("__gltf_root__")
+        .to_string();
+    let file_path = path.as_ref().to_string_lossy();
 
-    let scene = LoadedScene { meshes, nodes };
+    let nodes = load_nodes(root_name.as_str(), gltf);
+
+    let scene = LoadedScene {
+        meshes,
+        nodes,
+        name: file_path.to_string(),
+    };
 
     // print_gltf_document(&gltf);
     info!("loading gltf took: {:?}", timer.elapsed());
@@ -137,27 +150,20 @@ fn load_gltf_internal<P: AsRef<Path>>(
     Ok(scene)
 }
 
-fn create_virtual_root_node<P: AsRef<Path>>(path: P) -> NodeData {
-    let name = path
-        .as_ref()
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("__gltf_root__")
-        .to_string();
-
+fn create_virtual_root_node(root_name: &str) -> NodeData {
     NodeData {
-        name,
+        name: root_name.to_string(),
         local_transform: TransformComponent::default(),
         mesh: None,
         children: Vec::new(),
     }
 }
 
-fn load_nodes<P: AsRef<Path>>(path: P, gltf: Document) -> Vec<NodeData> {
+fn load_nodes(root_name: &str, gltf: Document) -> Vec<NodeData> {
     let mut nodes = Vec::new();
 
     // Aggiunge il root virtuale del file glTF
-    nodes.push(create_virtual_root_node(&path));
+    nodes.push(create_virtual_root_node(root_name));
 
     // Tiene traccia dei parent del glTF
     let mut has_parent = vec![false; gltf.nodes().len()];

@@ -34,7 +34,7 @@ impl App {
                     handle_selection_event(self, event);
                 }
                 DomainEvent::Scene(event) => {
-                    handle_scene_event(self, event);
+                    handle_scene_event(self, event, &mut next_queue);
                 }
                 DomainEvent::Exit => {
                     self.exit_requested = true;
@@ -63,7 +63,11 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
     }
 }
 
-pub fn handle_scene_event(app: &mut App, event: SceneEvent) {
+pub fn handle_scene_event(
+    app: &mut App,
+    event: SceneEvent,
+    next_queue: &mut VecDeque<DomainEvent>,
+) {
     match event {
         SceneEvent::ClearScene => {
             let world = &mut app.current_scene.world;
@@ -72,6 +76,22 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent) {
                 hierarchy::remove_entity(&mut app.asset_mgr, *entity, world);
             }
             app.selected = None;
+        }
+        SceneEvent::Save(path) => {
+            let world = &mut app.current_scene.world;
+            let _ = scene::save_scene_json(world, path);
+        }
+        SceneEvent::Open(path) => {
+            let _ = scene::open_scene(path, &mut app.asset_mgr, next_queue);
+        }
+        SceneEvent::AddComponent(loaded_scene, transform) => {
+            scene::spawn_scene(
+                &mut app.current_scene.world,
+                &loaded_scene,
+                &app.asset_mgr,
+                transform,
+            );
+            next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
         }
     }
 }
@@ -154,13 +174,17 @@ pub fn handle_asset_event(
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                scene::spawn_scene_transform(
-                    &mut app.current_scene.world,
-                    &loaded,
-                    &app.asset_mgr,
+                // scene::spawn_scene(
+                //     &mut app.current_scene.world,
+                //     &loaded,
+                //     &app.asset_mgr,
+                //     TransformComponent::default(),
+                // );
+                // next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
+                next_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
+                    loaded,
                     TransformComponent::default(),
-                );
-                next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
+                )));
             }
         }
         AssetEvent::ChangeSkybox(path) => {

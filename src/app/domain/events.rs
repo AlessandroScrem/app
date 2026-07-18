@@ -1,6 +1,7 @@
 use std::{collections::VecDeque, path::PathBuf};
 
 use crate::assets::MaterialId;
+use crate::assets::gltf_loader::LoadedScene;
 use crate::assets::material_desc::MaterialDesc;
 use crate::ecs::components::*;
 use crate::math::*;
@@ -24,6 +25,9 @@ pub enum DomainEvent {
 }
 
 pub enum SceneEvent {
+    Save(PathBuf),
+    Open(PathBuf),
+    AddComponent(LoadedScene, TransformComponent),
     ClearScene,
 }
 
