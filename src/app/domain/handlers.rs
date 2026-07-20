@@ -60,6 +60,15 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
         CameraEvent::CameraNearFar(near_far) => {
             app.camera.set_near_far(near_far);
         }
+        CameraEvent::CameraOrbit(dx, dy) => {
+            app.camera.orbit((dx, dy));
+        }
+        CameraEvent::CameraPan(dx, dy) => {
+            app.camera.pan((dx, dy));
+        }
+        CameraEvent::CameraZoom(delta) => {
+            app.camera.zoom(delta);
+        }
     }
 }
 
@@ -70,30 +79,20 @@ pub fn handle_scene_event(
 ) {
     match event {
         SceneEvent::ClearScene => {
-            let world = &mut app.current_scene.world;
-
-            for entity in hierarchy::collect_hierarchy_root_entities(world).iter() {
-                hierarchy::remove_entity(&mut app.asset_mgr, *entity, world);
-            }
+            app.current_scene.clear_scene(&mut app.asset_mgr);
             app.selected = None;
-            app.current_scene.filename = None;
-            app.current_scene.dirty = true;
         }
         SceneEvent::SaveAs(path) => {
-            let world = &mut app.current_scene.world;
-            let scene_name = scene::save_scene_json(world, path); 
-            app.current_scene.filename = scene_name.ok();
-            app.current_scene.dirty = true;
+            let _ = app.current_scene.save_scene_json(path);
         }
         SceneEvent::Save => {
-            let scene = &mut app.current_scene;
-            scene.save(next_queue);
+            let _ = app.current_scene.save();
         }
         SceneEvent::Open(path) => {
             app.selected = None;
-            let scene_name = scene::open_scene(path, &mut app.asset_mgr, next_queue);
-            app.current_scene.filename = scene_name.ok();
-            app.current_scene.dirty = true;
+            let _ = app
+                .current_scene
+                .open_scene(path, &mut app.asset_mgr, next_queue);
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
             scene::spawn_scene(
@@ -185,13 +184,6 @@ pub fn handle_asset_event(
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                // scene::spawn_scene(
-                //     &mut app.current_scene.world,
-                //     &loaded,
-                //     &app.asset_mgr,
-                //     TransformComponent::default(),
-                // );
-                // next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
                 next_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
                     loaded,
                     TransformComponent::default(),
@@ -215,8 +207,14 @@ pub fn handle_asset_event(
 
 pub fn handle_selection_event(app: &mut App, event: SelectionEvent) {
     match event {
-        SelectionEvent::Selected(selected) => {
-            app.selected = selected;
+        SelectionEvent::Hovered(entity) => {
+            app.hovered = entity;
+        }
+        SelectionEvent::Select(entity) => {
+            app.selected = entity;
+        }
+        SelectionEvent::SelectHovered => {
+            app.selected = app.hovered;
         }
     }
 }

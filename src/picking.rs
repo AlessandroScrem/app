@@ -3,9 +3,11 @@ use wgpu::Device;
 
 use std::sync::mpsc;
 
+pub type PickingData = (u32, u32);
 pub struct PickObject {
     pub buffer: wgpu::Buffer,
-    pub pending: bool,
+    pub picking_coords: Option<PickingData>,
+    pending: bool,
     readback_tx: mpsc::Sender<()>,
     readback_rx: mpsc::Receiver<()>,
 }
@@ -24,18 +26,20 @@ impl PickObject {
             buffer,
             readback_tx: tx,
             readback_rx: rx,
+            picking_coords: None,
         }
     }
 
-    fn read_pixel(data: wgpu::BufferView) -> Option<Entity> {
-        if data.len() >= 8 {
-            let id =
-                u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
-            let entity: Entity = crate::EntityRawU64::from_raw_u64(id);
-            Some(entity)
-        } else {
-            None
-        }
+    pub fn is_ready(&self) -> bool {
+        !self.pending
+    }
+
+    pub fn set_picking_coords(&mut self, coords: PickingData) {
+        self.picking_coords = self.is_ready().then_some(coords);
+    }
+
+    pub fn get_picking_coords(&self) -> Option<PickingData> {
+        self.picking_coords
     }
 
     pub fn poll_readback(&mut self, device: &Device) -> Option<Entity> {
@@ -60,8 +64,19 @@ impl PickObject {
         entity
     }
 
+    fn read_pixel(data: wgpu::BufferView) -> Option<Entity> {
+        if data.len() >= 8 {
+            let id =
+                u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
+            let entity: Entity = crate::EntityRawU64::from_raw_u64(id);
+            Some(entity)
+        } else {
+            None
+        }
+    }
+
     fn request_readback(&mut self) {
-        if !self.pending {
+        if self.is_ready() {
             let slice = self.buffer.slice(..);
             let tx = self.readback_tx.clone();
 

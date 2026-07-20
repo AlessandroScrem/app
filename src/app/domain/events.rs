@@ -33,7 +33,9 @@ pub enum SceneEvent {
 }
 
 pub enum SelectionEvent {
-    Selected(Option<Entity>),
+    Hovered(Option<Entity>),
+    Select(Option<Entity>),
+    SelectHovered,
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),
@@ -66,6 +68,9 @@ pub enum GlobalEvent {
 }
 
 pub enum CameraEvent {
+    CameraOrbit(f64, f64),
+    CameraPan(f64, f64),
+    CameraZoom(f32),
     RecenterCamera,
     CameraFov(Rad<f32>),
     CameraDistance(f32),

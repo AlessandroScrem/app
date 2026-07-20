@@ -11,6 +11,8 @@ use crate::{
         gltf_loader::{LoadedScene, NodeData, load_gltf},
     },
     ecs::components::*,
+    engine::RuntimeEvent,
+    ui::UiComponentState,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -29,6 +31,7 @@ pub struct SceneEntry {
 pub struct Scene {
     pub filename: Option<String>,
     pub world: World,
+    pub resources: Resources,
     pub schedule: Schedule,
     pub dirty: bool,
 }
@@ -36,31 +39,110 @@ pub struct Scene {
 impl Default for Scene {
     fn default() -> Self {
         let world = World::default();
-
         let mut schedule_builder = Schedule::builder();
         let schedule = schedule_builder.build();
+        let resources = Resources::default();
 
         Scene {
-            world,
-            schedule,
             filename: None,
+            world,
+            resources,
+            schedule,
             dirty: true,
         }
     }
 }
 
 impl Scene {
-    pub fn save(&mut self, event_queue: &mut VecDeque<DomainEvent>) {
-        if let Some(filename) = self.filename.as_ref() {
-            event_queue.push_back(DomainEvent::Scene(SceneEvent::SaveAs(filename.into())));
-        } else {
+    pub fn update_scene(&mut self, events: &mut Vec<RuntimeEvent>) {
+        self.schedule.execute(&mut self.world, &mut self.resources);
+
+        if self.dirty {
+            let title = self.filename.clone().unwrap_or("Untitled scene *".into());
+            events.push(RuntimeEvent::SetWindowTitle(title));
+            self.dirty = false;
         }
     }
 }
 
 impl Scene {
-    pub fn is_dirty(&self)->bool {
-        self.dirty
+    pub fn clear_scene(&mut self, asset_mgr: &mut AssetManager) {
+        for entity in hierarchy::collect_hierarchy_root_entities(&self.world).iter() {
+            hierarchy::remove_entity(asset_mgr, *entity, &mut self.world);
+        }
+        self.filename = None;
+        self.dirty = true;
+    }
+
+    pub fn save(&mut self) -> anyhow::Result<()> {
+        let filename = self
+            .filename
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Nessun file scena aperto"))?;
+        self.save_scene_json(filename)
+    }
+
+    pub fn save_scene_json<P: AsRef<Path>>(&mut self, filename: P) -> anyhow::Result<()> {
+        let mut scenes = Vec::new();
+
+        let mut query = <(&SceneComponent, &TransformComponent)>::query();
+
+        for (scene, transform) in query.iter(&self.world) {
+            scenes.push(SceneEntry {
+                path: scene.path.clone(),
+                transform: transform.clone(),
+            });
+        }
+
+        let file = SceneFile { version: 1, scenes };
+
+        let json = serde_json::to_string_pretty(&file)?;
+
+        fs::write(&filename, json)?;
+
+        let string_name = filename.as_ref().to_string_lossy().to_string();
+        self.filename = Some(string_name);
+        self.dirty = true;
+
+        Ok(())
+    }
+
+    pub fn open_scene<P: AsRef<Path>>(
+        &mut self,
+        filename: P,
+        asset_mgr: &mut AssetManager,
+        event_queue: &mut VecDeque<DomainEvent>,
+    ) -> anyhow::Result<()> {
+        // 1. leggi file scena
+        let json = fs::read_to_string(&filename)?;
+
+        // 2. deserialize
+        let scene_file: SceneFile = serde_json::from_str(&json)?;
+
+        // 3. carica tutte le scene presenti
+        for scene in scene_file.scenes {
+            let pathname = std::path::PathBuf::from(&scene.path);
+
+            // carica il gltf
+            let loaded = load_gltf(pathname, asset_mgr);
+
+            // 4. ricrea trasformazione root
+            let root_transform = scene.transform.clone();
+
+            if let Some(loaded) = loaded {
+                // 5. ricrea entity ECS
+                event_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
+                    loaded,
+                    root_transform,
+                )));
+            }
+        }
+
+        let string_name = filename.as_ref().to_string_lossy().to_string();
+        self.filename = Some(string_name);
+        self.dirty = true;
+
+        Ok(())
     }
 }
 
@@ -187,62 +269,130 @@ pub fn spawn_scene(
     }
 }
 
-pub fn save_scene_json<P: AsRef<Path>>(
-    world: &legion::World,
-    filename: P,
-) -> anyhow::Result<String, anyhow::Error> {
-    let mut scenes = Vec::new();
+// Snapshot for UI
+impl Scene {
+    pub fn get_selected_componet_state(
+        &self,
+        selected: Option<Entity>,
+        asset_mgr: &AssetManager,
+    ) -> UiComponentState {
+        use crate::assets::{
+            MaterialId, material_asset::MaterialAsset, material_desc::MaterialDesc,
+        };
+        use std::collections::HashMap;
 
-    let mut query = <(&SceneComponent, &TransformComponent)>::query();
+        let world = &self.world;
 
-    for (scene, transform) in query.iter(world) {
-        scenes.push(SceneEntry {
-            path: scene.path.clone(),
-            transform: transform.clone(),
-        });
+        let mut state = UiComponentState::default();
+
+        let Some(entity) = selected else {
+            return state;
+        };
+        let Ok(entry) = world.entry_ref(entity) else {
+            return state;
+        };
+
+        state.tag = entry.get_component::<TagComponent>().ok().cloned();
+        state.transform = entry.get_component::<TransformComponent>().ok().cloned();
+        state.bounding_box = entry.get_component::<BoundingBoxComponent>().ok().cloned();
+        state.light = entry.get_component::<LightComponent>().ok().cloned();
+
+        if let Ok(mesh) = entry.get_component::<MeshComponent>() {
+            state.mesh = Some(mesh.clone());
+
+            if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(mesh.handle) {
+                let materials: HashMap<MaterialId, MaterialDesc> = mesh_asset
+                    .desc
+                    .submeshes
+                    .iter()
+                    .filter_map(|sm| {
+                        asset_mgr
+                            .get::<MaterialAsset>(sm.material)
+                            .map(|mat_asset| (sm.material, mat_asset.desc.clone()))
+                    })
+                    .collect();
+
+                state.materials = Some(materials);
+            }
+        }
+
+        state
     }
-
-    let file = SceneFile { version: 1, scenes };
-
-    let json = serde_json::to_string_pretty(&file)?;
-
-    fs::write(&filename, json)?;
-    let string_name = filename.as_ref().to_string_lossy().to_string();
-
-    Ok(string_name)
 }
 
-pub fn open_scene<P: AsRef<Path>>(
-    filename: P,
-    asset_mgr: &mut AssetManager,
-    event_queue: &mut VecDeque<DomainEvent>,
-) -> anyhow::Result<String, anyhow::Error> {
-    // 1. leggi file scena
-    let json = fs::read_to_string(&filename)?;
+impl Scene {
+    pub fn get_roots(&self) -> crate::ui::RootSnapshot {
+        crate::ui::RootSnapshot {
+            root_nodes: get_hierarchy_roots(&self.world),
+            lights_nodes: get_lights_nodes(&self.world),
+        }
+    }
+}
 
-    // 2. deserialize
-    let scene_file: SceneFile = serde_json::from_str(&json)?;
+/// Costruisce la gerarchia degli oggetti
+fn get_hierarchy_roots(world: &legion::World) -> crate::ui::RootNodes {
+    let mut roots = crate::ui::RootNodes::default();
+    let mut query = <(Entity, &HierarchyComponent)>::query();
 
-    // 3. carica tutte le scene presenti
-    for scene in scene_file.scenes {
-        let pathname = std::path::PathBuf::from(&scene.path);
-
-        // carica il gltf
-        let loaded = load_gltf(pathname, asset_mgr);
-
-        // 4. ricrea trasformazione root
-        let root_transform = scene.transform.clone();
-
-        if let Some(loaded) = loaded {
-            // 5. ricrea entity ECS
-            event_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
-                loaded,
-                root_transform,
-            )));
+    for (entity, hierarchy) in query.iter(world) {
+        if hierarchy.parent.is_none() {
+            roots.nodes.push(build_node(world, *entity, None));
         }
     }
 
-    let string_name = filename.as_ref().to_string_lossy().to_string();
-
-    Ok(string_name)
+    roots
 }
+
+/// Costruisce i nodi root per le luci
+fn get_lights_nodes(world: &legion::World) -> crate::ui::LightNodes {
+    let mut roots = crate::ui::LightNodes::default();
+    let mut query = <(Entity, &LightComponent, &TagComponent)>::query();
+
+    for (entity, light, tag) in query.iter(world) {
+        roots.nodes.push(crate::ui::LightNode {
+            name: tag.name.clone(),
+            comp: light.clone(), 
+            entity: *entity,
+        });
+    }
+
+    roots
+}
+
+/// Funzione ricorsiva che costruisce un nodo con tutti i figli
+fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> crate::ui::HierarchyNode {
+    let entry = match world.entry_ref(entity) {
+        Ok(e) => e,
+        Err(_) => {
+            return crate::ui::HierarchyNode {
+                name: "<missing>".into(),
+                parent,
+                entity,
+                children: Vec::new(),
+            };
+        }
+    };
+
+    let name = entry
+        .get_component::<TagComponent>()
+        .map(|t| t.name.clone())
+        .unwrap_or_else(|_| "<unnamed>".into());
+
+    let children = entry
+        .get_component::<HierarchyComponent>()
+        .map(|h| {
+            h.children
+                .iter()
+                .map(|&child| build_node(world, child, Some(entity)))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    crate::ui::HierarchyNode {
+        name,
+        parent,
+        entity,
+        children,
+    }
+}
+

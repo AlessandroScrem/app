@@ -1,28 +1,14 @@
+use super::domain::events::DomainEvent;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
-use crate::input::Input;
 use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
-
 impl App {
-    pub fn update_camera(&mut self, input: &Input) {
-        // move away from here
-
-        if input.is_mouse_button_down(crate::input::MouseButton::Left) {
-            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            self.camera.orbit(delta);
-        }
-
-        if input.is_mouse_button_down(crate::input::MouseButton::Middle) {
-            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            self.camera.pan(delta);
-        }
-
-        if let Some(delta) = input.mouse_wheel_movement {
-            self.camera.zoom(delta.y);
-        }
+    pub fn push_event(&mut self, event: DomainEvent) {
+        self.domain_events.queue.push_back(event);
     }
+
 
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
@@ -60,7 +46,8 @@ impl App {
 
         fn center_camera_to_bounding_box(camera: &mut Camera, bbox: Option<BoundingBox>) {
             if let Some(bbox) = bbox {
-                debug!("Recenter Camera {:?}", bbox);
+                info!("Recenter Camera");
+                debug!("Camera {:?}", bbox);
                 use crate::math::*;
                 let min = Vec3::new(bbox.min[0], bbox.min[1], bbox.min[2]);
                 let max = Vec3::new(bbox.max[0], bbox.max[1], bbox.max[2]);

@@ -64,11 +64,11 @@ impl Layer for SettimgsUi {
         let hdr_texture_id = ctx.snapshot.hdr_id;
         let timestep = &ctx.timestep;
         let texture_resolver = &ctx.snapshot.texture_resolver;
-        let gpu_counters = &ctx.snapshot.gpu_counters;
         let root_nodes = ctx.snapshot.root_snapshot.root_nodes.nodes.len();
         let render_stats = &ctx.snapshot.render_stats;
-        let opaque_stats = render_stats.frame.opaque;
-        let transmission_stats = render_stats.frame.transmission;
+        let gpu_counters = &ctx.snapshot.render_stats.gpu_counters;
+        let opaque_stats = render_stats.frame_stats.opaque;
+        let transmission_stats = render_stats.frame_stats.transmission;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)

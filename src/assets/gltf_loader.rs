@@ -60,8 +60,11 @@ fn load_gltf_internal<P: AsRef<Path>>(
     let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
 
-    let name = path.as_ref().display();
-    info!("Import gltf {:?} ,took: {:?}", name, timer.elapsed());
+    info!(
+        "Import gltf {:?} ,took: {:?}",
+        path.as_ref().display(),
+        timer.elapsed()
+    );
 
     let mut meshes = Vec::new();
     let material_map = create_materials(&gltf, &path, asset_mgr);

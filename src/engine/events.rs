@@ -5,4 +5,6 @@ pub enum RuntimeEvent {
     CloseRequested,
     DroppedFile(PathBuf),
     SetWindowTitle(String),
+    SyncImguiTextures,
+    UpdateIblMaps,
 }

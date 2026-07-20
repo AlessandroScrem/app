@@ -1,4 +1,4 @@
-use super::{App, Application, HandlesPicking, HasAssetMgr, HasUi};
+use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
 use crate::assets::TextureAsset;
@@ -6,8 +6,9 @@ use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::ecs::components::light;
 use crate::engine::RuntimeEvent;
-use crate::input::Input;
-use crate::ui::UiRuntimeContext;
+use crate::gpu::GpuInternalCounters;
+use crate::renderer::scene_renderer::FrameStats;
+use crate::ui::{UiSnapshot, UiTextureResolver};
 
 use crate::prelude::*;
 
@@ -17,17 +18,6 @@ impl HasAssetMgr for App {
     }
 }
 
-impl HandlesPicking for App {
-    fn set_hovered(&mut self, hovered: Option<legion::Entity>) {
-        self.hovered = hovered;
-    }
-}
-
-impl HasUi for App {
-    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>) {
-        self.update_uilayer(ctx);
-    }
-}
 
 impl Application for App {
     fn init(&mut self) {
@@ -56,20 +46,22 @@ impl Application for App {
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
-    fn update(&mut self, input: &Input )->Option<RuntimeEvent> {
+    fn push_event(&mut self, event: DomainEvent) {
+        self.push_event(event);
+    }
+
+    fn get_scene_snapshot<'a>(
+        &'a self,
+        texture_resolver: &'a dyn UiTextureResolver,
+        frame_stats: FrameStats,
+        gpu_counters: GpuInternalCounters,
+    ) -> UiSnapshot<'a> {
+        self.get_scene_snapshot(texture_resolver, frame_stats, gpu_counters)
+    }
+
+    fn on_update(&mut self, events: &mut Vec<RuntimeEvent>) {
         self.update_domain_event();
-
-        self.update_camera(input);
-        self.handle_selection_input(input);
-        self.update_scene();
-
-        if self.current_scene.is_dirty() {
-            self.current_scene.dirty = false;
-            let title = self.current_scene.filename.clone().unwrap_or("Untitled scene *".into());
-            return Some(RuntimeEvent::SetWindowTitle(title));
-        }
-
-        None
+        self.update_scene(events);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {

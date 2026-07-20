@@ -7,9 +7,7 @@ use crate::assets::asset_manager::AssetManager;
 use crate::assets::{LinesVertexData, MaterialId, MeshId, VertexInstance};
 use crate::ecs::components::*;
 use crate::globals::Globals;
-use crate::input::Input;
 use crate::math::*;
-use crate::picking::PickObject;
 use crate::prelude::trace;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
 
@@ -224,8 +222,7 @@ impl FrameBuilder {
         world: &World,
         asset: &AssetManager,
         selected: Option<Entity>,
-        pickobject: &PickObject,
-        input: &Input,
+        picking_data: Option<PickingData>,
         globals: &Globals,
     ) -> FrameData {
         let mut frame = FrameData {
@@ -234,7 +231,7 @@ impl FrameBuilder {
             lines: Vec::new(),
             lights: None,
             entity_selected: None,
-            picking: None,
+            picking: picking_data,
             skybox_enable: None,
             build_mips: None,
             axis_enable: false,
@@ -243,7 +240,6 @@ impl FrameBuilder {
             transmission_stats: DrawStats::default(),
         };
         Self::build_geometry(world, asset, &mut frame);
-        Self::build_picking(input, pickobject, &mut frame);
         Self::build_bbox_data(world, globals, &mut frame);
         Self::build_light_data(world, globals, &mut frame);
         Self::build_light_frustum(world, globals, &mut frame);
@@ -345,16 +341,6 @@ impl FrameBuilder {
             &mut frame.transmission_batches,
             &mut frame.instances,
         );
-    }
-
-    fn build_picking(input: &Input, pickobject: &PickObject, frame: &mut FrameData) {
-        if input.is_cursor_moved() && !pickobject.pending {
-            let pick_data = PickingData {
-                mouse_pos_x: input.mouse_position.x as u32,
-                mouse_pos_y: input.mouse_position.y as u32,
-            };
-            frame.picking = Some(pick_data);
-        }
     }
 
     fn build_bbox_data(world: &World, globals: &Globals, frame: &mut FrameData) {

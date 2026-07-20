@@ -37,7 +37,7 @@ impl Layer for EntityListUi {
                     && !ui.is_any_item_hovered()
                 {
                     ctx.write
-                        .push(DomainEvent::Selection(SelectionEvent::Selected(None)));
+                        .push(DomainEvent::Selection(SelectionEvent::Select(None)));
                 }
             });
     }
@@ -129,7 +129,7 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
 
     if selected != ctx.snapshot.selected.clone() {
         ctx.write
-            .push(DomainEvent::Selection(SelectionEvent::Selected(selected)));
+            .push(DomainEvent::Selection(SelectionEvent::Select(selected)));
     }
 }
 
@@ -204,7 +204,7 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         if ui.small_button(ICON_GEAR) {
             // property
             ctx.write
-                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                .push(DomainEvent::Selection(SelectionEvent::Select(Some(
                     entity,
                 ))));
         }
@@ -212,7 +212,7 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
 
         if clicked {
             ctx.write
-                .push(DomainEvent::Selection(SelectionEvent::Selected(Some(
+                .push(DomainEvent::Selection(SelectionEvent::Select(Some(
                     entity,
                 ))));
         }

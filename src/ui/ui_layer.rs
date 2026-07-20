@@ -6,21 +6,9 @@ use imgui::*;
 use imgui_winit_support::WinitPlatform;
 use winit::window::Window;
 
-use crate::gpu::GpuInternalCounters;
-use crate::renderer::scene_renderer::FrameStats;
 use crate::timestep::Timestep;
-use crate::ui::traits::UiTextureResolver;
 use crate::app::domain::events::DomainEvent;
 
-
-pub struct UiRuntimeContext<'a> {
-    pub window: &'a Window,
-    pub uilayer: &'a mut UiLayer,
-    pub texture_resolver: &'a dyn UiTextureResolver,
-    pub gpu_counters: GpuInternalCounters,
-    pub frame_stats: FrameStats,
-    pub debug_texture: Option<UiTexture>,
-}
 
 pub struct UiContext<'a> {
     pub snapshot: &'a UiSnapshot<'a>,

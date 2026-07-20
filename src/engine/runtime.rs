@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::app::{Application, HandlesPicking, HasUi, RuntimeApp};
+use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
+use crate::app::domain::events::DomainEvent;
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
+use crate::app::{Application, RuntimeApp};
 use crate::assets::IblAsset;
 use crate::assets::asset_manager::AssetManager;
 use crate::gpu::pipeline_manager::PipelineManager;
@@ -9,16 +12,16 @@ use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface,
     HasGpuStats, IblManager, ShadowManager,
 };
-use crate::input::Input;
+use crate::input::{Input, KeyButton};
 use crate::picking::PickObject;
 use crate::prelude::info;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
+use crate::renderer::framebuilder::PickingData;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::InternalCounter;
 use crate::ui::UiLayer;
-use crate::ui::UiRuntimeContext;
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for RunningApp {
@@ -67,35 +70,54 @@ impl RunningApp {
         }
     }
 
+    fn handle_input<A: RuntimeApp>(&mut self, app: &mut A) {
+        use crate::input::MouseButton;
+        let input = &self.input;
+
+        // handle hovered entity_id
+        if self.input.is_cursor_moved() {
+            let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
+            app.push_event(DomainEvent::Selection(Hovered(hovered)));
+        }
+
+        // handle selection: hovered -> selected
+        if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
+            app.push_event(DomainEvent::Selection(SelectHovered));
+        }
+
+        // handle camera -------
+        if input.is_mouse_button_down(MouseButton::Left) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            app.push_event(DomainEvent::Camera(CameraOrbit(delta.0, delta.1)));
+        }
+
+        if input.is_mouse_button_down(MouseButton::Middle) {
+            let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
+            app.push_event(DomainEvent::Camera(CameraPan(delta.0, delta.1)));
+        }
+
+        if let Some(delta) = input.mouse_wheel_movement {
+            app.push_event(DomainEvent::Camera(CameraZoom(delta.y)));
+        }
+        // --------------------
+    }
+
     pub fn tick<A: RuntimeApp>(&mut self, app: &mut A) {
-        let events = std::mem::take(&mut self.events);
-        for event in events {
-            self.handle_runtime_event(app, event);
-        }
+        self.handle_input(app);
 
-        self.update_app_hover(app);
+        self.handle_runtime_events(app);
 
-        if let Some(event) = app.update(&self.input) {
-            self.events.push(event);
-        }
+        // update app, maybe enqueue new runtime events.
+        app.on_update(&mut self.events);
 
         self.sync_gpu_assets(app.asset_mgr_mut());
 
         // replace pbrmap & skybox bindgroups
         if self.gpu_manager.bindgroup_diry() {
-            self.gpu_manager.replace_pbrmap_skybox_bindgroup(
-                self.ibl_manager.get_ibl(),
-                &self.shadow_manager,
-                &self.gpu_context.device,
-            );
+            self.events.push(RuntimeEvent::UpdateIblMaps);
         }
 
-        self.imgui_render.sync_imgui_shadowmap(
-            &self.gpu_context,
-            self.shadow_manager.get_rgba(),
-        );
-
-        self.update_app_ui(app);
+        self.update_ui(app);
 
         self.render(app);
 
@@ -252,41 +274,21 @@ impl RunningApp {
             _ => {}
         });
 
-        // If texture cache is changed -> sync imgui texture
+        // If texture cache is changed -> call sync imgui texture
         grouped.process_type::<TextureAsset, _>(|_, _| {
-            self.imgui_render
-                .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
+            self.events.push(RuntimeEvent::SyncImguiTextures);
         });
     }
 
-    fn update_app_hover<A: HandlesPicking>(&mut self, app: &mut A) {
-        if self.input.is_cursor_moved() {
-            let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
-            app.set_hovered(hovered);
-        }
-    }
-
-    fn update_app_ui<A: HasUi>(&mut self, app: &mut A) {
+    fn update_ui<A: Application>(&mut self, app: &mut A) {
+        // Main operation: update_ui and return domain events
+        let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
-
-        let RunningApp {
-            window,
-            uilayer,
-            scene_renderer,
-            imgui_render,
-            ..
-        } = self;
-
-        let context = UiRuntimeContext {
-            window: window.as_ref(),
-            uilayer,
-            texture_resolver: imgui_render,
-            gpu_counters,
-            frame_stats: scene_renderer.get_render_stats(),
-            debug_texture: None,
-        };
-
-        app.update_ui(context);
+        let snapshot = app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters);
+        let events = self.uilayer.build(&self.window, snapshot);
+        for event in events {
+            app.push_event(event);
+        }
     }
 
     fn render<A: Application>(&mut self, app: &A) {
@@ -299,6 +301,20 @@ impl RunningApp {
                 self.gpu_surface.get_config().height,
             );
             let render_data = app.render_data();
+
+            // if self.input.is_cursor_moved() {
+            //     self.pickobject.set_picking_coords((
+            //         self.input.mouse_position.x as u32,
+            //         self.input.mouse_position.y as u32,
+            //     ));
+            // }
+
+            let picking_data =
+                (self.input.is_cursor_moved() && self.pickobject.is_ready()).then(|| PickingData {
+                    mouse_pos_x: self.input.mouse_position.x as u32,
+                    mouse_pos_y: self.input.mouse_position.y as u32,
+                });
+
             {
                 let RunningApp {
                     scene_renderer,
@@ -307,17 +323,16 @@ impl RunningApp {
                     shadow_manager,
                     pipeline_manager,
                     gpu_cache,
-                    input,
                     pickobject,
                     ..
                 } = self;
+
 
                 let frame = FrameBuilder::build(
                     render_data.world,
                     render_data.asset_mgr,
                     render_data.selected,
-                    pickobject,
-                    input,
+                    picking_data,
                     render_data.globals,
                 );
 
@@ -355,28 +370,43 @@ impl RunningApp {
         }
     }
 
-    fn handle_runtime_event<A: Application>(&mut self, app: &mut A, event: RuntimeEvent) {
-        match event {
-            RuntimeEvent::Resize { width, height } => {
-                if width == 0 || height == 0 {
-                    return;
-                }
-                self.gpu_manager
-                    .resize_frame(&self.gpu_context.device, width, height);
+    fn handle_runtime_events<A: Application>(&mut self, app: &mut A) {
+        for event in self.events.drain(..) {
+            match event {
+                RuntimeEvent::Resize { width, height } => {
+                    if width == 0 || height == 0 {
+                        return;
+                    }
+                    self.gpu_manager
+                        .resize_frame(&self.gpu_context.device, width, height);
 
-                self.gpu_surface
-                    .resize_frame(&self.gpu_context.device, width, height);
-                app.on_resize(width, height);
-            }
-            RuntimeEvent::CloseRequested => {
-                app.on_close();
-            }
-            RuntimeEvent::DroppedFile(path) => {
-                app.on_drop(path);
-            }
-            RuntimeEvent::SetWindowTitle(title) =>{
-                self.window.set_title(&title);
-                info!("Set Window title");
+                    self.gpu_surface
+                        .resize_frame(&self.gpu_context.device, width, height);
+                    app.on_resize(width, height);
+                }
+                RuntimeEvent::CloseRequested => {
+                    app.on_close();
+                }
+                RuntimeEvent::DroppedFile(path) => {
+                    app.on_drop(path);
+                }
+                RuntimeEvent::SetWindowTitle(title) => {
+                    self.window.set_title(&title);
+                    info!("Set Window title");
+                }
+                RuntimeEvent::SyncImguiTextures => {
+                    self.imgui_render
+                        .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
+                }
+                RuntimeEvent::UpdateIblMaps => {
+                    self.gpu_manager.replace_pbrmap_skybox_bindgroup(
+                        self.ibl_manager.get_ibl(),
+                        &self.shadow_manager,
+                        &self.gpu_context.device,
+                    );
+                    self.imgui_render
+                        .sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba());
+                }
             }
         }
     }

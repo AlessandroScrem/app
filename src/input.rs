@@ -11,7 +11,6 @@ pub enum MouseButton {
     X1,
     X2,
 }
-
 fn map_mouse_button(button: winit::event::MouseButton) -> Option<MouseButton> {
     match button {
         winit::event::MouseButton::Left => Some(MouseButton::Left),
@@ -23,11 +22,24 @@ fn map_mouse_button(button: winit::event::MouseButton) -> Option<MouseButton> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeyButton {
+    Alt,
+}
+
+fn map_keyboard(key: winit::keyboard::Key) -> Option<KeyButton> {
+    use winit::keyboard::NamedKey;
+    match key {
+        Key::Named(NamedKey::Alt) => Some(KeyButton::Alt),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Input {
-    keys_down: HashSet<Key>,
-    keys_pressed: HashSet<Key>,
-    keys_released: HashSet<Key>,
+    keys_down: HashSet<KeyButton>,
+    keys_pressed: HashSet<KeyButton>,
+    keys_released: HashSet<KeyButton>,
 
     mouse_buttons_down: HashSet<MouseButton>,
     mouse_buttons_pressed: HashSet<MouseButton>,
@@ -55,17 +67,17 @@ impl Input {
         }
     }
 
-    pub fn is_key_down(&self, key: Key) -> bool {
+    pub fn is_key_down(&self, key: KeyButton) -> bool {
         self.keys_down.contains(&key)
     }
 
     #[allow(dead_code)]
-    pub fn is_key_pressed(&self, key: Key) -> bool {
+    pub fn is_key_pressed(&self, key: KeyButton) -> bool {
         self.keys_pressed.contains(&key)
     }
 
     #[allow(dead_code)]
-    pub fn is_key_released(&self, key: Key) -> bool {
+    pub fn is_key_released(&self, key: KeyButton) -> bool {
         self.keys_released.contains(&key)
     }
 
@@ -101,13 +113,14 @@ impl Input {
     fn update_window_events(&mut self, winit_event: &winit::event::WindowEvent) {
         match winit_event {
             winit::event::WindowEvent::KeyboardInput { event, .. } => {
-                let key = event.logical_key.clone();
-                if event.state.is_pressed() {
-                    self.keys_down.insert(key.clone());
-                    self.keys_pressed.insert(key.clone());
-                } else {
-                    self.keys_down.remove(&key.clone());
-                    self.keys_released.insert(key.clone());
+                if let Some(key) = map_keyboard(event.logical_key.clone()) {
+                    if event.state.is_pressed() {
+                        self.keys_down.insert(key);
+                        self.keys_pressed.insert(key);
+                    } else {
+                        self.keys_down.remove(&key);
+                        self.keys_released.insert(key);
+                    }
                 }
             }
             winit::event::WindowEvent::MouseInput {

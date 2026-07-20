@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
+use crate::app::domain::events::DomainEvent;
 use crate::engine::RuntimeEvent;
-use crate::input::Input;
-use crate::ui::UiRuntimeContext;
+use crate::gpu::GpuInternalCounters;
+use crate::renderer::scene_renderer::FrameStats;
+use crate::ui::{UiSnapshot, UiTextureResolver};
 use crate::{Camera, Globals};
 use legion::{Entity, World};
 
@@ -20,24 +22,23 @@ pub trait HasAssetMgr {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager;
 }
 
-pub trait HandlesPicking {
-    fn set_hovered(&mut self, hovered: Option<Entity>);
-}
+pub trait RuntimeApp: Application + HasAssetMgr {}
 
-pub trait HasUi {
-    fn update_ui(&mut self, ctx: UiRuntimeContext<'_>);
-}
-
-pub trait RuntimeApp: Application + HasAssetMgr + HandlesPicking + HasUi {}
-
-impl<T> RuntimeApp for T where T: Application + HasAssetMgr + HandlesPicking + HasUi {}
+impl<T> RuntimeApp for T where T: Application + HasAssetMgr {}
 
 pub trait Application {
     fn init(&mut self);
-    fn update(&mut self, input: &Input) -> Option<RuntimeEvent>;
     fn render_data(&self) -> AppRenderData<'_>;
+    fn on_update(&mut self, events: &mut Vec<RuntimeEvent>);
     fn on_resize(&mut self, width: u32, height: u32);
     fn on_drop(&mut self, path: PathBuf);
     fn on_close(&mut self);
     fn exit_requested(&self) -> bool;
+    fn push_event(&mut self, event: DomainEvent);
+    fn get_scene_snapshot<'a>(
+        &'a self,
+        texture_resolver: &'a dyn UiTextureResolver,
+        frame_stats: FrameStats,
+        gpu_counters: GpuInternalCounters,
+    ) -> UiSnapshot<'a>;
 }

@@ -28,6 +28,7 @@ impl RenderPass for PickObjectPass {
         frame: &FrameData,
     ) {
         if let Some(pos) = &frame.picking {
+        // if let Some(pos) = ctx.pickobject.get_picking_coords() {
             let pickobject = ctx.pickobject;
             let gpu_manager = ctx.gpu_mgr;
 
@@ -37,6 +38,8 @@ impl RenderPass for PickObjectPass {
                 .size();
             let mouse_pos_x = pos.mouse_pos_x;
             let mouse_pos_y = pos.mouse_pos_y;
+            // let mouse_pos_x = pos.0;
+            // let mouse_pos_y = pos.1;
             let x = mouse_pos_x.clamp(0, size.width - 1);
             let y = mouse_pos_y.clamp(0, size.height - 1);
 
