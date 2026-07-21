@@ -20,7 +20,7 @@ pub struct SceneRenderContext<'a> {
     pub shadow_manager: &'a mut ShadowManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a mut GpuCache,
-    pub pickobject: &'a PickObject,
+    pub pickobject: &'a mut PickObject,
 }
 
 pub struct RenderContext<'a> {
@@ -30,7 +30,7 @@ pub struct RenderContext<'a> {
     pub gpu_mgr: &'a GpuManager,
     pub shadow_mgr: &'a ShadowManager,
     pub pip_mgr: &'a PipelineManager,
-    pub pickobject: &'a PickObject,
+    pub pickobject: &'a mut PickObject,
     pub target: &'a wgpu::TextureView,
 }
 

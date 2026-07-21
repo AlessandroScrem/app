@@ -32,11 +32,6 @@ struct BatchKey {
     index_end: u32,
 }
 
-pub struct PickingData {
-    pub mouse_pos_x: u32,
-    pub mouse_pos_y: u32,
-}
-
 #[derive(Default, Debug, Copy, Clone)]
 pub struct DrawStats {
     pub draw_calls: u32,
@@ -207,7 +202,6 @@ pub struct FrameData {
     // flags / tasks
     pub axis_enable: bool,
     pub entity_selected: Option<Entity>,
-    pub picking: Option<PickingData>,
     pub skybox_enable: Option<bool>,
     pub build_mips: Option<bool>,
 
@@ -222,7 +216,6 @@ impl FrameBuilder {
         world: &World,
         asset: &AssetManager,
         selected: Option<Entity>,
-        picking_data: Option<PickingData>,
         globals: &Globals,
     ) -> FrameData {
         let mut frame = FrameData {
@@ -231,7 +224,6 @@ impl FrameBuilder {
             lines: Vec::new(),
             lights: None,
             entity_selected: None,
-            picking: picking_data,
             skybox_enable: None,
             build_mips: None,
             axis_enable: false,

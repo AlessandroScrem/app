@@ -18,7 +18,6 @@ use crate::prelude::info;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
-use crate::renderer::framebuilder::PickingData;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::InternalCounter;
 use crate::ui::UiLayer;
@@ -76,6 +75,10 @@ impl RunningApp {
 
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
+            self.pickobject.set_picking_coords((
+                self.input.mouse_position.x as u32,
+                self.input.mouse_position.y as u32,
+            ));
             let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
             app.push_event(DomainEvent::Selection(Hovered(hovered)));
         }
@@ -302,19 +305,6 @@ impl RunningApp {
             );
             let render_data = app.render_data();
 
-            // if self.input.is_cursor_moved() {
-            //     self.pickobject.set_picking_coords((
-            //         self.input.mouse_position.x as u32,
-            //         self.input.mouse_position.y as u32,
-            //     ));
-            // }
-
-            let picking_data =
-                (self.input.is_cursor_moved() && self.pickobject.is_ready()).then(|| PickingData {
-                    mouse_pos_x: self.input.mouse_position.x as u32,
-                    mouse_pos_y: self.input.mouse_position.y as u32,
-                });
-
             {
                 let RunningApp {
                     scene_renderer,
@@ -327,12 +317,10 @@ impl RunningApp {
                     ..
                 } = self;
 
-
                 let frame = FrameBuilder::build(
                     render_data.world,
                     render_data.asset_mgr,
                     render_data.selected,
-                    picking_data,
                     render_data.globals,
                 );
 

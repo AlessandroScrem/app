@@ -1,13 +1,18 @@
 use legion::Entity;
-use wgpu::Device;
-
 use std::sync::mpsc;
+
+pub enum ReadbackState {
+    Idle,          // nessuna copia in corso
+    CopySubmitted, // la GPU sta scrivendo nel buffer
+    Mapping,       // map_async richiesto, attendo callback
+}
 
 pub type PickingData = (u32, u32);
 pub struct PickObject {
     pub buffer: wgpu::Buffer,
-    pub picking_coords: Option<PickingData>,
-    pending: bool,
+    pub picking_coords: PickingData,
+    pub state: ReadbackState,
+    cached_hovered: Option<Entity>,
     readback_tx: mpsc::Sender<()>,
     readback_rx: mpsc::Receiver<()>,
 }
@@ -22,46 +27,62 @@ impl PickObject {
         });
         let (tx, rx) = mpsc::channel();
         Self {
-            pending: false,
             buffer,
+            state: ReadbackState::Idle,
+            cached_hovered: None,
             readback_tx: tx,
             readback_rx: rx,
-            picking_coords: None,
+            picking_coords: (0,0),
         }
-    }
-
-    pub fn is_ready(&self) -> bool {
-        !self.pending
     }
 
     pub fn set_picking_coords(&mut self, coords: PickingData) {
-        self.picking_coords = self.is_ready().then_some(coords);
+        self.picking_coords = coords;
     }
 
-    pub fn get_picking_coords(&self) -> Option<PickingData> {
+    pub fn get_picking_coords(&self) -> PickingData {
         self.picking_coords
     }
 
-    pub fn poll_readback(&mut self, device: &Device) -> Option<Entity> {
-        self.request_readback();
-
-        let mut entity: Option<Entity> = None;
-        // Avanza stato GPU
+    pub fn poll_readback(&mut self, device: &wgpu::Device) -> Option<Entity> {
         let _ = device.poll(wgpu::PollType::Poll);
 
-        if self.pending && self.readback_rx.try_recv().is_ok() {
-            {
+        match self.state {
+            ReadbackState::Idle => {}
+
+            ReadbackState::CopySubmitted => {
                 let slice = self.buffer.slice(..);
-                let data = slice.get_mapped_range(); //CPU READ
-                entity = Self::read_pixel(data);
-                // println!("Read {:?} ", entity);
+
+                let tx = self.readback_tx.clone();
+
+                slice.map_async(wgpu::MapMode::Read, move |res| {
+                    if res.is_ok() {
+                        let _ = tx.send(());
+                    }
+                });
+
+                self.state = ReadbackState::Mapping;
             }
 
-            self.buffer.unmap();
-            self.pending = false;
+            ReadbackState::Mapping => {
+                if self.readback_rx.try_recv().is_ok() {
+                    let entity = {
+                        let slice = self.buffer.slice(..);
+                        let data = slice.get_mapped_range();
+
+                        Self::read_pixel(data)
+                    };
+
+                    self.buffer.unmap();
+
+                    self.cached_hovered = entity;
+
+                    self.state = ReadbackState::Idle;
+                }
+            }
         }
 
-        entity
+        self.cached_hovered
     }
 
     fn read_pixel(data: wgpu::BufferView) -> Option<Entity> {
@@ -72,21 +93,6 @@ impl PickObject {
             Some(entity)
         } else {
             None
-        }
-    }
-
-    fn request_readback(&mut self) {
-        if self.is_ready() {
-            let slice = self.buffer.slice(..);
-            let tx = self.readback_tx.clone();
-
-            slice.map_async(wgpu::MapMode::Read, move |res| {
-                if res.is_ok() {
-                    let _ = tx.send(());
-                }
-            });
-
-            self.pending = true;
         }
     }
 }
