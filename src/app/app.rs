@@ -43,7 +43,8 @@ impl App {
         &'a self,
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
-        gpu_counters: GpuInternalCounters, 
+        gpu_counters: GpuInternalCounters,
+        hdr_id: Option<GlobalAssetId>,
     ) -> UiSnapshot<'a> {
         let root_snapshot = self.current_scene.get_roots();
         let comp_state = self
@@ -68,7 +69,7 @@ impl App {
             selected: self.selected,
             hovered: self.hovered,
             debug_texture_id: self.debug_texture_id,
-            hdr_id: self.ibl_id,
+            hdr_id,
             scene_name: self.current_scene.filename.clone(),
         }
     }

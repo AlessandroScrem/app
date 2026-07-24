@@ -1,7 +1,7 @@
 use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
-use crate::assets::TextureAsset;
+use crate::assets::{GlobalAssetId, TextureAsset};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::ecs::components::light;
@@ -17,7 +17,6 @@ impl HasAssetMgr for App {
         &mut self.asset_mgr
     }
 }
-
 
 impl Application for App {
     fn init(&mut self) {
@@ -55,8 +54,9 @@ impl Application for App {
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
         gpu_counters: GpuInternalCounters,
+        hdr_id: Option<GlobalAssetId>,
     ) -> UiSnapshot<'a> {
-        self.get_scene_snapshot(texture_resolver, frame_stats, gpu_counters)
+        self.get_scene_snapshot(texture_resolver, frame_stats, gpu_counters, hdr_id)
     }
 
     fn on_update(&mut self, events: &mut Vec<RuntimeEvent>) {

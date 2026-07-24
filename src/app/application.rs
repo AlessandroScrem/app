@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::app::domain::events::DomainEvent;
+use crate::assets::GlobalAssetId;
 use crate::engine::RuntimeEvent;
 use crate::gpu::GpuInternalCounters;
 use crate::renderer::scene_renderer::FrameStats;
@@ -40,5 +41,6 @@ pub trait Application {
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
         gpu_counters: GpuInternalCounters,
+        hdr_id: Option<GlobalAssetId>,
     ) -> UiSnapshot<'a>;
 }

@@ -106,6 +106,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
             ibl_manager,
             pipeline_manager,
             shadow_manager,
+            hdr_id: None,
         });
 
         window.request_redraw();

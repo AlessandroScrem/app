@@ -8,7 +8,6 @@ pub struct GpuManager {
     framebuffer_cache: FramebufferCache,
     buffer_cache: BufferCache,
     bindgroup_cache: BindgroupCache,
-    bg_dirty: bool,
 }
 
 impl GpuManager {
@@ -29,7 +28,6 @@ impl GpuManager {
             framebuffer_cache,
             buffer_cache,
             bindgroup_cache,
-            bg_dirty: true,
         }
     }
 
@@ -85,13 +83,6 @@ impl GpuManager {
         }
     }
 
-    pub fn bindgroup_diry(&self) -> bool {
-        self.bg_dirty
-    }
-
-    pub fn set_bindgroup_diry(&mut self) {
-        self.bg_dirty = true;
-    }
 
     pub fn replace_pbrmap_skybox_bindgroup(
         &mut self,
@@ -117,7 +108,6 @@ impl GpuManager {
             let bg = create_skybox_blur_bindgroup(device, ibl, &self.layout_cache);
             self.update_bindgroup(BindgroupKind::SkyboxBlur, bg);
         }
-        self.bg_dirty = false;
     }
 
     //mutables

@@ -5,7 +5,7 @@ use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom
 use crate::app::domain::events::DomainEvent;
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
 use crate::app::{Application, RuntimeApp};
-use crate::assets::IblAsset;
+use crate::assets::{GlobalAssetId, IblAsset};
 use crate::assets::asset_manager::AssetManager;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
@@ -51,6 +51,7 @@ pub struct RunningApp {
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
+    pub hdr_id: Option<GlobalAssetId>,
 }
 
 impl RunningApp {
@@ -103,6 +104,9 @@ impl RunningApp {
             app.push_event(DomainEvent::Camera(CameraZoom(delta.y)));
         }
         // --------------------
+
+        // Clear Input
+        self.input.clear();
     }
 
     pub fn tick<A: RuntimeApp>(&mut self, app: &mut A) {
@@ -115,17 +119,9 @@ impl RunningApp {
 
         self.sync_gpu_assets(app.asset_mgr_mut());
 
-        // replace pbrmap & skybox bindgroups
-        if self.gpu_manager.bindgroup_diry() {
-            self.events.push(RuntimeEvent::UpdateIblMaps);
-        }
-
         self.update_ui(app);
 
         self.render(app);
-
-        // Clear Input
-        self.input.clear();
     }
 
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
@@ -197,8 +193,9 @@ impl RunningApp {
                     .for_each(|(_id, asset)| {
                         let hdr = texture_cache.get(asset.hrd_id);
                         ibl_manager.create(hdr, device, queue);
+                        self.hdr_id = Some(asset.hrd_id);
                     });
-                gpu_manager.set_bindgroup_diry();
+                 self.events.push(RuntimeEvent::UpdateIblMaps);
             }
 
             AssetEventKind::Removed => {}
@@ -287,7 +284,7 @@ impl RunningApp {
         // Main operation: update_ui and return domain events
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
-        let snapshot = app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters);
+        let snapshot = app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, self.hdr_id);
         let events = self.uilayer.build(&self.window, snapshot);
         for event in events {
             app.push_event(event);
