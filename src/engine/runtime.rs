@@ -5,12 +5,12 @@ use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom
 use crate::app::domain::events::DomainEvent;
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
 use crate::app::{Application, RuntimeApp};
-use crate::assets::{GlobalAssetId, IblAsset};
 use crate::assets::asset_manager::AssetManager;
+use crate::assets::{GlobalAssetId, IblAsset};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuSurface,
-    HasGpuStats, IblManager, ShadowManager,
+    BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
+    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::{Input, KeyButton};
 use crate::picking::PickObject;
@@ -52,6 +52,92 @@ pub struct RunningApp {
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
     pub hdr_id: Option<GlobalAssetId>,
+}
+
+impl RunningApp {
+    pub fn new(window: Arc<Window>) -> Self {
+        // gpu resources
+        let mut imgui_context = imgui::Context::create();
+        let gpu_context = GpuContext::default();
+        let gpu_surface = GpuSurface::new(
+            gpu_context.adapter(),
+            gpu_context.instance(),
+            window.clone(),
+        );
+        let imgui_render = ImguiRender::new(
+            &gpu_context.device,
+            &gpu_context.queue,
+            &window,
+            &mut imgui_context,
+            gpu_surface.get_config().format,
+        );
+
+        // gpu resources
+        let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+
+        let gpu_cache = GpuCache {
+            textures: texture_cache,
+            material: GpuMaterialCache::default(),
+            mesh: GpuMeshCache::default(),
+        };
+
+        let gpu_manager = GpuManager::new(
+            &gpu_context.device,
+            &gpu_context.queue,
+            gpu_surface.get_config().width,
+            gpu_surface.get_config().height,
+        );
+
+        let shadow_manager = ShadowManager::new(&gpu_context.device);
+
+        let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
+
+        let pipeline_manager = PipelineManager::new(
+            &gpu_context.device,
+            &gpu_manager,
+            gpu_surface.get_config().format,
+        );
+        //
+
+        let scene_renderer = SceneRenderer::new();
+        let pickobject = PickObject::new(&gpu_context.device);
+        let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
+
+        Self {
+            window: window.clone(),
+            input: Input::new(),
+            scene_renderer,
+            pickobject,
+            imgui_render,
+            uilayer,
+            events: Vec::new(),
+            gpu_context,
+            gpu_surface,
+            gpu_cache,
+            gpu_manager,
+            ibl_manager,
+            pipeline_manager,
+            shadow_manager,
+            hdr_id: None,
+        }
+    }
+}
+
+impl RunningApp {
+    pub fn tick<A: RuntimeApp>(&mut self, app: &mut A) {
+        self.handle_input(app);
+
+        self.handle_runtime_events(app);
+
+        // update app, maybe enqueue new runtime events.
+        app.on_update(&mut self.events);
+
+        self.sync_gpu_assets(app.asset_mgr_mut());
+
+        self.update_ui(app);
+
+        self.render(app);
+    }
 }
 
 impl RunningApp {
@@ -109,22 +195,50 @@ impl RunningApp {
         self.input.clear();
     }
 
-    pub fn tick<A: RuntimeApp>(&mut self, app: &mut A) {
-        self.handle_input(app);
+    fn handle_runtime_events<A: Application>(&mut self, app: &mut A) {
+        for event in self.events.drain(..) {
+            match event {
+                RuntimeEvent::Resize { width, height } => {
+                    if width == 0 || height == 0 {
+                        return;
+                    }
+                    self.gpu_manager
+                        .resize_frame(&self.gpu_context.device, width, height);
 
-        self.handle_runtime_events(app);
-
-        // update app, maybe enqueue new runtime events.
-        app.on_update(&mut self.events);
-
-        self.sync_gpu_assets(app.asset_mgr_mut());
-
-        self.update_ui(app);
-
-        self.render(app);
+                    self.gpu_surface
+                        .resize_frame(&self.gpu_context.device, width, height);
+                    app.on_resize(width, height);
+                }
+                RuntimeEvent::CloseRequested => {
+                    app.on_close();
+                }
+                RuntimeEvent::DroppedFile(path) => {
+                    app.on_drop(path);
+                }
+                RuntimeEvent::SetWindowTitle(title) => {
+                    self.window.set_title(&title);
+                    info!("Set Window title");
+                }
+                RuntimeEvent::SyncImguiTextures => {
+                    self.imgui_render
+                        .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
+                }
+                RuntimeEvent::UpdateIblMaps => {
+                    self.gpu_manager.replace_pbrmap_skybox_bindgroup(
+                        self.ibl_manager.get_ibl(),
+                        &self.shadow_manager,
+                        &self.gpu_context.device,
+                    );
+                    self.imgui_render
+                        .sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba());
+                }
+            }
+        }
     }
+}
 
-    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
+impl RunningApp {
+    fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -195,7 +309,7 @@ impl RunningApp {
                         ibl_manager.create(hdr, device, queue);
                         self.hdr_id = Some(asset.hrd_id);
                     });
-                 self.events.push(RuntimeEvent::UpdateIblMaps);
+                self.events.push(RuntimeEvent::UpdateIblMaps);
             }
 
             AssetEventKind::Removed => {}
@@ -279,18 +393,23 @@ impl RunningApp {
             self.events.push(RuntimeEvent::SyncImguiTextures);
         });
     }
-
+}
+impl RunningApp {
     fn update_ui<A: Application>(&mut self, app: &mut A) {
-        // Main operation: update_ui and return domain events
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
-        let snapshot = app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, self.hdr_id);
+        let snapshot =
+        app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, self.hdr_id);
+        
+        // Main operation: update_ui and return domain events
         let events = self.uilayer.build(&self.window, snapshot);
         for event in events {
             app.push_event(event);
         }
     }
+}
 
+impl RunningApp {
     fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder();
 
@@ -352,47 +471,6 @@ impl RunningApp {
 
             self.gpu_context.queue.submit([encoder.finish()]);
             frame.present();
-        }
-    }
-
-    fn handle_runtime_events<A: Application>(&mut self, app: &mut A) {
-        for event in self.events.drain(..) {
-            match event {
-                RuntimeEvent::Resize { width, height } => {
-                    if width == 0 || height == 0 {
-                        return;
-                    }
-                    self.gpu_manager
-                        .resize_frame(&self.gpu_context.device, width, height);
-
-                    self.gpu_surface
-                        .resize_frame(&self.gpu_context.device, width, height);
-                    app.on_resize(width, height);
-                }
-                RuntimeEvent::CloseRequested => {
-                    app.on_close();
-                }
-                RuntimeEvent::DroppedFile(path) => {
-                    app.on_drop(path);
-                }
-                RuntimeEvent::SetWindowTitle(title) => {
-                    self.window.set_title(&title);
-                    info!("Set Window title");
-                }
-                RuntimeEvent::SyncImguiTextures => {
-                    self.imgui_render
-                        .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
-                }
-                RuntimeEvent::UpdateIblMaps => {
-                    self.gpu_manager.replace_pbrmap_skybox_bindgroup(
-                        self.ibl_manager.get_ibl(),
-                        &self.shadow_manager,
-                        &self.gpu_context.device,
-                    );
-                    self.imgui_render
-                        .sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba());
-                }
-            }
         }
     }
 }

@@ -1,14 +1,14 @@
 use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
-use crate::assets::{GlobalAssetId, TextureAsset};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
+use crate::assets::{GlobalAssetId, MaterialAsset, MeshAsset, TextureAsset};
 use crate::ecs::components::light;
 use crate::engine::RuntimeEvent;
 use crate::gpu::GpuInternalCounters;
 use crate::renderer::scene_renderer::FrameStats;
-use crate::ui::{UiSnapshot, UiTextureResolver};
+use crate::ui::{RenderStats, UiSnapshot, UiTextureResolver};
 
 use crate::prelude::*;
 
@@ -56,12 +56,37 @@ impl Application for App {
         gpu_counters: GpuInternalCounters,
         hdr_id: Option<GlobalAssetId>,
     ) -> UiSnapshot<'a> {
-        self.get_scene_snapshot(texture_resolver, frame_stats, gpu_counters, hdr_id)
+        let root_snapshot = self.current_scene.get_roots();
+        let comp_state = self
+            .current_scene
+            .get_selected_componet_state(self.selected, &self.asset_mgr);
+
+        let render_stats = RenderStats {
+            gpu_counters,
+            frame_stats,
+            texture: self.asset_mgr.get_stats::<TextureAsset>(),
+            mesh: self.asset_mgr.get_stats::<MeshAsset>(),
+            material: self.asset_mgr.get_stats::<MaterialAsset>(),
+        };
+
+        UiSnapshot {
+            texture_resolver,
+            render_stats,
+            camera: &self.camera,
+            globals: &self.globals,
+            root_snapshot,
+            comp_state,
+            selected: self.selected,
+            hovered: self.hovered,
+            debug_texture_id: self.debug_texture_id,
+            hdr_id,
+            scene_name: self.current_scene.filename.clone(),
+        }
     }
 
     fn on_update(&mut self, events: &mut Vec<RuntimeEvent>) {
         self.update_domain_event();
-        self.update_scene(events);
+        self.current_scene.update_scene(events);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {
