@@ -4,6 +4,7 @@ pub struct GpuInternalCounters {
     pub materials: GpuResourceStats,
     pub meshes: GpuResourceStats,
     pub shadows: GpuResourceStats,
+    pub ibl: GpuResourceStats,
 }
 
 pub trait HasGpuStats {

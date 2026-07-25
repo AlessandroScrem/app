@@ -30,6 +30,7 @@ impl InternalCounter for RunningApp {
             meshes: self.gpu_cache.mesh.get_stats(),
             materials: self.gpu_cache.material.get_stats(),
             shadows: self.shadow_manager.get_stats(),
+            ibl: self.ibl_manager.get_stats(),
         }
     }
 }
@@ -51,7 +52,7 @@ pub struct RunningApp {
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
-    pub hdr_id: Option<GlobalAssetId>,
+    pub hdr_id: Vec<GlobalAssetId>,
 }
 
 impl RunningApp {
@@ -118,7 +119,7 @@ impl RunningApp {
             ibl_manager,
             pipeline_manager,
             shadow_manager,
-            hdr_id: None,
+            hdr_id: Vec::new(),
         }
     }
 }
@@ -223,9 +224,9 @@ impl RunningApp {
                     self.imgui_render
                         .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
                 }
-                RuntimeEvent::UpdateIblMaps => {
+                RuntimeEvent::UpdateIblMaps(id) => {
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
-                        self.ibl_manager.get_ibl(),
+                        self.ibl_manager.get(&id),
                         &self.shadow_manager,
                         &self.gpu_context.device,
                     );
@@ -298,20 +299,22 @@ impl RunningApp {
         });
 
         grouped.process_type::<IblAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created | AssetEventKind::Updated => {
+            AssetEventKind::Created => {
                 info!("loading/Updating Ibl len {}", events.len());
 
                 events
                     .iter()
                     .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|asset| (ev.id, asset)))
-                    .for_each(|(_id, asset)| {
-                        let hdr = texture_cache.get(asset.hrd_id);
-                        ibl_manager.create(hdr, device, queue);
-                        self.hdr_id = Some(asset.hrd_id);
+                    .for_each(|(id, asset)| {
+                        if let Some(hdr) = texture_cache.get(asset.hrd_id) {
+                            let gpu_ibl = ibl_manager.create(hdr, device, queue);
+                            ibl_manager.insert(id, gpu_ibl);
+                            self.hdr_id.push(asset.hrd_id);
+                            self.events.push(RuntimeEvent::UpdateIblMaps(id));
+                        }
                     });
-                self.events.push(RuntimeEvent::UpdateIblMaps);
             }
-
+            AssetEventKind::Updated => {}
             AssetEventKind::Removed => {}
             _ => {}
         });
@@ -399,8 +402,8 @@ impl RunningApp {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
-        app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, self.hdr_id);
-        
+            app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_id);
+
         // Main operation: update_ui and return domain events
         let events = self.uilayer.build(&self.window, snapshot);
         for event in events {

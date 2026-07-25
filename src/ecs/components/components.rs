@@ -176,7 +176,5 @@ pub struct HierarchyComponent {
 #[derive(Clone, Debug)]
 pub struct SceneComponent {
     /// Asset da cui proviene la scena
-    // pub scene_id: GlobalAssetId,
     pub path: String,
-
 }

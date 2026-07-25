@@ -39,7 +39,7 @@ pub enum SelectionEvent {
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),
-    ChangeSkybox(PathBuf),
+    AddIbl(PathBuf),
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {

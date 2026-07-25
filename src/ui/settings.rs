@@ -2,6 +2,7 @@ use core::fmt;
 
 use super::tools;
 use super::*;
+use crate::assets::GlobalAssetId;
 use crate::math::*;
 use crate::text_fmt;
 use crate::{Camera, Globals};
@@ -10,7 +11,7 @@ use crate::assets::asset_manager::ResourceStats;
 use crate::gpu::GpuResourceStats;
 use crate::renderer::framebuilder::DrawStats;
 
-use crate::app::domain::events::{AssetEvent, DomainEvent, GlobalEvent, CameraEvent};
+use crate::app::domain::events::{AssetEvent, CameraEvent, DomainEvent, GlobalEvent};
 
 use imgui::*;
 
@@ -61,14 +62,14 @@ impl Layer for SettimgsUi {
         let hovered_entity = ctx.snapshot.hovered;
         let selected_entity = &ctx.snapshot.selected;
         let adapter_name = &ctx.adapter_string;
-        let hdr_texture_id = ctx.snapshot.hdr_id;
         let timestep = &ctx.timestep;
-        let texture_resolver = &ctx.snapshot.texture_resolver;
+        let texture_resolver = ctx.snapshot.texture_resolver;
         let root_nodes = ctx.snapshot.root_snapshot.root_nodes.nodes.len();
         let render_stats = &ctx.snapshot.render_stats;
         let gpu_counters = &ctx.snapshot.render_stats.gpu_counters;
         let opaque_stats = render_stats.frame_stats.opaque;
         let transmission_stats = render_stats.frame_stats.transmission;
+        let hdr_texture_id = ctx.snapshot.hdr_id;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -91,6 +92,7 @@ impl Layer for SettimgsUi {
                         text_fmt!(ui, "Gpu Materials      : {}", gpu_counters.materials);
                         text_fmt!(ui, "Gpu Meshes         : {}", gpu_counters.meshes);
                         text_fmt!(ui, "Gpu Shadows        : {}", gpu_counters.shadows);
+                        text_fmt!(ui, "Gpu Ibl            : {}", gpu_counters.ibl);
                         text_fmt!(ui, "Gpu int Buffers    : {}", 0);
                         text_fmt!(ui, "Gpu VB             : {}", 0);
                         text_fmt!(ui, "Gpu FB             : {}", 0);
@@ -123,13 +125,10 @@ impl Layer for SettimgsUi {
                     }
 
                     ui.separator();
-                    if let Some(hdr_texture_id) = hdr_texture_id {
-                        if let Some(command) = draw_ui_skybox_selector(
-                            &ui,
-                            texture_resolver.resolve(UiTexture::Engine(hdr_texture_id)),
-                        ) {
-                            ctx.write.push(command);
-                        }
+                    if let Some(command) =
+                        draw_ui_skybox_selector(&ui, texture_resolver, hdr_texture_id)
+                    {
+                        ctx.write.push(command);
                     }
                 }
 
@@ -340,22 +339,29 @@ impl Camera {
     }
 }
 
-fn draw_ui_skybox_selector(ui: &Ui, hdr_texture_id: Option<TextureId>) -> Option<DomainEvent> {
+fn draw_ui_skybox_selector(
+    ui: &Ui,
+    texture_resolver: &dyn UiTextureResolver,
+    hdr_texture_id: &Vec<GlobalAssetId>,
+) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
 
-    let mut change_skybox = false;
-    if let Some(id) = hdr_texture_id {
-        change_skybox = ui.image_button("##name", id, [60.0, 60.0]);
-        ui.same_line();
-        ui.text("HdrTexture");
-        ui.separator();
+    for id in hdr_texture_id {
+        if let Some(id) = texture_resolver.resolve(UiTexture::Engine(*id)) {
+            ui.same_line();
+            let change_skybox = ui.image_button("##name", id, [60.0, 60.0]);
+            if change_skybox {}
+        }
     }
-    if change_skybox {
+    
+    if ui.button("Add Ibl") {
         use rfd::FileDialog;
         FileDialog::new()
             .add_filter("hdr", &["hdr"])
             .pick_file()
-            .map(|f| command = Some(DomainEvent::Assets(AssetEvent::ChangeSkybox(f))));
+            .map(|f| command = Some(DomainEvent::Assets(AssetEvent::AddIbl(f))));
     }
+    ui.separator();
+
     command
 }

@@ -190,17 +190,11 @@ pub fn handle_asset_event(
                 )));
             }
         }
-        AssetEvent::ChangeSkybox(path) => {
+        AssetEvent::AddIbl(path) => {
             use crate::assets::texture_asset::*;
             let texture_asset = create_texture(path.clone(), TextureUsage::HDR16);
             let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
-
-            if let Some(id) = app.ibl_id {
-                app.asset_mgr.update::<IblAsset>(id, |asset| {
-                    asset.hrd_id = hdr_id;
-                    asset.path = path;
-                })
-            }
+            app.asset_mgr.add::<IblAsset>(IblAsset::new(hdr_id, path));
         }
     }
 }

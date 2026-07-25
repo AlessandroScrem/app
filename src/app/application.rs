@@ -41,6 +41,6 @@ pub trait Application {
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
         gpu_counters: GpuInternalCounters,
-        hdr_id: Option<GlobalAssetId>,
+        hdr_id: &'a Vec<GlobalAssetId>,
     ) -> UiSnapshot<'a>;
 }

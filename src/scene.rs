@@ -321,7 +321,7 @@ impl Scene {
 }
 
 impl Scene {
-    pub fn get_roots(&self) -> crate::ui::RootSnapshot {
+    pub fn get_root_snapshot(&self) -> crate::ui::RootSnapshot {
         crate::ui::RootSnapshot {
             root_nodes: get_hierarchy_roots(&self.world),
             lights_nodes: get_lights_nodes(&self.world),

@@ -4,22 +4,41 @@
 // CreateIrradiance(skybox);
 // CreatePrefilterMap(skybox);
 
+use std::collections::HashMap;
+
+use crate::assets::IblId;
+
 use super::ibl_impl::*;
 use super::*;
 
+trait Size {
+    fn estimated_size(&self) -> usize;
+}
+
+impl Size for wgpu::Texture {
+    fn estimated_size(self: &wgpu::Texture) -> usize {
+        let extent = self.size();
+        let format = self.format();
+
+        (extent.height
+            * extent.height
+            * extent.depth_or_array_layers
+            * format.target_pixel_byte_cost().unwrap_or(4)) as usize
+    }
+}
+
 pub struct GpuIbl {
-    _cube_map: wgpu::Texture,
-    cube_map_view: wgpu::TextureView,
-    _irradiance_map: wgpu::Texture,
-    _prefilter_map: wgpu::Texture,
+    cube_map: wgpu::Texture,
+    irradiance_map: wgpu::Texture,
+    prefilter_map: wgpu::Texture,
     sampler: wgpu::Sampler,
+    cube_map_view: wgpu::TextureView,
     irradiance_view: wgpu::TextureView,
     prefilter_view: wgpu::TextureView,
     brdf_lut_view: wgpu::TextureView,
 }
 
 impl GpuIbl {
-
     pub fn get_sampler(&self) -> &wgpu::Sampler {
         &self.sampler
     }
@@ -35,12 +54,25 @@ impl GpuIbl {
     pub fn get_cubemap_view(&self) -> &wgpu::TextureView {
         &self.cube_map_view
     }
+
+    fn estimated_size(&self) -> usize {
+        self.cube_map.estimated_size()
+            + self.irradiance_map.estimated_size()
+            + self.prefilter_map.estimated_size()
+    }
+}
+
+impl HasGpuStats for IblManager {
+    fn get_stats(&self) -> GpuResourceStats {
+        self.stats.clone()
+    }
 }
 
 pub struct IblManager {
     _brdf_lut: wgpu::Texture,
     brdf_lut_view: wgpu::TextureView,
-    ibl: Option<GpuIbl>,
+    map: HashMap<IblId, GpuIbl>,
+    stats: GpuResourceStats,
 }
 
 impl IblManager {
@@ -48,30 +80,40 @@ impl IblManager {
         // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(device, queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
-
+        
         Self {
             _brdf_lut: brdf_lut,
             brdf_lut_view,
-            ibl: None,
+            map: HashMap::new(),
+            stats: GpuResourceStats::default(),
         }
     }
 
-    pub fn create(&mut self, hdr: Option<&GpuTexture>, device: &wgpu::Device, queue: &wgpu::Queue) {
-        self.ibl = Self::create_ibl(hdr, self.brdf_lut_view.clone(), device, queue);
+    pub fn insert(&mut self, id: IblId, gpu_ibl: GpuIbl) {
+        if !self.map.contains_key(&id) {
+            self.stats.add(gpu_ibl.estimated_size());
+        }
+
+        self.map.insert(id, gpu_ibl);
     }
 
-    pub fn get_ibl(&self)-> Option<&GpuIbl> {
-        self.ibl.as_ref()
+    pub fn get(&self, id: &IblId) -> Option<&GpuIbl> {
+        self.map.get(id)
     }
 
-    fn create_ibl(
-        hdr: Option<&GpuTexture>,
-        brdf_lut_view: wgpu::TextureView,
+    #[allow(unused)]
+    pub fn remove(&mut self, id: IblId) {
+        if let Some(gpu_ibl) = self.map.remove(&id) {
+            self.stats.remove(gpu_ibl.estimated_size());
+        }
+    }
+
+    pub fn create(
+        &mut self,
+        hdr: &GpuTexture,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> Option<GpuIbl> {
-        let Some(hdr) = hdr else { return None };
-
+    ) -> GpuIbl {
         let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
         let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
@@ -99,16 +141,16 @@ impl IblManager {
             ..Default::default()
         });
 
-        Some(GpuIbl {
-            _cube_map: cube_map,
+        GpuIbl {
+            cube_map,
             cube_map_view,
-            _irradiance_map,
+            irradiance_map: _irradiance_map,
             irradiance_view,
-            _prefilter_map,
+            prefilter_map: _prefilter_map,
             prefilter_view,
             sampler,
-            brdf_lut_view,
-        })
+            brdf_lut_view: self.brdf_lut_view.clone(),
+        }
     }
 }
 /*

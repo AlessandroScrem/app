@@ -54,9 +54,9 @@ impl Application for App {
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
         gpu_counters: GpuInternalCounters,
-        hdr_id: Option<GlobalAssetId>,
+        hdr_id: &'a Vec<GlobalAssetId>,
     ) -> UiSnapshot<'a> {
-        let root_snapshot = self.current_scene.get_roots();
+        let root_snapshot = self.current_scene.get_root_snapshot();
         let comp_state = self
             .current_scene
             .get_selected_componet_state(self.selected, &self.asset_mgr);

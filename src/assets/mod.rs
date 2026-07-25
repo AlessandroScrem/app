@@ -22,6 +22,7 @@ pub (crate) use self::asset_manager::GlobalAssetId;
 pub (crate) type MeshId = crate::assets::asset_manager::GlobalAssetId;
 pub (crate) type MaterialId = crate::assets::asset_manager::GlobalAssetId;
 pub (crate) type TextureId = crate::assets::asset_manager::GlobalAssetId;
+pub (crate) type IblId = crate::assets::asset_manager::GlobalAssetId;
 
 // implementazione Display
 impl std::fmt::Display for MaterialId {
@@ -29,8 +30,6 @@ impl std::fmt::Display for MaterialId {
         write!(f, "{:?}", self)
     }
 }
-
-// pub(crate) use crate::prelude::*;
 
 crate::impl_debug_drop!(TextureAsset);
 crate::impl_debug_drop!(MeshAsset);
