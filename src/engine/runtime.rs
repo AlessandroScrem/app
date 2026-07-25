@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
+use crate::app::domain::events::AssetEvent::SelectIbl;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent;
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
-use crate::app::{Application, RuntimeApp};
-use crate::assets::asset_manager::AssetManager;
-use crate::assets::{GlobalAssetId, IblAsset};
+use crate::app::{Application, HasAssetMgr, RuntimeApp};
+use crate::assets::{IblAsset, IblId, TextureId};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
@@ -52,7 +52,7 @@ pub struct RunningApp {
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
-    pub hdr_id: Vec<GlobalAssetId>,
+    pub hdr_vec: Vec<(TextureId, IblId)>,
 }
 
 impl RunningApp {
@@ -119,7 +119,7 @@ impl RunningApp {
             ibl_manager,
             pipeline_manager,
             shadow_manager,
-            hdr_id: Vec::new(),
+            hdr_vec: Vec::new(),
         }
     }
 }
@@ -133,7 +133,7 @@ impl RunningApp {
         // update app, maybe enqueue new runtime events.
         app.on_update(&mut self.events);
 
-        self.sync_gpu_assets(app.asset_mgr_mut());
+        self.sync_gpu_assets(app);
 
         self.update_ui(app);
 
@@ -239,7 +239,7 @@ impl RunningApp {
 }
 
 impl RunningApp {
-    fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager) {
+    fn sync_gpu_assets<A: Application + HasAssetMgr>(&mut self, app: &mut A) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -264,7 +264,10 @@ impl RunningApp {
         let material_cache = &mut self.gpu_cache.material;
         let mesh_cache = &mut self.gpu_cache.mesh;
 
+        let asset_mgr = app.asset_mgr_mut();
         let grouped = asset_mgr.drain_grouped_events();
+
+        let mut domain_event = vec![];
 
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
@@ -305,12 +308,13 @@ impl RunningApp {
                 events
                     .iter()
                     .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|asset| (ev.id, asset)))
-                    .for_each(|(id, asset)| {
+                    .for_each(|(ibl_id, asset)| {
                         if let Some(hdr) = texture_cache.get(asset.hrd_id) {
                             let gpu_ibl = ibl_manager.create(hdr, device, queue);
-                            ibl_manager.insert(id, gpu_ibl);
-                            self.hdr_id.push(asset.hrd_id);
-                            self.events.push(RuntimeEvent::UpdateIblMaps(id));
+                            ibl_manager.insert(ibl_id, gpu_ibl);
+                            self.hdr_vec.push((asset.hrd_id, ibl_id));
+                            domain_event.push(DomainEvent::Assets(SelectIbl(ibl_id)));
+                            self.events.push(RuntimeEvent::UpdateIblMaps(ibl_id));
                         }
                     });
             }
@@ -395,6 +399,10 @@ impl RunningApp {
         grouped.process_type::<TextureAsset, _>(|_, _| {
             self.events.push(RuntimeEvent::SyncImguiTextures);
         });
+
+        for event in domain_event {
+            app.push_event(event);
+        }
     }
 }
 impl RunningApp {
@@ -402,7 +410,7 @@ impl RunningApp {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
-            app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_id);
+            app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
         // Main operation: update_ui and return domain events
         let events = self.uilayer.build(&self.window, snapshot);

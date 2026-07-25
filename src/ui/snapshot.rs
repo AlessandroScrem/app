@@ -62,7 +62,8 @@ pub struct UiSnapshot<'a> {
     pub hovered: Option<Entity>,
     pub debug_texture_id: Option<UiTexture>,
     pub render_stats: RenderStats,
-    pub hdr_id: &'a Vec<GlobalAssetId>,
+    pub hdr_vec: &'a Vec<(crate::assets::TextureId, crate::assets::IblId)>,
+    pub selected_ibl: Option<GlobalAssetId>,
     pub scene_name: Option<String>,
 }
 

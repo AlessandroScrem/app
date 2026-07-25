@@ -1,6 +1,6 @@
 use crate::app::domain::events::DomainEvents;
+use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::asset_manager::GlobalAssetId;
 use crate::Globals;
 use crate::Camera;
 use crate::scene::Scene;
@@ -17,7 +17,7 @@ pub struct App {
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
     pub exit_requested: bool,
-    pub ibl_id: Option<GlobalAssetId>,
+    pub selected_ibl: Option<IblId>,
     #[allow(unused)]
     pub debug_texture_id: Option<UiTexture>,
 }

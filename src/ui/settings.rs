@@ -2,7 +2,6 @@ use core::fmt;
 
 use super::tools;
 use super::*;
-use crate::assets::GlobalAssetId;
 use crate::math::*;
 use crate::text_fmt;
 use crate::{Camera, Globals};
@@ -69,7 +68,8 @@ impl Layer for SettimgsUi {
         let gpu_counters = &ctx.snapshot.render_stats.gpu_counters;
         let opaque_stats = render_stats.frame_stats.opaque;
         let transmission_stats = render_stats.frame_stats.transmission;
-        let hdr_texture_id = ctx.snapshot.hdr_id;
+        let hdr_vec = ctx.snapshot.hdr_vec;
+        let selected_ibl = ctx.snapshot.selected_ibl;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -126,7 +126,7 @@ impl Layer for SettimgsUi {
 
                     ui.separator();
                     if let Some(command) =
-                        draw_ui_skybox_selector(&ui, texture_resolver, hdr_texture_id)
+                        draw_ui_skybox_selector(&ui, texture_resolver, hdr_vec, selected_ibl)
                     {
                         ctx.write.push(command);
                     }
@@ -342,18 +342,36 @@ impl Camera {
 fn draw_ui_skybox_selector(
     ui: &Ui,
     texture_resolver: &dyn UiTextureResolver,
-    hdr_texture_id: &Vec<GlobalAssetId>,
+    hdr_vec: &Vec<(crate::assets::TextureId, crate::assets::IblId)>,
+    selected_ibl: Option<crate::assets::IblId>,
 ) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
 
-    for id in hdr_texture_id {
-        if let Some(id) = texture_resolver.resolve(UiTexture::Engine(*id)) {
+    for (hdr_id, ibl_id) in hdr_vec {
+        let selected = selected_ibl.is_some_and(|id| id == *ibl_id);
+        // let _c1 = ui.push_style_color(StyleColor::Button, [0.2, 0.5, 1.0, 1.0]);
+        // // let _c2 = ui.push_style_color(StyleColor::ButtonHovered, [0.3, 0.6, 1.0, 1.0]);
+        // // let _c3 = ui.push_style_color(StyleColor::ButtonActive, [0.1, 0.4, 0.9, 1.0]);
+
+        if let Some(id) = texture_resolver.resolve(UiTexture::Engine(*hdr_id)) {
             ui.same_line();
-            let change_skybox = ui.image_button("##name", id, [60.0, 60.0]);
-            if change_skybox {}
+
+            let clicked = ui
+                .image_button_config(format!("##ibl_{:?}", ibl_id), id, [60.0, 60.0])
+                .tint_col(if selected {
+                    [0.6, 0.8, 1.0, 1.0]
+                } else {
+                    [1.0, 1.0, 1.0, 1.0]
+                })
+                .build();
+
+            if clicked {
+                command = Some(DomainEvent::Assets(AssetEvent::SelectIbl(ibl_id.clone())));
+                println!("Click on");
+            }
         }
     }
-    
+
     if ui.button("Add Ibl") {
         use rfd::FileDialog;
         FileDialog::new()

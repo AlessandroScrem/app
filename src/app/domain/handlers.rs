@@ -6,13 +6,14 @@ use crate::assets::IblAsset;
 use crate::assets::MaterialAsset;
 use crate::ecs::components::light;
 use crate::ecs::components::*;
+use crate::engine::RuntimeEvent;
 use crate::prelude::*;
 use crate::scene;
 
 use legion::*;
 
 impl App {
-    pub fn update_domain_event(&mut self) {
+    pub fn update_domain_event(&mut self, runtime_events: &mut Vec<RuntimeEvent>) {
         // event needs world update, will be executed next frame.
         let mut next_queue = VecDeque::<DomainEvent>::new();
 
@@ -28,7 +29,7 @@ impl App {
                     handle_entity_event(self, event);
                 }
                 DomainEvent::Assets(event) => {
-                    handle_asset_event(self, event, &mut next_queue);
+                    handle_asset_event(self, event, &mut next_queue, runtime_events);
                 }
                 DomainEvent::Selection(event) => {
                     handle_selection_event(self, event);
@@ -174,6 +175,7 @@ pub fn handle_asset_event(
     app: &mut App,
     event: AssetEvent,
     next_queue: &mut VecDeque<DomainEvent>,
+    runtime_events: &mut Vec<RuntimeEvent>
 ) {
     match event {
         AssetEvent::UpdateMaterial(material_id, desc) => {
@@ -195,6 +197,11 @@ pub fn handle_asset_event(
             let texture_asset = create_texture(path.clone(), TextureUsage::HDR16);
             let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
             app.asset_mgr.add::<IblAsset>(IblAsset::new(hdr_id, path));
+        }
+        AssetEvent::SelectIbl(ibl_id) => {
+            app.selected_ibl = Some(ibl_id);
+            runtime_events.push(RuntimeEvent::UpdateIblMaps(ibl_id));
+            println!("Selected {:?}", ibl_id);
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, path::PathBuf};
 
-use crate::assets::MaterialId;
+use crate::assets::{IblId, MaterialId};
 use crate::assets::gltf_loader::LoadedScene;
 use crate::assets::material_desc::MaterialDesc;
 use crate::ecs::components::*;
@@ -40,6 +40,7 @@ pub enum SelectionEvent {
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
+    SelectIbl(IblId),
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {

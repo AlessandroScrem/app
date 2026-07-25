@@ -1,9 +1,10 @@
 use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
+use crate::app::domain::events::AssetEvent::SelectIbl;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
-use crate::assets::{GlobalAssetId, MaterialAsset, MeshAsset, TextureAsset};
+use crate::assets::{IblId, MaterialAsset, MeshAsset, TextureAsset, TextureId};
 use crate::ecs::components::light;
 use crate::engine::RuntimeEvent;
 use crate::gpu::GpuInternalCounters;
@@ -37,7 +38,7 @@ impl Application for App {
         let ibl_id = self
             .asset_mgr
             .add::<IblAsset>(IblAsset::new(hdr_id, HDRPATH));
-        self.ibl_id = Some(ibl_id);
+        self.push_event(DomainEvent::Assets(SelectIbl(ibl_id)));
         //*****************************
 
         self.current_scene.schedule = crate::ecs::create_current_scene_schedule_builder();
@@ -54,7 +55,7 @@ impl Application for App {
         texture_resolver: &'a dyn UiTextureResolver,
         frame_stats: FrameStats,
         gpu_counters: GpuInternalCounters,
-        hdr_id: &'a Vec<GlobalAssetId>,
+        hdr_vec: &'a Vec<(TextureId, IblId)>,
     ) -> UiSnapshot<'a> {
         let root_snapshot = self.current_scene.get_root_snapshot();
         let comp_state = self
@@ -79,13 +80,14 @@ impl Application for App {
             selected: self.selected,
             hovered: self.hovered,
             debug_texture_id: self.debug_texture_id,
-            hdr_id,
+            hdr_vec,
+            selected_ibl: self.selected_ibl,
             scene_name: self.current_scene.filename.clone(),
         }
     }
 
     fn on_update(&mut self, events: &mut Vec<RuntimeEvent>) {
-        self.update_domain_event();
+        self.update_domain_event(events);
         self.current_scene.update_scene(events);
     }
 
