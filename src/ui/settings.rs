@@ -2,6 +2,7 @@ use core::fmt;
 
 use super::tools;
 use super::*;
+use crate::app::domain::events::SelectionEvent;
 use crate::math::*;
 use crate::text_fmt;
 use crate::{Camera, Globals};
@@ -339,6 +340,18 @@ impl Camera {
     }
 }
 
+fn push_button_style(ui: &imgui::Ui) -> (
+    imgui::ColorStackToken<'_>,
+    imgui::ColorStackToken<'_>,
+    imgui::ColorStackToken<'_>,
+) {
+    (
+        ui.push_style_color(StyleColor::Button, [0.2, 0.5, 1.0, 1.0]),
+        ui.push_style_color(StyleColor::ButtonHovered, [0.3, 0.6, 1.0, 1.0]),
+        ui.push_style_color(StyleColor::ButtonActive, [0.1, 0.4, 0.9, 1.0]),
+    )
+}
+
 fn draw_ui_skybox_selector(
     ui: &Ui,
     texture_resolver: &dyn UiTextureResolver,
@@ -347,26 +360,21 @@ fn draw_ui_skybox_selector(
 ) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
 
+
     for (hdr_id, ibl_id) in hdr_vec {
-        let selected = selected_ibl.is_some_and(|id| id == *ibl_id);
-        // let _c1 = ui.push_style_color(StyleColor::Button, [0.2, 0.5, 1.0, 1.0]);
-        // // let _c2 = ui.push_style_color(StyleColor::ButtonHovered, [0.3, 0.6, 1.0, 1.0]);
-        // // let _c3 = ui.push_style_color(StyleColor::ButtonActive, [0.1, 0.4, 0.9, 1.0]);
+        let selected = selected_ibl.is_some_and(|id| id.eq(ibl_id));
 
         if let Some(id) = texture_resolver.resolve(UiTexture::Engine(*hdr_id)) {
             ui.same_line();
 
-            let clicked = ui
-                .image_button_config(format!("##ibl_{:?}", ibl_id), id, [60.0, 60.0])
-                .tint_col(if selected {
-                    [0.6, 0.8, 1.0, 1.0]
-                } else {
-                    [1.0, 1.0, 1.0, 1.0]
-                })
-                .build();
+            let _style = selected.then(|| push_button_style(ui));
+
+            let clicked = ui.image_button(format!("##ibl_{:?}", ibl_id), id, [60.0, 60.0]);
 
             if clicked {
-                command = Some(DomainEvent::Assets(AssetEvent::SelectIbl(ibl_id.clone())));
+                command = Some(DomainEvent::Selection(SelectionEvent::SelectIbl(
+                    ibl_id.clone(),
+                )));
                 println!("Click on");
             }
         }

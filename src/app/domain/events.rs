@@ -30,11 +30,11 @@ pub enum SelectionEvent {
     Hovered(Option<Entity>),
     Select(Option<Entity>),
     SelectHovered,
+    SelectIbl(IblId),
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
-    SelectIbl(IblId),
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {

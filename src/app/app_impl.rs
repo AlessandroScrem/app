@@ -1,6 +1,6 @@
 use super::{App, Application, HasAssetMgr};
 use crate::app::application::AppRenderData;
-use crate::app::domain::events::AssetEvent::SelectIbl;
+use crate::app::domain::events::SelectionEvent::SelectIbl;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
@@ -38,7 +38,7 @@ impl Application for App {
         let ibl_id = self
             .asset_mgr
             .add::<IblAsset>(IblAsset::new(hdr_id, HDRPATH));
-        bus.send_domain(DomainEvent::Assets(SelectIbl(ibl_id)));
+        bus.send_domain(DomainEvent::Selection(SelectIbl(ibl_id)));
         //*****************************
 
         self.current_scene.schedule = crate::ecs::create_current_scene_schedule_builder();

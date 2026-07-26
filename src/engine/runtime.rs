@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::app::domain::events::AssetEvent::SelectIbl;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
-use crate::app::domain::events::DomainEvent;
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
+use crate::app::domain::events::DomainEvent::{Selection, Camera};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
 use crate::app::{Application, HasAssetMgr};
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -151,27 +150,27 @@ impl Runtime {
                 self.input.mouse_position.y as u32,
             ));
             let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
-            bus.send_domain(DomainEvent::Selection(Hovered(hovered)));
+            bus.send_domain(Selection(Hovered(hovered)));
         }
 
         // handle selection: hovered -> selected
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
-            bus.send_domain(DomainEvent::Selection(SelectHovered));
+            bus.send_domain(Selection(SelectHovered));
         }
 
         // handle camera -------
         if input.is_mouse_button_down(MouseButton::Left) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            bus.send_domain(DomainEvent::Camera(CameraOrbit(delta.0, delta.1)));
+            bus.send_domain(Camera(CameraOrbit(delta.0, delta.1)));
         }
 
         if input.is_mouse_button_down(MouseButton::Middle) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            bus.send_domain(DomainEvent::Camera(CameraPan(delta.0, delta.1)));
+            bus.send_domain(Camera(CameraPan(delta.0, delta.1)));
         }
 
         if let Some(delta) = input.mouse_wheel_movement {
-            bus.send_domain(DomainEvent::Camera(CameraZoom(delta.y)));
+            bus.send_domain(Camera(CameraZoom(delta.y)));
         }
         // --------------------
 
@@ -298,7 +297,7 @@ impl Runtime {
                             let gpu_ibl = ibl_manager.create(hdr, device, queue);
                             ibl_manager.insert(ibl_id, gpu_ibl);
                             self.hdr_vec.push((asset.hrd_id, ibl_id));
-                            bus.send_domain(DomainEvent::Assets(SelectIbl(ibl_id)));
+                            bus.send_domain(Selection(SelectIbl(ibl_id)));
                             bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
                         }
                     });

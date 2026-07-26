@@ -30,7 +30,7 @@ impl App {
                     handle_asset_event(self, event, bus);
                 }
                 DomainEvent::Selection(event) => {
-                    handle_selection_event(self, event);
+                    handle_selection_event(self, event, bus);
                 }
                 DomainEvent::Scene(event) => {
                     handle_scene_event(self, event, bus);
@@ -181,15 +181,10 @@ pub fn handle_asset_event(app: &mut App, event: AssetEvent, bus: &mut EventBus) 
             let hdr_id = app.asset_mgr.add::<TextureAsset>(texture_asset);
             app.asset_mgr.add::<IblAsset>(IblAsset::new(hdr_id, path));
         }
-        AssetEvent::SelectIbl(ibl_id) => {
-            app.selected_ibl = Some(ibl_id);
-            bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
-            println!("Selected {:?}", ibl_id);
-        }
     }
 }
 
-pub fn handle_selection_event(app: &mut App, event: SelectionEvent) {
+pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut EventBus) {
     match event {
         SelectionEvent::Hovered(entity) => {
             app.hovered = entity;
@@ -199,6 +194,11 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent) {
         }
         SelectionEvent::SelectHovered => {
             app.selected = app.hovered;
+        }
+        SelectionEvent::SelectIbl(ibl_id) => {
+            app.selected_ibl = Some(ibl_id);
+            bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
+            println!("Selected {:?}", ibl_id);
         }
     }
 }
