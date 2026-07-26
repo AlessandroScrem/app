@@ -1,5 +1,11 @@
 use std::collections::HashSet;
-use winit::{event::Event, keyboard::Key};
+use winit::{
+    event::MouseButton as WinitMouseButton,
+    event::{DeviceEvent, Event, WindowEvent},
+    keyboard::Key as WinitKey,
+    keyboard::NamedKey,
+    event::MouseScrollDelta,
+};
 
 use crate::math::{Vec2, Zero};
 
@@ -8,16 +14,20 @@ pub enum MouseButton {
     Left,
     Middle,
     Right,
+    Extra1,
+    Extra2,
     X1,
     X2,
 }
-fn map_mouse_button(button: winit::event::MouseButton) -> Option<MouseButton> {
+fn map_mouse_button(button: WinitMouseButton) -> Option<MouseButton> {
     match button {
-        winit::event::MouseButton::Left => Some(MouseButton::Left),
-        winit::event::MouseButton::Right => Some(MouseButton::Right),
-        winit::event::MouseButton::Middle => Some(MouseButton::Middle),
-        winit::event::MouseButton::Other(8) => Some(MouseButton::X1),
-        winit::event::MouseButton::Other(9) => Some(MouseButton::X2),
+        WinitMouseButton::Left | WinitMouseButton::Other(0) => Some(MouseButton::Left),
+        WinitMouseButton::Right | WinitMouseButton::Other(1) => Some(MouseButton::Right),
+        WinitMouseButton::Middle | WinitMouseButton::Other(2) => Some(MouseButton::Middle),
+        WinitMouseButton::Other(3) => Some(MouseButton::Extra1),
+        WinitMouseButton::Other(4) => Some(MouseButton::Extra2),
+        WinitMouseButton::Other(8) => Some(MouseButton::X1),
+        WinitMouseButton::Other(9) => Some(MouseButton::X2),
         _ => None,
     }
 }
@@ -27,10 +37,9 @@ pub enum KeyButton {
     Alt,
 }
 
-fn map_keyboard(key: winit::keyboard::Key) -> Option<KeyButton> {
-    use winit::keyboard::NamedKey;
+fn map_keyboard(key: WinitKey) -> Option<KeyButton> {
     match key {
-        Key::Named(NamedKey::Alt) => Some(KeyButton::Alt),
+        WinitKey::Named(NamedKey::Alt) => Some(KeyButton::Alt),
         _ => None,
     }
 }
@@ -39,11 +48,9 @@ fn map_keyboard(key: winit::keyboard::Key) -> Option<KeyButton> {
 pub struct Input {
     keys_down: HashSet<KeyButton>,
     keys_pressed: HashSet<KeyButton>,
-    keys_released: HashSet<KeyButton>,
 
     mouse_buttons_down: HashSet<MouseButton>,
     mouse_buttons_pressed: HashSet<MouseButton>,
-    mouse_buttons_released: HashSet<MouseButton>,
     cursor_moved: bool,
     pub mouse_position: Vec2,
     pub mouse_delta: Vec2,
@@ -55,11 +62,9 @@ impl Input {
         Self {
             keys_down: HashSet::new(),
             keys_pressed: HashSet::new(),
-            keys_released: HashSet::new(),
 
             mouse_buttons_down: HashSet::new(),
             mouse_buttons_pressed: HashSet::new(),
-            mouse_buttons_released: HashSet::new(),
             mouse_position: Vec2::zero(),
             mouse_delta: Vec2::zero(),
             mouse_wheel_movement: None,
@@ -71,27 +76,12 @@ impl Input {
         self.keys_down.contains(&key)
     }
 
-    #[allow(dead_code)]
-    pub fn is_key_pressed(&self, key: KeyButton) -> bool {
-        self.keys_pressed.contains(&key)
-    }
-
-    #[allow(dead_code)]
-    pub fn is_key_released(&self, key: KeyButton) -> bool {
-        self.keys_released.contains(&key)
-    }
-
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
 
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
-    }
-
-    #[allow(dead_code)]
-    pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
-        self.mouse_buttons_released.contains(&button)
     }
 
     pub fn is_cursor_moved(&self) -> bool {
@@ -110,44 +100,41 @@ impl Input {
         }
     }
 
-    fn update_window_events(&mut self, winit_event: &winit::event::WindowEvent) {
+    fn update_window_events(&mut self, winit_event: &WindowEvent) {
         match winit_event {
-            winit::event::WindowEvent::KeyboardInput { event, .. } => {
+            WindowEvent::KeyboardInput { event, .. } => {
                 if let Some(key) = map_keyboard(event.logical_key.clone()) {
                     if event.state.is_pressed() {
                         self.keys_down.insert(key);
                         self.keys_pressed.insert(key);
                     } else {
                         self.keys_down.remove(&key);
-                        self.keys_released.insert(key);
                     }
                 }
             }
-            winit::event::WindowEvent::MouseInput {
-                device_id: _,
+            WindowEvent::MouseInput {
                 state,
                 button,
                 ..
             } => {
                 if let Some(mouse_button) = map_mouse_button(*button) {
-                    if *state == winit::event::ElementState::Pressed {
+                    if state.is_pressed() {
                         self.mouse_buttons_down.insert(mouse_button);
                         self.mouse_buttons_pressed.insert(mouse_button);
-                    } else if *state == winit::event::ElementState::Released {
+                    } else {
                         self.mouse_buttons_down.remove(&mouse_button);
-                        self.mouse_buttons_released.insert(mouse_button);
                     }
                 }
             }
-            winit::event::WindowEvent::MouseWheel { delta, .. } => {
+            WindowEvent::MouseWheel { delta, .. } => {
                 self.mouse_wheel_movement = match delta {
-                    winit::event::MouseScrollDelta::LineDelta(x, y) => Some(Vec2::new(*x, *y)),
-                    winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                    MouseScrollDelta::LineDelta(x, y) => Some(Vec2::new(*x, *y)),
+                    MouseScrollDelta::PixelDelta(pos) => {
                         Some(Vec2::new(pos.x as f32, pos.y as f32))
                     }
                 };
             }
-            winit::event::WindowEvent::CursorMoved { position, .. } => {
+            WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_position = Vec2::new(position.x as f32, position.y as f32);
                 self.cursor_moved = true;
             }
@@ -155,9 +142,9 @@ impl Input {
         }
     }
 
-    fn update_device_events(&mut self, winit_event: &winit::event::DeviceEvent) {
+    fn update_device_events(&mut self, winit_event: &DeviceEvent) {
         match winit_event {
-            winit::event::DeviceEvent::MouseMotion { delta } => {
+            DeviceEvent::MouseMotion { delta } => {
                 self.mouse_delta = Vec2::new(delta.0 as f32, delta.1 as f32);
             }
             _ => (),
@@ -166,9 +153,7 @@ impl Input {
 
     pub fn clear(&mut self) {
         self.keys_pressed.clear();
-        self.keys_released.clear();
         self.mouse_buttons_pressed.clear();
-        self.mouse_buttons_released.clear();
         self.mouse_delta = Vec2::zero();
         self.mouse_wheel_movement = None;
         self.cursor_moved = false;

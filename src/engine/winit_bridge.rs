@@ -75,7 +75,7 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
             return;
         }
 
-        if self.engine.app.exit_requested() {
+        if runtime.wait_for_exit {
             event_loop.exit();
             return;
         }

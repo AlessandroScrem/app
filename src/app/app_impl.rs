@@ -108,11 +108,7 @@ impl Application for App {
     }
 
     fn on_close(&mut self) {
-        self.exit_requested = true;
         info!("Exit requested; App stopping");
     }
 
-    fn exit_requested(&self) -> bool {
-        self.exit_requested
-    }
 }

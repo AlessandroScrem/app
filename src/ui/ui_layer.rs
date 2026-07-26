@@ -2,6 +2,7 @@ use super::*;
 use imgui::*;
 
 use imgui_winit_support::WinitPlatform;
+use winit::event::Event;
 use winit::window::Window;
 
 use crate::engine::engine::EventBus;
@@ -106,9 +107,9 @@ impl UiLayer {
         self.context.io().want_capture_mouse
     }
 
-    pub fn handle_event(&mut self, window: &Window, event: &winit::event::Event<()>) {
+    pub fn handle_event<T>(&mut self, window: &Window, event: &Event<T>) {
         self.platform
-            .handle_event::<()>(self.context.io_mut(), window, &event);
+            .handle_event::<T>(self.context.io_mut(), window, event);
     }
 
     pub fn get_draw_data(&mut self) -> &imgui::DrawData {

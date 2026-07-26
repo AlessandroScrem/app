@@ -52,6 +52,7 @@ pub struct Runtime {
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
+    pub wait_for_exit: bool,
 }
 
 impl Runtime {
@@ -118,6 +119,7 @@ impl Runtime {
             pipeline_manager,
             shadow_manager,
             hdr_vec: Vec::new(),
+            wait_for_exit: false,
         }
     }
 }
@@ -194,6 +196,7 @@ impl Runtime {
                 }
                 RuntimeEvent::CloseRequested => {
                     app.on_close();
+                    self.wait_for_exit = true;
                 }
                 RuntimeEvent::DroppedFile(path) => {
                     app.on_drop(path, bus);
