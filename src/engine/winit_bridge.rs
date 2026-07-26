@@ -103,20 +103,22 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
 
         match event {
             WindowEvent::CloseRequested => {
-                runtime.events.push(RuntimeEvent::CloseRequested);
+                self.engine
+                    .bus
+                    .send_runtime(RuntimeEvent::CloseRequested);
             }
 
             WindowEvent::Resized(size) => {
-                runtime.events.push(RuntimeEvent::Resize {
+                self.engine.bus.send_runtime(RuntimeEvent::Resize {
                     width: size.width,
                     height: size.height,
                 });
             }
             WindowEvent::RedrawRequested => {
-                runtime.tick(&mut self.engine.app);
+                self.engine.tick();
             }
             WindowEvent::DroppedFile(path) => {
-                runtime.events.push(RuntimeEvent::DroppedFile(path));
+                self.engine.bus.send_runtime(RuntimeEvent::DroppedFile(path));
             }
             _ => (),
         }

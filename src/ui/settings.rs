@@ -121,19 +121,19 @@ impl Layer for SettimgsUi {
                     }
 
                     if let Some(command) = globals.draw_ui(ui) {
-                        ctx.write.push(command);
+                        ctx.bus.send_domain(command);
                     }
 
                     ui.separator();
                     if let Some(command) =
                         draw_ui_skybox_selector(&ui, texture_resolver, hdr_vec, selected_ibl)
                     {
-                        ctx.write.push(command);
+                        ctx.bus.send_domain(command);
                     }
                 }
 
                 if let Some(command) = camera.draw_ui(ui) {
-                    ctx.write.push(command)
+                    ctx.bus.send_domain(command)
                 }
             });
     }

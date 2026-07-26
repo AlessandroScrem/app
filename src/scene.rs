@@ -1,18 +1,14 @@
-use std::{collections::VecDeque, fs, path::Path};
+use std::{fs, path::Path};
 
 use legion::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::domain::events::{DomainEvent, SceneEvent},
-    assets::{
+    app::domain::events::{DomainEvent, SceneEvent}, assets::{
         MeshAsset,
         asset_manager::AssetManager,
         gltf_loader::{LoadedScene, NodeData, load_gltf},
-    },
-    ecs::components::*,
-    engine::RuntimeEvent,
-    ui::UiComponentState,
+    }, ecs::components::*, engine::{RuntimeEvent, engine::EventBus}, ui::UiComponentState,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -54,12 +50,12 @@ impl Default for Scene {
 }
 
 impl Scene {
-    pub fn update_scene(&mut self, events: &mut Vec<RuntimeEvent>) {
+    pub fn update_scene(&mut self, bus: &mut EventBus) {
         self.schedule.execute(&mut self.world, &mut self.resources);
 
         if self.dirty {
             let title = self.filename.clone().unwrap_or("Untitled scene *".into());
-            events.push(RuntimeEvent::SetWindowTitle(title));
+            bus.send_runtime(RuntimeEvent::SetWindowTitle(title));
             self.dirty = false;
         }
     }
@@ -111,7 +107,7 @@ impl Scene {
         &mut self,
         filename: P,
         asset_mgr: &mut AssetManager,
-        event_queue: &mut VecDeque<DomainEvent>,
+        bus: &mut EventBus,
     ) -> anyhow::Result<()> {
         // 1. leggi file scena
         let json = fs::read_to_string(&filename)?;
@@ -131,7 +127,7 @@ impl Scene {
 
             if let Some(loaded) = loaded {
                 // 5. ricrea entity ECS
-                event_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
+                bus.send_domain(DomainEvent::Scene(SceneEvent::AddComponent(
                     loaded,
                     root_transform,
                 )));

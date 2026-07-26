@@ -1,17 +1,11 @@
-use std::{collections::VecDeque, path::PathBuf};
-
-use crate::assets::{IblId, MaterialId};
+use std::path::PathBuf;
 use crate::assets::gltf_loader::LoadedScene;
 use crate::assets::material_desc::MaterialDesc;
+use crate::assets::{IblId, MaterialId};
 use crate::ecs::components::*;
 use crate::math::*;
 
 use legion::Entity;
-
-#[derive(Default)]
-pub struct DomainEvents {
-    pub queue: VecDeque<DomainEvent>,
-}
 
 #[allow(dead_code)]
 pub enum DomainEvent {

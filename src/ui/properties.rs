@@ -32,7 +32,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
 
     if let Some(f) = &mut cv.tag.clone() {
         if f.draw_ui(ui) {
-            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateTag(
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTag(
                 selected.clone(),
                 f.clone(),
             )));
@@ -41,8 +41,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
 
     if let Some(f) = &mut cv.transform.clone() {
         if f.draw_ui(ui) {
-            ctx.write
-                .push(DomainEvent::Entity(EntityEvent::UpdateTransform(
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(
                     selected.clone(),
                     f.clone(),
                 )));
@@ -60,8 +59,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
     if let Some(materials) = &cv.materials {
         if let Some((mat_updated, mat_id)) = draw_materials(ui, materials, texture_resolver) {
             trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
-            ctx.write
-                .push(DomainEvent::Assets(AssetEvent::UpdateMaterial(
+            ctx.bus.send_domain(DomainEvent::Assets(AssetEvent::UpdateMaterial(
                     mat_id,
                     mat_updated,
                 )));
@@ -70,7 +68,7 @@ pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
 
     if let Some(f) = &mut cv.light.clone() {
         if f.draw_ui(ui, texture_resolver) {
-            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateLight(
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(
                 selected.clone(),
                 f.clone(),
             )));

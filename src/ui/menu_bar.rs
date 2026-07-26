@@ -22,41 +22,41 @@ impl Layer for MenuBarUi {
             if let Some(_file_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {}
                 if ui.menu_item("Open Scene") {
-                    menu_bar::file_open(FileFilter::Json).map(|f| ctx.write.push(Scene(Open(f))));
+                    menu_bar::file_open(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(Open(f))));
                 }
                 if ui.menu_item("Save As..") {
-                    menu_bar::file_save(FileFilter::Json).map(|f| ctx.write.push(Scene(SaveAs(f))));
+                    menu_bar::file_save(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
                 }
                 if ui.menu_item("Save") {
                     if ctx.snapshot.scene_name.is_some() {
-                        ctx.write.push(Scene(Save));
+                        ctx.bus.send_domain(Scene(Save));
                     } else {
-                        menu_bar::file_save(FileFilter::Json).map(|f| ctx.write.push(Scene(SaveAs(f))));
+                        menu_bar::file_save(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
                     }
                 }
                 ui.separator();
                 if ui.menu_item("Load Gltf") {
                     menu_bar::file_open(FileFilter::Gltf)
-                        .map(|f| ctx.write.push(Assets(LoadGltf(f))));
+                        .map(|f| ctx.bus.send_domain(Assets(LoadGltf(f))));
                 }
                 if ui.menu_item("Clear Scene") {
-                    ctx.write.push(Scene(ClearScene));
+                    ctx.bus.send_domain(Scene(ClearScene));
                 }
                 ui.separator();
                 if ui.menu_item("Sponza") {
-                    ctx.write.push(Assets(LoadGltf(SPONZA.into())));
+                    ctx.bus.send_domain(Assets(LoadGltf(SPONZA.into())));
                 }
                 if ui.menu_item("lantern") {
-                    ctx.write.push(Assets(LoadGltf(LANTERN.into())));
+                    ctx.bus.send_domain(Assets(LoadGltf(LANTERN.into())));
                 }
                 if ui.menu_item("Transmission_Test") {
-                    ctx.write.push(Assets(LoadGltf(TRANSMISSION_TEST.into())));
+                    ctx.bus.send_domain(Assets(LoadGltf(TRANSMISSION_TEST.into())));
                 }
                 if ui.menu_item("Damaged Helmet") {
-                    ctx.write.push(Assets(LoadGltf(DAMAGED_HELMET.into())));
+                    ctx.bus.send_domain(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Exit") {
-                    ctx.write.push(Exit);
+                    ctx.bus.send_domain(Exit);
                 }
             }
 

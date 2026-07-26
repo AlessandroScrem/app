@@ -23,10 +23,10 @@ impl Layer for EntityListUi {
                 if let Some(popup) = ui.begin_popup("context") {
                     ui.menu_item("Load Gltf ..").then(|| {
                         menu_bar::file_open(FileFilter::Gltf)
-                            .map(|f| ctx.write.push(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
+                            .map(|f| ctx.bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
                     });
                     ui.menu_item("Add Light..").then(|| {
-                        ctx.write.push(DomainEvent::Entity(EntityEvent::AddLight));
+                        ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
                     });
                     popup.end();
                 }
@@ -36,8 +36,7 @@ impl Layer for EntityListUi {
                     && ui.is_mouse_clicked(MouseButton::Left)
                     && !ui.is_any_item_hovered()
                 {
-                    ctx.write
-                        .push(DomainEvent::Selection(SelectionEvent::Select(None)));
+                    ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(None)));
                 }
             });
     }
@@ -115,12 +114,10 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {
-                    ctx.write
-                        .push(DomainEvent::Entity(EntityEvent::RemoveEntity(selected)));
+                    ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(selected)));
                 });
                 ui.menu_item("Add Parent ..").then(|| {
-                    ctx.write
-                        .push(DomainEvent::Entity(EntityEvent::AddParent(selected)))
+                    ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddParent(selected)))
                 });
                 popup.end();
             }
@@ -128,8 +125,7 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if selected != ctx.snapshot.selected.clone() {
-        ctx.write
-            .push(DomainEvent::Selection(SelectionEvent::Select(selected)));
+        ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(selected)));
     }
 }
 
@@ -182,7 +178,7 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             // visible
             let mut light = node.comp.clone();
             light.enabled = !light.enabled;
-            ctx.write.push(DomainEvent::Entity(EntityEvent::UpdateLight(
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(
                 node.entity.clone(),
                 light,
             )));
@@ -190,29 +186,26 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         ui.same_line();
         if ui.small_button(ICON_ADD) {
             // Add
-            ctx.write.push(DomainEvent::Entity(EntityEvent::AddLight));
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
         }
 
         ui.same_line();
         if ui.small_button(ICON_TRASH) {
             // Delete
-            ctx.write
-                .push(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
+            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
         }
 
         ui.same_line();
         if ui.small_button(ICON_GEAR) {
             // property
-            ctx.write
-                .push(DomainEvent::Selection(SelectionEvent::Select(Some(
+            ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(Some(
                     entity,
                 ))));
         }
         if let Some(_token) = opened {}
 
         if clicked {
-            ctx.write
-                .push(DomainEvent::Selection(SelectionEvent::Select(Some(
+            ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(Some(
                     entity,
                 ))));
         }

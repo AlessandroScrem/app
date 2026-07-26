@@ -1,14 +1,9 @@
-use super::domain::events::DomainEvent;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
 impl App {
-    pub fn push_event(&mut self, event: DomainEvent) {
-        self.domain_events.queue.push_back(event);
-    }
-
 
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;

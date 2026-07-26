@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::app::domain::events::*;
 use crate::app::*;
 use crate::assets::IblAsset;
@@ -7,43 +5,41 @@ use crate::assets::MaterialAsset;
 use crate::ecs::components::light;
 use crate::ecs::components::*;
 use crate::engine::RuntimeEvent;
+use crate::engine::engine::EventBus;
 use crate::prelude::*;
 use crate::scene;
 
 use legion::*;
 
 impl App {
-    pub fn update_domain_event(&mut self, runtime_events: &mut Vec<RuntimeEvent>) {
-        // event needs world update, will be executed next frame.
-        let mut next_queue = VecDeque::<DomainEvent>::new();
+    pub fn update_domain_event(&mut self, bus: &mut EventBus) {
+        let mut domain_events = bus.drain_domain();
 
-        while let Some(event) = self.domain_events.queue.pop_front() {
+        while let Some(event) = domain_events.pop() {
             match event {
                 DomainEvent::Camera(event) => {
                     handle_camera_event(self, event);
                 }
                 DomainEvent::Global(event) => {
-                    handle_global_event(self, event);
+                    handle_global_event(self, event, bus);
                 }
                 DomainEvent::Entity(event) => {
                     handle_entity_event(self, event);
                 }
                 DomainEvent::Assets(event) => {
-                    handle_asset_event(self, event, &mut next_queue, runtime_events);
+                    handle_asset_event(self, event, bus);
                 }
                 DomainEvent::Selection(event) => {
                     handle_selection_event(self, event);
                 }
                 DomainEvent::Scene(event) => {
-                    handle_scene_event(self, event, &mut next_queue);
+                    handle_scene_event(self, event, bus);
                 }
                 DomainEvent::Exit => {
                     self.exit_requested = true;
                 }
             }
         }
-
-        self.domain_events.queue.append(&mut next_queue);
     }
 }
 
@@ -73,11 +69,7 @@ pub fn handle_camera_event(app: &mut App, event: CameraEvent) {
     }
 }
 
-pub fn handle_scene_event(
-    app: &mut App,
-    event: SceneEvent,
-    next_queue: &mut VecDeque<DomainEvent>,
-) {
+pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) {
     match event {
         SceneEvent::ClearScene => {
             app.current_scene.clear_scene(&mut app.asset_mgr);
@@ -91,9 +83,7 @@ pub fn handle_scene_event(
         }
         SceneEvent::Open(path) => {
             app.selected = None;
-            let _ = app
-                .current_scene
-                .open_scene(path, &mut app.asset_mgr, next_queue);
+            let _ = app.current_scene.open_scene(path, &mut app.asset_mgr, bus);
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
             scene::spawn_scene(
@@ -102,19 +92,17 @@ pub fn handle_scene_event(
                 &app.asset_mgr,
                 transform,
             );
-            next_queue.push_back(DomainEvent::Camera(CameraEvent::RecenterCamera));
+            bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera));
         }
     }
 }
 
-pub fn handle_global_event(app: &mut App, event: GlobalEvent) {
+pub fn handle_global_event(app: &mut App, event: GlobalEvent, bus: &mut EventBus) {
     let g = &mut app.globals;
     match event {
         GlobalEvent::LightEnable(flag) => {
             g.light_enable = flag;
-            app.domain_events
-                .queue
-                .push_back(DomainEvent::Entity(EntityEvent::EnableAllLight(flag)));
+            bus.send_domain(DomainEvent::Entity(EntityEvent::EnableAllLight(flag)));
         }
         GlobalEvent::IblEnable(flag) => g.ibl_enable = flag,
         GlobalEvent::SkyboxEnable(flag) => g.skybox_enable = flag,
@@ -171,12 +159,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     }
 }
 
-pub fn handle_asset_event(
-    app: &mut App,
-    event: AssetEvent,
-    next_queue: &mut VecDeque<DomainEvent>,
-    runtime_events: &mut Vec<RuntimeEvent>
-) {
+pub fn handle_asset_event(app: &mut App, event: AssetEvent, bus: &mut EventBus) {
     match event {
         AssetEvent::UpdateMaterial(material_id, desc) => {
             app.asset_mgr.update::<MaterialAsset>(material_id, |asset| {
@@ -186,7 +169,7 @@ pub fn handle_asset_event(
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
                 info!("Loaded: {} Meshes", loaded.meshes.len());
-                next_queue.push_back(DomainEvent::Scene(SceneEvent::AddComponent(
+                bus.send_domain(DomainEvent::Scene(SceneEvent::AddComponent(
                     loaded,
                     TransformComponent::default(),
                 )));
@@ -200,7 +183,7 @@ pub fn handle_asset_event(
         }
         AssetEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);
-            runtime_events.push(RuntimeEvent::UpdateIblMaps(ibl_id));
+            bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
             println!("Selected {:?}", ibl_id);
         }
     }

@@ -1,4 +1,3 @@
-use crate::app::domain::events::DomainEvents;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
 use crate::Globals;
@@ -13,7 +12,6 @@ pub struct App {
     pub asset_mgr: AssetManager,
     pub globals: Globals,
     pub camera: Camera,
-    pub domain_events: DomainEvents,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
     pub exit_requested: bool,

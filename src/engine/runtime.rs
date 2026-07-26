@@ -5,8 +5,9 @@ use crate::app::domain::events::AssetEvent::SelectIbl;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent;
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered};
-use crate::app::{Application, HasAssetMgr, RuntimeApp};
+use crate::app::{Application, HasAssetMgr};
 use crate::assets::{IblAsset, IblId, TextureId};
+use crate::engine::engine::EventBus;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
@@ -23,7 +24,7 @@ use crate::ui::InternalCounter;
 use crate::ui::UiLayer;
 use winit::{event::Event, window::Window};
 
-impl InternalCounter for RunningApp {
+impl InternalCounter for Runtime {
     fn internal_counter(&self) -> GpuInternalCounters {
         GpuInternalCounters {
             textures: self.gpu_cache.textures.get_stats(),
@@ -35,7 +36,7 @@ impl InternalCounter for RunningApp {
     }
 }
 
-pub struct RunningApp {
+pub struct Runtime {
     pub window: Arc<Window>,
     pub gpu_context: GpuContext,
     pub gpu_surface: GpuSurface,
@@ -47,15 +48,13 @@ pub struct RunningApp {
 
     pub uilayer: UiLayer,
     pub input: Input,
-
-    pub events: Vec<RuntimeEvent>,
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
 }
 
-impl RunningApp {
+impl Runtime {
     pub fn new(window: Arc<Window>) -> Self {
         // gpu resources
         let mut imgui_context = imgui::Context::create();
@@ -111,7 +110,6 @@ impl RunningApp {
             pickobject,
             imgui_render,
             uilayer,
-            events: Vec::new(),
             gpu_context,
             gpu_surface,
             gpu_cache,
@@ -124,24 +122,7 @@ impl RunningApp {
     }
 }
 
-impl RunningApp {
-    pub fn tick<A: RuntimeApp>(&mut self, app: &mut A) {
-        self.handle_input(app);
-
-        self.handle_runtime_events(app);
-
-        // update app, maybe enqueue new runtime events.
-        app.on_update(&mut self.events);
-
-        self.sync_gpu_assets(app);
-
-        self.update_ui(app);
-
-        self.render(app);
-    }
-}
-
-impl RunningApp {
+impl Runtime {
     pub fn handle_winit_event(&mut self, event: &Event<()>) {
         // Handle Imgui platform events
         self.uilayer.handle_event(&self.window, event);
@@ -157,7 +138,7 @@ impl RunningApp {
         }
     }
 
-    fn handle_input<A: RuntimeApp>(&mut self, app: &mut A) {
+    pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
         let input = &self.input;
 
@@ -168,27 +149,27 @@ impl RunningApp {
                 self.input.mouse_position.y as u32,
             ));
             let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
-            app.push_event(DomainEvent::Selection(Hovered(hovered)));
+            bus.send_domain(DomainEvent::Selection(Hovered(hovered)));
         }
 
         // handle selection: hovered -> selected
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
-            app.push_event(DomainEvent::Selection(SelectHovered));
+            bus.send_domain(DomainEvent::Selection(SelectHovered));
         }
 
         // handle camera -------
         if input.is_mouse_button_down(MouseButton::Left) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            app.push_event(DomainEvent::Camera(CameraOrbit(delta.0, delta.1)));
+            bus.send_domain(DomainEvent::Camera(CameraOrbit(delta.0, delta.1)));
         }
 
         if input.is_mouse_button_down(MouseButton::Middle) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
-            app.push_event(DomainEvent::Camera(CameraPan(delta.0, delta.1)));
+            bus.send_domain(DomainEvent::Camera(CameraPan(delta.0, delta.1)));
         }
 
         if let Some(delta) = input.mouse_wheel_movement {
-            app.push_event(DomainEvent::Camera(CameraZoom(delta.y)));
+            bus.send_domain(DomainEvent::Camera(CameraZoom(delta.y)));
         }
         // --------------------
 
@@ -196,8 +177,9 @@ impl RunningApp {
         self.input.clear();
     }
 
-    fn handle_runtime_events<A: Application>(&mut self, app: &mut A) {
-        for event in self.events.drain(..) {
+    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+        let events = bus.drain_runtime();
+        for event in events {
             match event {
                 RuntimeEvent::Resize { width, height } => {
                     if width == 0 || height == 0 {
@@ -214,7 +196,7 @@ impl RunningApp {
                     app.on_close();
                 }
                 RuntimeEvent::DroppedFile(path) => {
-                    app.on_drop(path);
+                    app.on_drop(path, bus);
                 }
                 RuntimeEvent::SetWindowTitle(title) => {
                     self.window.set_title(&title);
@@ -238,8 +220,8 @@ impl RunningApp {
     }
 }
 
-impl RunningApp {
-    fn sync_gpu_assets<A: Application + HasAssetMgr>(&mut self, app: &mut A) {
+impl Runtime {
+    pub fn sync_gpu_assets<A: Application + HasAssetMgr>(&mut self, app: &mut A, bus: &mut EventBus) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -267,7 +249,7 @@ impl RunningApp {
         let asset_mgr = app.asset_mgr_mut();
         let grouped = asset_mgr.drain_grouped_events();
 
-        let mut domain_event = vec![];
+        // let mut domain_event = vec![];
 
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
@@ -313,8 +295,8 @@ impl RunningApp {
                             let gpu_ibl = ibl_manager.create(hdr, device, queue);
                             ibl_manager.insert(ibl_id, gpu_ibl);
                             self.hdr_vec.push((asset.hrd_id, ibl_id));
-                            domain_event.push(DomainEvent::Assets(SelectIbl(ibl_id)));
-                            self.events.push(RuntimeEvent::UpdateIblMaps(ibl_id));
+                            bus.send_domain(DomainEvent::Assets(SelectIbl(ibl_id)));
+                            bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
                         }
                     });
             }
@@ -397,31 +379,25 @@ impl RunningApp {
 
         // If texture cache is changed -> call sync imgui texture
         grouped.process_type::<TextureAsset, _>(|_, _| {
-            self.events.push(RuntimeEvent::SyncImguiTextures);
+            bus.send_runtime(RuntimeEvent::SyncImguiTextures);
         });
 
-        for event in domain_event {
-            app.push_event(event);
-        }
     }
 }
-impl RunningApp {
-    fn update_ui<A: Application>(&mut self, app: &mut A) {
+impl Runtime {
+    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
             app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
-        // Main operation: update_ui and return domain events
-        let events = self.uilayer.build(&self.window, snapshot);
-        for event in events {
-            app.push_event(event);
-        }
+        // Main operation: update_ui and push events
+        self.uilayer.build(&self.window, snapshot, bus);
     }
 }
 
-impl RunningApp {
-    fn render<A: Application>(&mut self, app: &A) {
+impl Runtime {
+    pub fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder();
 
         if let Some(frame) = self.gpu_surface.get_frame() {
@@ -433,7 +409,7 @@ impl RunningApp {
             let render_data = app.render_data();
 
             {
-                let RunningApp {
+                let Runtime {
                     scene_renderer,
                     gpu_context,
                     gpu_manager,

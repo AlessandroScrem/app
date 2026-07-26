@@ -6,7 +6,7 @@ use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::assets::{IblId, MaterialAsset, MeshAsset, TextureAsset, TextureId};
 use crate::ecs::components::light;
-use crate::engine::RuntimeEvent;
+use crate::engine::engine::EventBus;
 use crate::gpu::GpuInternalCounters;
 use crate::renderer::scene_renderer::FrameStats;
 use crate::ui::{RenderStats, UiSnapshot, UiTextureResolver};
@@ -20,7 +20,7 @@ impl HasAssetMgr for App {
 }
 
 impl Application for App {
-    fn init(&mut self) {
+    fn init(&mut self, bus: &mut EventBus) {
         let timer = std::time::Instant::now();
 
         //*****************************
@@ -38,7 +38,7 @@ impl Application for App {
         let ibl_id = self
             .asset_mgr
             .add::<IblAsset>(IblAsset::new(hdr_id, HDRPATH));
-        self.push_event(DomainEvent::Assets(SelectIbl(ibl_id)));
+        bus.send_domain(DomainEvent::Assets(SelectIbl(ibl_id)));
         //*****************************
 
         self.current_scene.schedule = crate::ecs::create_current_scene_schedule_builder();
@@ -46,9 +46,6 @@ impl Application for App {
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
-    fn push_event(&mut self, event: DomainEvent) {
-        self.push_event(event);
-    }
 
     fn get_scene_snapshot<'a>(
         &'a self,
@@ -86,9 +83,9 @@ impl Application for App {
         }
     }
 
-    fn on_update(&mut self, events: &mut Vec<RuntimeEvent>) {
-        self.update_domain_event(events);
-        self.current_scene.update_scene(events);
+    fn on_update(&mut self, bus: &mut EventBus) {
+        self.update_domain_event(bus);
+        self.current_scene.update_scene(bus);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {
@@ -96,10 +93,8 @@ impl Application for App {
         self.camera.set_aspect(aspect);
     }
 
-    fn on_drop(&mut self, path: std::path::PathBuf) {
-        self.domain_events
-            .queue
-            .push_back(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
+    fn on_drop(&mut self, path: std::path::PathBuf, bus: &mut EventBus) {
+        bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
     }
 
     fn render_data(&self) -> AppRenderData<'_> {
