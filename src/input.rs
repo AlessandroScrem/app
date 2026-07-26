@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use winit::{
     event::MouseButton as WinitMouseButton,
+    event::MouseScrollDelta,
     event::{DeviceEvent, Event, WindowEvent},
     keyboard::Key as WinitKey,
     keyboard::NamedKey,
-    event::MouseScrollDelta,
 };
 
 use crate::math::{Vec2, Zero};
@@ -112,11 +112,7 @@ impl Input {
                     }
                 }
             }
-            WindowEvent::MouseInput {
-                state,
-                button,
-                ..
-            } => {
+            WindowEvent::MouseInput { state, button, .. } => {
                 if let Some(mouse_button) = map_mouse_button(*button) {
                     if state.is_pressed() {
                         self.mouse_buttons_down.insert(mouse_button);
