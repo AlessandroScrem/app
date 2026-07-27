@@ -14,7 +14,6 @@ pub struct App {
     pub camera: Camera,
     pub selected: Option<Entity>,
     pub hovered: Option<Entity>,
-    pub exit_requested: bool,
     pub selected_ibl: Option<IblId>,
     #[allow(unused)]
     pub debug_texture_id: Option<UiTexture>,

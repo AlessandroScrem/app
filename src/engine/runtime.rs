@@ -6,7 +6,7 @@ use crate::app::domain::events::DomainEvent::{Selection, Camera};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
 use crate::app::{Application, HasAssetMgr};
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::engine::engine::EventBus;
+use crate::engine::engine::{EventBus, Settings};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
@@ -387,14 +387,14 @@ impl Runtime {
     }
 }
 impl Runtime {
-    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus, settings: &mut Settings) {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
             app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
         // Main operation: update_ui and push events
-        self.uilayer.build(&self.window, snapshot, bus);
+        self.uilayer.build(&self.window, snapshot, bus, settings);
     }
 }
 

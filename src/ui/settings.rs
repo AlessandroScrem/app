@@ -277,7 +277,6 @@ impl Globals {
             if ui.combo("Tonemap", &mut current_item, &TONEMAP_FILTERS, |item| {
                 std::borrow::Cow::Borrowed(*item)
             }) {
-                // self.tonemap_filter = current_item as u32;
                 command = Some(DomainEvent::Global(TonemapFilter(current_item as u32)))
             }
         }
@@ -309,7 +308,6 @@ impl Camera {
             .speed(1.0)
             .build(ui, &mut fov)
         {
-            // self.fov = Rad(fov.to_radians());
             command = Some(DomainEvent::Camera(CameraFov(Rad(fov.to_radians()))));
         }
 
@@ -319,7 +317,6 @@ impl Camera {
             .speed(1.0)
             .build(ui, &mut distance)
         {
-            // self.set_distance(distance);
             command = Some(DomainEvent::Camera(CameraDistance(distance)));
         }
 
@@ -331,8 +328,6 @@ impl Camera {
         {
             let near = near.max(0.1);
             let far = far.max(near + 0.1);
-            // self.near = near;
-            // self.far = far;
             command = Some(DomainEvent::Camera(CameraNearFar((near, far))));
         }
 

@@ -1,7 +1,7 @@
-use crate::prelude::*;
 
 use std::collections::VecDeque;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 use winit::window::WindowAttributes;
 use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 
@@ -10,6 +10,33 @@ use super::winit_bridge::CenterWindow;
 use crate::app::domain::events::DomainEvent;
 use crate::app::{Application, HasAssetMgr};
 use crate::engine::RuntimeEvent;
+use crate::{prelude::*, project_path};
+use std::{fs, path::PathBuf};
+
+#[derive(Default,Serialize, Deserialize)]
+pub struct Settings {
+    pub recent_files: Vec<PathBuf>,
+    // pub theme: Theme,
+    // pub window: WindowSettings,
+}
+
+impl Settings {
+    const FILE: &'static str = project_path!("settings.json");
+
+    pub fn load() -> Self {
+        match fs::read_to_string(Self::FILE) {
+            Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
+            Err(_) => Self::default(),
+        }
+    }
+
+    pub fn save(&self) -> std::io::Result<()> {
+        let data = serde_json::to_string_pretty(self)
+            .expect("Failed to serialize settings");
+
+        fs::write(Self::FILE, data)
+    }
+}
 
 pub struct EventBus {
     domain: VecDeque<DomainEvent>,
@@ -49,6 +76,13 @@ pub struct Engine<A: Application> {
     pub app: A,
     pub runtime: Option<Runtime>,
     pub bus: EventBus,
+    pub settings: Settings,
+}
+
+impl<A: Application + Default> Engine<A> {
+    pub fn new(settings: Settings) ->Self {
+        Self { settings, ..Default::default()}
+    }
 }
 
 impl<A: Application + HasAssetMgr> Engine<A> {
@@ -79,7 +113,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
     }
 
     pub fn tick(&mut self) {
-        let Self { app, bus, runtime } = self;
+        let Self { app, bus, runtime, settings } = self;
 
         let Some(runtime) = runtime else {
             return;
@@ -94,7 +128,7 @@ impl<A: Application + HasAssetMgr> Engine<A> {
 
         runtime.sync_gpu_assets(app, bus);
 
-        runtime.update_ui(app, bus);
+        runtime.update_ui(app, bus, settings);
 
         runtime.render(app);
     }

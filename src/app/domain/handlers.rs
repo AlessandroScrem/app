@@ -35,9 +35,6 @@ impl App {
                 DomainEvent::Scene(event) => {
                     handle_scene_event(self, event, bus);
                 }
-                DomainEvent::Exit => {
-                    self.exit_requested = true;
-                }
             }
         }
     }

@@ -24,8 +24,12 @@ pub struct Engine {
 
 impl Engine {
     pub fn new_with_size(width: u32, height: u32) -> Self {
+        let settings = Settings::load();
+
         Self {
-            inner: engine::winit_bridge::MyApplication::<app::App>::new_with_size(width, height),
+            inner: engine::winit_bridge::MyApplication::<app::App>::new_with_size(
+                width, height, settings,
+            ),
         }
     }
     pub fn run(self) -> Result<(), Box<dyn std::error::Error>> {
@@ -43,6 +47,8 @@ pub(crate) use prelude::*;
 
 pub(crate) use globals::Globals;
 
+use crate::engine::engine::Settings;
+
 #[macro_export]
 macro_rules! impl_debug_drop {
     ($t:ty) => {
@@ -57,22 +63,21 @@ macro_rules! impl_debug_drop {
 #[macro_export]
 macro_rules! asset_bytes {
     ($path:expr) => {
-        include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/",
-            $path
-        ))
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $path))
     };
 }
 
 #[macro_export]
 macro_rules! asset_path {
     ($path:expr) => {
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/",
-            $path
-        )
+        concat!(env!("CARGO_MANIFEST_DIR"), "/assets/", $path)
+    };
+}
+
+#[macro_export]
+macro_rules! project_path {
+    ($path:expr) => {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/", $path)
     };
 }
 
@@ -93,7 +98,7 @@ pub(crate) mod math {
         num_traits::{one, zero},
         vec3, vec4,
     };
-    
+
     // cgmath matrix is RH OpenGL-style (Z NDC is [-1 e 1])
     // (OPENGL_TO_WGPU_MATRIX) will correct Z NDC from opengl [-1, 1] to Vulkan(wgpu) Z [0, 1]
     // TODO: implement projection LH with Z [0, 1]
@@ -113,7 +118,14 @@ pub(crate) mod math {
         OPENGL_TO_WGPU_MATRIX * cgmath::perspective(fovy, aspect, near, far)
     }
 
-    pub fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) ->cgmath::Matrix4<f32> {
+    pub fn ortho(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> cgmath::Matrix4<f32> {
         OPENGL_TO_WGPU_MATRIX * cgmath::ortho(left, right, bottom, top, near, far)
     }
 

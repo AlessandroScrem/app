@@ -56,7 +56,13 @@ impl Layer for MenuBarUi {
                     ctx.bus.send_domain(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Exit") {
-                    ctx.bus.send_domain(Exit);
+                    ctx.bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested);
+                }
+                ui.separator();
+                ui.text("Recent files");
+                for item in ctx.settings.recent_files.iter() {
+                    let label = item.display().to_string(); 
+                    ui.menu_item(label);
                 }
             }
 
