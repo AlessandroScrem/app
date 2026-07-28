@@ -24,11 +24,10 @@ pub struct Engine {
 
 impl Engine {
     pub fn new_with_size(width: u32, height: u32) -> Self {
-        let settings = Settings::load();
 
         Self {
             inner: engine::winit_bridge::MyApplication::<app::App>::new_with_size(
-                width, height, settings,
+                width, height,
             ),
         }
     }
@@ -47,7 +46,6 @@ pub(crate) use prelude::*;
 
 pub(crate) use globals::Globals;
 
-use crate::engine::engine::Settings;
 
 #[macro_export]
 macro_rules! impl_debug_drop {

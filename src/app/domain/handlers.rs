@@ -80,7 +80,9 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
         }
         SceneEvent::Open(path) => {
             app.selected = None;
-            let _ = app.current_scene.open_scene(path, &mut app.asset_mgr, bus);
+            if app.current_scene.open_scene(&path, &mut app.asset_mgr, bus).is_ok() {
+                app.settings.add_recent_file(path.into());
+            }
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
             scene::spawn_scene(

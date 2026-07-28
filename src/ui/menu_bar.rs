@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use super::*;
-use crate::{app::domain::events::{AssetEvent, DomainEvent, SceneEvent}, asset_path};
+use crate::{
+    app::domain::events::{AssetEvent, DomainEvent, SceneEvent},
+    asset_path,
+};
 use imgui::*;
 
 pub struct MenuBarUi {}
@@ -18,20 +21,25 @@ impl Layer for MenuBarUi {
         use DomainEvent::*;
         use SceneEvent::*;
 
+        let recent_files = &ctx.snapshot.settings.recent_files;
+
         if let Some(_menu_bar) = ui.begin_main_menu_bar() {
             if let Some(_file_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {}
                 if ui.menu_item("Open Scene") {
-                    menu_bar::file_open(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(Open(f))));
+                    menu_bar::file_open(FileFilter::Json)
+                        .map(|f| ctx.bus.send_domain(Scene(Open(f))));
                 }
                 if ui.menu_item("Save As..") {
-                    menu_bar::file_save(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
+                    menu_bar::file_save(FileFilter::Json)
+                        .map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
                 }
                 if ui.menu_item("Save") {
                     if ctx.snapshot.scene_name.is_some() {
                         ctx.bus.send_domain(Scene(Save));
                     } else {
-                        menu_bar::file_save(FileFilter::Json).map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
+                        menu_bar::file_save(FileFilter::Json)
+                            .map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
                     }
                 }
                 ui.separator();
@@ -50,20 +58,27 @@ impl Layer for MenuBarUi {
                     ctx.bus.send_domain(Assets(LoadGltf(LANTERN.into())));
                 }
                 if ui.menu_item("Transmission_Test") {
-                    ctx.bus.send_domain(Assets(LoadGltf(TRANSMISSION_TEST.into())));
+                    ctx.bus
+                        .send_domain(Assets(LoadGltf(TRANSMISSION_TEST.into())));
                 }
                 if ui.menu_item("Damaged Helmet") {
                     ctx.bus.send_domain(Assets(LoadGltf(DAMAGED_HELMET.into())));
                 }
                 if ui.menu_item("Exit") {
-                    ctx.bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested);
+                    ctx.bus
+                        .send_runtime(crate::engine::RuntimeEvent::CloseRequested);
                 }
                 ui.separator();
-                ui.text("Recent files");
-                for item in ctx.settings.recent_files.iter() {
-                    let label = item.display().to_string(); 
-                    ui.menu_item(label);
-                }
+                ui.menu("Recent Files", || {
+                    for item in recent_files.iter() {
+                        if ui.menu_item(&item.name) {
+                            ctx.bus.send_domain(Scene(Open(item.path.clone())));
+                        }
+                    }
+                    if recent_files.is_empty() {
+                        ui.text_disabled("No recent files");
+                    }
+                });
             }
 
             if let Some(_edit_menu) = ui.begin_menu("Edit") {

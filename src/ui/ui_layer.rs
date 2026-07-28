@@ -5,7 +5,7 @@ use imgui_winit_support::WinitPlatform;
 use winit::event::Event;
 use winit::window::Window;
 
-use crate::engine::engine::{EventBus, Settings};
+use crate::engine::engine::{EventBus};
 use crate::timestep::Timestep;
 
 
@@ -14,7 +14,6 @@ pub struct UiContext<'a> {
     pub bus: &'a mut EventBus,
     pub timestep: Timestep,
     pub adapter_string: String,
-    pub settings: &'a mut Settings, 
 }
 
 
@@ -133,13 +132,12 @@ impl UiLayer {
         self.load_ini_if_needed();
     }
 
-    pub fn build(&mut self, window: &Window, snapshot: UiSnapshot, bus: &mut EventBus, settings: &mut Settings){
+    pub fn build(&mut self, window: &Window, snapshot: UiSnapshot, bus: &mut EventBus){
         let mut ctx = UiContext {
             snapshot: &snapshot,
             bus,
             timestep: self.timestep.clone(),
             adapter_string: self.adapter_string.clone(),
-            settings,
         };
 
         self.begin_frame(window);

@@ -1,5 +1,8 @@
 {
   "recent_files": [
-    "Pippo"
+    {
+      "name": "scena1.json",
+      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app\\assets\\scena1.json"
+    }
   ]
 }

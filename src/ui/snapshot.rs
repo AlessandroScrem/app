@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::app::Settings;
 use crate::assets::material_desc::MaterialDesc;
 use crate::ecs::components::*;
 use crate::assets::MaterialId;
@@ -65,6 +66,7 @@ pub struct UiSnapshot<'a> {
     pub hdr_vec: &'a Vec<(crate::assets::TextureId, crate::assets::IblId)>,
     pub selected_ibl: Option<GlobalAssetId>,
     pub scene_name: Option<String>,
+    pub settings: Settings,
 }
 
 /// UiComponentState is a per-frame snapshot.

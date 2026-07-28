@@ -4,7 +4,6 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
 use crate::app::{Application, RuntimeApp};
-use crate::engine::engine::Settings;
 use crate::engine::{Engine, RuntimeEvent};
 
 #[derive(Default)]
@@ -14,10 +13,10 @@ pub struct MyApplication<A: Application> {
 }
 
 impl<A: RuntimeApp + Default> MyApplication<A> {
-    pub fn new_with_size(width: u32, height: u32, settings: Settings) -> Self {
+    pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: winit::dpi::PhysicalSize::new(width, height),
-            engine: Engine::new(settings),
+            ..Default::default()
         }
     }
     pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -104,7 +103,6 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
 
         match event {
             WindowEvent::CloseRequested => {
-                let _ = self.engine.settings.save();
                 self.engine
                     .bus
                     .send_runtime(RuntimeEvent::CloseRequested);

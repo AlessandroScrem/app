@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
-use crate::app::domain::events::DomainEvent::{Selection, Camera};
+use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
 use crate::app::{Application, HasAssetMgr};
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::engine::engine::{EventBus, Settings};
+use crate::engine::engine::EventBus;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
@@ -223,7 +223,11 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn sync_gpu_assets<A: Application + HasAssetMgr>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn sync_gpu_assets<A: Application + HasAssetMgr>(
+        &mut self,
+        app: &mut A,
+        bus: &mut EventBus,
+    ) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -383,18 +387,21 @@ impl Runtime {
         grouped.process_type::<TextureAsset, _>(|_, _| {
             bus.send_runtime(RuntimeEvent::SyncImguiTextures);
         });
-
     }
 }
 impl Runtime {
-    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus, settings: &mut Settings) {
+    pub fn update_ui<A: Application>(
+        &mut self,
+        app: &mut A,
+        bus: &mut EventBus,
+    ) {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
             app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
         // Main operation: update_ui and push events
-        self.uilayer.build(&self.window, snapshot, bus, settings);
+        self.uilayer.build(&self.window, snapshot, bus);
     }
 }
 

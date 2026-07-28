@@ -1,3 +1,4 @@
+use crate::app::Settings;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
 use crate::Globals;
@@ -17,4 +18,5 @@ pub struct App {
     pub selected_ibl: Option<IblId>,
     #[allow(unused)]
     pub debug_texture_id: Option<UiTexture>,
+    pub settings: Settings,
 }

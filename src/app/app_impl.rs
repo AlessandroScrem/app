@@ -1,4 +1,5 @@
 use super::{App, Application, HasAssetMgr};
+use crate::app::Settings;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::SelectionEvent::SelectIbl;
 use crate::app::domain::events::{AssetEvent, DomainEvent};
@@ -22,6 +23,8 @@ impl HasAssetMgr for App {
 impl Application for App {
     fn init(&mut self, bus: &mut EventBus) {
         let timer = std::time::Instant::now();
+
+        self.settings = Settings::load();
 
         //*****************************
         // Create Light
@@ -80,6 +83,7 @@ impl Application for App {
             hdr_vec,
             selected_ibl: self.selected_ibl,
             scene_name: self.current_scene.filename.clone(),
+            settings: self.settings.clone(),
         }
     }
 
@@ -108,6 +112,7 @@ impl Application for App {
     }
 
     fn on_close(&mut self) {
+        let _ = self.settings.save();
         info!("Exit requested; App stopping");
     }
 
