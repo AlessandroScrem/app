@@ -1,5 +1,10 @@
 use super::*;
-use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent, SelectionEvent};
+use crate::app::domain::events::{
+    AssetEvent::{LoadGltf},
+    DomainEvent::{self, Assets, Selection},
+    EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight},
+    SelectionEvent::{Select},
+};
 use imgui::*;
 use legion::Entity;
 
@@ -22,11 +27,14 @@ impl Layer for EntityListUi {
 
                 if let Some(popup) = ui.begin_popup("context") {
                     ui.menu_item("Load Gltf ..").then(|| {
-                        menu_bar::file_open(FileFilter::Gltf)
-                            .map(|f| ctx.bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(f))));
+                        menu_bar::file_open(FileFilter::Gltf).map(|f| {
+                            ctx.bus
+                                .send_domain(DomainEvent::Assets(LoadGltf(f)))
+                        });
                     });
                     ui.menu_item("Add Light..").then(|| {
-                        ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
+                        ctx.bus
+                            .send_domain(DomainEvent::Entity(AddLight));
                     });
                     popup.end();
                 }
@@ -36,16 +44,23 @@ impl Layer for EntityListUi {
                     && ui.is_mouse_clicked(MouseButton::Left)
                     && !ui.is_any_item_hovered()
                 {
-                    ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(None)));
+                    ctx.bus
+                        .send_domain(Selection(Select(None)));
                 }
             });
     }
 }
 
-fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option<Entity>) {
+fn draw_entity_node_recurse(
+    ui: &Ui,
+    node: &HierarchyNode,
+    selected: &mut Option<Entity>,
+    ctx: &mut UiContext,
+) {
     let entity = node.entity;
     let children = &node.children;
     let is_active = selected.is_some_and(|e| e == entity);
+    let is_root = node.parent.is_none();
 
     let flags = children
         .is_empty()
@@ -55,13 +70,15 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
             .then_some(TreeNodeFlags::SELECTED)
             .unwrap_or(TreeNodeFlags::empty());
 
-    let icon = if node.parent.is_none() {
+    let icon = if is_root {
         ICON_LAYER_DOT
     } else if is_active {
         ICON_LAYER_ACTIVE
     } else {
         ICON_LAYER
     };
+
+    const BUTTONS: usize = 4;
 
     let label = format!("{icon} {}", node.name,); // ◈ Name
     let opened = ui
@@ -70,18 +87,45 @@ fn draw_entity_node_recurse(ui: &Ui, node: &HierarchyNode, selected: &mut Option
         .default_open(true)
         .push();
 
+    if is_root {
+        // Right Buttons           👁 + 🗑 ⚙
+        right_buttons(ui, BUTTONS, |ui| {
+            if ui.small_button(ICON_EYE) {
+                // Enabled
+                // node.enabled = !node.enabled;
+            }
+            ui.same_line();
+            if ui.small_button(ICON_ADD) {
+                // Add
+                menu_bar::file_open(FileFilter::Gltf)
+                    .map(|f| ctx.bus.send_domain(Assets(LoadGltf(f))));
+            }
+
+            ui.same_line();
+            if ui.small_button(ICON_TRASH) {
+                // Delete
+                ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(entity)));
+            }
+
+            ui.same_line();
+            if ui.small_button(ICON_GEAR) {
+                // property
+                ctx.bus.send_domain(Selection(Select(Some(entity))));
+            }
+        });
+    }
+
     let clicked = ui.is_item_clicked();
 
     if let Some(_token) = opened {
         for child in children {
-            draw_entity_node_recurse(ui, child, selected);
+            draw_entity_node_recurse(ui, child, selected, ctx);
         }
     }
 
     if clicked {
-        *selected = Some(entity);  
+        *selected = Some(entity);
     };
-
 }
 
 fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
@@ -92,7 +136,7 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.group(|| {
         for node in ctx.snapshot.root_snapshot.root_nodes.nodes.iter() {
             // traverse from root nodes
-            draw_entity_node_recurse(ui, node, &mut selected);
+            draw_entity_node_recurse(ui, node, &mut selected, ctx);
         }
     });
 
@@ -114,18 +158,17 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {
-                    ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(selected)));
+                    ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(selected)));
                 });
-                ui.menu_item("Add Parent ..").then(|| {
-                    ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddParent(selected)))
-                });
+                ui.menu_item("Add Parent ..")
+                    .then(|| ctx.bus.send_domain(DomainEvent::Entity(AddParent(selected))));
                 popup.end();
             }
         }
     }
 
     if selected != ctx.snapshot.selected.clone() {
-        ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(selected)));
+        ctx.bus.send_domain(Selection(Select(selected)));
     }
 }
 
@@ -146,17 +189,11 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.separator();
     ui.text("Lights");
 
-    let style = ui.clone_style();
-
-    let padding = style.frame_padding[0];
-    let buttons = 4.0;
-    let spacing = style.item_spacing[0] * buttons - 1.0;
-
-    let button_width = ui.calc_text_size(ICON_TRASH)[0] + padding * 2.0;
-    let total_width = buttons * button_width + spacing;
+    const BUTTONS: usize = 4;
 
     for (i, node) in lights_nodes.nodes.iter().enumerate() {
         let entity = node.entity;
+        let mut light = node.comp.clone();
         let label = format!("{ICON_LIGHTBULB} {}:{:?}", node.name, i); // 💡 name:#
 
         let flags = TreeNodeFlags::LEAF
@@ -166,48 +203,66 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
                 TreeNodeFlags::empty()
             };
 
+        let _disabled = disabled_style(ui, light.enabled);
+
         let opened = ui.tree_node_config(label.clone()).flags(flags).push();
         let clicked = ui.is_item_clicked();
 
         // Right Buttons           👁 + 🗑 ⚙
-        // Spinge i pulsanti a destra
-        ui.same_line();
-        ui.same_line_with_pos(ui.window_content_region_max()[0] - total_width);
+        right_buttons(ui, BUTTONS, |ui| {
+            if ui.small_button(ICON_EYE) {
+                // Enabled
+                light.enabled = !light.enabled;
+                ctx.bus
+                    .send_domain(DomainEvent::Entity(UpdateLight(node.entity.clone(), light)));
+            }
+            ui.same_line();
+            if ui.small_button(ICON_ADD) {
+                // Add
+                ctx.bus.send_domain(DomainEvent::Entity(AddLight));
+            }
 
-        if ui.small_button(ICON_EYE) {
-            // visible
-            let mut light = node.comp.clone();
-            light.enabled = !light.enabled;
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(
-                node.entity.clone(),
-                light,
-            )));
-        }
-        ui.same_line();
-        if ui.small_button(ICON_ADD) {
-            // Add
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
-        }
+            ui.same_line();
+            if ui.small_button(ICON_TRASH) {
+                // Delete
+                ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(entity)));
+            }
 
-        ui.same_line();
-        if ui.small_button(ICON_TRASH) {
-            // Delete
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(entity)));
-        }
+            ui.same_line();
+            if ui.small_button(ICON_GEAR) {
+                // property
+                ctx.bus.send_domain(Selection(Select(Some(entity))));
+            }
+        });
 
-        ui.same_line();
-        if ui.small_button(ICON_GEAR) {
-            // property
-            ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(Some(
-                    entity,
-                ))));
-        }
         if let Some(_token) = opened {}
 
         if clicked {
-            ctx.bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(Some(
-                    entity,
-                ))));
+            // Select
+            ctx.bus.send_domain(Selection(Select(Some(entity))));
         }
     }
+}
+
+fn disabled_style(ui: &Ui, enabled: bool) -> Option<imgui::ColorStackToken<'_>> {
+    (!enabled).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]))
+}
+
+fn right_buttons<F>(ui: &Ui, buttons: usize, f: F)
+where
+    F: FnOnce(&Ui),
+{
+    let style = ui.clone_style();
+
+    let padding = style.frame_padding[0];
+    let spacing = style.item_spacing[0] * buttons as f32 - 1.0;
+
+    let button_width = ui.calc_text_size(ICON_TRASH)[0] + padding * 2.0;
+    let total_width = buttons as f32 * button_width + spacing;
+
+    ui.same_line();
+    // Push buttons to right
+    ui.same_line_with_pos(ui.window_content_region_max()[0] - total_width);
+
+    f(ui);
 }
