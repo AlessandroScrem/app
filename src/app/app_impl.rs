@@ -2,7 +2,7 @@ use super::{App, Application, HasAssetMgr};
 use crate::app::Settings;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::SelectionEvent::SelectIbl;
-use crate::app::domain::events::{AssetEvent, DomainEvent};
+use crate::app::domain::events::{AssetEvent, DomainEvent, SceneEvent};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::assets::{IblId, MaterialAsset, MeshAsset, TextureAsset, TextureId};
@@ -46,7 +46,6 @@ impl Application for App {
 
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
-
 
     fn get_scene_snapshot<'a>(
         &'a self,
@@ -96,7 +95,12 @@ impl Application for App {
     }
 
     fn on_drop(&mut self, path: std::path::PathBuf, bus: &mut EventBus) {
-        bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
+        let ext = path.extension().unwrap_or_default().to_str();
+        match ext {
+            Some("json") => bus.send_domain(DomainEvent::Scene(SceneEvent::Open(path))),
+            Some("gltf") => bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path))),
+            _ => {}
+        }
     }
 
     fn render_data(&self) -> AppRenderData<'_> {
@@ -113,5 +117,4 @@ impl Application for App {
         let _ = self.settings.save();
         info!("Exit requested; App stopping");
     }
-
 }
