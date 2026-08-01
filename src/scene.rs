@@ -35,8 +35,7 @@ pub struct Scene {
 impl Default for Scene {
     fn default() -> Self {
         let world = World::default();
-        let mut schedule_builder = Schedule::builder();
-        let schedule = schedule_builder.build();
+        let schedule = crate::ecs::create_current_scene_schedule_builder();
         let resources = Resources::default();
 
         Scene {

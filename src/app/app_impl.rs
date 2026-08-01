@@ -44,8 +44,6 @@ impl Application for App {
         bus.send_domain(DomainEvent::Selection(SelectIbl(ibl_id)));
         //*****************************
 
-        self.current_scene.schedule = crate::ecs::create_current_scene_schedule_builder();
-
         debug!("App initialized in {} ms", timer.elapsed().as_millis());
     }
 
