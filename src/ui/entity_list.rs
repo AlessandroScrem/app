@@ -1,9 +1,9 @@
 use super::*;
 use crate::app::domain::events::{
-    AssetEvent::{LoadGltf},
+    AssetEvent::LoadGltf,
     DomainEvent::{self, Assets, Selection},
     EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight},
-    SelectionEvent::{Select},
+    SelectionEvent::Select,
 };
 use imgui::*;
 use legion::Entity;
@@ -14,40 +14,33 @@ impl Layer for EntityListUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         ui.window("Entities")
             .size([300.0, 100.0], Condition::FirstUseEver)
-            .build(|| {
-                draw_hierarchy_nodes(ui, ctx);
-                draw_lights_nodes(ui, ctx);
+            .build(|| build_wnd_list(ui, ctx));
+    }
+}
+fn build_wnd_list(ui: &Ui, ctx: &mut UiContext) {
+    draw_hierarchy_nodes(ui, ctx);
+    draw_lights_nodes(ui, ctx);
 
-                if ui.is_window_hovered()
-                    && !ui.is_any_item_hovered()
-                    && ui.is_mouse_clicked(imgui::MouseButton::Right)
-                {
-                    ui.open_popup("context");
-                }
+    fn empty_window_clicked(ui: &Ui, button: MouseButton) -> bool {
+        ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(button)
+    }
 
-                if let Some(popup) = ui.begin_popup("context") {
-                    ui.menu_item("Load Gltf ..").then(|| {
-                        menu_bar::file_open(FileFilter::Gltf).map(|f| {
-                            ctx.bus
-                                .send_domain(DomainEvent::Assets(LoadGltf(f)))
-                        });
-                    });
-                    ui.menu_item("Add Light..").then(|| {
-                        ctx.bus
-                            .send_domain(DomainEvent::Entity(AddLight));
-                    });
-                    popup.end();
-                }
+    if let Some(popup) = ui.begin_popup_context_window() {
+        if ui.menu_item("Load Gltf ..") {
+            if let Some(file) = menu_bar::file_open(FileFilter::Gltf) {
+                ctx.bus.send_domain(Assets(LoadGltf(file)));
+            }
+        }
 
-                // deselect if clicked on empty
-                if ui.is_window_hovered()
-                    && ui.is_mouse_clicked(MouseButton::Left)
-                    && !ui.is_any_item_hovered()
-                {
-                    ctx.bus
-                        .send_domain(Selection(Select(None)));
-                }
-            });
+        if ui.menu_item("Add Light..") {
+            ctx.bus.send_domain(DomainEvent::Entity(AddLight));
+        }
+
+        popup.end();
+    }
+
+    if empty_window_clicked(ui, MouseButton::Left) {
+        ctx.bus.send_domain(Selection(Select(None)));
     }
 }
 
@@ -88,8 +81,8 @@ fn draw_entity_node_recurse(
         .push();
 
     if is_root {
-        // Right Buttons           👁 + 🗑 ⚙
-        right_buttons(ui, BUTTONS, |ui| {
+        // Right Icons           👁 + 🗑 ⚙
+        right_icons(ui, BUTTONS, |ui| {
             if ui.small_button(ICON_EYE) {
                 // Enabled
                 // node.enabled = !node.enabled;
@@ -104,7 +97,8 @@ fn draw_entity_node_recurse(
             ui.same_line();
             if ui.small_button(ICON_TRASH) {
                 // Delete
-                ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(entity)));
+                ctx.bus
+                    .send_domain(DomainEvent::Entity(RemoveEntity(entity)));
             }
 
             ui.same_line();
@@ -158,10 +152,13 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             }
             if let Some(popup) = ui.begin_popup("entity_context") {
                 ui.menu_item("Remove ..").then(|| {
-                    ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(selected)));
+                    ctx.bus
+                        .send_domain(DomainEvent::Entity(RemoveEntity(selected)));
                 });
-                ui.menu_item("Add Parent ..")
-                    .then(|| ctx.bus.send_domain(DomainEvent::Entity(AddParent(selected))));
+                ui.menu_item("Add Parent ..").then(|| {
+                    ctx.bus
+                        .send_domain(DomainEvent::Entity(AddParent(selected)))
+                });
                 popup.end();
             }
         }
@@ -208,8 +205,8 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         let opened = ui.tree_node_config(label.clone()).flags(flags).push();
         let clicked = ui.is_item_clicked();
 
-        // Right Buttons           👁 + 🗑 ⚙
-        right_buttons(ui, BUTTONS, |ui| {
+        // Right Icons           👁 + 🗑 ⚙
+        right_icons(ui, BUTTONS, |ui| {
             if ui.small_button(ICON_EYE) {
                 // Enabled
                 light.enabled = !light.enabled;
@@ -225,7 +222,8 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             ui.same_line();
             if ui.small_button(ICON_TRASH) {
                 // Delete
-                ctx.bus.send_domain(DomainEvent::Entity(RemoveEntity(entity)));
+                ctx.bus
+                    .send_domain(DomainEvent::Entity(RemoveEntity(entity)));
             }
 
             ui.same_line();
@@ -248,7 +246,7 @@ fn disabled_style(ui: &Ui, enabled: bool) -> Option<imgui::ColorStackToken<'_>> 
     (!enabled).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]))
 }
 
-fn right_buttons<F>(ui: &Ui, buttons: usize, f: F)
+fn right_icons<F>(ui: &Ui, buttons: usize, f: F)
 where
     F: FnOnce(&Ui),
 {
