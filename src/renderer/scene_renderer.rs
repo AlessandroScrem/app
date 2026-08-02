@@ -58,11 +58,11 @@ impl SceneRenderer {
             RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
             RenderPassEnum::Transmission(MeshPass::transmission()),
             RenderPassEnum::LightsIcon(LightsIconPass::new()),
+            RenderPassEnum::PickObject(PickObjectPass::new()),
             RenderPassEnum::Axis(AxisPass::new()),
             RenderPassEnum::Lines(LinesPass::new()),
             RenderPassEnum::Linearize(LinearizePass::new()),
             RenderPassEnum::Outline(OutlinePass::new()),
-            RenderPassEnum::PickObject(PickObjectPass::new()),
         ];
 
         Self {
