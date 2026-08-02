@@ -1,19 +1,21 @@
 use std::sync::Arc;
 
 use super::RuntimeEvent;
+use crate::EntityRawU64;
+use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
-use crate::app::{Application, HasAssetMgr};
+use crate::app::{Application};
+use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
-    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
+    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, PickObject, ShadowManager,
 };
 use crate::input::{Input, KeyButton};
-use crate::picking::PickObject;
 use crate::prelude::info;
 use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
@@ -21,6 +23,7 @@ use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::InternalCounter;
 use crate::ui::UiLayer;
+use legion::Entity;
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for Runtime {
@@ -149,7 +152,11 @@ impl Runtime {
                 self.input.mouse_position.x as u32,
                 self.input.mouse_position.y as u32,
             ));
-            let hovered = self.pickobject.poll_readback(&self.gpu_context.device);
+
+            let hovered = self
+                .pickobject
+                .poll_readback(&self.gpu_context.device)
+                .map(|id| Entity::from_raw_u64(id));
             bus.send_domain(Selection(Hovered(hovered)));
         }
 
@@ -223,9 +230,9 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn sync_gpu_assets<A: Application + HasAssetMgr>(
+    pub fn sync_gpu_assets(
         &mut self,
-        app: &mut A,
+        asset_mgr: &mut AssetManager,
         bus: &mut EventBus,
     ) {
         use crate::assets::TextureId;
@@ -252,7 +259,6 @@ impl Runtime {
         let material_cache = &mut self.gpu_cache.material;
         let mesh_cache = &mut self.gpu_cache.mesh;
 
-        let asset_mgr = app.asset_mgr_mut();
         let grouped = asset_mgr.drain_grouped_events();
 
         // let mut domain_event = vec![];
@@ -390,11 +396,7 @@ impl Runtime {
     }
 }
 impl Runtime {
-    pub fn update_ui<A: Application>(
-        &mut self,
-        app: &mut A,
-        bus: &mut EventBus,
-    ) {
+    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
         let frame_stats = self.scene_renderer.get_render_stats();
         let gpu_counters = self.internal_counter();
         let snapshot =
@@ -406,7 +408,7 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn render<A: Application>(&mut self, app: &A) {
+    pub fn render(&mut self, render_data: &AppRenderData) {
         let mut encoder = self.gpu_context.create_encoder();
 
         if let Some(frame) = self.gpu_surface.get_frame() {
@@ -415,7 +417,6 @@ impl Runtime {
                 self.gpu_surface.get_config().width,
                 self.gpu_surface.get_config().height,
             );
-            let render_data = app.render_data();
 
             {
                 let Runtime {

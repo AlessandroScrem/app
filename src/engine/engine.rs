@@ -90,13 +90,12 @@ impl<A: Application + HasAssetMgr> Engine<A> {
 
         runtime.handle_runtime_events(app, bus);
 
-        // update app, maybe enqueue new runtime events.
         app.on_update(bus);
 
-        runtime.sync_gpu_assets(app, bus);
+        runtime.sync_gpu_assets(app.asset_mgr_mut(), bus);
 
         runtime.update_ui(app, bus);
 
-        runtime.render(app);
+        runtime.render(&app.render_data());
     }
 }

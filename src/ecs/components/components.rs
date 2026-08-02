@@ -1,5 +1,5 @@
+use crate::BoundingBox;
 use crate::math::*;
-use crate::prelude::*;
 use legion::Entity;
 
 use crate::assets::MeshId;

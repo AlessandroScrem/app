@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager};
+use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager, PickObject};
 use crate::renderer::framebuilder::DrawStats;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 
@@ -10,7 +10,6 @@ use wgpu::Device;
 
 use crate::camera::Camera;
 use crate::globals::Globals;
-use crate::picking::PickObject;
 use crate::prelude::{debug, info};
 use crate::renderer::renderpass::*;
 

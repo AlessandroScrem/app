@@ -1,10 +1,11 @@
+use crate::BoundingBox;
+use crate::Camera;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
 impl App {
-
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;

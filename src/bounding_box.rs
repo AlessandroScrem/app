@@ -1,3 +1,7 @@
+use crate::math::{Vec3, Mat4};
+const CORNERS: usize = 8;
+type BBoxCornerData = [Vec3; CORNERS];
+
 #[derive(Debug, Clone)]
 pub struct BoundingBox {
     pub min: [f32; 3],
@@ -7,6 +11,16 @@ pub struct BoundingBox {
 impl Default for BoundingBox {
     fn default() -> Self {
         Self::new_empty()
+    }
+}
+
+// Implementazione di From per tuple di array ([f32;3], [f32;3])
+impl From<([f32; 3], [f32; 3])> for BoundingBox {
+    fn from(value: ([f32; 3], [f32; 3])) -> Self {
+        BoundingBox {
+            min: value.0,
+            max: value.1,
+        }
     }
 }
 
@@ -40,15 +54,47 @@ impl BoundingBox {
     }
 }
 
-// Implementazione di From per tuple di array ([f32;3], [f32;3])
-impl From<([f32; 3], [f32; 3])> for BoundingBox {
-    fn from(value: ([f32; 3], [f32; 3])) -> Self {
-        BoundingBox {
-            min: value.0,
-            max: value.1,
+impl BoundingBox {
+    pub fn gen_corners(&self) -> BBoxCornerData {
+        /*
+        bbox vertices order:
+            y  7----------6
+            | /|         /|
+            |/ |        / |
+            3----------2  |
+            |  | z     |  |
+            |  4-------|--5
+            | /        | /
+            |/         |/
+            0----------1 --->x
+        */
+        [
+            Vec3::new(self.min[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.min[1], self.min[2]),
+            Vec3::new(self.max[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.max[1], self.min[2]),
+            Vec3::new(self.min[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.min[1], self.max[2]),
+            Vec3::new(self.max[0], self.max[1], self.max[2]),
+            Vec3::new(self.min[0], self.max[1], self.max[2]),
+        ]
+    }
+
+    pub fn transform_aabb(&self, matrix: &Mat4) -> Self {
+        let corners = self.gen_corners();
+
+        // Trasformazione
+        let transformed = corners.map(|c| matrix * c.extend(1.0));
+
+        // Ricostruzione AABB
+        let mut bbox = Self::new_empty();
+        for p in transformed {
+            bbox.extend(&p.truncate().into());
         }
+        bbox
     }
 }
+
 
 #[cfg(test)]
 mod tests {

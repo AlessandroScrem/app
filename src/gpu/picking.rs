@@ -1,4 +1,3 @@
-use legion::Entity;
 use std::sync::mpsc;
 
 pub enum ReadbackState {
@@ -12,10 +11,11 @@ pub struct PickObject {
     pub buffer: wgpu::Buffer,
     pub picking_coords: PickingData,
     pub state: ReadbackState,
-    cached_hovered: Option<Entity>,
+    cached_id: Option<u64>,
     readback_tx: mpsc::Sender<()>,
     readback_rx: mpsc::Receiver<()>,
 }
+
 
 impl PickObject {
     pub fn new(device: &wgpu::Device) -> Self {
@@ -29,7 +29,7 @@ impl PickObject {
         Self {
             buffer,
             state: ReadbackState::Idle,
-            cached_hovered: None,
+            cached_id: None,
             readback_tx: tx,
             readback_rx: rx,
             picking_coords: (0,0),
@@ -44,7 +44,7 @@ impl PickObject {
         self.picking_coords
     }
 
-    pub fn poll_readback(&mut self, device: &wgpu::Device) -> Option<Entity> {
+    pub fn poll_readback(&mut self, device: &wgpu::Device) -> Option<u64> {
         let _ = device.poll(wgpu::PollType::Poll);
 
         match self.state {
@@ -66,7 +66,7 @@ impl PickObject {
 
             ReadbackState::Mapping => {
                 if self.readback_rx.try_recv().is_ok() {
-                    let entity = {
+                    let id = {
                         let slice = self.buffer.slice(..);
                         let data = slice.get_mapped_range();
 
@@ -75,22 +75,21 @@ impl PickObject {
 
                     self.buffer.unmap();
 
-                    self.cached_hovered = entity;
+                    self.cached_id = id;
 
                     self.state = ReadbackState::Idle;
                 }
             }
         }
 
-        self.cached_hovered
+        self.cached_id
     }
 
-    fn read_pixel(data: wgpu::BufferView) -> Option<Entity> {
+    fn read_pixel(data: wgpu::BufferView) -> Option<u64> {
         if data.len() >= 8 {
             let id =
                 u64::from_le_bytes(data[0..8].try_into().expect("unable to convert pixel data"));
-            let entity: Entity = crate::EntityRawU64::from_raw_u64(id);
-            Some(entity)
+            Some(id)
         } else {
             None
         }
