@@ -5,13 +5,13 @@ use super::*;
 use crate::EntityRawU64;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{LinesVertexData, MaterialId, MeshId, VertexInstance};
-use crate::ecs::components::*;
+use crate::ecs::components::{Hidden, *};
 use crate::globals::Globals;
 use crate::math::*;
 use crate::prelude::trace;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
 
-use legion::{Entity, World};
+use legion::{Entity, EntityStore, World};
 
 pub struct InstanceBatch {
     pub mesh: MeshId,
@@ -259,11 +259,36 @@ impl FrameBuilder {
         use crate::assets::MaterialAsset;
         use crate::assets::MeshAsset;
 
+        fn is_hidden(world: &World, entity: Entity) -> bool {
+            let Ok(entry) = world.entry_ref(entity) else {
+                return false;
+            };
+            // check if has Hidden component
+            if entry.get_component::<Hidden>().is_ok() {
+                return true;
+            }
+
+            let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() else {
+                return false;
+            };
+
+            // recurse to parent
+            if let Some(parent) = hierarchy.parent {
+                return is_hidden(world, parent);
+            }
+
+            false
+        }
+
         let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
         for (entity, mesh_comp, global_mat) in query.iter(world) {
             let Some(mesh) = asset.get::<MeshAsset>(mesh_comp.handle) else {
                 continue;
             };
+
+            if is_hidden(world, *entity) {
+                continue;
+            }
 
             for submesh in mesh.desc.submeshes.iter() {
                 let Some(material) = asset.get::<MaterialAsset>(submesh.material) else {

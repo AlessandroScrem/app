@@ -44,6 +44,7 @@ pub enum EntityEvent {
     UpdateTransform(Entity, TransformComponent),
     UpdateLight(Entity, LightComponent),
     EnableAllLight(bool),
+    DisableEntity(Entity, bool),
 }
 pub enum GlobalEvent {
     LightEnable(bool),

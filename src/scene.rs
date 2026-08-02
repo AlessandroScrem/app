@@ -4,11 +4,15 @@ use legion::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::domain::events::{DomainEvent, SceneEvent}, assets::{
+    app::domain::events::{DomainEvent, SceneEvent},
+    assets::{
         MeshAsset,
         asset_manager::AssetManager,
         gltf_loader::{LoadedScene, NodeData, load_gltf},
-    }, ecs::components::*, engine::{RuntimeEvent, engine::EventBus}, ui::UiComponentState,
+    },
+    ecs::components::*,
+    engine::{RuntimeEvent, engine::EventBus},
+    ui::UiComponentState,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -335,8 +339,9 @@ fn get_hierarchy_roots(world: &legion::World) -> crate::ui::RootNodes {
         }
     }
 
-    roots
-}
+      roots.nodes.sort_by(|a,b| a.name.cmp(&b.name));   
+      roots
+    }
 
 /// Costruisce i nodi root per le luci
 fn get_lights_nodes(world: &legion::World) -> crate::ui::LightNodes {
@@ -346,27 +351,35 @@ fn get_lights_nodes(world: &legion::World) -> crate::ui::LightNodes {
     for (entity, light, tag) in query.iter(world) {
         roots.nodes.push(crate::ui::LightNode {
             name: tag.name.clone(),
-            comp: light.clone(), 
+            comp: light.clone(),
             entity: *entity,
         });
     }
-
+    
+    roots.nodes.sort_by(|a,b| a.name.cmp(&b.name));   
     roots
 }
 
 /// Funzione ricorsiva che costruisce un nodo con tutti i figli
-fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> crate::ui::HierarchyNode {
+fn build_node(
+    world: &legion::World,
+    entity: Entity,
+    parent: Option<Entity>,
+) -> crate::ui::HierarchyNode {
     let entry = match world.entry_ref(entity) {
         Ok(e) => e,
         Err(_) => {
             return crate::ui::HierarchyNode {
                 name: "<missing>".into(),
+                visible: true,
                 parent,
                 entity,
                 children: Vec::new(),
             };
         }
     };
+
+    let visible = entry.get_component::<Hidden>().is_err();
 
     let name = entry
         .get_component::<TagComponent>()
@@ -385,9 +398,9 @@ fn build_node(world: &legion::World, entity: Entity, parent: Option<Entity>) -> 
 
     crate::ui::HierarchyNode {
         name,
+        visible,
         parent,
         entity,
         children,
     }
 }
-

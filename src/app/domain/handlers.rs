@@ -156,6 +156,9 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         EntityEvent::AddLight => {
             light::create(world);
         }
+        EntityEvent::DisableEntity(entity, disable) => {
+            hierarchy::disable_entity(entity, world, disable);
+        }
     }
 }
 

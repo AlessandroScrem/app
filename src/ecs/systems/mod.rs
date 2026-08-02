@@ -1,5 +1,6 @@
 mod bounding_box;
 mod hierarchy;
+mod visibility;
 
 use legion::Schedule;
 

@@ -17,6 +17,7 @@ use legion::*;
 
 pub struct HierarchyNode {
     pub name: String,
+    pub visible: bool,
     pub parent: Option<Entity>,
     pub entity: Entity,
     pub children: Vec<HierarchyNode>,

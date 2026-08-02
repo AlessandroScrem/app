@@ -173,8 +173,11 @@ pub struct HierarchyComponent {
     pub children: Vec<Entity>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug)] 
 pub struct SceneComponent {
     /// Asset da cui proviene la scena
     pub path: String,
 }
+
+#[derive(Clone, Debug)] 
+pub struct Hidden;

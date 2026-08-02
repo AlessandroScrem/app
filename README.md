@@ -47,7 +47,8 @@ cgmath = "0.18.0"
 - [x] Material gltf Sheen
 - [x] Environment rotation
 - [x] Mesh Instance
-- [ ] Direct Light shadow
+- [x] Direct Light shadow
+- [x] Object toggle visiblility 
 - [ ] SSAO   
 - [ ] 
 

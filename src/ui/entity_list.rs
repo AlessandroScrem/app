@@ -2,11 +2,21 @@ use super::*;
 use crate::app::domain::events::{
     AssetEvent::LoadGltf,
     DomainEvent::{self, Assets, Selection},
-    EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight},
+    EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight, DisableEntity},
     SelectionEvent::Select,
 };
 use imgui::*;
 use legion::Entity;
+
+const ICON_LIGHTBULB: &str = "\u{EA61}"; // 💡
+const ICON_TRASH: &str = "\u{EA81}"; // 🗑
+const ICON_ADD: &str = "\u{EA60}"; //➕
+const ICON_GEAR: &str = "\u{EAF8}"; //⚙
+const ICON_EYE: &str = "\u{EA70}"; // 👁
+
+const ICON_LAYER: &str = "\u{EBD2}"; // ◈
+const ICON_LAYER_DOT: &str = "\u{EBD3}"; // ◈
+const ICON_LAYER_ACTIVE: &str = "\u{EBD4}"; // ◈
 
 pub struct EntityListUi {}
 
@@ -54,6 +64,7 @@ fn draw_entity_node_recurse(
     let children = &node.children;
     let is_active = selected.is_some_and(|e| e == entity);
     let is_root = node.parent.is_none();
+    const BUTTONS: usize = 4;
 
     let flags = children
         .is_empty()
@@ -71,7 +82,7 @@ fn draw_entity_node_recurse(
         ICON_LAYER
     };
 
-    const BUTTONS: usize = 4;
+    let _disabled = disabled_style(ui, !node.visible);
 
     let label = format!("{icon} {}", node.name,); // ◈ Name
     let opened = ui
@@ -80,12 +91,15 @@ fn draw_entity_node_recurse(
         .default_open(true)
         .push();
 
+    
     if is_root {
         // Right Icons           👁 + 🗑 ⚙
         right_icons(ui, BUTTONS, |ui| {
             if ui.small_button(ICON_EYE) {
                 // Enabled
-                // node.enabled = !node.enabled;
+                let mode = node.visible;
+                ctx.bus
+                    .send_domain(DomainEvent::Entity(DisableEntity(entity, mode)));
             }
             ui.same_line();
             if ui.small_button(ICON_ADD) {
@@ -169,16 +183,6 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 }
 
-const ICON_LIGHTBULB: &str = "\u{EA61}"; // 💡
-const ICON_TRASH: &str = "\u{EA81}"; // 🗑
-const ICON_ADD: &str = "\u{EA60}"; //➕
-const ICON_GEAR: &str = "\u{EAF8}"; //⚙
-const ICON_EYE: &str = "\u{EA70}"; // 👁
-
-const ICON_LAYER: &str = "\u{EBD2}"; // ◈
-const ICON_LAYER_DOT: &str = "\u{EBD3}"; // ◈
-const ICON_LAYER_ACTIVE: &str = "\u{EBD4}"; // ◈
-
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     let selected = ctx.snapshot.selected;
     let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
@@ -200,7 +204,7 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
                 TreeNodeFlags::empty()
             };
 
-        let _disabled = disabled_style(ui, light.enabled);
+        let _disabled = disabled_style(ui, !light.enabled);
 
         let opened = ui.tree_node_config(label.clone()).flags(flags).push();
         let clicked = ui.is_item_clicked();
@@ -242,8 +246,8 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 }
 
-fn disabled_style(ui: &Ui, enabled: bool) -> Option<imgui::ColorStackToken<'_>> {
-    (!enabled).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]))
+fn disabled_style(ui: &Ui, disabled: bool) -> Option<imgui::ColorStackToken<'_>> {
+    disabled.then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]))
 }
 
 fn right_icons<F>(ui: &Ui, buttons: usize, f: F)

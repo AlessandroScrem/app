@@ -5,6 +5,22 @@ use crate::prelude::warn;
 
 use legion::*;
 
+pub(crate) fn disable_entity(entity: Entity, world: &mut legion::World, disable: bool) {
+    // if not root node do nothing
+    if !is_root(entity, world) {
+        warn!("{:?} Not Root: Add Parent abort", entity);
+        return;
+    }
+
+    if let Some(mut e) = world.entry(entity) {
+        if disable {
+            e.add_component(Hidden);
+        } else {
+            e.remove_component::<Hidden>();
+        }
+    }
+}
+
 pub(crate) fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if !is_root(entity, world) {
