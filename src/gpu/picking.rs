@@ -6,10 +6,10 @@ pub enum ReadbackState {
     Mapping,       // map_async richiesto, attendo callback
 }
 
-pub type PickingData = (u32, u32);
+pub type PickingCoords = (u32, u32);
 pub struct PickObject {
     pub buffer: wgpu::Buffer,
-    pub picking_coords: PickingData,
+    pub picking_coords: PickingCoords,
     pub state: ReadbackState,
     cached_id: Option<u64>,
     readback_tx: mpsc::Sender<()>,
@@ -36,11 +36,11 @@ impl PickObject {
         }
     }
 
-    pub fn set_picking_coords(&mut self, coords: PickingData) {
+    pub fn set_picking_coords(&mut self, coords: PickingCoords) {
         self.picking_coords = coords;
     }
 
-    pub fn get_picking_coords(&self) -> PickingData {
+    pub fn get_picking_coords(&self) -> PickingCoords {
         self.picking_coords
     }
 

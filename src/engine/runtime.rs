@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::EntityRawU64;
+use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
-use crate::app::{Application};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectionBox};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -21,8 +21,7 @@ use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::ui::InternalCounter;
-use crate::ui::UiLayer;
+use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
 use legion::Entity;
 use winit::{event::Event, window::Window};
 
@@ -52,6 +51,7 @@ pub struct Runtime {
     pub input: Input,
     pub scene_renderer: SceneRenderer,
     pub pickobject: PickObject,
+    pub editor_interaction: EditorInteraction,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -111,6 +111,7 @@ impl Runtime {
             input: Input::new(),
             scene_renderer,
             pickobject,
+            editor_interaction: EditorInteraction::None,
             imgui_render,
             uilayer,
             gpu_context,
@@ -165,13 +166,37 @@ impl Runtime {
             bus.send_domain(Selection(SelectHovered));
         }
 
+        match self.editor_interaction  {
+            // handle start SelectionBox:
+            EditorInteraction::None => {
+                if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
+                    let current = self.input.mouse_position;
+                    let start = current;
+                    self.editor_interaction = EditorInteraction::Selecting {start , current };
+                }
+            }
+            EditorInteraction::Selecting { start, current: _} => {
+                // handle drag SelectionBox:
+                if input.is_mouse_dragging(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
+                    let current = self.input.mouse_position;
+                    self.editor_interaction = EditorInteraction::Selecting { start, current };
+                }
+                // handle end SelectionBox:
+                if input.is_mouse_button_released(MouseButton::Left) {
+                    self.editor_interaction = EditorInteraction::None;
+                    let current = self.input.mouse_position;
+                    bus.send_domain(Selection(SelectionBox(start, current)));
+                }
+            }
+        }
+
         // handle camera -------
-        if input.is_mouse_button_down(MouseButton::Left) {
+        if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
             bus.send_domain(Camera(CameraOrbit(delta.0, delta.1)));
         }
 
-        if input.is_mouse_button_down(MouseButton::Middle) {
+        if input.is_mouse_dragging(MouseButton::Middle) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
             bus.send_domain(Camera(CameraPan(delta.0, delta.1)));
         }
@@ -230,11 +255,7 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn sync_gpu_assets(
-        &mut self,
-        asset_mgr: &mut AssetManager,
-        bus: &mut EventBus,
-    ) {
+    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -260,8 +281,6 @@ impl Runtime {
         let mesh_cache = &mut self.gpu_cache.mesh;
 
         let grouped = asset_mgr.drain_grouped_events();
-
-        // let mut domain_event = vec![];
 
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
@@ -403,7 +422,8 @@ impl Runtime {
             app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
         // Main operation: update_ui and push events
-        self.uilayer.build(&self.window, snapshot, bus);
+        self.uilayer
+            .build(&self.window, snapshot, bus, &self.editor_interaction);
     }
 }
 

@@ -30,6 +30,7 @@ pub enum SelectionEvent {
     Select(Option<Entity>),
     SelectHovered,
     SelectIbl(IblId),
+    SelectionBox(Vec2,Vec2),
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),

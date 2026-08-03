@@ -54,6 +54,7 @@ impl ImguiRender {
         };
 
         let hidpi_factor = window.scale_factor();
+        println!("Scale factor {}", hidpi_factor);
         let font_size = (9.0 * hidpi_factor) as f32;
 
         context.fonts().add_font(&[
