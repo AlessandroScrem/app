@@ -1,4 +1,4 @@
-use crate::gpu::ReadbackState;
+use crate::gpu::{ReadbackState, picking};
 
 use super::*;
 
@@ -40,13 +40,21 @@ impl RenderPass for PickObjectPass {
             .get_framebuffer_texture(FramebufferKind::EntityId)
             .size();
 
-        let (mouse_pos_x, mouse_pos_y ) = pickobject.get_picking_coords();
+        let (mouse_pos_x, mouse_pos_y) = pickobject.get_picking_coords();
         let origin = wgpu::Origin3d {
             x: mouse_pos_x.clamp(0, size.width - 1),
             y: mouse_pos_y.clamp(0, size.height - 1),
-            z: 0
+            z: 0,
         };
-        const ALIGNED_BYTES_PER_ROW:u32 = 256; // minimo richiesto
+
+        
+        // const ALIGNED_BYTES_PER_ROW: u32 = 256; // minimo richiesto
+        
+        let (width, height) = pickobject.picking_size.unwrap_or((1, 1));
+        let unaligned_bytes_per_row = width * picking::BYTE_PER_PIXEL;
+        let aligned_bytes_per_row = picking::align_bytes_per_row(unaligned_bytes_per_row);
+        
+
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: gpu_manager.get_framebuffer_texture(FramebufferKind::EntityId),
@@ -58,13 +66,13 @@ impl RenderPass for PickObjectPass {
                 buffer: &pickobject.buffer,
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(ALIGNED_BYTES_PER_ROW),
-                    rows_per_image: Some(1),
+                    bytes_per_row: Some(aligned_bytes_per_row),
+                    rows_per_image: Some(height),
                 },
             },
             wgpu::Extent3d {
-                width: 1,
-                height: 1,
+                width,
+                height,
                 depth_or_array_layers: 1,
             },
         );

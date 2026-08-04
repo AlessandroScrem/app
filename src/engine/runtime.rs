@@ -84,12 +84,12 @@ impl Runtime {
             mesh: GpuMeshCache::default(),
         };
 
-        let gpu_manager = GpuManager::new(
-            &gpu_context.device,
-            &gpu_context.queue,
+        let (width, height) = (
             gpu_surface.get_config().width,
             gpu_surface.get_config().height,
         );
+
+        let gpu_manager = GpuManager::new(&gpu_context.device, &gpu_context.queue, width, height);
 
         let shadow_manager = ShadowManager::new(&gpu_context.device);
 
@@ -103,7 +103,7 @@ impl Runtime {
         //
 
         let scene_renderer = SceneRenderer::new();
-        let pickobject = PickObject::new(&gpu_context.device);
+        let pickobject = PickObject::new(&gpu_context.device, width, height);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         Self {
@@ -154,11 +154,12 @@ impl Runtime {
                 self.input.mouse_position.y as u32,
             ));
 
-            let hovered = self
-                .pickobject
-                .poll_readback(&self.gpu_context.device)
-                .map(|id| Entity::from_raw_u64(id));
-            bus.send_domain(Selection(Hovered(hovered)));
+            if let crate::gpu::ReadbackState::Ready(id) =
+                self.pickobject.poll_readback(&self.gpu_context.device)
+            {
+                let entity = id.map(Entity::from_raw_u64);
+                bus.send_domain(Selection(Hovered(entity)));
+            }
         }
 
         // handle selection: hovered -> selected
@@ -166,18 +167,22 @@ impl Runtime {
             bus.send_domain(Selection(SelectHovered));
         }
 
-        match self.editor_interaction  {
+        match self.editor_interaction {
             // handle start SelectionBox:
             EditorInteraction::None => {
-                if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
+                if input.is_mouse_button_pressed(MouseButton::Left)
+                    && input.is_key_down(KeyButton::Control)
+                {
                     let current = self.input.mouse_position;
                     let start = current;
-                    self.editor_interaction = EditorInteraction::Selecting {start , current };
+                    self.editor_interaction = EditorInteraction::Selecting { start, current };
                 }
             }
-            EditorInteraction::Selecting { start, current: _} => {
+            EditorInteraction::Selecting { start, current: _ } => {
                 // handle drag SelectionBox:
-                if input.is_mouse_dragging(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
+                if input.is_mouse_dragging(MouseButton::Left)
+                    && input.is_key_down(KeyButton::Control)
+                {
                     let current = self.input.mouse_position;
                     self.editor_interaction = EditorInteraction::Selecting { start, current };
                 }
