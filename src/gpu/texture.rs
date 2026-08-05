@@ -266,11 +266,10 @@ impl<'a> GpuTextureBuilder<'a> {
             };
 
             let layer_size = (width * height * pixel_size) as usize;
-
             assert_eq!(
                 pixels.len(),
-                estimated_size,
-                "Data pixels does not match: pixel_size * (w * h) "
+                layer_size,
+                "Data pixels does not match: layer_size"
             );
 
             // extend in case of Cube texture (layers = 6)
