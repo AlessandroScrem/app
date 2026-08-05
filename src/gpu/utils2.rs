@@ -1,6 +1,11 @@
+#![allow(unused)]
+
 use std::sync::{
+    Arc,
     mpsc::{Receiver, Sender, channel},
 };
+
+use crate::gpu::utils::unpad_image;
 
 pub type ReadbackId = u64;
 
@@ -11,38 +16,19 @@ pub struct ReadbackResult {
     pub bytes: Vec<u8>,
 }
 
-enum ReadbackState {
-    CopySubmitted,
-    Mapping,
-}
-
-struct PendingReadback {
-    id: ReadbackId,
-    bpp: u32,
-    size: (u32, u32),
-    buffer: wgpu::Buffer,
-}
-
 pub struct GpuManager {
     next_id: ReadbackId,
-
-    pending: Vec<PendingReadback>,
-
-    completed_tx: Sender<ReadbackId>,
-    completed_rx: Receiver<ReadbackId>,
-
-    ready: Vec<ReadbackResult>,
+    result_tx: Sender<ReadbackResult>,
+    result_rx: Receiver<ReadbackResult>,
 }
 impl GpuManager {
     pub fn new() -> Self {
-        let (completed_tx, completed_rx) = channel();
+        let (result_tx, result_rx) = channel();
 
         Self {
             next_id: 1,
-            pending: Vec::new(),
-            completed_tx,
-            completed_rx,
-            ready: Vec::new(),
+            result_tx,
+            result_rx,
         }
     }
 }
@@ -53,6 +39,7 @@ impl GpuManager {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
+        origin: (u32, u32),
         size: (u32, u32),
     ) -> ReadbackId {
         let id = self.next_id;
@@ -62,13 +49,22 @@ impl GpuManager {
         let bytes_per_row =
             super::utils::align_to(size.0 * bpp, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
         let buffer_size = bytes_per_row * size.1;
-        let buffer = create_readback_buffer(device, buffer_size as u64);
+        let buffer = Arc::new(create_readback_buffer(device, buffer_size as u64));
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("readback encoder"),
         });
         encoder.copy_texture_to_buffer(
-            texture.as_image_copy(),
+            wgpu::TexelCopyTextureInfo {
+                texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: origin.0,
+                    y: origin.1,
+                    z: 0,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
             wgpu::TexelCopyBufferInfo {
                 buffer: &buffer,
                 layout: wgpu::TexelCopyBufferLayout {
@@ -77,27 +73,39 @@ impl GpuManager {
                     rows_per_image: Some(size.1),
                 },
             },
-            texture.size(),
+            wgpu::Extent3d {
+                depth_or_array_layers: 1,
+                width: size.0,
+                height: size.1,
+            },
         );
 
         queue.submit(Some(encoder.finish()));
 
-        let tx = self.completed_tx.clone();
+        let tx = self.result_tx.clone();
+        let buffer_clone = buffer.clone();
 
         buffer
             .slice(..)
-            .map_async(wgpu::MapMode::Read, move |result| {
-                if result.is_ok() {
-                    tx.send(id).ok();
+            .map_async(wgpu::MapMode::Read, move |status| {
+                if status.is_err() {
+                    return;
                 }
-            });
 
-        self.pending.push(PendingReadback {
-            id,
-            bpp,
-            size,
-            buffer,
-        });
+                let data = buffer_clone.slice(..).get_mapped_range();
+                let bytes = unpad_image(&data, size.0, size.1, bpp, bytes_per_row);
+
+                tx.send(ReadbackResult {
+                    id,
+                    bpp,
+                    bytes,
+                    size,
+                })
+                .ok();
+
+                drop(data);
+                buffer_clone.unmap();
+            });
 
         id
     }
@@ -106,31 +114,18 @@ impl GpuManager {
 impl GpuManager {
     pub fn poll(&mut self, device: &wgpu::Device) {
         device.poll(wgpu::PollType::Poll).ok();
-
-        while let Ok(id) = self.completed_rx.try_recv() {
-            let index = self.pending.iter().position(|r| r.id == id).unwrap();
-
-            let pending = self.pending.swap_remove(index);
-
-            let data = pending.buffer.slice(..).get_mapped_range();
-            let size = pending.size;
-            let bpp = pending.bpp;
-
-            let row = super::utils::align_to(size.0 * bpp, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
-            let bytes = super::utils::unpad_image(&data, size.0, size.1, bpp, row);
-
-            self.ready.push(ReadbackResult { id, size, bpp, bytes });
-
-            drop(data);
-
-            pending.buffer.unmap();
-        }
     }
 }
 
 impl GpuManager {
     pub fn query_results(&mut self) -> Vec<ReadbackResult> {
-        std::mem::take(&mut self.ready)
+        let mut results = Vec::new();
+
+        while let Ok(result) = self.result_rx.try_recv() {
+            results.push(result);
+        }
+
+        results
     }
 }
 
@@ -178,19 +173,32 @@ mod tests {
         let (device, queue) = get_device_and_queue();
         let mut gpu = GpuManager::new();
 
-        let texture = GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-            .build(device, Some(queue))
-            .inner;
-        let width = texture.width();
-        let height = texture.height();
+        let gpu_texture =
+            GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                .build(device, Some(queue));
+        let texture = gpu_texture.inner;
 
-        gpu.request_readback(&device, &queue, &texture, (width, height));
+        println!("Texture format: {:?}", texture.format());
+
+        let origin = (0, 0);
+        let size = (1, 1);
+
+        let id = gpu.request_readback(&device, &queue, &texture, origin, size);
 
         let results = readback_poll(&mut gpu, device);
-        println!("Read {} bytes", results.len());
+        println!("Read {} results", results.len());
+
+        let bpp = gpu_texture.format.pixel_size();
+        let raw_result_size = size.0 * size.1 * bpp;
 
         for r in results.iter() {
-            println!("Id {} size {:?} bpp {} bytes {:?}", r.id, r.size, r.bpp, r.bytes);
+            assert_eq!(r.id, id);
+            assert_eq!(size, r.size);
+            assert_eq!(bpp, r.bpp);
+            assert_eq!(raw_result_size as usize, r.bytes.len());
+
+            println!("Id {} size {:?} bpp {}", r.id, r.size, r.bpp);
+            // println!("Bytes {:?}", r.bytes);
         }
 
         assert!(!results.is_empty());

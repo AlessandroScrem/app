@@ -99,6 +99,7 @@ impl PickObject {
     }
 
     // read single pixel
+    #[allow(unused)]
     fn read_pixel(data: wgpu::BufferView) -> Option<u64> {
         let size = BYTE_PER_PIXEL as usize;
         if data.len() >= size {

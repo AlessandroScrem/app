@@ -23,6 +23,7 @@ pub struct GpuTexture {
     pub extent: wgpu::Extent3d,
     pub sampler: wgpu::Sampler,
     pub estimated_size: usize,
+    #[allow(unused)]
     pub format: ColorSpace,
 }
 
