@@ -28,9 +28,9 @@ pub enum SceneEvent {
 pub enum SelectionEvent {
     Hovered(Option<Entity>),
     Select(Option<Entity>),
+    SelectMulti(Vec<Entity>),
     SelectHovered,
     SelectIbl(IblId),
-    SelectionBox(Vec2,Vec2),
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),

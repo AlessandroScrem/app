@@ -195,6 +195,10 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
         SelectionEvent::Select(entity) => {
             app.selected = entity;
         }
+        SelectionEvent::SelectMulti(entities) => {
+            println!("Id {:?}", entities);
+            app.multiselct = entities;
+        }
         SelectionEvent::SelectHovered => {
             app.selected = app.hovered;
         }
@@ -203,6 +207,5 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
             bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
             println!("Selected {:?}", ibl_id);
         }
-        SelectionEvent::SelectionBox(_, _) => {}
     }
 }

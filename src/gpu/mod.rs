@@ -8,6 +8,8 @@ pub(crate) mod shadow_manager;
 pub(crate) mod static_textures;
 pub(crate) mod surface;
 pub(crate) mod texture;
+pub(crate) mod utils;
+pub(crate) mod utils2;
 
 pub(crate) use caches::*;
 pub(crate) use context::GpuContext;
@@ -18,3 +20,5 @@ pub(crate) use surface::GpuSurface;
 pub(crate) use picking::{PickObject, ReadbackState};
 
 use crate::prelude::*;
+
+pub(crate) use utils::copy_texture_to_cpu;

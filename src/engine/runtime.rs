@@ -1,16 +1,17 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::RuntimeEvent;
-use crate::EntityRawU64;
 use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectionBox};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectMulti};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
 use crate::gpu::pipeline_manager::PipelineManager;
+use crate::gpu::utils::TextureReadback;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
     GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, PickObject, ShadowManager,
@@ -22,6 +23,7 @@ use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
+use crate::{EntityRawU64, bounding_box};
 use legion::Entity;
 use winit::{event::Event, window::Window};
 
@@ -46,6 +48,7 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
+    pub readback: Option<crate::gpu::utils::TextureReadback>,
 
     pub uilayer: UiLayer,
     pub input: Input,
@@ -123,6 +126,7 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
+            readback: None,
         }
     }
 }
@@ -147,12 +151,28 @@ impl Runtime {
         use crate::input::MouseButton;
         let input = &self.input;
 
+        if let Some(readback) = &mut self.readback {
+            if let Some(data) = readback.poll(&self.gpu_context.device) {
+                println!("Buffer len: {} ", data.len());
+                let mut ids = HashSet::new();
+                for chunk in data.chunks_exact(8) {
+                    let id = u64::from_le_bytes(chunk.try_into().unwrap());
+                    if id != 0 {
+                        ids.insert(EntityRawU64::from_raw_u64(id));
+                    }
+                }
+                bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
+                self.readback = None;
+            }
+        }
+
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
-            self.pickobject.set_picking_coords((
+            let pos = (
                 self.input.mouse_position.x as u32,
                 self.input.mouse_position.y as u32,
-            ));
+            );
+            self.pickobject.set_picking_coords(pos);
 
             if let crate::gpu::ReadbackState::Ready(id) =
                 self.pickobject.poll_readback(&self.gpu_context.device)
@@ -164,6 +184,16 @@ impl Runtime {
 
         // handle selection: hovered -> selected
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
+            let texture = self
+                .gpu_manager
+                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+            if let Ok(buffer) = crate::gpu::copy_texture_to_cpu(
+                &self.gpu_context.device,
+                &self.gpu_context.queue,
+                texture,
+            ) {
+                // println!("received buffer len {}", buffer.len());
+            }
             bus.send_domain(Selection(SelectHovered));
         }
 
@@ -190,7 +220,23 @@ impl Runtime {
                 if input.is_mouse_button_released(MouseButton::Left) {
                     self.editor_interaction = EditorInteraction::None;
                     let current = self.input.mouse_position;
-                    bus.send_domain(Selection(SelectionBox(start, current)));
+                    let texture = self
+                        .gpu_manager
+                        .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+
+                    // pos must be origin coordinates from top left. 
+                    let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
+                    let width = (start.x - current.x).abs() as u32;
+                    let height = (start.y - current.y).abs() as u32;
+
+                    self.readback = Some(TextureReadback::new(
+                        &self.gpu_context.device,
+                        &self.gpu_context.queue,
+                        texture,
+                        pos,
+                        width,
+                        height,
+                    ));
                 }
             }
         }
