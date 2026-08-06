@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::RuntimeEvent;
+use crate::EntityRawU64;
 use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
@@ -23,7 +24,6 @@ use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
-use crate::{EntityRawU64, bounding_box};
 use legion::Entity;
 use winit::{event::Event, window::Window};
 
@@ -187,7 +187,7 @@ impl Runtime {
             let texture = self
                 .gpu_manager
                 .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
-            if let Ok(buffer) = crate::gpu::copy_texture_to_cpu(
+            if let Ok(_buffer) = crate::gpu::copy_texture_to_cpu(
                 &self.gpu_context.device,
                 &self.gpu_context.queue,
                 texture,
@@ -224,7 +224,7 @@ impl Runtime {
                         .gpu_manager
                         .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
 
-                    // pos must be origin coordinates from top left. 
+                    // pos must be origin coordinates from top left.
                     let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
                     let width = (start.x - current.x).abs() as u32;
                     let height = (start.y - current.y).abs() as u32;

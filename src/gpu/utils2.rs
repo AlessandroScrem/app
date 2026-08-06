@@ -1,23 +1,16 @@
 #![allow(unused)]
 
-use std::sync::{
-    Arc,
-    mpsc::{Receiver, Sender, channel},
+use std::{
+    ops::Not,
+    sync::{
+        Arc,
+        mpsc::{Receiver, Sender, channel},
+    },
 };
 
 use crate::gpu::utils::unpad_image;
 
-pub type ReadbackId = u64;
-
-pub struct ReadbackResult {
-    pub id: ReadbackId,
-    pub size: (u32, u32),
-    pub bpp: u32,
-    pub bytes: Vec<u8>,
-}
-
 pub struct GpuManager {
-    next_id: ReadbackId,
     result_tx: Sender<ReadbackResult>,
     result_rx: Receiver<ReadbackResult>,
 }
@@ -26,7 +19,6 @@ impl GpuManager {
         let (result_tx, result_rx) = channel();
 
         Self {
-            next_id: 1,
             result_tx,
             result_rx,
         }
@@ -41,10 +33,8 @@ impl GpuManager {
         texture: &wgpu::Texture,
         origin: (u32, u32),
         size: (u32, u32),
-    ) -> ReadbackId {
-        let id = self.next_id;
-        self.next_id += 1;
-
+        decoder: Box<dyn ReadbackDecoder>,
+    ) {
         let bpp = super::utils::bytes_per_pixel(texture.format()).unwrap();
         let bytes_per_row =
             super::utils::align_to(size.0 * bpp, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
@@ -95,19 +85,13 @@ impl GpuManager {
                 let data = buffer_clone.slice(..).get_mapped_range();
                 let bytes = unpad_image(&data, size.0, size.1, bpp, bytes_per_row);
 
-                tx.send(ReadbackResult {
-                    id,
-                    bpp,
-                    bytes,
-                    size,
-                })
-                .ok();
+                let result = decoder.decode(bytes, size);
+
+                tx.send(result).ok();
 
                 drop(data);
                 buffer_clone.unmap();
             });
-
-        id
     }
 }
 
@@ -138,8 +122,50 @@ fn create_readback_buffer(device: &wgpu::Device, size: u64) -> wgpu::Buffer {
     })
 }
 
+pub enum ReadbackResult {
+    Selection(Vec<u64>),
+    Pick(Option<u64>),
+    RawData(Vec<u8>),
+}
+
+pub trait ReadbackDecoder: Send {
+    fn decode(self: Box<Self>, bytes: Vec<u8>, size: (u32, u32)) -> ReadbackResult;
+}
+
+pub struct RawData;
+impl ReadbackDecoder for RawData {
+    fn decode(self: Box<Self>, bytes: Vec<u8>, _: (u32, u32)) -> ReadbackResult {
+        ReadbackResult::RawData(bytes)
+    }
+}
+
+pub struct Pick;
+impl ReadbackDecoder for Pick {
+    fn decode(self: Box<Self>, bytes: Vec<u8>, _: (u32, u32)) -> ReadbackResult {
+        // let id = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let id = bytes.len();
+
+        ReadbackResult::Pick(if id == 0 {
+            None
+        } else {
+            Some(id as u64)
+            // Some(Entity::from_raw_u64(id as u64))
+        })
+    }
+}
+
+pub struct Selection;
+impl ReadbackDecoder for Selection {
+    fn decode(self: Box<Self>, bytes: Vec<u8>, _: (u32, u32)) -> ReadbackResult {
+        let ids = bytes.chunks_exact(4).map(|pixel| pixel[0] as u64).filter(|&id| id != 0).collect();
+        ReadbackResult::Selection(ids)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use log::error;
+
     use super::*;
     use crate::gpu::caches::GpuTextureBuilder;
     use crate::gpu::static_textures;
@@ -169,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn should_() {
+    fn should_read_rawdata() {
         let (device, queue) = get_device_and_queue();
         let mut gpu = GpuManager::new();
 
@@ -181,9 +207,9 @@ mod tests {
         println!("Texture format: {:?}", texture.format());
 
         let origin = (0, 0);
-        let size = (1, 1);
+        let size = (texture.width(), texture.height());
 
-        let id = gpu.request_readback(&device, &queue, &texture, origin, size);
+        gpu.request_readback(&device, &queue, &texture, origin, size, Box::new(RawData));
 
         let results = readback_poll(&mut gpu, device);
         println!("Read {} results", results.len());
@@ -192,15 +218,84 @@ mod tests {
         let raw_result_size = size.0 * size.1 * bpp;
 
         for r in results.iter() {
-            assert_eq!(r.id, id);
-            assert_eq!(size, r.size);
-            assert_eq!(bpp, r.bpp);
-            assert_eq!(raw_result_size as usize, r.bytes.len());
-
-            println!("Id {} size {:?} bpp {}", r.id, r.size, r.bpp);
-            // println!("Bytes {:?}", r.bytes);
+            match r {
+                ReadbackResult::RawData(vec) => {
+                    assert_eq!(raw_result_size as usize, vec.len());
+                    // println!("Bytes {:?}", vec);
+                }
+               _ => panic!("unexpected"),
+            }
         }
+        assert!(!results.is_empty());
+    }
 
+    #[test]
+    fn should_read_pick() {
+        let (device, queue) = get_device_and_queue();
+        let mut gpu = GpuManager::new();
+
+        let gpu_texture =
+            GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                .build(device, Some(queue));
+        let texture = gpu_texture.inner;
+
+        println!("Texture format: {:?}", texture.format());
+
+        let origin = (15, 15);
+        let size = (1, 1);
+
+        gpu.request_readback(&device, &queue, &texture, origin, size, Box::new(Pick));
+
+        let results = readback_poll(&mut gpu, device);
+        println!("Read {} results", results.len());
+
+        let bpp = gpu_texture.format.pixel_size();
+        let raw_result_size = size.0 * size.1 * bpp;
+
+        for r in results.iter() {
+            match r {
+                ReadbackResult::Pick(id) => {
+                    assert_eq!(*id , Some(4));
+                    println!("id {:?}", id);
+                }
+                _ => panic!("unexpected"),
+            }
+        }
+        assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn should_read_selection() {
+        let (device, queue) = get_device_and_queue();
+        let mut gpu = GpuManager::new();
+
+        let gpu_texture =
+            GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
+                .build(device, Some(queue));
+        let texture = gpu_texture.inner;
+
+        println!("Texture format: {:?}", texture.format());
+
+        let origin = (0, 0);
+        let size = (10, 8);
+
+        gpu.request_readback(&device, &queue, &texture, origin, size, Box::new(Selection));
+
+        let results = readback_poll(&mut gpu, device);
+        println!("Read {} results", results.len());
+
+        let bpp = gpu_texture.format.pixel_size();
+        let raw_result_size = size.0 * size.1 * bpp;
+
+        for r in results.iter() {
+            match r {
+                ReadbackResult::Selection(ids) => {
+                    assert!(!ids.is_empty());
+                    println!("id count  {:?}", ids.len() );
+                }
+                _ => panic!("unexpected"),
+            }
+        }
         assert!(!results.is_empty());
     }
 }
