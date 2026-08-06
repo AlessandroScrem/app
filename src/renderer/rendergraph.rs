@@ -262,7 +262,6 @@ mod tests {
         let bboxpass = LinesPass::new();
         let linearizepass = LinearizePass::new();
         let outlinepass = OutlinePass::new();
-        let pickobjectpass = PickObjectPass::new();
 
         graph.add_pass(meshpass);
         graph.add_pass(skyboxpass);
@@ -273,7 +272,6 @@ mod tests {
         graph.add_pass(bboxpass);
         graph.add_pass(linearizepass);
         graph.add_pass(outlinepass);
-        graph.add_pass(pickobjectpass);
 
         match graph.compile_names() {
             Ok(order) => {
@@ -290,7 +288,6 @@ mod tests {
                         "BoundingboxPass",
                         "LinearizePass",
                         "OutlinePass",
-                        "PickObjectPass"
                     ]
                 );
             }

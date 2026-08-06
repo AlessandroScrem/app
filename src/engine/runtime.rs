@@ -7,17 +7,16 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectMulti};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
 use crate::engine::request_mgr::{QueryResult, RequestManager};
 use crate::gpu::gpu_readback::GpuReadback;
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::utils::TextureReadback;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
-    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, PickObject, ShadowManager,
+    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::{Input, KeyButton};
 use crate::prelude::info;
@@ -50,13 +49,11 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
-    pub readback: Option<crate::gpu::utils::TextureReadback>,
     pub req_mgr: RequestManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
-    pub pickobject: PickObject,
     pub editor_interaction: EditorInteraction,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
@@ -109,14 +106,12 @@ impl Runtime {
         //
 
         let scene_renderer = SceneRenderer::new();
-        let pickobject = PickObject::new(&gpu_context.device, width, height);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
 
         Self {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
-            pickobject,
             editor_interaction: EditorInteraction::None,
             imgui_render,
             uilayer,
@@ -129,7 +124,6 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
-            readback: None,
             req_mgr: RequestManager::default(),
         }
     }
@@ -155,71 +149,41 @@ impl Runtime {
         use crate::input::MouseButton;
         let input = &self.input;
 
-        // if let Some(readback) = &mut self.readback {
-        //     if let Some(data) = readback.poll(&self.gpu_context.device) {
-        //         println!("Buffer len: {} ", data.len());
-        //         let mut ids = HashSet::new();
-        //         for chunk in data.chunks_exact(8) {
-        //             let id = u64::from_le_bytes(chunk.try_into().unwrap());
-        //             if id != 0 {
-        //                 ids.insert(EntityRawU64::from_raw_u64(id));
-        //             }
-        //         }
-        //         bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
-        //         self.readback = None;
-        //     }
-        // }
+        if let Some(result) = self.req_mgr.poll() {
+            match result {
+                QueryResult::Pick(id) => {
+                    let entity = id.map(Entity::from_raw_u64);
+                    bus.send_domain(Selection(Hovered(entity)));
+                }
+
+                QueryResult::Selection(ids) => {
+                    let selected: HashSet<u64> = ids.into_iter().collect();
+                    println!("Selected {:?}", selected);
+                }
+            }
+        }
 
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
-            let pos = (
-                self.input.mouse_position.x as u32,
-                self.input.mouse_position.y as u32,
-            );
-            self.pickobject.set_picking_coords(pos);
-
-            if let crate::gpu::ReadbackState::Ready(id) =
-                self.pickobject.poll_readback(&self.gpu_context.device)
-            {
-                let entity = id.map(Entity::from_raw_u64);
-                bus.send_domain(Selection(Hovered(entity)));
-            }
-
-            if let Some(result) = self.req_mgr.poll() {
-                match result {
-                    QueryResult::Pick(id) => {
-                        println!("Received pick {:?}", id);
-                    }
-
-                    QueryResult::Selection(_ids) => {}
-                }
-            }
-
+            // TODO: remove this.
             let gpu = GpuReadback::default();
-            let texture = self
-                .gpu_manager
-                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+
             self.req_mgr.request_pick(
                 &gpu,
                 &self.gpu_context.device,
                 &self.gpu_context.queue,
-                texture,
-                pos,
+                &self
+                    .gpu_manager
+                    .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                (
+                    self.input.mouse_position.x as u32,
+                    self.input.mouse_position.y as u32,
+                ),
             );
         }
 
         // handle selection: hovered -> selected
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
-            let texture = self
-                .gpu_manager
-                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
-            if let Ok(_buffer) = crate::gpu::copy_texture_to_cpu(
-                &self.gpu_context.device,
-                &self.gpu_context.queue,
-                texture,
-            ) {
-                // println!("received buffer len {}", buffer.len());
-            }
             bus.send_domain(Selection(SelectHovered));
         }
 
@@ -246,23 +210,27 @@ impl Runtime {
                 if input.is_mouse_button_released(MouseButton::Left) {
                     self.editor_interaction = EditorInteraction::None;
                     let current = self.input.mouse_position;
-                    let texture = self
-                        .gpu_manager
-                        .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
 
                     // pos must be origin coordinates from top left.
                     let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
                     let width = (start.x - current.x).abs() as u32;
                     let height = (start.y - current.y).abs() as u32;
 
-                    self.readback = Some(TextureReadback::new(
+                    // TODO: remove this.
+                    let gpu = GpuReadback::default();
+                    self.req_mgr.request_selection(
+                        &gpu,
                         &self.gpu_context.device,
                         &self.gpu_context.queue,
-                        texture,
-                        pos,
-                        width,
-                        height,
-                    ));
+                        &self
+                            .gpu_manager
+                            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                            pos,
+                        (
+                            width,
+                            height,
+                        ),
+                    );
                 }
             }
         }
@@ -523,7 +491,6 @@ impl Runtime {
                     shadow_manager,
                     pipeline_manager,
                     gpu_cache,
-                    pickobject,
                     ..
                 } = self;
 
@@ -540,7 +507,6 @@ impl Runtime {
                     shadow_manager,
                     pipeline_manager,
                     gpu_cache,
-                    pickobject,
                 };
 
                 scene_renderer.render(

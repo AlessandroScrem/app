@@ -5,7 +5,6 @@ mod light_icon;
 mod linearize;
 mod mesh;
 mod outline;
-mod pickobject;
 mod skybox;
 mod shadow_map;
 
@@ -16,7 +15,6 @@ pub(crate) use light_icon::*;
 pub(crate) use linearize::*;
 pub(crate) use mesh::*;
 pub(crate) use outline::*;
-pub(crate) use pickobject::*;
 pub(crate) use skybox::*;
 pub(crate) use shadow_map::*;
 
@@ -57,7 +55,6 @@ pub(crate) enum RenderPassEnum {
     Lines(LinesPass),
     Linearize(LinearizePass),
     Outline(OutlinePass),
-    PickObject(PickObjectPass),
 }
 
 macro_rules! impl_render_pass_enum {
@@ -73,7 +70,6 @@ macro_rules! impl_render_pass_enum {
             Self::Lines(p) => p.$method($($arg),*),
             Self::Linearize(p) => p.$method($($arg),*),
             Self::Outline(p) => p.$method($($arg),*),
-            Self::PickObject(p) => p.$method($($arg),*),
         }
     };
 }
