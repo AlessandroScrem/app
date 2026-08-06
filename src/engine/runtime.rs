@@ -11,6 +11,8 @@ use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectI
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
+use crate::engine::request_mgr::{QueryResult, RequestManager};
+use crate::gpu::gpu_readback::GpuReadback;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::utils::TextureReadback;
 use crate::gpu::{
@@ -49,6 +51,7 @@ pub struct Runtime {
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
     pub readback: Option<crate::gpu::utils::TextureReadback>,
+    pub req_mgr: RequestManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
@@ -127,6 +130,7 @@ impl Runtime {
             hdr_vec: Vec::new(),
             wait_for_exit: false,
             readback: None,
+            req_mgr: RequestManager::default(),
         }
     }
 }
@@ -151,20 +155,20 @@ impl Runtime {
         use crate::input::MouseButton;
         let input = &self.input;
 
-        if let Some(readback) = &mut self.readback {
-            if let Some(data) = readback.poll(&self.gpu_context.device) {
-                println!("Buffer len: {} ", data.len());
-                let mut ids = HashSet::new();
-                for chunk in data.chunks_exact(8) {
-                    let id = u64::from_le_bytes(chunk.try_into().unwrap());
-                    if id != 0 {
-                        ids.insert(EntityRawU64::from_raw_u64(id));
-                    }
-                }
-                bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
-                self.readback = None;
-            }
-        }
+        // if let Some(readback) = &mut self.readback {
+        //     if let Some(data) = readback.poll(&self.gpu_context.device) {
+        //         println!("Buffer len: {} ", data.len());
+        //         let mut ids = HashSet::new();
+        //         for chunk in data.chunks_exact(8) {
+        //             let id = u64::from_le_bytes(chunk.try_into().unwrap());
+        //             if id != 0 {
+        //                 ids.insert(EntityRawU64::from_raw_u64(id));
+        //             }
+        //         }
+        //         bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
+        //         self.readback = None;
+        //     }
+        // }
 
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
@@ -180,6 +184,28 @@ impl Runtime {
                 let entity = id.map(Entity::from_raw_u64);
                 bus.send_domain(Selection(Hovered(entity)));
             }
+
+            if let Some(result) = self.req_mgr.poll() {
+                match result {
+                    QueryResult::Pick(id) => {
+                        println!("Received pick {:?}", id);
+                    }
+
+                    QueryResult::Selection(_ids) => {}
+                }
+            }
+
+            let gpu = GpuReadback::default();
+            let texture = self
+                .gpu_manager
+                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+            self.req_mgr.request_pick(
+                &gpu,
+                &self.gpu_context.device,
+                &self.gpu_context.queue,
+                texture,
+                pos,
+            );
         }
 
         // handle selection: hovered -> selected

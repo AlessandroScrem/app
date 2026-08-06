@@ -9,7 +9,7 @@ pub(crate) mod static_textures;
 pub(crate) mod surface;
 pub(crate) mod texture;
 pub(crate) mod utils;
-pub(crate) mod utils2;
+pub(crate) mod gpu_readback;
 
 pub(crate) use caches::*;
 pub(crate) use context::GpuContext;
