@@ -3,7 +3,6 @@ use crate::gpu::utils;
 
 pub trait ReadbackProvider {
     fn request_readback(
-        &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
@@ -12,30 +11,29 @@ pub trait ReadbackProvider {
     ) -> ReadbackHandle;
 
     #[allow(unused)]
-    fn poll(&self, device: &wgpu::Device) {
+    fn poll(device: &wgpu::Device) {
         device.poll(wgpu::PollType::Poll).ok();
     }
 }
 
-impl ReadbackProvider for GpuReadback {
-    fn request_readback(
-        &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        texture: &wgpu::Texture,
-        origin: (u32, u32),
-        size: (u32, u32),
-    ) -> ReadbackHandle {
-        self.request_readback(
-            device,
-            queue,
-            texture,
-            origin,
-            size,
-        )
-    }
-}
-
+// impl ReadbackProvider for GpuReadback {
+//     fn request_readback(
+//         &self,
+//         device: &wgpu::Device,
+//         queue: &wgpu::Queue,
+//         texture: &wgpu::Texture,
+//         origin: (u32, u32),
+//         size: (u32, u32),
+//     ) -> ReadbackHandle {
+//         self.request_readback(
+//             device,
+//             queue,
+//             texture,
+//             origin,
+//             size,
+//         )
+//     }
+// }
 
 #[derive(Default)]
 pub struct GpuReadback;
@@ -58,10 +56,9 @@ impl ReadbackHandle {
     }
 }
 
-impl GpuReadback {    
+impl ReadbackProvider for GpuReadback { 
     #[allow(unused)]
-    pub fn request_readback(
-        &self,
+    fn request_readback(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,

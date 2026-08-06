@@ -21,9 +21,8 @@ pub struct PickObject {
 }
 
 impl PickObject {
-    pub fn request<R: ReadbackProvider>(
+    pub fn request(
         &mut self,
-        readback: &R,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
@@ -33,7 +32,7 @@ impl PickObject {
             return;
         }
 
-        let handle = readback.request_readback(device, queue, texture, pos, (1, 1));
+        let handle = GpuReadback::request_readback(device, queue, texture, pos, (1, 1));
 
         self.state = PickState::Pending(handle);
     }
@@ -79,9 +78,8 @@ pub struct Select {
 }
 
 impl Select {
-    pub fn request<R: ReadbackProvider>(
+    pub fn request(
         &mut self,
-        readback: &R,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
@@ -93,7 +91,7 @@ impl Select {
         }
 
         self.state =
-            SelectState::Pending(readback.request_readback(device, queue, texture, origin, size));
+            SelectState::Pending(GpuReadback::request_readback(device, queue, texture, origin, size));
     }
 }
 
@@ -144,26 +142,24 @@ pub enum QueryResult {
 }
 
 #[derive(Default)]
-pub struct RequestManager {
+pub struct ReadbackManager {
     pick: PickObject,
     selection: Select,
 }
 
-impl RequestManager {
-    pub fn request_pick<R: ReadbackProvider>(
+impl ReadbackManager {
+    pub fn request_pick(
         &mut self,
-        readback: &R,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
         pos: (u32, u32),
     ) {
-        self.pick.request(readback, device, queue, texture, pos);
+        self.pick.request(device, queue, texture, pos);
     }
 
-    pub fn request_selection<R: ReadbackProvider>(
+    pub fn request_selection(
         &mut self,
-        readback: &R,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture: &wgpu::Texture,
@@ -171,10 +167,10 @@ impl RequestManager {
         size: (u32, u32),
     ) {
         self.selection
-            .request(readback, device, queue, texture, origin, size);
+            .request(device, queue, texture, origin, size);
     }
 
-    pub fn poll(&mut self) -> Option<QueryResult> {
+    pub fn poll_results(&mut self) -> Option<QueryResult> {
         if let PollResult::Ready(id) = self.pick.poll() {
             return Some(QueryResult::Pick(id));
         }
@@ -209,10 +205,10 @@ mod tests {
 
         let mut pick = PickObject::default();
 
-        pick.request(&gpu, &device, &queue, &texture, (15, 15));
+        pick.request(&device, &queue, &texture, (15, 15));
 
         let result = loop {
-            gpu.poll(&device);
+            GpuReadback::poll(&device);
 
             match pick.poll() {
                 PollResult::Pending => {
@@ -251,13 +247,13 @@ mod tests {
 
         // invio 100 richieste
         for _ in 0..100 {
-            pick.request(&gpu, &device, &queue, &texture, (15, 15));
+            pick.request(&device, &queue, &texture, (15, 15));
         }
 
         let mut count = 0;
 
         loop {
-            gpu.poll(&device);
+            GpuReadback::poll(&device);
 
             match pick.poll() {
                 PollResult::Pending => {
@@ -288,10 +284,10 @@ mod tests {
 
         let mut select = Select::default();
 
-        select.request(&gpu, &device, &queue, &texture, (0, 0), (10, 8));
+        select.request(&device, &queue, &texture, (0, 0), (10, 8));
 
         let result = loop {
-            gpu.poll(&device);
+            GpuReadback::poll(&device);
 
             match select.poll() {
                 PollResult::Pending => {
@@ -316,19 +312,19 @@ mod tests {
 
         let texture = gpu_texture.inner;
 
-        let mut req_mgr = RequestManager::default();
+        let mut req_mgr = ReadbackManager::default();
 
-        req_mgr.request_selection(&gpu, &device, &queue, &texture, (0, 0), (10, 8));
+        req_mgr.request_selection(&device, &queue, &texture, (0, 0), (10, 8));
 
-        req_mgr.request_pick(&gpu, &device, &queue, &texture, (15, 15));
+        req_mgr.request_pick(&device, &queue, &texture, (15, 15));
 
         let mut pick_received = false;
         let mut selection_received = false;
 
         loop {
-            gpu.poll(&device);
+            GpuReadback::poll(&device);
 
-            if let Some(result) = req_mgr.poll() {
+            if let Some(result) = req_mgr.poll_results() {
                 match result {
                     QueryResult::Pick(id) => {
                         pick_received = true;

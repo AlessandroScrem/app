@@ -11,8 +11,7 @@ use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectI
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
-use crate::engine::request_mgr::{QueryResult, RequestManager};
-use crate::gpu::gpu_readback::GpuReadback;
+use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
@@ -49,7 +48,7 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
-    pub req_mgr: RequestManager,
+    pub readback: ReadbackManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
@@ -104,9 +103,10 @@ impl Runtime {
             gpu_surface.get_config().format,
         );
         //
-
+        
         let scene_renderer = SceneRenderer::new();
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
+        let readback = ReadbackManager::default();
 
         Self {
             window: window.clone(),
@@ -124,7 +124,7 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
-            req_mgr: RequestManager::default(),
+            readback,
         }
     }
 }
@@ -149,7 +149,7 @@ impl Runtime {
         use crate::input::MouseButton;
         let input = &self.input;
 
-        if let Some(result) = self.req_mgr.poll() {
+        if let Some(result) = self.readback.poll_results() {
             match result {
                 QueryResult::Pick(id) => {
                     let entity = id.map(Entity::from_raw_u64);
@@ -165,11 +165,7 @@ impl Runtime {
 
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
-            // TODO: remove this.
-            let gpu = GpuReadback::default();
-
-            self.req_mgr.request_pick(
-                &gpu,
+            self.readback.request_pick(
                 &self.gpu_context.device,
                 &self.gpu_context.queue,
                 &self
@@ -216,10 +212,7 @@ impl Runtime {
                     let width = (start.x - current.x).abs() as u32;
                     let height = (start.y - current.y).abs() as u32;
 
-                    // TODO: remove this.
-                    let gpu = GpuReadback::default();
-                    self.req_mgr.request_selection(
-                        &gpu,
+                    self.readback.request_selection(
                         &self.gpu_context.device,
                         &self.gpu_context.queue,
                         &self
