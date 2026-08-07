@@ -75,6 +75,7 @@ impl Application for App {
             root_snapshot,
             comp_state,
             selected: self.selected,
+            selected_muti: self.multiselct.clone(),
             hovered: self.hovered,
             debug_texture_id: self.debug_texture_id,
             hdr_vec,

@@ -2,6 +2,8 @@ use super::static_textures::StaticTexture;
 use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 use crate::assets::texture_upload::TextureData;
 
+use crate::gpu::GpuContextRef;
+
 use crate::prelude::*;
 use std::sync::Arc;
 
@@ -22,8 +24,9 @@ pub struct GpuTexture {
     pub view_mips: Arc<wgpu::TextureView>,
     pub extent: wgpu::Extent3d,
     pub sampler: wgpu::Sampler,
-    pub _format: wgpu::TextureFormat,
     pub estimated_size: usize,
+    #[allow(unused)]
+    pub format: ColorSpace,
 }
 
 pub struct GpuTextureBuilder<'a> {
@@ -208,7 +211,7 @@ impl<'a> GpuTextureBuilder<'a> {
 }
 
 impl<'a> GpuTextureBuilder<'a> {
-    pub fn build(self, device: &wgpu::Device, queue: Option<&wgpu::Queue>) -> GpuTexture {
+    pub fn build(self, gpu: &GpuContextRef) -> GpuTexture {
         let (layers, view_dimension) = match self.dimension {
             Dimension::D2 => (1, wgpu::TextureViewDimension::D2),
             Dimension::Cube => (6, wgpu::TextureViewDimension::Cube),
@@ -224,9 +227,6 @@ impl<'a> GpuTextureBuilder<'a> {
             depth_or_array_layers: layers,
         };
 
-        let format = wgpu::TextureFormat::from(self.format);
-        let usage = wgpu::TextureUsages::from(self.usage);
-
         let mip_level_count = if let Some(max_mips) = self.with_mips {
             use std::cmp::{max, min};
             // // lod calcuation based on texture size clamp to max_mips
@@ -237,38 +237,41 @@ impl<'a> GpuTextureBuilder<'a> {
             1
         };
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: self.label,
             size: extent,
             mip_level_count,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format,
-            usage,
+            format: wgpu::TextureFormat::from(self.format),
+            usage: wgpu::TextureUsages::from(self.usage),
             view_formats: &[],
         });
 
-        let mut estimated_size = (extent.height
-            * extent.height
-            * extent.depth_or_array_layers
-            * format.target_pixel_byte_cost().unwrap_or(4))
-            as usize;
+        // ATTENTION:
+        // format.target_pixel_byte_cost() is wrong
+        // Despite being 4 bytes per pixel, these are 8 bytes per pixel in the table
+        // Self::Rgba8Unorm
+        // | Self::Rgba8UnormSrgb
+        // | Self::Rgba8Snorm
+        // | Self::Bgra8Unorm
+        // | Self::Bgra8UnormSrgb
+        // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
 
-        if let (Some(source), Some(queue)) = (self.source, queue) {
+        let pixel_size = self.format.pixel_size();
+        let mut estimated_size = (width * height * layers * pixel_size) as usize;
+
+        if let Some(source) = self.source {
             let pixels = match source {
                 TextureSource::Cpu(data) => data.pixels.to_vec(),
                 TextureSource::Static(data) => data.pixels.to_vec(),
             };
 
-            // let pixel_size = format.target_pixel_byte_cost().unwrap_or(4);
-            let pixel_size = self.format.pixel_size();
-
-            let face_size = (width * height * pixel_size) as usize;
-
+            let layer_size = (width * height * pixel_size) as usize;
             assert_eq!(
                 pixels.len(),
-                face_size,
-                "Data pixels does not match: pixel_size * (w * h) "
+                layer_size,
+                "Data pixels does not match: layer_size"
             );
 
             // extend in case of Cube texture (layers = 6)
@@ -276,10 +279,10 @@ impl<'a> GpuTextureBuilder<'a> {
                 .iter()
                 .copied()
                 .cycle()
-                .take(face_size * layers as usize)
+                .take(layer_size * layers as usize)
                 .collect();
 
-            queue.write_texture(
+            gpu.queue.write_texture(
                 texture.as_image_copy(),
                 &pixels,
                 wgpu::TexelCopyBufferLayout {
@@ -295,8 +298,8 @@ impl<'a> GpuTextureBuilder<'a> {
         }
 
         let _sampler = match self.sampler {
-            Some(sd) => device.create_sampler(&sd.into()),
-            None => device.create_sampler(&Default::default()),
+            Some(sd) => gpu.device.create_sampler(&sd.into()),
+            None => gpu.device.create_sampler(&Default::default()),
         };
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -317,8 +320,8 @@ impl<'a> GpuTextureBuilder<'a> {
             view: Arc::new(view),
             view_mips: Arc::new(view_mips),
             sampler: _sampler,
-            _format: format,
             estimated_size,
+            format: self.format,
         }
     }
 }

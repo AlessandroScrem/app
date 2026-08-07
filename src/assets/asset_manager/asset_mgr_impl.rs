@@ -498,7 +498,7 @@ mod tests {
 
         const TEXTURE_PATH: &str = crate::asset_path!("core/white.png");
 
-        let (device, queue) = test_utils::get_device_and_queue();
+        let gpu = &test_utils::get_gpu_context_test();
 
         let mut mgr = AssetManager::new();
 
@@ -517,14 +517,14 @@ mod tests {
 
         assert!(mgr.get::<TextureAsset>(id).is_some());
 
-        let mut texture_cache = GpuTextureCache::new(device, queue);
+        let mut texture_cache = GpuTextureCache::new(gpu);
 
         let events: Vec<super::AssetEvent> = mgr.events.drain(..).collect();
 
         for ev in events {
             let asset = mgr.get::<TextureAsset>(ev.id).unwrap();
             let data = load_and_decode(asset.desc.clone()).unwrap();
-            let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
+            let texture = GpuTextureBuilder::from_cpu(data).build(gpu);
 
             texture_cache.insert(ev.id, texture);
         }
@@ -541,11 +541,11 @@ mod tests {
         use crate::gpu::{BindgroupLayoutCache, BindgroupLayoutKind, GpuTextureCache};
         use crate::test_utils;
 
-        let (device, queue) = test_utils::get_device_and_queue();
-        let layout_cache = BindgroupLayoutCache::new(device);
+        let gpu = &test_utils::get_gpu_context_test();
+        let layout_cache = BindgroupLayoutCache::new(gpu.device);
         let bind_group_layout = layout_cache.get(BindgroupLayoutKind::Material);
 
-        let texture_cache = GpuTextureCache::new(device, queue);
+        let texture_cache = GpuTextureCache::new(gpu);
 
         let mut mgr = AssetManager::new();
 
@@ -566,7 +566,7 @@ mod tests {
             for ev in events {
                 let asset = mgr.get::<MaterialAsset>(ev.id).unwrap();
                 let gpu_material =
-                    GpuMaterial::new(&texture_cache, &asset.desc, device, bind_group_layout);
+                    GpuMaterial::new(&texture_cache, &asset.desc, gpu.device, bind_group_layout);
 
                 gpu_materials.insert(ev.id, gpu_material);
             }
@@ -584,7 +584,7 @@ mod tests {
         use crate::gpu::GpuMesh;
         use crate::test_utils;
 
-        let (device, _queue) = test_utils::get_device_and_queue();
+        let gpu = &test_utils::get_gpu_context_test();
 
         let mut mgr = AssetManager::new();
 
@@ -610,7 +610,7 @@ mod tests {
         grouped.process_type::<MeshAsset, _>(|_kind, events| {
             for ev in events {
                 let asset = mgr.get::<MeshAsset>(ev.id).unwrap();
-                let gpu_mesh = GpuMesh::new(device, &asset.desc.vertices, &asset.desc.indices);
+                let gpu_mesh = GpuMesh::new(gpu.device, &asset.desc.vertices, &asset.desc.indices);
                 gpu_meshes.insert(ev.id, gpu_mesh);
             }
         });

@@ -2,6 +2,7 @@ use core::fmt;
 
 use super::tools;
 use super::*;
+use crate::EntityRawU64;
 use crate::app::domain::events::SelectionEvent;
 use crate::math::*;
 use crate::text_fmt;
@@ -71,6 +72,7 @@ impl Layer for SettimgsUi {
         let transmission_stats = render_stats.frame_stats.transmission;
         let hdr_vec = ctx.snapshot.hdr_vec;
         let selected_ibl = ctx.snapshot.selected_ibl;
+        let multiselct = &ctx.snapshot.selected_muti;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -131,6 +133,20 @@ impl Layer for SettimgsUi {
                     {
                         ctx.bus.send_domain(command);
                     }
+                }
+
+                if ui.collapsing_header("Multiselct", TreeNodeFlags::DEFAULT_OPEN) {
+                    for i in multiselct {
+                        let label = format!("{}", i);
+                        if ui.selectable(label) {
+                            let entity = Some(EntityRawU64::from_raw_u64(*i));
+                            ctx.bus
+                                .send_domain(DomainEvent::Selection(SelectionEvent::Select(
+                                    entity,
+                                )));
+                        }
+                    }
+                    ui.separator();
                 }
 
                 if let Some(command) = camera.draw_ui(ui) {
@@ -335,7 +351,9 @@ impl Camera {
     }
 }
 
-fn push_button_style(ui: &imgui::Ui) -> (
+fn push_button_style(
+    ui: &imgui::Ui,
+) -> (
     imgui::ColorStackToken<'_>,
     imgui::ColorStackToken<'_>,
     imgui::ColorStackToken<'_>,
@@ -354,7 +372,6 @@ fn draw_ui_skybox_selector(
     selected_ibl: Option<crate::assets::IblId>,
 ) -> Option<DomainEvent> {
     let mut command: Option<_> = None;
-
 
     for (hdr_id, ibl_id) in hdr_vec {
         let selected = selected_ibl.is_some_and(|id| id.eq(ibl_id));

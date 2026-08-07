@@ -2,18 +2,19 @@ use std::sync::Arc;
 
 use super::RuntimeEvent;
 use crate::EntityRawU64;
+use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
-use crate::app::{Application};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectMulti};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
+use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
-    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, PickObject, ShadowManager,
+    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::{Input, KeyButton};
 use crate::prelude::info;
@@ -21,8 +22,7 @@ use crate::renderer::FrameBuilder;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::ui::InternalCounter;
-use crate::ui::UiLayer;
+use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
 use legion::Entity;
 use winit::{event::Event, window::Window};
 
@@ -47,11 +47,12 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
+    pub readback: ReadbackManager,
 
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
-    pub pickobject: PickObject,
+    pub editor_interaction: EditorInteraction,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -76,7 +77,7 @@ impl Runtime {
         );
 
         // gpu resources
-        let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+        let texture_cache = GpuTextureCache::new(&gpu_context.as_ref());
 
         let gpu_cache = GpuCache {
             textures: texture_cache,
@@ -84,16 +85,16 @@ impl Runtime {
             mesh: GpuMeshCache::default(),
         };
 
-        let gpu_manager = GpuManager::new(
-            &gpu_context.device,
-            &gpu_context.queue,
+        let (width, height) = (
             gpu_surface.get_config().width,
             gpu_surface.get_config().height,
         );
 
-        let shadow_manager = ShadowManager::new(&gpu_context.device);
+        let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
 
-        let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
+        let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
+
+        let ibl_manager = IblManager::new(&gpu_context.as_ref());
 
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
@@ -103,14 +104,14 @@ impl Runtime {
         //
 
         let scene_renderer = SceneRenderer::new();
-        let pickobject = PickObject::new(&gpu_context.device);
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
+        let readback = ReadbackManager::default();
 
         Self {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
-            pickobject,
+            editor_interaction: EditorInteraction::None,
             imgui_render,
             uilayer,
             gpu_context,
@@ -122,6 +123,7 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
+            readback,
         }
     }
 }
@@ -146,18 +148,31 @@ impl Runtime {
         use crate::input::MouseButton;
         let input = &self.input;
 
+        if let Some(result) = self.readback.poll_results() {
+            match result {
+                QueryResult::Pick(id) => {
+                    let entity = id.map(Entity::from_raw_u64);
+                    bus.send_domain(Selection(Hovered(entity)));
+                }
+                
+                QueryResult::Selection(vec_u64) => {
+                    bus.send_domain(Selection(SelectMulti(vec_u64)));
+                }
+            }
+        }
+
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
-            self.pickobject.set_picking_coords((
-                self.input.mouse_position.x as u32,
-                self.input.mouse_position.y as u32,
-            ));
-
-            let hovered = self
-                .pickobject
-                .poll_readback(&self.gpu_context.device)
-                .map(|id| Entity::from_raw_u64(id));
-            bus.send_domain(Selection(Hovered(hovered)));
+            self.readback.request_pick(
+                &self.gpu_context.as_ref(),
+                &self
+                .gpu_manager
+                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                (
+                    self.input.mouse_position.x as u32,
+                    self.input.mouse_position.y as u32,
+                ),
+            );
         }
 
         // handle selection: hovered -> selected
@@ -165,13 +180,54 @@ impl Runtime {
             bus.send_domain(Selection(SelectHovered));
         }
 
+        match self.editor_interaction {
+            // handle start SelectionBox:
+            EditorInteraction::None => {
+                if input.is_mouse_button_pressed(MouseButton::Left)
+                    && input.is_key_down(KeyButton::Control)
+                {
+                    let current = self.input.mouse_position;
+                    let start = current;
+                    self.editor_interaction = EditorInteraction::Selecting { start, current };
+                }
+            }
+            EditorInteraction::Selecting { start, current: _ } => {
+                // handle drag SelectionBox:
+                if input.is_mouse_dragging(MouseButton::Left)
+                    && input.is_key_down(KeyButton::Control)
+                {
+                    let current = self.input.mouse_position;
+                    self.editor_interaction = EditorInteraction::Selecting { start, current };
+                }
+                // handle end SelectionBox:
+                if input.is_mouse_button_released(MouseButton::Left) {
+                    self.editor_interaction = EditorInteraction::None;
+                    let current = self.input.mouse_position;
+
+                    // pos must be origin coordinates from top left.
+                    let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
+                    let width = (start.x - current.x).abs() as u32;
+                    let height = (start.y - current.y).abs() as u32;
+
+                    self.readback.request_selection(
+                        &self.gpu_context.as_ref(),
+                        &self
+                            .gpu_manager
+                            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                        pos,
+                        (width, height),
+                    );
+                }
+            }
+        }
+
         // handle camera -------
-        if input.is_mouse_button_down(MouseButton::Left) {
+        if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
             bus.send_domain(Camera(CameraOrbit(delta.0, delta.1)));
         }
 
-        if input.is_mouse_button_down(MouseButton::Middle) {
+        if input.is_mouse_dragging(MouseButton::Middle) {
             let delta = (input.mouse_delta.x as f64, input.mouse_delta.y as f64);
             bus.send_domain(Camera(CameraPan(delta.0, delta.1)));
         }
@@ -194,7 +250,7 @@ impl Runtime {
                         return;
                     }
                     self.gpu_manager
-                        .resize_frame(&self.gpu_context.device, width, height);
+                        .resize_frame(&self.gpu_context.as_ref(), width, height);
 
                     self.gpu_surface
                         .resize_frame(&self.gpu_context.device, width, height);
@@ -230,11 +286,7 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn sync_gpu_assets(
-        &mut self,
-        asset_mgr: &mut AssetManager,
-        bus: &mut EventBus,
-    ) {
+    pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
         use crate::assets::TextureId;
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -252,16 +304,12 @@ impl Runtime {
             ..
         } = self;
 
-        let device = &gpu_context.device;
-        let queue = &gpu_context.queue;
 
         let texture_cache = &mut self.gpu_cache.textures;
         let material_cache = &mut self.gpu_cache.material;
         let mesh_cache = &mut self.gpu_cache.mesh;
 
         let grouped = asset_mgr.drain_grouped_events();
-
-        // let mut domain_event = vec![];
 
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
             AssetEventKind::Created => {
@@ -279,7 +327,7 @@ impl Runtime {
                 let cpu_textures = load_cpu_textures_par(jobs);
 
                 for (id, data) in cpu_textures {
-                    let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
+                    let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
                     texture_cache.insert(id, texture);
                 }
             }
@@ -304,7 +352,7 @@ impl Runtime {
                     .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|asset| (ev.id, asset)))
                     .for_each(|(ibl_id, asset)| {
                         if let Some(hdr) = texture_cache.get(asset.hrd_id) {
-                            let gpu_ibl = ibl_manager.create(hdr, device, queue);
+                            let gpu_ibl = ibl_manager.create(hdr, &gpu_context.as_ref());
                             ibl_manager.insert(ibl_id, gpu_ibl);
                             self.hdr_vec.push((asset.hrd_id, ibl_id));
                             bus.send_domain(Selection(SelectIbl(ibl_id)));
@@ -331,7 +379,7 @@ impl Runtime {
                         let material_layout =
                             gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                         let gpu_material =
-                            GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
+                            GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, material_layout);
                         material_cache.insert(id, gpu_material);
                     });
             }
@@ -347,7 +395,7 @@ impl Runtime {
                     })
                     .for_each(|(id, desc)| {
                         material_cache.update(&id, |gpu_mat| {
-                            gpu_mat.update_uniform(queue, desc);
+                            gpu_mat.update_uniform(&gpu_context.queue, desc);
                         });
                     });
             }
@@ -373,7 +421,7 @@ impl Runtime {
                     })
                     .for_each(|(id, asset)| {
                         let gpu_mesh =
-                            GpuMesh::new(device, &asset.desc.vertices, &asset.desc.indices);
+                            GpuMesh::new(&gpu_context.device, &asset.desc.vertices, &asset.desc.indices);
                         mesh_cache.insert(id, gpu_mesh);
                     });
             }
@@ -403,7 +451,8 @@ impl Runtime {
             app.get_scene_snapshot(&self.imgui_render, frame_stats, gpu_counters, &self.hdr_vec);
 
         // Main operation: update_ui and push events
-        self.uilayer.build(&self.window, snapshot, bus);
+        self.uilayer
+            .build(&self.window, snapshot, bus, &self.editor_interaction);
     }
 }
 
@@ -426,7 +475,6 @@ impl Runtime {
                     shadow_manager,
                     pipeline_manager,
                     gpu_cache,
-                    pickobject,
                     ..
                 } = self;
 
@@ -443,7 +491,6 @@ impl Runtime {
                     shadow_manager,
                     pipeline_manager,
                     gpu_cache,
-                    pickobject,
                 };
 
                 scene_renderer.render(

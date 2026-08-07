@@ -5,17 +5,26 @@ use imgui_winit_support::WinitPlatform;
 use winit::event::Event;
 use winit::window::Window;
 
-use crate::engine::engine::{EventBus};
+use crate::engine::engine::EventBus;
+use crate::math::Vec2;
 use crate::timestep::Timestep;
+use crate::ui::main_wnd::ViewportUi;
 
+pub enum EditorInteraction {
+    None,
+    Selecting { start: Vec2, current: Vec2 },
+    // DraggingGizmo {
+    //     id: GizmoId,
+    // },
+}
 
 pub struct UiContext<'a> {
     pub snapshot: &'a UiSnapshot<'a>,
     pub bus: &'a mut EventBus,
     pub timestep: Timestep,
     pub adapter_string: String,
+    pub editor_interaction: &'a EditorInteraction,
 }
-
 
 pub struct UiLayer {
     context: imgui::Context,
@@ -71,6 +80,7 @@ impl UiLayer {
         let timestep = Timestep::new();
 
         let mut ui = UiStack::new();
+        ui.push(ViewportUi {});
         ui.push(MenuBarUi {});
         ui.push(SettimgsUi::default());
         ui.push(EntityListUi {});
@@ -132,12 +142,19 @@ impl UiLayer {
         self.load_ini_if_needed();
     }
 
-    pub fn build(&mut self, window: &Window, snapshot: UiSnapshot, bus: &mut EventBus){
+    pub fn build(
+        &mut self,
+        window: &Window,
+        snapshot: UiSnapshot,
+        bus: &mut EventBus,
+        editor_interaction: &EditorInteraction,
+    ) {
         let mut ctx = UiContext {
             snapshot: &snapshot,
             bus,
             timestep: self.timestep.clone(),
             adapter_string: self.adapter_string.clone(),
+            editor_interaction,
         };
 
         self.begin_frame(window);

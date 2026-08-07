@@ -7,7 +7,8 @@ use crate::{
 };
 use imgui::*;
 
-pub struct MenuBarUi {}
+pub struct MenuBarUi {
+}
 
 const LANTERN: &str = asset_path!("Lantern/Lantern.gltf");
 const SPONZA: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf";
