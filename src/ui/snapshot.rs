@@ -61,6 +61,7 @@ pub struct UiSnapshot<'a> {
     pub root_snapshot: RootSnapshot,
     pub comp_state: UiComponentState,
     pub selected: Option<Entity>,
+    pub selected_muti: Vec<u64>,
     pub hovered: Option<Entity>,
     pub debug_texture_id: Option<UiTexture>,
     pub render_stats: RenderStats,

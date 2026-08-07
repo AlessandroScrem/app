@@ -16,30 +16,10 @@ pub trait ReadbackProvider {
     }
 }
 
-// impl ReadbackProvider for GpuReadback {
-//     fn request_readback(
-//         &self,
-//         device: &wgpu::Device,
-//         queue: &wgpu::Queue,
-//         texture: &wgpu::Texture,
-//         origin: (u32, u32),
-//         size: (u32, u32),
-//     ) -> ReadbackHandle {
-//         self.request_readback(
-//             device,
-//             queue,
-//             texture,
-//             origin,
-//             size,
-//         )
-//     }
-// }
-
 #[derive(Default)]
 pub struct GpuReadback;
 
 pub struct ReadbackResult {
-    #[allow(unused)]
     pub bytes: Vec<u8>,
     #[allow(unused)]
     pub size: (u32, u32),
@@ -50,14 +30,12 @@ pub struct ReadbackHandle {
 }
 
 impl ReadbackHandle {
-    #[allow(unused)]
     pub fn try_recv(&self) -> Option<ReadbackResult> {
         self.receiver.try_recv().ok()
     }
 }
 
 impl ReadbackProvider for GpuReadback { 
-    #[allow(unused)]
     fn request_readback(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -65,6 +43,9 @@ impl ReadbackProvider for GpuReadback {
         origin: (u32, u32),
         size: (u32, u32),
     ) -> ReadbackHandle {
+        assert!(size.0 > 0 && size.1 > 0, "Error: invalid size: must be > 0");
+        assert!(origin.0 + size.0  <= texture.width() && origin.1 + size.1 <= texture.height() , "Error: invalid coords");
+
         let bpp = super::utils::bytes_per_pixel(texture.format()).unwrap();
 
         let bytes_per_row =

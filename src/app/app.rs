@@ -14,7 +14,7 @@ pub struct App {
     pub globals: Globals,
     pub camera: Camera,
     pub selected: Option<Entity>,
-    pub multiselct: Vec<Entity>,
+    pub multiselct: Vec<u64>,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
     #[allow(unused)]

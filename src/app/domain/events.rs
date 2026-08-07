@@ -29,7 +29,7 @@ pub enum SelectionEvent {
     Hovered(Option<Entity>),
     Select(Option<Entity>),
     #[allow(unused)]
-    SelectMulti(Vec<Entity>),
+    SelectMulti(Vec<u64>),
     SelectHovered,
     SelectIbl(IblId),
 }

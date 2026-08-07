@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::RuntimeEvent;
@@ -7,7 +6,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectMulti};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -155,10 +154,9 @@ impl Runtime {
                     let entity = id.map(Entity::from_raw_u64);
                     bus.send_domain(Selection(Hovered(entity)));
                 }
-
-                QueryResult::Selection(ids) => {
-                    let selected: HashSet<u64> = ids.into_iter().collect();
-                    println!("Selected {:?}", selected);
+                
+                QueryResult::Selection(vec_u64) => {
+                    bus.send_domain(Selection(SelectMulti(vec_u64)));
                 }
             }
         }
@@ -168,8 +166,8 @@ impl Runtime {
             self.readback.request_pick(
                 &self.gpu_context.as_ref(),
                 &self
-                    .gpu_manager
-                    .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                .gpu_manager
+                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
                 (
                     self.input.mouse_position.x as u32,
                     self.input.mouse_position.y as u32,
