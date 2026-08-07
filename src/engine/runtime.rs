@@ -78,7 +78,7 @@ impl Runtime {
         );
 
         // gpu resources
-        let texture_cache = GpuTextureCache::new(&gpu_context.device, &gpu_context.queue);
+        let texture_cache = GpuTextureCache::new(&gpu_context.as_ref());
 
         let gpu_cache = GpuCache {
             textures: texture_cache,
@@ -91,11 +91,11 @@ impl Runtime {
             gpu_surface.get_config().height,
         );
 
-        let gpu_manager = GpuManager::new(&gpu_context.device, &gpu_context.queue, width, height);
+        let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
 
-        let shadow_manager = ShadowManager::new(&gpu_context.device);
+        let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
 
-        let ibl_manager = IblManager::new(&gpu_context.device, &gpu_context.queue);
+        let ibl_manager = IblManager::new(&gpu_context.as_ref());
 
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
@@ -103,7 +103,7 @@ impl Runtime {
             gpu_surface.get_config().format,
         );
         //
-        
+
         let scene_renderer = SceneRenderer::new();
         let uilayer = UiLayer::new(&window, imgui_context, gpu_context.get_adapter_string());
         let readback = ReadbackManager::default();
@@ -166,8 +166,7 @@ impl Runtime {
         // handle hovered entity_id
         if self.input.is_cursor_moved() {
             self.readback.request_pick(
-                &self.gpu_context.device,
-                &self.gpu_context.queue,
+                &self.gpu_context.as_ref(),
                 &self
                     .gpu_manager
                     .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
@@ -213,16 +212,12 @@ impl Runtime {
                     let height = (start.y - current.y).abs() as u32;
 
                     self.readback.request_selection(
-                        &self.gpu_context.device,
-                        &self.gpu_context.queue,
+                        &self.gpu_context.as_ref(),
                         &self
                             .gpu_manager
                             .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
-                            pos,
-                        (
-                            width,
-                            height,
-                        ),
+                        pos,
+                        (width, height),
                     );
                 }
             }
@@ -257,7 +252,7 @@ impl Runtime {
                         return;
                     }
                     self.gpu_manager
-                        .resize_frame(&self.gpu_context.device, width, height);
+                        .resize_frame(&self.gpu_context.as_ref(), width, height);
 
                     self.gpu_surface
                         .resize_frame(&self.gpu_context.device, width, height);
@@ -311,8 +306,6 @@ impl Runtime {
             ..
         } = self;
 
-        let device = &gpu_context.device;
-        let queue = &gpu_context.queue;
 
         let texture_cache = &mut self.gpu_cache.textures;
         let material_cache = &mut self.gpu_cache.material;
@@ -336,7 +329,7 @@ impl Runtime {
                 let cpu_textures = load_cpu_textures_par(jobs);
 
                 for (id, data) in cpu_textures {
-                    let texture = GpuTextureBuilder::from_cpu(data).build(device, Some(queue));
+                    let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
                     texture_cache.insert(id, texture);
                 }
             }
@@ -361,7 +354,7 @@ impl Runtime {
                     .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|asset| (ev.id, asset)))
                     .for_each(|(ibl_id, asset)| {
                         if let Some(hdr) = texture_cache.get(asset.hrd_id) {
-                            let gpu_ibl = ibl_manager.create(hdr, device, queue);
+                            let gpu_ibl = ibl_manager.create(hdr, &gpu_context.as_ref());
                             ibl_manager.insert(ibl_id, gpu_ibl);
                             self.hdr_vec.push((asset.hrd_id, ibl_id));
                             bus.send_domain(Selection(SelectIbl(ibl_id)));
@@ -388,7 +381,7 @@ impl Runtime {
                         let material_layout =
                             gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                         let gpu_material =
-                            GpuMaterial::new(&texture_cache, &asset.desc, device, material_layout);
+                            GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, material_layout);
                         material_cache.insert(id, gpu_material);
                     });
             }
@@ -404,7 +397,7 @@ impl Runtime {
                     })
                     .for_each(|(id, desc)| {
                         material_cache.update(&id, |gpu_mat| {
-                            gpu_mat.update_uniform(queue, desc);
+                            gpu_mat.update_uniform(&gpu_context.queue, desc);
                         });
                     });
             }
@@ -430,7 +423,7 @@ impl Runtime {
                     })
                     .for_each(|(id, asset)| {
                         let gpu_mesh =
-                            GpuMesh::new(device, &asset.desc.vertices, &asset.desc.indices);
+                            GpuMesh::new(&gpu_context.device, &asset.desc.vertices, &asset.desc.indices);
                         mesh_cache.insert(id, gpu_mesh);
                     });
             }

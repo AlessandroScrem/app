@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
+use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::GpuContextRef};
 
 use super::*;
 
@@ -25,26 +25,26 @@ pub struct FramebufferCache {
 }
 impl FramebufferCache {
     pub fn new(
-        device: &wgpu::Device,
+        gpu: &GpuContextRef,
         layouts: &BindgroupLayoutCache,
         width: u32,
         height: u32,
     ) -> Self {
         let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
-            .map(|kind| Self::create(device, layouts, kind, width, height))
+            .map(|kind| Self::create(gpu, layouts, kind, width, height))
             .collect();
         Self { framebuffers }
     }
 
     pub fn resize(
         &mut self,
-        device: &wgpu::Device,
+        gpu: &GpuContextRef,
         layouts: &BindgroupLayoutCache,
         width: u32,
         height: u32,
     ) {
         let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
-            .map(|kind| Self::create(device, layouts, kind, width, height))
+            .map(|kind| Self::create(gpu, layouts, kind, width, height))
             .collect();
         self.framebuffers = framebuffers;
     }
@@ -76,7 +76,7 @@ impl FramebufferCache {
 
 impl FramebufferCache {
     fn create(
-        device: &wgpu::Device,
+        gpu: &GpuContextRef,
         layouts: &BindgroupLayoutCache,
         kind: FramebufferKind,
         width: u32,
@@ -89,10 +89,10 @@ impl FramebufferCache {
                     .usage(GpuTextureUsage::RenderTarget)
                     .sampler(SamplerDesc::NearestClamp)
                     .label("Hdr texture")
-                    .build(device, None);
+                    .build(gpu);
 
                 let layout = layouts.get(BindgroupLayoutKind::Hdr);
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Hdr_bind_group"),
                     layout,
                     entries: &[
@@ -120,10 +120,10 @@ impl FramebufferCache {
                     .usage(GpuTextureUsage::SampledTextureStorage)
                     .sampler(SamplerDesc::LinearClampMipmap)
                     .label("Hdr Opaque texture_with_mips")
-                    .build(device, None);
+                    .build(gpu);
 
                 let layout = layouts.get(BindgroupLayoutKind::Hdr);
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Hdr_Opaque_bind_group"),
                     layout,
                     entries: &[
@@ -150,10 +150,10 @@ impl FramebufferCache {
                     .usage(GpuTextureUsage::EntityId)
                     .sampler(SamplerDesc::NearestClamp)
                     .label("entity_id_texture")
-                    .build(device, None);
+                    .build(gpu);
 
                 let layout = layouts.get(BindgroupLayoutKind::EntityId);
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("entity_id_bind_group"),
                     layout,
                     entries: &[
@@ -179,10 +179,10 @@ impl FramebufferCache {
                     .usage(GpuTextureUsage::DepthTarget)
                     .sampler(SamplerDesc::NearestClamp)
                     .label("depth_texture")
-                    .build(device, None);
+                    .build(gpu);
 
                 let layout = layouts.get(BindgroupLayoutKind::Depth);
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("depth_bind_group"),
                     layout,
                     entries: &[

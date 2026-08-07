@@ -76,9 +76,9 @@ pub struct IblManager {
 }
 
 impl IblManager {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(gpu: &GpuContextRef) -> Self {
         // Create BRDF LUT texture for PBR
-        let brdf_lut = BRDFLUTBuilder::build(device, queue);
+        let brdf_lut = BRDFLUTBuilder::build(gpu.device, gpu.queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
         
         Self {
@@ -111,18 +111,17 @@ impl IblManager {
     pub fn create(
         &mut self,
         hdr: &GpuTexture,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef
     ) -> GpuIbl {
-        let cube_map = EquirectangularToCubemap::build(&hdr, device, queue, 512);
-        let _irradiance_map = IrrarianceMap::build(&cube_map, device, queue);
-        let _prefilter_map = PrefilterMap::build(device, queue, &cube_map);
+        let cube_map = EquirectangularToCubemap::build(&hdr, gpu.device, gpu.queue, 512);
+        let _irradiance_map = IrrarianceMap::build(&cube_map, gpu.device, gpu.queue);
+        let _prefilter_map = PrefilterMap::build(gpu.device, gpu.queue, &cube_map);
         let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        let sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,

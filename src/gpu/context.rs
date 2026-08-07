@@ -2,6 +2,11 @@ use super::*;
 
 use wgpu::*;
 
+pub struct GpuContextRef<'a> {
+    pub device: &'a Device,
+    pub queue: &'a Queue,
+}
+
 pub struct GpuContext {
     instance: Instance,
     adapter: Adapter,
@@ -33,6 +38,12 @@ impl Default for GpuContext {
     }
 }
 impl GpuContext {
+    pub fn as_ref(&self) -> GpuContextRef<'_> {
+        GpuContextRef {
+            device: &self.device,
+            queue: &self.queue,
+        }
+    }
     pub fn adapter(&self) -> &Adapter {
         &self.adapter
     }
@@ -43,7 +54,7 @@ impl GpuContext {
         self.adapter.get_info().name
     }
 
-    pub fn create_encoder(&mut self) -> CommandEncoder {
+    pub fn create_encoder(&self) -> CommandEncoder {
         self.device.create_command_encoder(&Default::default())
     }
 }

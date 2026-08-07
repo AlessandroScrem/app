@@ -2,6 +2,8 @@ use super::static_textures::StaticTexture;
 use crate::assets::texture_asset::{ColorSpace, SamplerDesc};
 use crate::assets::texture_upload::TextureData;
 
+use crate::gpu::GpuContextRef;
+
 use crate::prelude::*;
 use std::sync::Arc;
 
@@ -209,7 +211,7 @@ impl<'a> GpuTextureBuilder<'a> {
 }
 
 impl<'a> GpuTextureBuilder<'a> {
-    pub fn build(self, device: &wgpu::Device, queue: Option<&wgpu::Queue>) -> GpuTexture {
+    pub fn build(self, gpu: &GpuContextRef) -> GpuTexture {
         let (layers, view_dimension) = match self.dimension {
             Dimension::D2 => (1, wgpu::TextureViewDimension::D2),
             Dimension::Cube => (6, wgpu::TextureViewDimension::Cube),
@@ -235,7 +237,7 @@ impl<'a> GpuTextureBuilder<'a> {
             1
         };
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: self.label,
             size: extent,
             mip_level_count,
@@ -259,7 +261,7 @@ impl<'a> GpuTextureBuilder<'a> {
         let pixel_size = self.format.pixel_size();
         let mut estimated_size = (width * height * layers * pixel_size) as usize;
 
-        if let (Some(source), Some(queue)) = (self.source, queue) {
+        if let Some(source) = self.source {
             let pixels = match source {
                 TextureSource::Cpu(data) => data.pixels.to_vec(),
                 TextureSource::Static(data) => data.pixels.to_vec(),
@@ -280,7 +282,7 @@ impl<'a> GpuTextureBuilder<'a> {
                 .take(layer_size * layers as usize)
                 .collect();
 
-            queue.write_texture(
+            gpu.queue.write_texture(
                 texture.as_image_copy(),
                 &pixels,
                 wgpu::TexelCopyBufferLayout {
@@ -296,8 +298,8 @@ impl<'a> GpuTextureBuilder<'a> {
         }
 
         let _sampler = match self.sampler {
-            Some(sd) => device.create_sampler(&sd.into()),
-            None => device.create_sampler(&Default::default()),
+            Some(sd) => gpu.device.create_sampler(&sd.into()),
+            None => gpu.device.create_sampler(&Default::default()),
         };
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor {

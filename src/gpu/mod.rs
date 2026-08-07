@@ -19,3 +19,5 @@ pub(crate) use surface::GpuSurface;
 
 use crate::prelude::*;
 
+pub(crate) use context::GpuContextRef;
+

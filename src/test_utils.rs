@@ -2,8 +2,7 @@ use std::sync::OnceLock;
 use wgpu::Extent3d;
 
 static DEVICE_AND_QUEUE: OnceLock<(wgpu::Device, wgpu::Queue)> = OnceLock::new();
-#[allow(dead_code)]
-pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
+fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
     DEVICE_AND_QUEUE.get_or_init(|| {
         let instance = wgpu::Instance::default();
 
@@ -16,9 +15,15 @@ pub fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
-
-        (device, queue)
+            
+            (device, queue)
     })
+}
+
+#[allow(dead_code)]
+pub fn get_gpu_context_test() -> crate::gpu::GpuContextRef<'static> {
+    let (device, queue) = get_device_and_queue();
+    crate::gpu::GpuContextRef { device, queue }
 }
 
 /// Save a 2D texture to a file (png).

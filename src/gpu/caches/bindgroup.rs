@@ -1,4 +1,4 @@
-use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::Dimension::Array};
+use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::{Dimension::Array, GpuContextRef}};
 
 use super::*;
 
@@ -21,8 +21,7 @@ pub struct BindgroupCache {
 
 impl BindgroupCache {
     pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef,
         buffer_cache: &BufferCache,
         framebuffer_cache: &FramebufferCache,
         layouts: &BindgroupLayoutCache,
@@ -30,8 +29,7 @@ impl BindgroupCache {
         let bg: Vec<wgpu::BindGroup> = BindgroupKind::iter()
             .map(|kind| {
                 Self::create(
-                    device,
-                    queue,
+                    gpu,
                     buffer_cache,
                     &framebuffer_cache,
                     layouts,
@@ -51,15 +49,14 @@ impl BindgroupCache {
 
 impl BindgroupCache {
     fn create(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef,
         buffer_cache: &BufferCache,
         framebuffer_cache: &FramebufferCache,
         layouts: &BindgroupLayoutCache,
         kind: BindgroupKind,
     ) -> wgpu::BindGroup {
         match kind {
-            BindgroupKind::Camera => device.create_bind_group(&wgpu::BindGroupDescriptor {
+            BindgroupKind::Camera => gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: layouts.get(BindgroupLayoutKind::Camera),
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
@@ -68,7 +65,7 @@ impl BindgroupCache {
                 label: Some("Camera Bind Group"),
             }),
             BindgroupKind::Perframe => {
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PerFrame),
                     entries: &[
                         // Camera
@@ -94,9 +91,9 @@ impl BindgroupCache {
                 let texture =
                     GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
                         .sampler(SamplerDesc::LinearRepeat)
-                        .build(device, Some(queue));
+                        .build(gpu);
 
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::LightIcon),
                     entries: &[
                         wgpu::BindGroupEntry {
@@ -117,7 +114,7 @@ impl BindgroupCache {
 
                 let dummy_texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                        .build(device, Some(queue));
+                        .build(gpu);
                     
                     let dummy_cube =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
@@ -126,7 +123,7 @@ impl BindgroupCache {
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::LinearRepeat)
                     .label("dummy Cube white texture")
-                    .build(device, Some(queue));
+                    .build(gpu);
                 
                 //Dummy Shadowmaps
                 let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
@@ -135,10 +132,10 @@ impl BindgroupCache {
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::DepthComparison)
                     .label("dummy shadow_texture depth")
-                    .build(device, None);
+                    .build(gpu);
 
 
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),
                     entries: &[
                         // sampler
@@ -192,9 +189,9 @@ impl BindgroupCache {
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::LinearRepeat)
                     .label("Cube white texture")
-                    .build(device, Some(queue));
+                    .build(gpu);
 
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::Skybox),
                     entries: &[
                         wgpu::BindGroupEntry {
@@ -216,9 +213,9 @@ impl BindgroupCache {
                     .usage(GpuTextureUsage::SampledTexture)
                     .sampler(SamplerDesc::LinearRepeat)
                     .label("Cube white texture")
-                    .build(device, Some(queue));
+                    .build(gpu);
 
-                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::Skybox),
                     entries: &[
                         wgpu::BindGroupEntry {

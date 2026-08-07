@@ -4,12 +4,9 @@ use crate::{
     assets::{
         self,
         texture_asset::{ColorSpace, SamplerDesc},
-    },
-    gpu::{
-        Dimension::Array, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage,
-        HasGpuStats, pipeline_manager::PipelineExt,
-    },
-    renderer::uniform::LightUniform,
+    }, gpu::{
+        Dimension::Array, GpuContextRef, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage, HasGpuStats, pipeline_manager::PipelineExt,
+    }, renderer::uniform::LightUniform,
 };
 
 const MAX_SHADOWS: usize = 64;
@@ -32,14 +29,14 @@ pub struct ShadowManager {
 }
 
 impl ShadowManager {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(gpu: &GpuContextRef) -> Self {
         let shadow_map = GpuTextureBuilder::from_empty(SHADOWS_SIZE, SHADOWS_SIZE)
             .format(ColorSpace::Depth32f)
             .usage(GpuTextureUsage::SampledTexture)
             .dimension(Array(64))
             .sampler(SamplerDesc::DepthComparison)
             .label("shadow_texture depth array")
-            .build(device, None);
+            .build(gpu);
 
         let layer_views = (0..MAX_SHADOWS as u32)
             .map(|layer| {
@@ -58,7 +55,7 @@ impl ShadowManager {
             .usage(GpuTextureUsage::SampledTexture)
             .sampler(SamplerDesc::NearestClamp)
             .label("shadow_texture rgba")
-            .build(device, None);
+            .build(gpu);
 
         let stats = GpuResourceStats {
             count: MAX_SHADOWS,
@@ -66,10 +63,10 @@ impl ShadowManager {
         };
 
         let (buffer, bindgroup, pipeline) = {
-            let layout = Self::create_layout(device);
-            let buffer = Self::create_buffer(device);
-            let bindgroup = Self::create_bg(device, &buffer, &layout);
-            let pipeline = Self::create_pipeline(device, &layout);
+            let layout = Self::create_layout(gpu.device);
+            let buffer = Self::create_buffer(gpu.device);
+            let bindgroup = Self::create_bg(gpu.device, &buffer, &layout);
+            let pipeline = Self::create_pipeline(gpu.device, &layout);
             (buffer, bindgroup, pipeline)
         };
 

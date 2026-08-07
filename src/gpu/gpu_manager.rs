@@ -11,13 +11,12 @@ pub struct GpuManager {
 }
 
 impl GpuManager {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
-        let layout_cache = BindgroupLayoutCache::new(device);
-        let buffer_cache = BufferCache::new(device);
-        let framebuffer_cache = FramebufferCache::new(device, &layout_cache, width, height);
+    pub fn new(gpu: &GpuContextRef, width: u32, height: u32) -> Self {
+        let layout_cache = BindgroupLayoutCache::new(gpu.device);
+        let buffer_cache = BufferCache::new(gpu.device);
+        let framebuffer_cache = FramebufferCache::new(gpu, &layout_cache, width, height);
         let bindgroup_cache = BindgroupCache::new(
-            device,
-            queue,
+            gpu,
             &buffer_cache,
             &framebuffer_cache,
             &layout_cache,
@@ -54,9 +53,9 @@ impl GpuManager {
         self.framebuffer_cache.get_bg(kind)
     }
 
-    pub fn resize_frame(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+    pub fn resize_frame(&mut self, gpu: &GpuContextRef, width: u32, height: u32) {
         self.framebuffer_cache
-            .resize(device, &self.layout_cache, width, height);
+            .resize(gpu, &self.layout_cache, width, height);
     }
 
     pub fn get_bindgroup(&self, kind: BindgroupKind) -> &wgpu::BindGroup {

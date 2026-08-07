@@ -1,17 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    assets::TextureId,
-    gpu::static_textures,
-    gpu::{
-        GpuResourceStats, HasGpuStats,
-        texture::{GpuTexture, GpuTextureBuilder},
-    },
+    assets::TextureId, gpu::{GpuContextRef, GpuResourceStats, HasGpuStats, static_textures, texture::{GpuTexture, GpuTextureBuilder}},
 };
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use wgpu::{Device, Queue};
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum CacheTextureSlot {
@@ -25,9 +19,9 @@ pub struct GpuBuiltinTextures {
 }
 
 impl GpuBuiltinTextures {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(gpu: &GpuContextRef) -> Self {
         let builtin: Vec<GpuTexture> = CacheTextureSlot::iter()
-            .map(|slot| Self::create(device, queue, slot))
+            .map(|slot| Self::create(gpu, slot))
             .collect();
 
         Self { builtin }
@@ -37,19 +31,19 @@ impl GpuBuiltinTextures {
         &self.builtin[slot as usize]
     }
 
-    fn create(device: &Device, queue: &Queue, slot: CacheTextureSlot) -> GpuTexture {
+    fn create(gpu: &GpuContextRef, slot: CacheTextureSlot) -> GpuTexture {
         match slot {
             CacheTextureSlot::White => {
                 GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .build(device, Some(queue))
+                    .build(gpu)
             }
             CacheTextureSlot::Black => {
                 GpuTextureBuilder::from_static(&static_textures::BLACK_STATIC_TEXTURE)
-                    .build(device, Some(queue))
+                    .build(gpu)
             }
             CacheTextureSlot::Normal => {
                 GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE)
-                    .build(device, Some(queue))
+                    .build(gpu)
             }
         }
     }
@@ -67,8 +61,8 @@ impl HasGpuStats for GpuTextureCache {
     }
 }
 impl GpuTextureCache {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let builtin = GpuBuiltinTextures::new(device, queue);
+    pub fn new(gpu: &GpuContextRef) -> Self {
+        let builtin = GpuBuiltinTextures::new(gpu);
 
         Self {
             map: HashMap::new(),
@@ -118,8 +112,9 @@ mod tests {
 
     #[test]
     fn should_create_gpu_texture_cache() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let gpu_texture_cache = GpuTextureCache::new(device, queue);
+        let gpu = test_utils::get_gpu_context_test();
+
+        let gpu_texture_cache = GpuTextureCache::new(&gpu);
 
         assert!(gpu_texture_cache.map.is_empty());
     }

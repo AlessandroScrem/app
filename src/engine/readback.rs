@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::gpu::gpu_readback::*;
+use crate::gpu::{context::GpuContextRef, gpu_readback::*};
 
 pub enum PollResult<T> {
     Idle,
@@ -21,18 +21,12 @@ pub struct PickObject {
 }
 
 impl PickObject {
-    pub fn request(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        texture: &wgpu::Texture,
-        pos: (u32, u32),
-    ) {
+    pub fn request(&mut self, gpu: &GpuContextRef, texture: &wgpu::Texture, pos: (u32, u32)) {
         if !matches!(self.state, PickState::Idle) {
             return;
         }
 
-        let handle = GpuReadback::request_readback(device, queue, texture, pos, (1, 1));
+        let handle = GpuReadback::request_readback(gpu.device, gpu.queue, texture, pos, (1, 1));
 
         self.state = PickState::Pending(handle);
     }
@@ -80,8 +74,7 @@ pub struct Select {
 impl Select {
     pub fn request(
         &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef,
         texture: &wgpu::Texture,
         origin: (u32, u32),
         size: (u32, u32),
@@ -90,8 +83,9 @@ impl Select {
             return;
         }
 
-        self.state =
-            SelectState::Pending(GpuReadback::request_readback(device, queue, texture, origin, size));
+        self.state = SelectState::Pending(GpuReadback::request_readback(
+            gpu.device, gpu.queue, texture, origin, size,
+        ));
     }
 }
 
@@ -111,20 +105,20 @@ impl Select {
         }
     }
 
-        // if let Some(readback) = &mut self.readback {
-        //     if let Some(data) = readback.poll(&self.gpu_context.device) {
-        //         println!("Buffer len: {} ", data.len());
-        //         let mut ids = HashSet::new();
-        //         for chunk in data.chunks_exact(8) {
-        //             let id = u64::from_le_bytes(chunk.try_into().unwrap());
-        //             if id != 0 {
-        //                 ids.insert(EntityRawU64::from_raw_u64(id));
-        //             }
-        //         }
-        //         bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
-        //         self.readback = None;
-        //     }
-        // }
+    // if let Some(readback) = &mut self.readback {
+    //     if let Some(data) = readback.poll(&self.gpu_context.device) {
+    //         println!("Buffer len: {} ", data.len());
+    //         let mut ids = HashSet::new();
+    //         for chunk in data.chunks_exact(8) {
+    //             let id = u64::from_le_bytes(chunk.try_into().unwrap());
+    //             if id != 0 {
+    //                 ids.insert(EntityRawU64::from_raw_u64(id));
+    //             }
+    //         }
+    //         bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
+    //         self.readback = None;
+    //     }
+    // }
 
     fn decode(results: ReadbackResult) -> Vec<u64> {
         results
@@ -150,24 +144,21 @@ pub struct ReadbackManager {
 impl ReadbackManager {
     pub fn request_pick(
         &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef,
         texture: &wgpu::Texture,
         pos: (u32, u32),
     ) {
-        self.pick.request(device, queue, texture, pos);
+        self.pick.request(gpu, texture, pos);
     }
 
     pub fn request_selection(
         &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        gpu: &GpuContextRef,
         texture: &wgpu::Texture,
         origin: (u32, u32),
         size: (u32, u32),
     ) {
-        self.selection
-            .request(device, queue, texture, origin, size);
+        self.selection.request(gpu, texture, origin, size);
     }
 
     pub fn poll_results(&mut self) -> Option<QueryResult> {
@@ -189,26 +180,27 @@ mod tests {
 
     use super::*;
     use crate::gpu::caches::GpuTextureBuilder;
+    use crate::gpu::context::GpuContextRef;
     use crate::gpu::static_textures;
-    use crate::test_utils::get_device_and_queue;
+    use crate::test_utils::get_gpu_context_test;
+
 
     #[test]
     fn should_read_pick() {
-        let (device, queue) = get_device_and_queue();
-        let gpu = GpuReadback::default();
+        let gpu = &get_gpu_context_test();
 
         let gpu_texture =
             GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                .build(device, Some(queue));
+                .build(gpu);
 
         let texture = gpu_texture.inner;
 
         let mut pick = PickObject::default();
 
-        pick.request(&device, &queue, &texture, (15, 15));
+        pick.request(gpu, &texture, (15, 15));
 
         let result = loop {
-            GpuReadback::poll(&device);
+            GpuReadback::poll(gpu.device);
 
             match pick.poll() {
                 PollResult::Pending => {
@@ -233,13 +225,11 @@ mod tests {
 
     #[test]
     fn should_ignore_multiple_pick_requests() {
-        let (device, queue) = get_device_and_queue();
-
-        let gpu = GpuReadback::default();
+        let gpu = &get_gpu_context_test();
 
         let gpu_texture =
             GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                .build(device, Some(queue));
+                .build(gpu);
 
         let texture = gpu_texture.inner;
 
@@ -247,13 +237,13 @@ mod tests {
 
         // invio 100 richieste
         for _ in 0..100 {
-            pick.request(&device, &queue, &texture, (15, 15));
+            pick.request(&gpu, &texture, (15, 15));
         }
 
         let mut count = 0;
 
         loop {
-            GpuReadback::poll(&device);
+            GpuReadback::poll(gpu.device);
 
             match pick.poll() {
                 PollResult::Pending => {
@@ -273,21 +263,20 @@ mod tests {
 
     #[test]
     fn should_read_select() {
-        let (device, queue) = get_device_and_queue();
-        let gpu = GpuReadback::default();
+        let gpu = &get_gpu_context_test();
 
         let gpu_texture =
             GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                .build(device, Some(queue));
+                .build(gpu);
 
         let texture = gpu_texture.inner;
 
         let mut select = Select::default();
 
-        select.request(&device, &queue, &texture, (0, 0), (10, 8));
+        select.request(gpu, &texture, (0, 0), (10, 8));
 
         let result = loop {
-            GpuReadback::poll(&device);
+            GpuReadback::poll(gpu.device);
 
             match select.poll() {
                 PollResult::Pending => {
@@ -303,26 +292,25 @@ mod tests {
 
     #[test]
     fn should_request_manager_results() {
-        let (device, queue) = get_device_and_queue();
-        let gpu = GpuReadback::default();
+        let gpu = &get_gpu_context_test();
 
         let gpu_texture =
             GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE)
-                .build(device, Some(queue));
+                .build(gpu);
 
         let texture = gpu_texture.inner;
 
         let mut req_mgr = ReadbackManager::default();
 
-        req_mgr.request_selection(&device, &queue, &texture, (0, 0), (10, 8));
+        req_mgr.request_selection(gpu, &texture, (0, 0), (10, 8));
 
-        req_mgr.request_pick(&device, &queue, &texture, (15, 15));
+        req_mgr.request_pick(&gpu, &texture, (15, 15));
 
         let mut pick_received = false;
         let mut selection_received = false;
 
         loop {
-            GpuReadback::poll(&device);
+            GpuReadback::poll(gpu.device);
 
             if let Some(result) = req_mgr.poll_results() {
                 match result {
