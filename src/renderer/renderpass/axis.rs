@@ -27,7 +27,7 @@ impl RenderPass for AxisPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        if !frame.axis_enable {
+        if !frame.tasks.axis_enable {
             return;
         }
 

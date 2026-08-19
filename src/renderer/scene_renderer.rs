@@ -1,24 +1,20 @@
 use super::*;
 
 use crate::gpu::pipeline_manager::PipelineManager;
-use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager};
+use crate::gpu::{GpuCache, GpuContext, GpuManager, ShadowManager};
 use crate::renderer::framebuilder::DrawStats;
-use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 
-use legion::Entity;
 use wgpu::Device;
 
-use crate::camera::Camera;
-use crate::globals::Globals;
 use crate::prelude::{debug, info};
 use crate::renderer::renderpass::*;
 
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
-    pub gpu_manager: &'a mut GpuManager,
-    pub shadow_manager: &'a mut ShadowManager,
+    pub gpu_manager: &'a  GpuManager,
+    pub shadow_manager: &'a ShadowManager,
     pub pipeline_manager: &'a PipelineManager,
-    pub gpu_cache: &'a mut GpuCache,
+    pub gpu_cache: &'a GpuCache,
 }
 
 pub struct RenderContext<'a> {
@@ -74,14 +70,10 @@ impl SceneRenderer {
 
     pub fn render(
         &mut self,
-        runtime: &mut SceneRenderContext,
+        runtime: &SceneRenderContext,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        size: (u32, u32),
         frame: &FrameData,
-        camera: &Camera,
-        globals: &Globals,
-        selected: Option<Entity>,
     ) {
         let SceneRenderContext {
             gpu_context,
@@ -99,40 +91,6 @@ impl SceneRenderer {
             pip_mgr: &pipeline_manager,
             target,
         };
-
-        // Update Light to gpu
-        if let Some(light_uniform) = frame.lights {
-            gpu_manager.update_buffer(
-                &gpu_context.queue,
-                BufferKind::Lights,
-                std::slice::from_ref(&light_uniform),
-            );
-        }
-
-        // Update camera uniform buffer data to gpu
-        let uniform = CameraUniform::from_camera_size(camera, size);
-        gpu_manager.update_buffer(
-            &gpu_context.queue,
-            BufferKind::Camera,
-            std::slice::from_ref(&uniform),
-        );
-
-        // Update global uniform buffer data to gpu
-        use crate::EntityRawU64;
-        let entity_id = selected.map(|id| id.as_raw_u64()).unwrap_or(0);
-        let uniform = GlobalUniform::from_global_id(globals, entity_id);
-        gpu_manager.update_buffer(
-            &gpu_context.queue,
-            BufferKind::Globals,
-            std::slice::from_ref(&uniform),
-        );
-
-        // Update vertex instance buffer data to gpu
-        gpu_manager.update_buffer(
-            &gpu_context.queue,
-            BufferKind::Instances,
-            frame.instances.as_slice(),
-        );
 
         for pass in &mut self.default_pass {
             pass.execute(encoder, &mut ctx, &frame);

@@ -1,6 +1,6 @@
 #[derive(Clone, Debug)]
 pub struct Globals {
-    pub mips_cs: bool,
+    pub mips_cp: bool,
     pub light_enable: bool,
     pub ibl_enable: bool,
     pub skybox_enable: bool,
@@ -18,7 +18,7 @@ pub struct Globals {
 impl Default for Globals {
     fn default() -> Self {
         Self {
-            mips_cs: false,
+            mips_cp: false,
             light_enable: true,
             ibl_enable: true,
             skybox_enable: true,

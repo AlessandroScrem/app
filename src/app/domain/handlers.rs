@@ -114,7 +114,7 @@ pub fn handle_global_event(app: &mut App, event: GlobalEvent, bus: &mut EventBus
         GlobalEvent::Exposure(value) => g.exposure = value,
         GlobalEvent::IblIntensity(value) => g.ibl_intensity = value,
         GlobalEvent::TonemapFilter(filter_code) => g.tonemap_filter = filter_code,
-        GlobalEvent::MipsCsEnable(flag) => g.mips_cs = flag,
+        GlobalEvent::MipsCsEnable(flag) => g.mips_cp = flag,
         GlobalEvent::EnvRotation(value) => g.env_rotation = value,
     }
 }

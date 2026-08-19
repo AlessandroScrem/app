@@ -1,9 +1,6 @@
 use super::*;
+use crate::gpu::BufferKind ;
 
-struct VertexData {
-    vertexbuffer: wgpu::Buffer,
-    count: u32,
-}
 
 #[derive(Default)]
 pub struct LinesPass {}
@@ -36,7 +33,7 @@ impl RenderPass for LinesPass {
             return;
         };
 
-        let vertexdata = create_vertexdata(ctx.device, frame);
+        let vertex_count = frame.lines.len() as u32;
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;
@@ -64,24 +61,8 @@ impl RenderPass for LinesPass {
         renderpass.set_pipeline(&pipeline);
         renderpass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Camera), &[]);
 
-        renderpass.set_vertex_buffer(0, vertexdata.vertexbuffer.slice(0..));
-        renderpass.draw(0..vertexdata.count, 0..1);
+        renderpass.set_vertex_buffer(0, gpu_manager.get_buffer(BufferKind::Lines).slice(0..));
+        renderpass.draw(0..vertex_count, 0..1);
     }
 }
 
-
-fn create_vertexdata(device: &wgpu::Device, frame: &FrameData) -> VertexData {
-    use wgpu::util::DeviceExt;
-    let vertices = &frame.lines;
-    let vertexbuffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("BBox Vertex Buffer"),
-        contents: bytemuck::cast_slice(vertices),
-        usage: wgpu::BufferUsages::VERTEX,
-    });
-    let count = vertices.len() as u32;
-
-    VertexData {
-        vertexbuffer,
-        count,
-    }
-}

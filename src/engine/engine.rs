@@ -96,6 +96,6 @@ impl<A: Application + HasAssetMgr> Engine<A> {
 
         runtime.update_ui(app, bus);
 
-        runtime.render(&app.render_data());
+        runtime.render(app);
     }
 }

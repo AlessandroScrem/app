@@ -203,7 +203,7 @@ impl Globals {
         let mut skybox_enable = self.skybox_enable;
         let mut axis_enable = self.axis_enable;
         let mut bbox_enable = self.bbox_enable;
-        let mut mips_cs = self.mips_cs;
+        let mut mips_cs = self.mips_cp;
         let mut env_rotation = self.env_rotation;
 
         use GlobalEvent::*;

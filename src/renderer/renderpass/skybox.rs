@@ -27,11 +27,11 @@ impl RenderPass for SkyboxPass {
         ctx: &mut RenderContext,
         frame: &FrameData,
     ) {
-        if frame.skybox_enable.is_none() {
+        if !frame.tasks.skybox_enable {
             return;
         }
 
-        let skybox_blur = frame.skybox_enable.is_some_and(|b| b == true);
+        let skybox_blur = frame.tasks.skybox_blur;
 
         let gpu_manager = ctx.gpu_mgr;
         let pipeline_manager = ctx.pip_mgr;

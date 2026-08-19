@@ -13,17 +13,22 @@ use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager, GpuMaterialCache,
-    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
+    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager,
+    GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager,
+    ShadowManager,
 };
 use crate::input::{Input, KeyButton};
 use crate::prelude::info;
-use crate::renderer::FrameBuilder;
+use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
+use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
+use crate::renderer::render_queue::RenderQueue;
 use crate::renderer::scene_renderer::SceneRenderContext;
+use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
 use legion::Entity;
+
 use winit::{event::Event, window::Window};
 
 impl InternalCounter for Runtime {
@@ -154,7 +159,7 @@ impl Runtime {
                     let entity = id.map(Entity::from_raw_u64);
                     bus.send_domain(Selection(Hovered(entity)));
                 }
-                
+
                 QueryResult::Selection(vec_u64) => {
                     bus.send_domain(Selection(SelectMulti(vec_u64)));
                 }
@@ -166,8 +171,8 @@ impl Runtime {
             self.readback.request_pick(
                 &self.gpu_context.as_ref(),
                 &self
-                .gpu_manager
-                .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                    .gpu_manager
+                    .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
                 (
                     self.input.mouse_position.x as u32,
                     self.input.mouse_position.y as u32,
@@ -304,7 +309,6 @@ impl Runtime {
             ..
         } = self;
 
-
         let texture_cache = &mut self.gpu_cache.textures;
         let material_cache = &mut self.gpu_cache.material;
         let mesh_cache = &mut self.gpu_cache.mesh;
@@ -378,8 +382,12 @@ impl Runtime {
                     .for_each(|(id, asset)| {
                         let material_layout =
                             gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
-                        let gpu_material =
-                            GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, material_layout);
+                        let gpu_material = GpuMaterial::new(
+                            &texture_cache,
+                            &asset.desc,
+                            &gpu_context.device,
+                            material_layout,
+                        );
                         material_cache.insert(id, gpu_material);
                     });
             }
@@ -420,8 +428,11 @@ impl Runtime {
                             .map(|asset| (ev.id, asset))
                     })
                     .for_each(|(id, asset)| {
-                        let gpu_mesh =
-                            GpuMesh::new(&gpu_context.device, &asset.desc.vertices, &asset.desc.indices);
+                        let gpu_mesh = GpuMesh::new(
+                            &gpu_context.device,
+                            &asset.desc.vertices,
+                            &asset.desc.indices,
+                        );
                         mesh_cache.insert(id, gpu_mesh);
                     });
             }
@@ -457,53 +468,23 @@ impl Runtime {
 }
 
 impl Runtime {
-    pub fn render(&mut self, render_data: &AppRenderData) {
+    pub fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder();
 
         if let Some(frame) = self.gpu_surface.get_frame() {
             let target = frame.texture.create_view(&Default::default());
-            let size = (
-                self.gpu_surface.get_config().width,
-                self.gpu_surface.get_config().height,
-            );
 
-            {
-                let Runtime {
-                    scene_renderer,
-                    gpu_context,
-                    gpu_manager,
-                    shadow_manager,
-                    pipeline_manager,
-                    gpu_cache,
-                    ..
-                } = self;
+            let frame_data = self.prepare_frame_data(&app.render_data());
+            let context = SceneRenderContext {
+                gpu_context: &self.gpu_context,
+                gpu_manager: &self.gpu_manager,
+                shadow_manager: &self.shadow_manager,
+                pipeline_manager: &self.pipeline_manager,
+                gpu_cache: &self.gpu_cache,
+            };
 
-                let frame = FrameBuilder::build(
-                    render_data.world,
-                    render_data.asset_mgr,
-                    render_data.selected,
-                    render_data.globals,
-                );
-
-                let mut context = SceneRenderContext {
-                    gpu_context,
-                    gpu_manager,
-                    shadow_manager,
-                    pipeline_manager,
-                    gpu_cache,
-                };
-
-                scene_renderer.render(
-                    &mut context,
-                    &mut encoder,
-                    &target,
-                    size,
-                    &frame,
-                    render_data.camera,
-                    render_data.globals,
-                    render_data.selected,
-                );
-            }
+            self.scene_renderer
+                .render(&context, &mut encoder, &target, &frame_data);
 
             self.imgui_render.render(
                 self.uilayer.get_draw_data(),
@@ -515,6 +496,85 @@ impl Runtime {
 
             self.gpu_context.queue.submit([encoder.finish()]);
             frame.present();
+        }
+    }
+
+    fn prepare_frame_data(&mut self, render_data: &AppRenderData) -> FrameData {
+        let AppRenderData {
+            asset_mgr,
+            world,
+            camera,
+            globals,
+            selected,
+        } = render_data;
+
+        let mut queue = RenderQueue::default();
+        queue.build(world, globals);
+        let frame = FrameBuilder::prepare(queue, asset_mgr, globals);
+
+        // Update Light uniform to gpu
+        self.gpu_manager.update_buffer(
+            &self.gpu_context.queue,
+            BufferKind::Lights,
+            std::slice::from_ref(&frame.lights),
+        );
+
+        {
+            // Update camera uniform to gpu
+            let size = (
+                self.gpu_surface.get_config().width,
+                self.gpu_surface.get_config().height,
+            );
+            let uniform = CameraUniform::from_camera_size(camera, size);
+            self.gpu_manager.update_buffer(
+                &self.gpu_context.queue,
+                BufferKind::Camera,
+                std::slice::from_ref(&uniform),
+            );
+        }
+
+        {
+            // Update global uniform to gpu
+            use crate::EntityRawU64;
+            let entity_id = selected.map(|id| id.as_raw_u64()).unwrap_or(0);
+            let uniform = GlobalUniform::from_global_id(globals, entity_id);
+            self.gpu_manager.update_buffer(
+                &self.gpu_context.queue,
+                BufferKind::Globals,
+                std::slice::from_ref(&uniform),
+            );
+        }
+
+        // Update vertex instance buffer data to gpu
+        self.gpu_manager.update_buffer(
+            &self.gpu_context.queue,
+            BufferKind::Instances,
+            frame.instances.as_slice(),
+        );
+
+        // Update lines vertex buffer data to gpu
+        self.gpu_manager.update_buffer(
+            &self.gpu_context.queue,
+            BufferKind::Lines,
+            frame.lines.as_slice(),
+        );
+
+        let tasks = FrameTasks {
+            axis_enable: globals.axis_enable,
+            build_mips_cp: globals.mips_cp,
+            entity_selected: *selected,
+            skybox_enable: globals.skybox_enable,
+            skybox_blur: globals.skybox_enable_blur,
+        };
+
+        FrameData {
+            opaque_batches: frame.opaque_batches,
+            transmission_batches: frame.transmission_batches,
+            transmission_stats: frame.transmission_stats,
+            lights: Some(frame.lights),
+            lines: frame.lines,
+            opaque_stats: frame.opaque_stats,
+            tasks,
         }
     }
 }

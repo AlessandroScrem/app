@@ -1,17 +1,21 @@
 use std::collections::HashMap;
 
+use legion::Entity;
+
 use super::*;
 
-use crate::EntityRawU64;
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::{LinesVertexData, MaterialId, MeshId, VertexInstance};
-use crate::ecs::components::{Hidden, *};
+use crate::assets::{
+    LinesVertexData, MaterialAsset, MaterialId, MeshAsset, MeshId, VertexInstance,
+};
+
 use crate::globals::Globals;
-use crate::math::*;
+
 use crate::prelude::trace;
+use crate::renderer::render_queue::RenderQueue;
 use crate::renderer::uniform::{LightUniform, LightsUniform};
 
-use legion::{Entity, EntityStore, World};
+
 
 pub struct InstanceBatch {
     pub mesh: MeshId,
@@ -38,6 +42,32 @@ pub struct DrawStats {
     pub instances: u32,
 }
 
+#[derive(Default)]
+pub struct FrameTasks {
+    pub axis_enable: bool,
+    pub entity_selected: Option<Entity>,
+    pub skybox_enable: bool,
+    pub skybox_blur: bool,
+    pub build_mips_cp: bool,
+}
+
+pub struct FrameData {
+    // geometry
+    pub opaque_batches: Vec<InstanceBatch>,
+    pub transmission_batches: Vec<InstanceBatch>,
+    pub lines: Vec<LinesVertexData>,
+
+    // runtime data
+    pub lights: Option<LightsUniform>,
+
+    // flags / tasks
+    pub tasks: FrameTasks,
+
+    // stats
+    pub opaque_stats: DrawStats,
+    pub transmission_stats: DrawStats,
+}
+
 fn compute_stats(batches: &[InstanceBatch]) -> DrawStats {
     let draw_calls = batches.len() as u32;
 
@@ -48,198 +78,34 @@ fn compute_stats(batches: &[InstanceBatch]) -> DrawStats {
     }
 }
 
-pub trait LineSink {
-    fn line(&mut self, a: Vec3, b: Vec3, color: Vec3);
-    fn arrow(&mut self, a: Vec3, b: Vec3, color: Vec3);
-}
-
-pub trait LineDrawable {
-    fn emit(&self, sink: &mut dyn LineSink);
-}
-
-impl LineSink for LineBuilder {
-    fn line(&mut self, a: Vec3, b: Vec3, color: Vec3) {
-        self.push(LinesVertexData {
-            position: a.into(),
-            color: color.into(),
-        });
-
-        self.push(LinesVertexData {
-            position: b.into(),
-            color: color.into(),
-        });
-    }
-
-    fn arrow(&mut self, a: Vec3, b: Vec3, color: Vec3) {
-        // linea principale
-        self.line(a, b, color);
-
-        let dir = (b - a).normalize();
-        let length = (b - a).magnitude();
-
-        let head_len = length * 0.2;
-        let head_width = head_len * 0.5;
-
-        let tip = b;
-        let base = b - dir * head_len;
-
-        let mut side = dir.cross(Vec3::unit_y()).normalize();
-        if side.magnitude2() < 0.001 {
-            side = dir.cross(Vec3::unit_x()).normalize();
-        }
-
-        let left = base - side * head_width;
-        let right = base + side * head_width;
-
-        self.line(left, tip, color);
-        self.line(right, tip, color);
-    }
-}
-
-pub struct ObjectOrientedBoundingBox<'a> {
-    pub bbox: &'a crate::BoundingBox,
-    pub transform: &'a Mat4,
-}
-pub struct AxisAlignedBoundingBox<'a> {
-    pub bbox: &'a crate::BoundingBox,
-}
-
-fn emit_box_edges(corners: &[Vec3; 8], color: Vec3, sink: &mut dyn LineSink) {
-    #[rustfmt::skip]
-    const BOX_EDGES: [(usize, usize); 12] = [
-        (0, 1), (1, 2), (2, 3), (3, 0), 
-        (4, 5), (5, 6), (6, 7), (7, 4), 
-        (0, 4), (1, 5), (2, 6), (3, 7), 
-    ];
-
-    for (a, b) in BOX_EDGES {
-        sink.line(corners[a], corners[b], color);
-    }
-}
-
-impl<'a> LineDrawable for ObjectOrientedBoundingBox<'a> {
-    fn emit(&self, sink: &mut dyn LineSink) {
-        let color = crate::colors::CYAN_COLOR.into();
-        let corners = self.bbox.gen_corners();
-
-        let corners = corners.map(|c| (self.transform * c.extend(1.0)).truncate());
-
-        emit_box_edges(&corners, color, sink);
-    }
-}
-
-impl<'a> LineDrawable for AxisAlignedBoundingBox<'a> {
-    fn emit(&self, sink: &mut dyn LineSink) {
-        let color: Vec3 = crate::colors::CYAN_COLOR.into();
-        let corners = self.bbox.gen_corners();
-
-        emit_box_edges(&corners, color, sink);
-    }
-}
-
-impl LineDrawable for LightComponent {
-    fn emit(&self, sink: &mut dyn LineSink) {
-        use crate::colors;
-
-        let mut corners = vec![
-            Vec3::new(-1.0, -1.0, 0.0), // Near-bottom-left
-            Vec3::new(1.0, -1.0, 0.0),  // Near-bottom-right
-            Vec3::new(1.0, 1.0, 0.0),   // Near-top-right
-            Vec3::new(-1.0, 1.0, 0.0),  // Near-top-left
-            Vec3::new(-1.0, -1.0, 1.0), // Far-bottom-left
-            Vec3::new(1.0, -1.0, 1.0),  // Far-bottom-right
-            Vec3::new(1.0, 1.0, 1.0),   // Far-top-right
-            Vec3::new(-1.0, 1.0, 1.0),  // Far-top-left
-        ];
-
-        let mat = self.get_view_proj_matrix();
-        let inverse_light_space_matrix = mat.invert().unwrap_or(Mat4::identity());
-        for vertex in corners.iter_mut() {
-            let v = inverse_light_space_matrix * vertex.extend(1.0);
-            *vertex = v.truncate();
-        }
-
-        let near = [corners[0], corners[1], corners[2], corners[3]];
-        let far = [corners[4], corners[5], corners[6], corners[7]];
-
-        // Near clip
-        sink.line(near[0], near[1], colors::RED_COLOR.into());
-        sink.line(near[1], near[2], colors::RED_COLOR.into());
-        sink.line(near[2], near[3], colors::RED_COLOR.into());
-        sink.line(near[3], near[0], colors::RED_COLOR.into());
-        // Far clip
-        sink.line(far[0], far[1], colors::BLUE_COLOR.into());
-        sink.line(far[1], far[2], colors::BLUE_COLOR.into());
-        sink.line(far[2], far[3], colors::BLUE_COLOR.into());
-        sink.line(far[3], far[0], colors::BLUE_COLOR.into());
-        // Linees connecting near
-        sink.line(near[0], far[0], colors::GREEN_COLOR.into());
-        sink.line(near[1], far[1], colors::GREEN_COLOR.into());
-        sink.line(near[2], far[2], colors::GREEN_COLOR.into());
-        sink.line(near[3], far[3], colors::GREEN_COLOR.into());
-
-        let origin = Vec3::new(0.0, 0.0, 0.0);
-        let position: Vec3 = self.get_position().into();
-        let direction = (origin - position).normalize();
-        let target = position + direction * 20.0;
-
-        sink.arrow(position, target, colors::GREEN_COLOR.into());
-    }
-}
-
-type LineBuilder = Vec<LinesVertexData>;
-
-pub struct FrameData {
-    // geometry
+#[derive(Default)]
+pub struct FrameBuilder {
     pub opaque_batches: Vec<InstanceBatch>,
     pub transmission_batches: Vec<InstanceBatch>,
-    pub lines: Vec<LinesVertexData>,
+
     pub instances: Vec<VertexInstance>,
+    pub lines: Vec<LinesVertexData>,
 
-    // runtime data
-    pub lights: Option<LightsUniform>,
+    pub lights: LightsUniform,
 
-    // flags / tasks
-    pub axis_enable: bool,
-    pub entity_selected: Option<Entity>,
-    pub skybox_enable: Option<bool>,
-    pub build_mips: Option<bool>,
-
-    // stats
     pub opaque_stats: DrawStats,
     pub transmission_stats: DrawStats,
 }
 
-pub struct FrameBuilder {}
 impl FrameBuilder {
-    pub fn build(
-        world: &World,
-        asset: &AssetManager,
-        selected: Option<Entity>,
-        globals: &Globals,
-    ) -> FrameData {
-        let mut frame = FrameData {
-            opaque_batches: Vec::new(),
-            transmission_batches: Vec::new(),
-            lines: Vec::new(),
-            lights: None,
-            entity_selected: None,
-            skybox_enable: None,
-            build_mips: None,
-            axis_enable: false,
-            instances: Vec::new(),
-            opaque_stats: DrawStats::default(),
-            transmission_stats: DrawStats::default(),
-        };
-        Self::build_geometry(world, asset, &mut frame);
-        Self::build_bbox_data(world, globals, &mut frame);
-        Self::build_light_data(world, globals, &mut frame);
-        Self::build_light_frustum(world, globals, &mut frame);
-        frame.build_mips = (!frame.transmission_batches.is_empty()).then(|| globals.mips_cs);
-        frame.entity_selected = selected;
-        frame.skybox_enable = globals.skybox_enable.then(|| globals.skybox_enable_blur);
-        frame.axis_enable = globals.axis_enable;
+    pub fn prepare(queue: RenderQueue, assets: &AssetManager, globals: &Globals) -> Self {
+        let mut frame = FrameBuilder::default();
 
+        // create batches & instances for meshes
+        Self::prepare_meshes(&queue, assets, &mut frame);
+        // create uniform for lights
+        Self::prepare_lights(&queue, globals, &mut frame);
+        // move lines vertexdata created in previus pass.
+        // TODO: to be implemented here
+        Self::prepare_lines(queue, &mut frame);
+
+        // Calc Frame stats:
+        // TODO: move away from here
         frame.opaque_stats = compute_stats(&frame.opaque_batches);
         frame.transmission_stats = compute_stats(&frame.transmission_batches);
 
@@ -249,177 +115,100 @@ impl FrameBuilder {
             frame.transmission_stats,
             frame.opaque_stats.draw_calls + frame.transmission_stats.draw_calls
         );
+
         frame
     }
 
-    fn build_geometry(world: &World, asset: &AssetManager, frame: &mut FrameData) {
-        use legion::IntoQuery;
-        let mut opaque_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
-        let mut transmission_map: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
-        use crate::assets::MaterialAsset;
-        use crate::assets::MeshAsset;
+    fn prepare_lines(queue: RenderQueue, frame: &mut FrameBuilder) {
+        frame.lines = queue.lines
+    }
 
-        fn is_hidden(world: &World, entity: Entity) -> bool {
-            let Ok(entry) = world.entry_ref(entity) else {
-                return false;
-            };
-            // check if has Hidden component
-            if entry.get_component::<Hidden>().is_ok() {
-                return true;
-            }
+    fn prepare_meshes(queue: &RenderQueue, assets: &AssetManager, frame: &mut FrameBuilder) {
+        let mut opaque: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
+        let mut transmission: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
 
-            let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() else {
-                return false;
-            };
-
-            // recurse to parent
-            if let Some(parent) = hierarchy.parent {
-                return is_hidden(world, parent);
-            }
-
-            false
-        }
-
-        let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
-        for (entity, mesh_comp, global_mat) in query.iter(world) {
-            let Some(mesh) = asset.get::<MeshAsset>(mesh_comp.handle) else {
+        for object in &queue.mesh {
+            let Some(mesh) = assets.get::<MeshAsset>(object.mesh) else {
                 continue;
             };
 
-            if is_hidden(world, *entity) {
-                continue;
-            }
-
-            for submesh in mesh.desc.submeshes.iter() {
-                let Some(material) = asset.get::<MaterialAsset>(submesh.material) else {
+            for submesh in &mesh.desc.submeshes {
+                let Some(material) = assets.get::<MaterialAsset>(submesh.material) else {
                     continue;
                 };
-                debug_assert!(
-                    global_mat.mat.determinant() > 0.0,
-                    "matrix determinant is negative"
-                );
 
                 let key = BatchKey {
-                    mesh: mesh_comp.handle,
+                    mesh: object.mesh,
                     material: submesh.material,
-
                     index_start: submesh.index_range.start,
                     index_end: submesh.index_range.end,
                 };
 
-                // -------------------------------------------------
-                // BUILD INSTANCE
-                // -------------------------------------------------
-
-                let model = global_mat.mat;
-                let instance = VertexInstance::new(model, entity.as_raw_u64());
-
-                // -------------------------------------------------
-                // CLASSIFY
-                // -------------------------------------------------
+                let instance = VertexInstance::new(object.transform, object.entity_id);
 
                 if material.desc.is_transmissive() {
-                    transmission_map.entry(key).or_default().push(instance);
+                    transmission.entry(key).or_default().push(instance);
                 } else if !material.desc.is_transparent() {
-                    opaque_map.entry(key).or_default().push(instance);
+                    opaque.entry(key).or_default().push(instance);
                 }
             }
         }
 
-        // ---------------------------------------------------------
-        // BUILD FINAL BATCHES
-        // ---------------------------------------------------------
-        fn flush_batches(
-            map: HashMap<BatchKey, Vec<VertexInstance>>,
-            batches: &mut Vec<InstanceBatch>,
-            instances: &mut Vec<VertexInstance>,
-        ) {
-            for (key, batch_instances) in map {
-                let start = instances.len() as u32;
-                let count = batch_instances.len() as u32;
+        FrameBuilder::flush_batches(opaque, &mut frame.opaque_batches, &mut frame.instances);
 
-                instances.extend(batch_instances);
-
-                batches.push(InstanceBatch {
-                    mesh: key.mesh,
-                    material: key.material,
-
-                    submesh_index_range: key.index_start..key.index_end,
-
-                    instance_start: start,
-                    instance_count: count,
-                });
-            }
-        }
-
-        flush_batches(opaque_map, &mut frame.opaque_batches, &mut frame.instances);
-        flush_batches(
-            transmission_map,
+        FrameBuilder::flush_batches(
+            transmission,
             &mut frame.transmission_batches,
             &mut frame.instances,
         );
     }
 
-    fn build_bbox_data(world: &World, globals: &Globals, frame: &mut FrameData) {
-        if !globals.bbox_enable {
-            return;
-        }
+    // ---------------------------------------------------------
+    // BUILD FINAL BATCHES
+    // ---------------------------------------------------------
+    fn flush_batches(
+        map: HashMap<BatchKey, Vec<VertexInstance>>,
+        batches: &mut Vec<InstanceBatch>,
+        instances: &mut Vec<VertexInstance>,
+    ) {
+        for (key, batch_instances) in map {
+            let start = instances.len() as u32;
+            let count = batch_instances.len() as u32;
 
-        let axis_aligned = globals.bbox_axis_aligned;
+            instances.extend(batch_instances);
 
-        // -------- BoundingBox --------
-        use legion::IntoQuery;
-        let mut bbox_query = <(&BoundingBoxComponent, &GlobalModelComponent)>::query();
+            batches.push(InstanceBatch {
+                mesh: key.mesh,
+                material: key.material,
 
-        bbox_query.for_each(world, |(b, gm)| {
-            if axis_aligned {
-                AxisAlignedBoundingBox {
-                    bbox: &b.global_bounding_box,
-                }
-                .emit(&mut frame.lines);
-            } else {
-                ObjectOrientedBoundingBox {
-                    bbox: &b.bounding_box,
-                    transform: &gm.mat,
-                }
-                .emit(&mut frame.lines);
-            }
-        });
-    }
+                submesh_index_range: key.index_start..key.index_end,
 
-    fn build_light_frustum(world: &World, _globals: &Globals, frame: &mut FrameData) {
-        use legion::IntoQuery;
-        let mut light_query = <&LightComponent>::query();
-        for light in light_query
-            .iter(world)
-            .filter(|l| l.frustum)
-            .take(uniform::MAX_LIGHTS)
-        {
-            light.emit(&mut frame.lines);
+                instance_start: start,
+                instance_count: count,
+            });
         }
     }
 
-    fn build_light_data(world: &World, globals: &Globals, frame: &mut FrameData) {
-        // -------- Lights --------
-        let mut lights_uniform = LightsUniform::default();
+    fn prepare_lights(queue: &RenderQueue, globals: &Globals, frame: &mut FrameBuilder) {
+        let lights_uniform = &mut frame.lights;
+
+        *lights_uniform = LightsUniform::default();
         lights_uniform.enabled = globals.light_enable.into();
 
-        use legion::IntoQuery;
-        let mut light_query = <(Entity, &LightComponent)>::query();
-        for (i, (entity, light)) in light_query
-            .iter(world)
-            .filter(|(_, l)| l.enabled)
+        for (i, light) in queue
+            .lights
+            .iter()
+            .filter(|l| l.light.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
         {
-            let data = LightUniform {
-                entity_id: EntityRawU64::as_raw_u64(entity),
-                ..light.into()
+            let uniform = LightUniform {
+                entity_id: light.entity_id,
+                ..(&light.light).into()
             };
             lights_uniform.count = (i + 1) as u32;
-            lights_uniform.lights[i] = data;
+            lights_uniform.lights[i] = uniform;
         }
-
-        frame.lights = Some(lights_uniform);
     }
+
 }

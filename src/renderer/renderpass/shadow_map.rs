@@ -50,7 +50,7 @@ impl RenderPass for ShadowPass {
                 );
 
                 build_shadowmap(encoder, ctx, frame, &shadow_view);
-                if let Some(entity) = frame.entity_selected {
+                if let Some(entity) = frame.tasks.entity_selected {
                     if EntityId(light.entity_id) == EntityId::from(entity) {
                         convert_texture(encoder, ctx, &shadow_view);
                     }

@@ -1,5 +1,6 @@
 use crate::{
-    assets::VertexInstance, renderer::uniform::{CameraUniform, GlobalUniform, LightUniform, LightsUniform},
+    assets::VertexInstance,
+    renderer::uniform::{CameraUniform, GlobalUniform, LightUniform, LightsUniform},
 };
 
 use strum::IntoEnumIterator;
@@ -8,7 +9,8 @@ use strum_macros::EnumIter;
 use wgpu::util::DeviceExt;
 
 use crate::assets::LinesVertexData;
-const MAX_INSTANCES: usize = 1000;
+pub const MAX_INSTANCES: usize = 1000;
+pub const MAX_LINE_VERTICES: usize = 100000;
 
 const RED: [f32; 3] = [1.0, 0.0, 0.0];
 const GREEN: [f32; 3] = [0.0, 1.0, 0.0];
@@ -26,7 +28,6 @@ pub static AXIS_VERICES: AxisData = [
     LinesVertexData{position: [0.0, 0.0, 10.0], color: BLUE},  //Z
 ];
 
-
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum BufferKind {
     Camera,
@@ -35,12 +36,14 @@ pub enum BufferKind {
     Light,
     Axis,
     Instances,
+    Lines,
 }
 
 impl BufferKind {
     pub const fn buffer_size(kind: BufferKind) -> usize {
         match kind {
             BufferKind::Instances => size_of::<VertexInstance>() * MAX_INSTANCES,
+            BufferKind::Lines => size_of::<LinesVertexData>() * MAX_LINE_VERTICES,
             BufferKind::Camera => size_of::<CameraUniform>(),
             BufferKind::Globals => size_of::<GlobalUniform>(),
             BufferKind::Lights => size_of::<LightsUniform>(),
@@ -70,7 +73,11 @@ impl BufferCache {
         let byte_len = data.len() * std::mem::size_of::<T>();
         let buffer = &self.buffers[kind as usize];
 
-        assert!(byte_len <= BufferKind::buffer_size(kind));
+        assert!(
+            byte_len <= BufferKind::buffer_size(kind),
+            "Data size exceeds buffer:{:?} size",
+            kind
+        );
 
         queue.write_buffer(buffer, 0, bytemuck::cast_slice(data));
     }
@@ -89,17 +96,17 @@ impl BufferCache {
                 contents: bytemuck::cast_slice(&[GlobalUniform::default()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }),
-            BufferKind::Axis => {
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Lines Vertex Buffer"),
-                    contents: bytemuck::cast_slice(&AXIS_VERICES),
-                    usage: wgpu::BufferUsages::VERTEX,
-                })
-            }
+            BufferKind::Axis => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("LineAxis Vertex Buffer"),
+                contents: bytemuck::cast_slice(&AXIS_VERICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            }),
             BufferKind::Lights => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Lights Uniform Buffer"),
                 contents: bytemuck::cast_slice(&[LightsUniform::default()]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+                usage: wgpu::BufferUsages::UNIFORM
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::COPY_SRC,
             }),
             BufferKind::Light => device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Light Uniform Buffer"),
@@ -109,6 +116,12 @@ impl BufferCache {
             BufferKind::Instances => device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Instance Buffer"),
                 size: (std::mem::size_of::<VertexInstance>() * MAX_INSTANCES) as u64, // TODO! dynamic
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            BufferKind::Lines => device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Lines Vertex Buffer"),
+                size: (std::mem::size_of::<LinesVertexData>() * MAX_LINE_VERTICES) as u64, // TODO! dynamic
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             }),
