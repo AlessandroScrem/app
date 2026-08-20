@@ -1,12 +1,8 @@
 use super::*;
 
-#[derive(Default)]
+
 pub struct OutlinePass {}
-impl OutlinePass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+
 
 impl RenderPass for OutlinePass {
     fn name(&self) -> &'static str {

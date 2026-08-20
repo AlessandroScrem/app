@@ -4,15 +4,11 @@ use legion::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    app::domain::events::{DomainEvent, SceneEvent},
-    assets::{
+    Globals, app::domain::events::{DomainEvent, SceneEvent}, assets::{
         MeshAsset,
         asset_manager::AssetManager,
-        gltf_loader::{LoadedScene, NodeData, load_gltf},
-    },
-    ecs::components::*,
-    engine::{RuntimeEvent, engine::EventBus},
-    ui::UiComponentState,
+        gltf_loader::{GltfGroup, NodeData, load_gltf},
+    }, ecs::components::*, engine::{RuntimeEvent, engine::EventBus}, renderer::render_objects::RenderObjects, ui::UiComponentState,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -34,6 +30,7 @@ pub struct Scene {
     pub resources: Resources,
     pub schedule: Schedule,
     pub dirty: bool,
+    pub render_objects: RenderObjects,
 }
 
 impl Default for Scene {
@@ -48,14 +45,17 @@ impl Default for Scene {
             resources,
             schedule,
             dirty: true,
+            render_objects: RenderObjects::default(),
         }
     }
 }
 
 impl Scene {
-    pub fn update_scene(&mut self, bus: &mut EventBus) {
+    pub fn update_scene(&mut self, bus: &mut EventBus, globals: &Globals) {
         self.schedule.execute(&mut self.world, &mut self.resources);
 
+        self.render_objects = RenderObjects::build(&self.world, globals);
+        
         if self.dirty {
             let title = self.filename.clone().unwrap_or("Untitled scene *".into());
             bus.send_runtime(RuntimeEvent::SetWindowTitle(title));
@@ -166,7 +166,7 @@ fn collect_mesh_nodes(nodes: &[NodeData], index: usize, output: &mut Vec<usize>)
 
 pub fn spawn_scene(
     world: &mut legion::World,
-    loaded: &LoadedScene,
+    loaded: &GltfGroup,
     asset_mgr: &AssetManager,
     root_transform: TransformComponent,
 ) {

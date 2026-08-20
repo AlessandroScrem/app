@@ -48,14 +48,14 @@ impl SceneRenderer {
         let default_pass = vec![
             RenderPassEnum::Shadow(ShadowPass {}),
             RenderPassEnum::Mesh(MeshPass::opaque()),
-            RenderPassEnum::Skybox(SkyboxPass::new()),
-            RenderPassEnum::BuildMipmaps(BuildMipmapsPass::new()),
+            RenderPassEnum::Skybox(SkyboxPass {}),
+            RenderPassEnum::BuildMipmaps(BuildMipmapsPass {}),
             RenderPassEnum::Transmission(MeshPass::transmission()),
-            RenderPassEnum::LightsIcon(LightsIconPass::new()),
-            RenderPassEnum::Axis(AxisPass::new()),
-            RenderPassEnum::Lines(LinesPass::new()),
-            RenderPassEnum::Linearize(LinearizePass::new()),
-            RenderPassEnum::Outline(OutlinePass::new()),
+            RenderPassEnum::LightsIcon(LightsIconPass {}),
+            RenderPassEnum::Axis(AxisPass {}),
+            RenderPassEnum::Lines(LinesPass {}),
+            RenderPassEnum::Linearize(LinearizePass {}),
+            RenderPassEnum::Outline(OutlinePass {}),
         ];
 
         Self {

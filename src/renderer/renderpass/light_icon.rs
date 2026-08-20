@@ -1,13 +1,7 @@
 use super::*;
 
-#[derive(Default)]
 pub struct LightsIconPass {}
 
-impl LightsIconPass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for LightsIconPass {
     fn name(&self) -> &'static str {

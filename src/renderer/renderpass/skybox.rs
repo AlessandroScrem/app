@@ -1,13 +1,8 @@
 use super::*;
 
-#[derive(Default)]
+
 pub struct SkyboxPass {}
 
-impl SkyboxPass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for SkyboxPass {
     fn name(&self) -> &'static str {

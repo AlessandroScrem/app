@@ -3,14 +3,8 @@ use log::warn;
 use super::*;
 use crate::gpu::pipeline_manager::CsPipelineKind;
 
-#[derive(Default)]
 pub struct BuildMipmapsPass {}
 
-impl BuildMipmapsPass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for BuildMipmapsPass {
     fn name(&self) -> &'static str {

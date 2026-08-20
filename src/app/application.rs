@@ -1,17 +1,18 @@
-use std::path::PathBuf;
 use crate::assets::{IblId, TextureId};
 use crate::engine::engine::EventBus;
 use crate::gpu::GpuInternalCounters;
+use crate::renderer::render_objects::RenderObjects;
 use crate::renderer::scene_renderer::FrameStats;
 use crate::ui::{UiSnapshot, UiTextureResolver};
 use crate::{Camera, Globals};
-use legion::{Entity, World};
+use legion::Entity;
+use std::path::PathBuf;
 
 use crate::assets::asset_manager::AssetManager;
 
 pub struct AppRenderData<'a> {
+    pub render_objects: &'a RenderObjects,
     pub asset_mgr: &'a AssetManager,
-    pub world: &'a World,
     pub camera: &'a Camera,
     pub globals: &'a Globals,
     pub selected: Option<Entity>,

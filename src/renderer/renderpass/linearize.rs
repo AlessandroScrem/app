@@ -1,13 +1,7 @@
 use super::*;
 
-#[derive(Default)]
 pub struct LinearizePass {}
 
-impl LinearizePass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for LinearizePass {
     fn name(&self) -> &'static str {

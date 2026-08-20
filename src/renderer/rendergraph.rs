@@ -254,14 +254,14 @@ mod tests {
     fn should_run_in_order() {
         let mut graph = RenderGraph::new();
         let meshpass = MeshPass::opaque();
-        let skyboxpass = SkyboxPass::new();
-        let build_mipmaps = BuildMipmapsPass::new();
+        let skyboxpass = SkyboxPass {};
+        let build_mipmaps = BuildMipmapsPass {};
         let transmission = MeshPass::transmission();
-        let lightpass = LightsIconPass::new();
-        let axispass = AxisPass::new();
-        let bboxpass = LinesPass::new();
-        let linearizepass = LinearizePass::new();
-        let outlinepass = OutlinePass::new();
+        let lightpass = LightsIconPass {};
+        let axispass = AxisPass {};
+        let bboxpass = LinesPass {};
+        let linearizepass = LinearizePass {};
+        let outlinepass = OutlinePass {};
 
         graph.add_pass(meshpass);
         graph.add_pass(skyboxpass);

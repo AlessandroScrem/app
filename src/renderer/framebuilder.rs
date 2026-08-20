@@ -12,10 +12,13 @@ use crate::assets::{
 use crate::globals::Globals;
 
 use crate::prelude::trace;
-use crate::renderer::render_queue::RenderQueue;
+use crate::renderer::line_builder::{
+    AxisAlignedBoundingBox, LineDrawable, ObjectOrientedBoundingBox,
+};
+use crate::renderer::render_objects::{
+    BboxRenderObject, LightRenderObject, MeshRenderObject, RenderObjects,
+};
 use crate::renderer::uniform::{LightUniform, LightsUniform};
-
-
 
 pub struct InstanceBatch {
     pub mesh: MeshId,
@@ -86,23 +89,25 @@ pub struct FrameBuilder {
     pub instances: Vec<VertexInstance>,
     pub lines: Vec<LinesVertexData>,
 
-    pub lights: LightsUniform,
+    pub light_uniform: LightsUniform,
 
     pub opaque_stats: DrawStats,
     pub transmission_stats: DrawStats,
 }
 
 impl FrameBuilder {
-    pub fn prepare(queue: RenderQueue, assets: &AssetManager, globals: &Globals) -> Self {
+    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals) -> Self {
         let mut frame = FrameBuilder::default();
 
         // create batches & instances for meshes
-        Self::prepare_meshes(&queue, assets, &mut frame);
+        Self::prepare_meshes(&objects.meshes, assets, &mut frame);
+
         // create uniform for lights
-        Self::prepare_lights(&queue, globals, &mut frame);
-        // move lines vertexdata created in previus pass.
-        // TODO: to be implemented here
-        Self::prepare_lines(queue, &mut frame);
+        Self::prepare_light_uniform(&objects.lights, &mut frame, globals.light_enable);
+
+        // crate lines vertexdata.
+        Self::extract_bbox_lines(&objects.bboxes, &mut frame.lines, globals.bbox_axis_aligned);
+        Self::extract_light_frustums(&objects.lights, &mut frame.lines);
 
         // Calc Frame stats:
         // TODO: move away from here
@@ -119,15 +124,44 @@ impl FrameBuilder {
         frame
     }
 
-    fn prepare_lines(queue: RenderQueue, frame: &mut FrameBuilder) {
-        frame.lines = queue.lines
+    fn extract_bbox_lines(
+        bbox: &[BboxRenderObject],
+        lines: &mut Vec<LinesVertexData>,
+        axis_aligned: bool,
+    ) {
+        for b in bbox {
+            if axis_aligned {
+                AxisAlignedBoundingBox {
+                    bbox: &b.bbox.global_bounding_box,
+                }
+                .emit(lines);
+            } else {
+                ObjectOrientedBoundingBox {
+                    bbox: &b.bbox.bounding_box,
+                    transform: &b.transform,
+                }
+                .emit(lines);
+            }
+        }
     }
 
-    fn prepare_meshes(queue: &RenderQueue, assets: &AssetManager, frame: &mut FrameBuilder) {
+    fn extract_light_frustums(lights: &[LightRenderObject], lines: &mut Vec<LinesVertexData>) {
+        lights
+            .iter()
+            .filter(|l| l.light.frustum)
+            .take(uniform::MAX_LIGHTS)
+            .for_each(|l| l.light.emit(lines));
+    }
+
+    fn prepare_meshes(
+        meshes: &[MeshRenderObject],
+        assets: &AssetManager,
+        frame: &mut FrameBuilder,
+    ) {
         let mut opaque: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
         let mut transmission: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
 
-        for object in &queue.mesh {
+        for object in meshes {
             let Some(mesh) = assets.get::<MeshAsset>(object.mesh) else {
                 continue;
             };
@@ -189,26 +223,31 @@ impl FrameBuilder {
         }
     }
 
-    fn prepare_lights(queue: &RenderQueue, globals: &Globals, frame: &mut FrameBuilder) {
-        let lights_uniform = &mut frame.lights;
+    fn prepare_light_uniform(
+        lights_objects: &[LightRenderObject],
+        frame: &mut FrameBuilder,
+        enabled: bool,
+    ) {
+        let lights_uniform = &mut frame.light_uniform;
 
         *lights_uniform = LightsUniform::default();
-        lights_uniform.enabled = globals.light_enable.into();
+        lights_uniform.enabled = enabled.into();
 
-        for (i, light) in queue
-            .lights
+        lights_objects
             .iter()
             .filter(|l| l.light.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
-        {
-            let uniform = LightUniform {
-                entity_id: light.entity_id,
-                ..(&light.light).into()
-            };
-            lights_uniform.count = (i + 1) as u32;
-            lights_uniform.lights[i] = uniform;
-        }
-    }
+            .for_each(|(i, l_obj)| {
+                let light = &l_obj.light;
+                let entity_id = l_obj.entity_id;
 
+                let uniform = LightUniform {
+                    entity_id,
+                    ..light.into()
+                };
+                lights_uniform.count = (i + 1) as u32;
+                lights_uniform.lights[i] = uniform;
+            });
+    }
 }

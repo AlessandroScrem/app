@@ -17,7 +17,7 @@ use crate::assets::mesh_asset::*;
 use crate::assets::texture_asset::*;
 use crate::assets::vertexdata::MeshVertexData;
 
-pub struct LoadedScene {
+pub struct GltfGroup {
     pub meshes: Vec<GlobalAssetId>,
     pub nodes: Vec<NodeData>,
     pub name: String,
@@ -32,7 +32,7 @@ pub struct NodeData {
 }
 
 // public wrapper manage error messages
-pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<LoadedScene> {
+pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Option<GltfGroup> {
     match load_gltf_internal(&path, asset_mgr) {
         Ok(scene) => Some(scene),
         Err(e) => {
@@ -56,7 +56,7 @@ pub fn load_gltf<P: AsRef<Path>>(path: P, asset_mgr: &mut AssetManager) -> Optio
 fn load_gltf_internal<P: AsRef<Path>>(
     path: P,
     asset_mgr: &mut AssetManager,
-) -> Result<LoadedScene, ImportError> {
+) -> Result<GltfGroup, ImportError> {
     let timer = Instant::now();
     let (gltf, buffers, _) = gltf::import(path.as_ref())?;
 
@@ -141,7 +141,7 @@ fn load_gltf_internal<P: AsRef<Path>>(
 
     let nodes = load_nodes(root_name.as_str(), gltf);
 
-    let scene = LoadedScene {
+    let scene = GltfGroup {
         meshes,
         nodes,
         name: file_path.to_string(),

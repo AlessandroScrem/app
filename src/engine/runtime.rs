@@ -23,7 +23,6 @@ use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
 use crate::renderer::SceneRenderer;
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
-use crate::renderer::render_queue::RenderQueue;
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
@@ -474,7 +473,7 @@ impl Runtime {
         if let Some(frame) = self.gpu_surface.get_frame() {
             let target = frame.texture.create_view(&Default::default());
 
-            let frame_data = self.prepare_frame_data(&app.render_data());
+            let frame_data = self.prepare_frame_data(app.render_data());
             let context = SceneRenderContext {
                 gpu_context: &self.gpu_context,
                 gpu_manager: &self.gpu_manager,
@@ -499,51 +498,51 @@ impl Runtime {
         }
     }
 
-    fn prepare_frame_data(&mut self, render_data: &AppRenderData) -> FrameData {
+    fn prepare_frame_data(&mut self, render_data: AppRenderData) -> FrameData {
         let AppRenderData {
+            render_objects,
             asset_mgr,
-            world,
             camera,
             globals,
             selected,
         } = render_data;
 
-        let mut queue = RenderQueue::default();
-        queue.build(world, globals);
-        let frame = FrameBuilder::prepare(queue, asset_mgr, globals);
+        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals);
+
+        let camera_uniform = {
+            let size = (
+                self.gpu_surface.get_config().width,
+                self.gpu_surface.get_config().height,
+            );
+            CameraUniform::from_camera_size(camera, size)
+        };
+
+        let global_uniform = {
+            use crate::EntityRawU64;
+            let entity_id = selected.map(|id| id.as_raw_u64()).unwrap_or(0);
+            GlobalUniform::from_global_id(globals, entity_id)
+        };
 
         // Update Light uniform to gpu
         self.gpu_manager.update_buffer(
             &self.gpu_context.queue,
             BufferKind::Lights,
-            std::slice::from_ref(&frame.lights),
+            std::slice::from_ref(&frame.light_uniform),
         );
 
-        {
-            // Update camera uniform to gpu
-            let size = (
-                self.gpu_surface.get_config().width,
-                self.gpu_surface.get_config().height,
-            );
-            let uniform = CameraUniform::from_camera_size(camera, size);
-            self.gpu_manager.update_buffer(
-                &self.gpu_context.queue,
-                BufferKind::Camera,
-                std::slice::from_ref(&uniform),
-            );
-        }
+        // Update camera uniform to gpu
+        self.gpu_manager.update_buffer(
+            &self.gpu_context.queue,
+            BufferKind::Camera,
+            std::slice::from_ref(&camera_uniform),
+        );
 
-        {
-            // Update global uniform to gpu
-            use crate::EntityRawU64;
-            let entity_id = selected.map(|id| id.as_raw_u64()).unwrap_or(0);
-            let uniform = GlobalUniform::from_global_id(globals, entity_id);
-            self.gpu_manager.update_buffer(
-                &self.gpu_context.queue,
-                BufferKind::Globals,
-                std::slice::from_ref(&uniform),
-            );
-        }
+        // Update global uniform to gpu
+        self.gpu_manager.update_buffer(
+            &self.gpu_context.queue,
+            BufferKind::Globals,
+            std::slice::from_ref(&global_uniform),
+        );
 
         // Update vertex instance buffer data to gpu
         self.gpu_manager.update_buffer(
@@ -562,7 +561,7 @@ impl Runtime {
         let tasks = FrameTasks {
             axis_enable: globals.axis_enable,
             build_mips_cp: globals.mips_cp,
-            entity_selected: *selected,
+            entity_selected: selected,
             skybox_enable: globals.skybox_enable,
             skybox_blur: globals.skybox_enable_blur,
         };
@@ -571,7 +570,7 @@ impl Runtime {
             opaque_batches: frame.opaque_batches,
             transmission_batches: frame.transmission_batches,
             transmission_stats: frame.transmission_stats,
-            lights: Some(frame.lights),
+            lights: Some(frame.light_uniform),
             lines: frame.lines,
             opaque_stats: frame.opaque_stats,
             tasks,

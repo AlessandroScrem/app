@@ -1,6 +1,6 @@
 use crate::math::{Vec3, Mat4};
 const CORNERS: usize = 8;
-type BBoxCornerData = [Vec3; CORNERS];
+pub type BBoxCornerData = [Vec3; CORNERS];
 
 #[derive(Debug, Clone)]
 pub struct BoundingBox {

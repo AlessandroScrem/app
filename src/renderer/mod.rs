@@ -3,7 +3,7 @@ pub(crate) mod imgui_renderer;
 pub(crate) mod rendergraph;
 pub(crate) mod renderpass;
 pub(crate) mod scene_renderer;
-pub(crate) mod render_queue;
+pub(crate) mod render_objects;
 pub(crate) mod uniform;
 pub(crate) mod line_builder;
 

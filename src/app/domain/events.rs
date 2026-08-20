@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use crate::assets::gltf_loader::LoadedScene;
+use crate::assets::gltf_loader::GltfGroup;
 use crate::assets::material_desc::MaterialDesc;
 use crate::assets::{IblId, MaterialId};
 use crate::ecs::components::*;
@@ -21,7 +21,7 @@ pub enum SceneEvent {
     Save,
     SaveAs(PathBuf),
     Open(PathBuf),
-    AddComponent(LoadedScene, TransformComponent),
+    AddComponent(GltfGroup, TransformComponent),
     ClearScene,
 }
 

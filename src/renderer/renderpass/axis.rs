@@ -1,13 +1,7 @@
 use super::*;
 
-#[derive(Default)]
 pub struct AxisPass {}
 
-impl AxisPass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for AxisPass {
     fn name(&self) -> &'static str {

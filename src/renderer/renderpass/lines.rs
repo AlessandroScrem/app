@@ -2,14 +2,8 @@ use super::*;
 use crate::gpu::BufferKind ;
 
 
-#[derive(Default)]
 pub struct LinesPass {}
 
-impl LinesPass {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl RenderPass for LinesPass {
     fn name(&self) -> &'static str {

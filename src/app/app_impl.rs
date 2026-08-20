@@ -87,7 +87,7 @@ impl Application for App {
 
     fn on_update(&mut self, bus: &mut EventBus) {
         self.update_domain_event(bus);
-        self.current_scene.update_scene(bus);
+        self.current_scene.update_scene(bus, &self.globals);
     }
 
     fn on_resize(&mut self, width: u32, height: u32) {
@@ -106,8 +106,8 @@ impl Application for App {
 
     fn render_data(&self) -> AppRenderData<'_> {
         AppRenderData {
+            render_objects: &self.current_scene.render_objects,
             asset_mgr: &self.asset_mgr,
-            world: &self.current_scene.world,
             camera: &self.camera,
             globals: &self.globals,
             selected: self.selected,
