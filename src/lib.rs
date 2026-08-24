@@ -3,6 +3,7 @@ mod assets;
 mod bounding_box;
 mod camera;
 mod ecs;
+mod editor;
 mod engine;
 mod error;
 mod globals;
