@@ -154,39 +154,39 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
 }
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let current_selection = if ctx.snapshot.selected.len() == 1 {
-        ctx.snapshot.selected.iter().next().copied()
-    } else {
-        None
-    };
-    let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
-
     ui.separator();
     ui.text("Lights");
 
+    let mut selected = ctx.snapshot.selected.clone();
+
     const BUTTONS: usize = 4;
-
-    for (i, node) in lights_nodes.nodes.iter().enumerate() {
-        let entity = node.entity;
-        let mut light = node.comp.clone();
+    for (i, node) in ctx
+        .snapshot
+        .root_snapshot
+        .lights_nodes
+        .nodes
+        .iter()
+        .enumerate()
+    {
+        let is_active = selected.contains(&node.entity);
         let label = format!("{ICON_LIGHTBULB} {}:{:?}", node.name, i); // 💡 name:#
+        
+        let _disabled = disabled_style(ui, !node.comp.enabled);
 
-        let flags = TreeNodeFlags::LEAF
-            | if current_selection == Some(entity) {
-                TreeNodeFlags::SELECTED
-            } else {
-                TreeNodeFlags::empty()
-            };
+        let opened = ui
+            .tree_node_config(label.clone())
+            .selected(is_active)
+            .leaf(true)
+            .push();
 
-        let _disabled = disabled_style(ui, !light.enabled);
-
-        let opened = ui.tree_node_config(label.clone()).flags(flags).push();
         let clicked = ui.is_item_clicked();
+        let ctrl_down = ui.is_key_down(Key::LeftCtrl);
 
         // Right Icons           👁 + 🗑 ⚙
         right_icons(ui, BUTTONS, |ui| {
             if ui.small_button(ICON_EYE) {
                 // Enabled
+                let mut light = node.comp.clone();
                 light.enabled = !light.enabled;
                 ctx.bus
                     .send_domain(DomainEvent::Entity(UpdateLight(node.entity.clone(), light)));
@@ -201,13 +201,13 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             if ui.small_button(ICON_TRASH) {
                 // Delete
                 ctx.bus
-                    .send_domain(DomainEvent::Entity(RemoveEntity(entity)));
+                    .send_domain(DomainEvent::Entity(RemoveEntity(node.entity)));
             }
 
             ui.same_line();
             if ui.small_button(ICON_GEAR) {
                 // property
-                let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];
+                let new_selection = vec![EntityRawU64::as_raw_u64(&node.entity)];
                 ctx.bus.send_domain(Selection(Select(new_selection)));
             }
         });
@@ -215,10 +215,19 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         if let Some(_token) = opened {}
 
         if clicked {
-            // Select
-            let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];
+            if ctrl_down {
+                // toggle selection
+                if !selected.remove(&node.entity) {
+                    selected.insert(node.entity);
+                }
+            } else {
+                // replace selection
+                selected = HashSet::new();
+                selected.insert(node.entity);
+            }
+            let new_selection = selected.iter().map(EntityRawU64::as_raw_u64).collect();
             ctx.bus.send_domain(Selection(Select(new_selection)));
-        }
+        };
     }
 }
 
