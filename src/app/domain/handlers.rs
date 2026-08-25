@@ -206,13 +206,7 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
                     .map(|id| EntityRawU64::from_raw_u64(*id))
                     .collect(); 
         }
-        SelectionEvent::SelectHovered => {
-            if let Some(entity) = app.hovered {
-                app.selected = HashSet::from([entity]);
-            } else {
-                app.selected = HashSet::new();
-            }
-        }
+        
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);
             bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));

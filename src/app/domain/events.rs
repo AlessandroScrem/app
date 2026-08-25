@@ -1,9 +1,9 @@
-use std::path::PathBuf;
 use crate::assets::gltf_loader::GltfGroup;
 use crate::assets::material_desc::MaterialDesc;
 use crate::assets::{IblId, MaterialId};
 use crate::ecs::components::*;
 use crate::math::*;
+use std::path::PathBuf;
 
 use legion::Entity;
 
@@ -28,7 +28,6 @@ pub enum SceneEvent {
 pub enum SelectionEvent {
     Hovered(Option<Entity>),
     Select(Vec<u64>),
-    SelectHovered,
     SelectIbl(IblId),
 }
 pub enum AssetEvent {
@@ -39,6 +38,7 @@ pub enum AssetEvent {
 pub enum EntityEvent {
     AddLight,
     RemoveEntity(Entity),
+    #[allow(dead_code)]
     AddParent(Entity),
     UpdateTag(Entity, TagComponent),
     UpdateTransform(Entity, TransformComponent),

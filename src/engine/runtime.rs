@@ -6,7 +6,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl};
+use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -176,11 +176,6 @@ impl Runtime {
                     self.input.mouse_position.y as u32,
                 ),
             );
-        }
-
-        // handle selection: hovered -> selected
-        if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
-            bus.send_domain(Selection(SelectHovered));
         }
 
         match self.editor_interaction {

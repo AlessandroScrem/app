@@ -1,12 +1,15 @@
+use std::collections::HashSet;
+
 use super::*;
-use crate::{EntityRawU64, app::{
-    domain::events::{
+use crate::{
+    EntityRawU64,
+    app::domain::events::{
         AssetEvent::LoadGltf,
         DomainEvent::{self, Assets, Selection},
-        EntityEvent::{AddLight, AddParent, DisableEntity, RemoveEntity, UpdateLight},
+        EntityEvent::{AddLight, DisableEntity, RemoveEntity, UpdateLight},
         SelectionEvent::Select,
     },
-}};
+};
 use imgui::*;
 use legion::Entity;
 
@@ -29,29 +32,14 @@ impl Layer for EntityListUi {
             .build(|| build_wnd_list(ui, ctx));
     }
 }
+
 fn build_wnd_list(ui: &Ui, ctx: &mut UiContext) {
     draw_hierarchy_nodes(ui, ctx);
     draw_lights_nodes(ui, ctx);
 
-    fn empty_window_clicked(ui: &Ui, button: MouseButton) -> bool {
-        ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(button)
-    }
-
-    if let Some(popup) = ui.begin_popup_context_window() {
-        if ui.menu_item("Load Gltf ..") {
-            if let Some(file) = menu_bar::file_open(FileFilter::Gltf) {
-                ctx.bus.send_domain(Assets(LoadGltf(file)));
-            }
-        }
-
-        if ui.menu_item("Add Light..") {
-            ctx.bus.send_domain(DomainEvent::Entity(AddLight));
-        }
-
-        popup.end();
-    }
-
-    if empty_window_clicked(ui, MouseButton::Left) {
+    // if clicked in empty space -> deselect
+    if ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(MouseButton::Left)
+    {
         ctx.bus.send_domain(Selection(Select(vec![])));
     }
 }
@@ -59,41 +47,40 @@ fn build_wnd_list(ui: &Ui, ctx: &mut UiContext) {
 fn draw_entity_node_recurse(
     ui: &Ui,
     node: &HierarchyNode,
-    selected: &mut Option<Entity>,
+    selected: &mut HashSet<Entity>,
     ctx: &mut UiContext,
 ) {
     let entity = node.entity;
-    let children = &node.children;
-    let is_active = selected.is_some_and(|e| e == entity);
+    let is_leaf = node.children.is_empty();
+    let is_active = selected.contains(&entity);
     let is_root = node.parent.is_none();
     const BUTTONS: usize = 4;
 
-    let flags = children
-        .is_empty()
-        .then_some(TreeNodeFlags::LEAF)
-        .unwrap_or(TreeNodeFlags::empty())
-        | is_active
-            .then_some(TreeNodeFlags::SELECTED)
-            .unwrap_or(TreeNodeFlags::empty());
-
-    let icon = if is_root {
-        ICON_LAYER_DOT
-    } else if is_active {
-        ICON_LAYER_ACTIVE
-    } else {
-        ICON_LAYER
-    };
+    // ◈ Name
+    let label = format!(
+        "{} {}",
+        if is_root {
+            ICON_LAYER_DOT
+        } else if is_active {
+            ICON_LAYER_ACTIVE
+        } else {
+            ICON_LAYER
+        },
+        node.name
+    );
 
     let _disabled = disabled_style(ui, !node.visible);
 
-    let label = format!("{icon} {}", node.name,); // ◈ Name
     let opened = ui
         .tree_node_config(label)
-        .flags(flags)
-        .default_open(true)
+        .leaf(is_leaf)
+        .open_on_double_click(true)
+        .open_on_arrow(true)
+        .selected(is_active)
         .push();
 
-    let clicked = ui.is_item_clicked();
+    let clicked = ui.is_item_clicked() && !ui.is_item_toggled_open();
+    let ctrl_down = ui.is_key_down(Key::LeftCtrl);
 
     if is_root {
         // Right Icons           👁 + 🗑 ⚙
@@ -127,15 +114,23 @@ fn draw_entity_node_recurse(
         });
     }
 
-
     if let Some(_token) = opened {
-        for child in children {
+        for child in &node.children {
             draw_entity_node_recurse(ui, child, selected, ctx);
         }
     }
 
     if clicked {
-        *selected = Some(entity);
+        if ctrl_down {
+            // toggle selection
+            if !selected.remove(&entity) {
+                selected.insert(entity);
+            }
+        } else {
+            // replace selection
+            *selected = HashSet::new();
+            selected.insert(entity);
+        }
     };
 }
 
@@ -143,13 +138,7 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.text("Meshes");
     ui.separator();
 
-    let current_selection = if ctx.snapshot.selected.len() == 1 {
-        ctx.snapshot.selected.iter().next().copied()
-    } else {
-        None
-    };
-
-    let mut selected = current_selection.clone();
+    let mut selected = ctx.snapshot.selected.clone();
 
     ui.group(|| {
         for node in ctx.snapshot.root_snapshot.root_nodes.nodes.iter() {
@@ -158,43 +147,9 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         }
     });
 
-    // Commands on selected
-    if let Some(selected) = selected.clone() {
-        if let Some(node) = ctx
-            .snapshot
-            .root_snapshot
-            .root_nodes
-            .nodes
-            .iter()
-            .find(|n| n.entity == selected)
-        {
-            if node.parent.is_none() {
-                // add Context menu if ui.group is hovered
-                if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
-                    ui.open_popup("entity_context");
-                }
-            }
-            if let Some(popup) = ui.begin_popup("entity_context") {
-                ui.menu_item("Remove ..").then(|| {
-                    ctx.bus
-                        .send_domain(DomainEvent::Entity(RemoveEntity(selected)));
-                });
-                ui.menu_item("Add Parent ..").then(|| {
-                    ctx.bus
-                        .send_domain(DomainEvent::Entity(AddParent(selected)))
-                });
-                popup.end();
-            }
-        }
-    }
-
-    if selected != current_selection {
-        if let Some(selected) = selected {
-            let new_selection = vec![EntityRawU64::as_raw_u64(&selected)];
-            ctx.bus.send_domain(Selection(Select(new_selection)));
-        } else {
-            ctx.bus.send_domain(Selection(Select(vec![])));
-        }
+    if selected != *ctx.snapshot.selected {
+        let new_selection = selected.iter().map(EntityRawU64::as_raw_u64).collect();
+        ctx.bus.send_domain(Selection(Select(new_selection)));
     }
 }
 
@@ -256,9 +211,9 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
                 ctx.bus.send_domain(Selection(Select(new_selection)));
             }
         });
-        
+
         if let Some(_token) = opened {}
-        
+
         if clicked {
             // Select
             let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];

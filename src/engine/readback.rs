@@ -118,20 +118,6 @@ impl Select {
         }
     }
 
-    // if let Some(readback) = &mut self.readback {
-    //     if let Some(data) = readback.poll(&self.gpu_context.device) {
-    //         println!("Buffer len: {} ", data.len());
-    //         let mut ids = HashSet::new();
-    //         for chunk in data.chunks_exact(8) {
-    //             let id = u64::from_le_bytes(chunk.try_into().unwrap());
-    //             if id != 0 {
-    //                 ids.insert(EntityRawU64::from_raw_u64(id));
-    //             }
-    //         }
-    //         bus.send_domain(Selection(SelectMulti(ids.into_iter().collect())));
-    //         self.readback = None;
-    //     }
-    // }
 
     fn decode(results: ReadbackResult) -> Vec<u64> {
         results
@@ -139,7 +125,6 @@ impl Select {
             .chunks_exact(4)
             .map(|pixel| pixel[0] as u64)
             .filter(|&id| id != 0)
-            // .map(EntityRawU64::from_raw_u64)
             .collect::<HashSet<u64>>()
             .into_iter()
             .collect()
