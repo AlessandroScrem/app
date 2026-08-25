@@ -1,9 +1,7 @@
 use super::*;
-use crate::gpu::BufferKind ;
-
+use crate::gpu::BufferKind;
 
 pub struct LinesPass {}
-
 
 impl RenderPass for LinesPass {
     fn name(&self) -> &'static str {
@@ -59,4 +57,3 @@ impl RenderPass for LinesPass {
         renderpass.draw(0..vertex_count, 0..1);
     }
 }
-

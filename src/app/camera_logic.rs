@@ -1,25 +1,48 @@
+use std::collections::HashSet;
+
 use crate::BoundingBox;
 use crate::Camera;
+use crate::EntityRawU64;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
+
 impl App {
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
-        let selected = self.selected;
 
-        let bbox = {
-            if let Some(selected) = selected {
-                get_bbox_from_entity(world, selected)
-            } else {
-                get_bounding_box_from_world(world)
-            }
+        let bbox = if !self.multiselct.is_empty() {
+            get_bbox_from_entities(world, &self.multiselct)
+        } else if let Some(selected) = self.selected {
+            get_bbox_from_entity(world, selected)
+        } else {
+            get_bounding_box_from_world(world)
         };
 
-        center_camera_to_bounding_box(camera, bbox.clone());
+        center_camera_to_bounding_box(camera, bbox);
+
+        fn get_bbox_from_entities(
+            world: &legion::World,
+            entities: &HashSet<u64>,
+        ) -> Option<BoundingBox> {
+            entities
+                .iter()
+                .filter_map(|id| {
+                    let entity = EntityRawU64::from_raw_u64(*id);
+                    let entry = world.entry_ref(entity).ok()?;
+                    entry
+                        .get_component::<BoundingBoxComponent>()
+                        .ok()
+                        .map(|b| b.global_bounding_box.clone())
+                })
+                .reduce(|mut bbox, other| {
+                    bbox.merge(&other);
+                    bbox
+                })
+        }
 
         fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
             let entry = world.entry_ref(entity).ok()?;

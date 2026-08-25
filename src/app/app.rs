@@ -1,10 +1,11 @@
+use std::collections::HashSet;
+
+use crate::Camera;
+use crate::Globals;
 use crate::app::Settings;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
-use crate::Globals;
-use crate::Camera;
 use crate::scene::Scene;
-use crate::ui::UiTexture;
 use legion::Entity;
 
 #[derive(Default)]
@@ -14,10 +15,10 @@ pub struct App {
     pub globals: Globals,
     pub camera: Camera,
     pub selected: Option<Entity>,
-    pub multiselct: Vec<u64>,
+    pub multiselct: HashSet<u64>,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
-    #[allow(unused)]
-    pub debug_texture_id: Option<UiTexture>,
     pub settings: Settings,
+    pub(crate) editor_scene_revision: u64,
+    pub(crate) transform_edit: Option<(Entity, crate::editor::TransformData)>,
 }

@@ -79,10 +79,12 @@ impl Timestep {
         self.time
     }
 
+    #[allow(dead_code)]
     pub fn average(&self) -> Duration {
         self.avg_time
     }
 
+    #[allow(dead_code)]
     pub fn average_fps(&self) -> u32 {
         self.avg_fps as u32
     }

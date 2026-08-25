@@ -1,8 +1,6 @@
 use super::*;
 
-
 pub struct SkyboxPass {}
-
 
 impl RenderPass for SkyboxPass {
     fn name(&self) -> &'static str {

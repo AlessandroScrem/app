@@ -77,10 +77,8 @@ pub struct IblManager {
 
 impl IblManager {
     pub fn new(gpu: &GpuContextRef) -> Self {
-        // Create BRDF LUT texture for PBR
         let brdf_lut = BRDFLUTBuilder::build(gpu.device, gpu.queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
-        
         Self {
             _brdf_lut: brdf_lut,
             brdf_lut_view,
@@ -93,7 +91,6 @@ impl IblManager {
         if !self.map.contains_key(&id) {
             self.stats.add(gpu_ibl.estimated_size());
         }
-
         self.map.insert(id, gpu_ibl);
     }
 
@@ -108,11 +105,7 @@ impl IblManager {
         }
     }
 
-    pub fn create(
-        &mut self,
-        hdr: &GpuTexture,
-        gpu: &GpuContextRef
-    ) -> GpuIbl {
+    pub fn create(&self, hdr: &GpuTexture, gpu: &GpuContextRef) -> GpuIbl {
         let cube_map = EquirectangularToCubemap::build(&hdr, gpu.device, gpu.queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, gpu.device, gpu.queue);
         let _prefilter_map = PrefilterMap::build(gpu.device, gpu.queue, &cube_map);
@@ -120,7 +113,6 @@ impl IblManager {
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
-
         let sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -130,7 +122,6 @@ impl IblManager {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
-
         let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
@@ -139,7 +130,6 @@ impl IblManager {
             dimension: Some(wgpu::TextureViewDimension::Cube),
             ..Default::default()
         });
-
         GpuIbl {
             cube_map,
             cube_map_view,
@@ -152,28 +142,3 @@ impl IblManager {
         }
     }
 }
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{assets::asset_manager::AssetManager, test_utils};
-
-    const HDR_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/core/newport_loft.hdr");
-
-    #[test]
-    fn ibl_manager_is_initialized() {
-        let (device, queue) = test_utils::get_device_and_queue();
-        let mut asset_mgr = AssetManager::default();
-        let hdr_id = asset_mgr
-            .textures
-            .from_file(HDR_PATH, crate::assets::TextureUsage::HDR16);
-        asset_mgr.textures.load_cpu_textures();
-
-        let mut texture_cache = GpuTextureCache::new(device, queue);
-        texture_cache.upload_textures(&mut asset_mgr.textures, device, queue);
-        let hdr = texture_cache.get_or_fallback_white(hdr_id);
-
-        let _manager = IblManager::new(hdr_id, hdr, &device, &queue);
-    }
-}
- */

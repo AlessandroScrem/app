@@ -1,4 +1,7 @@
-use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::{Dimension::Array, GpuContextRef}};
+use crate::{
+    assets::texture_asset::{ColorSpace, SamplerDesc},
+    gpu::{Dimension::Array, GpuContextRef},
+};
 
 use super::*;
 
@@ -27,15 +30,7 @@ impl BindgroupCache {
         layouts: &BindgroupLayoutCache,
     ) -> Self {
         let bg: Vec<wgpu::BindGroup> = BindgroupKind::iter()
-            .map(|kind| {
-                Self::create(
-                    gpu,
-                    buffer_cache,
-                    &framebuffer_cache,
-                    layouts,
-                    kind,
-                )
-            })
+            .map(|kind| Self::create(gpu, buffer_cache, &framebuffer_cache, layouts, kind))
             .collect();
         Self { bg }
     }
@@ -115,16 +110,16 @@ impl BindgroupCache {
                 let dummy_texture =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
                         .build(gpu);
-                    
-                    let dummy_cube =
+
+                let dummy_cube =
                     GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .dimension(Dimension::Cube)
-                    .format(ColorSpace::Rgba8)
-                    .usage(GpuTextureUsage::SampledTexture)
-                    .sampler(SamplerDesc::LinearRepeat)
-                    .label("dummy Cube white texture")
-                    .build(gpu);
-                
+                        .dimension(Dimension::Cube)
+                        .format(ColorSpace::Rgba8)
+                        .usage(GpuTextureUsage::SampledTexture)
+                        .sampler(SamplerDesc::LinearRepeat)
+                        .label("dummy Cube white texture")
+                        .build(gpu);
+
                 //Dummy Shadowmaps
                 let dummy_depth_texture = GpuTextureBuilder::from_empty(1, 1)
                     .format(ColorSpace::Depth32f)
@@ -133,7 +128,6 @@ impl BindgroupCache {
                     .sampler(SamplerDesc::DepthComparison)
                     .label("dummy shadow_texture depth")
                     .build(gpu);
-
 
                 gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: layouts.get(BindgroupLayoutKind::PbrMaps),

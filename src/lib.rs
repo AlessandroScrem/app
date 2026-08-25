@@ -3,6 +3,7 @@ mod assets;
 mod bounding_box;
 mod camera;
 mod ecs;
+mod editor;
 mod engine;
 mod error;
 mod globals;
@@ -23,6 +24,7 @@ pub(crate) use camera::Camera;
 pub(crate) use globals::Globals;
 
 pub(crate) mod prelude {
+    pub use legion::{EntityStore, IntoQuery};
     pub use log::{debug, error, info, trace, warn};
 }
 
@@ -78,9 +80,4 @@ pub(crate) mod colors {
     pub const GREEN_COLOR: [f32; 3] = [0.2, 0.8, 0.3];
     pub const RED_COLOR: [f32; 3] = [0.8, 0.3, 0.2];
     pub const BLUE_COLOR: [f32; 3] = [0.2, 0.3, 0.8];
-    // pub const BACKGROUND_COLOR: [f32; 3] = [0.188, 0.208, 0.259]; // from GltfViewer
-    // pub const SILVER: [f32; 3] = [0.7, 0.7, 0.7];
-    // pub const YELLOW_COLOR: [f32; 3] = [1.0, 0.5, 1.0];
-    // pub const LIGHT_YELLOW_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
-    // pub const CLEAR_COLOR: [f32; 3] = [0.1, 0.1, 0.1];
 }

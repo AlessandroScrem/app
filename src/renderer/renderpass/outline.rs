@@ -1,8 +1,6 @@
 use super::*;
 
-
 pub struct OutlinePass {}
-
 
 impl RenderPass for OutlinePass {
     fn name(&self) -> &'static str {

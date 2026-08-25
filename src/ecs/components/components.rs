@@ -4,7 +4,7 @@ use legion::Entity;
 
 use crate::assets::MeshId;
 use crate::renderer::uniform::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // Ecs Components
 #[derive(Clone)]
@@ -91,8 +91,7 @@ pub struct MeshComponent {
     pub handle: MeshId,
 }
 
-#[derive(Clone)]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TransformComponent {
     pub position: [f32; 3],
     pub rotation: [f32; 3],
@@ -173,11 +172,11 @@ pub struct HierarchyComponent {
     pub children: Vec<Entity>,
 }
 
-#[derive(Clone, Debug)] 
+#[derive(Clone, Debug)]
 pub struct SceneComponent {
     /// Asset da cui proviene la scena
     pub path: String,
 }
 
-#[derive(Clone, Debug)] 
+#[derive(Clone, Debug)]
 pub struct Hidden;

@@ -3,11 +3,11 @@ use winit::event::{DeviceEvent, Event, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-use crate::app::{Application, RuntimeApp};
+use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
 
 #[derive(Default)]
-pub struct MyApplication<A: Application> {
+pub struct MyApplication<A: RuntimeApp + Default> {
     engine: Engine<A>,
     size: winit::dpi::PhysicalSize<u32>,
 }
@@ -38,7 +38,6 @@ impl CenterWindow for winit::window::Window {
             let window_size = self.inner_size();
             let safe_width = screen_size.width.min(window_size.width);
             let safe_height = screen_size.height.min(window_size.height);
-
             let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
             let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
             self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
@@ -47,7 +46,7 @@ impl CenterWindow for winit::window::Window {
     }
 }
 
-impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
+impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.engine.resume(event_loop, self.size);
     }
@@ -61,7 +60,6 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
-
         let event = Event::DeviceEvent { device_id, event };
         runtime.handle_winit_event(&event);
     }
@@ -70,16 +68,13 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
-
         if runtime.window.is_minimized().unwrap_or(false) {
             return;
         }
-
         if runtime.wait_for_exit {
             event_loop.exit();
             return;
         }
-
         runtime.window.request_redraw();
     }
 
@@ -92,7 +87,6 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
-
         {
             let evt = Event::WindowEvent {
                 window_id,
@@ -100,26 +94,19 @@ impl<A: RuntimeApp> ApplicationHandler for MyApplication<A> {
             };
             runtime.handle_winit_event(&evt);
         }
-
         match event {
             WindowEvent::CloseRequested => {
-                self.engine
-                    .bus
-                    .send_runtime(RuntimeEvent::CloseRequested);
+                self.engine.bus.send_runtime(RuntimeEvent::CloseRequested)
             }
-
-            WindowEvent::Resized(size) => {
-                self.engine.bus.send_runtime(RuntimeEvent::Resize {
-                    width: size.width,
-                    height: size.height,
-                });
-            }
-            WindowEvent::RedrawRequested => {
-                self.engine.tick();
-            }
-            WindowEvent::DroppedFile(path) => {
-                self.engine.bus.send_runtime(RuntimeEvent::DroppedFile(path));
-            }
+            WindowEvent::Resized(size) => self.engine.bus.send_runtime(RuntimeEvent::Resize {
+                width: size.width,
+                height: size.height,
+            }),
+            WindowEvent::RedrawRequested => self.engine.tick(),
+            WindowEvent::DroppedFile(path) => self
+                .engine
+                .bus
+                .send_runtime(RuntimeEvent::DroppedFile(path)),
             _ => (),
         }
     }
