@@ -57,7 +57,7 @@ impl Application for App {
         let root_snapshot = self.current_scene.get_root_snapshot();
         let comp_state = self
             .current_scene
-            .get_selected_componet_state(self.selected, &self.asset_mgr);
+            .get_selected_componet_state(&self.selected, &self.asset_mgr);
 
         let render_stats = RenderStats {
             gpu_counters,
@@ -74,8 +74,7 @@ impl Application for App {
             globals: &self.globals,
             root_snapshot,
             comp_state,
-            selected: self.selected,
-            selected_muti: self.multiselct.clone(),
+            selected: &self.selected,
             hovered: self.hovered,
             debug_texture_id: self.debug_texture_id,
             hdr_vec,
@@ -110,7 +109,7 @@ impl Application for App {
             asset_mgr: &self.asset_mgr,
             camera: &self.camera,
             globals: &self.globals,
-            selected: self.selected,
+            selected: &self.selected,
         }
     }
 

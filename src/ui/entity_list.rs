@@ -1,9 +1,12 @@
 use super::*;
-use crate::app::domain::events::{
-    AssetEvent::LoadGltf,
-    DomainEvent::{self, Assets, Selection},
-    EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight, DisableEntity},
-    SelectionEvent::Select,
+use crate::app::{
+    app::SelectedEntity,
+    domain::events::{
+        AssetEvent::LoadGltf,
+        DomainEvent::{self, Assets, Selection},
+        EntityEvent::{AddLight, AddParent, DisableEntity, RemoveEntity, UpdateLight},
+        SelectionEvent::Select,
+    },
 };
 use imgui::*;
 use legion::Entity;
@@ -91,7 +94,6 @@ fn draw_entity_node_recurse(
         .default_open(true)
         .push();
 
-    
     if is_root {
         // Right Icons           👁 + 🗑 ⚙
         right_icons(ui, BUTTONS, |ui| {
@@ -139,7 +141,13 @@ fn draw_entity_node_recurse(
 fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.text("Meshes");
     ui.separator();
-    let mut selected = ctx.snapshot.selected.clone();
+
+    let current_selection = match ctx.snapshot.selected {
+        SelectedEntity::Single(entity) => Some(*entity),
+        SelectedEntity::Multiple(_) | SelectedEntity::None => None,
+    };
+
+    let mut selected = current_selection.clone();
 
     ui.group(|| {
         for node in ctx.snapshot.root_snapshot.root_nodes.nodes.iter() {
@@ -178,13 +186,16 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         }
     }
 
-    if selected != ctx.snapshot.selected.clone() {
+    if selected != current_selection {
         ctx.bus.send_domain(Selection(Select(selected)));
     }
 }
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let selected = ctx.snapshot.selected;
+    let selected = match ctx.snapshot.selected {
+        SelectedEntity::Single(entity) => Some(*entity),
+        SelectedEntity::Multiple(_) | SelectedEntity::None => None,
+    };
     let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
 
     ui.separator();

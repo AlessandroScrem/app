@@ -9,14 +9,11 @@ impl App {
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
-        let selected = self.selected;
 
-        let bbox = {
-            if let Some(selected) = selected {
-                get_bbox_from_entity(world, selected)
-            } else {
-                get_bounding_box_from_world(world)
-            }
+        let bbox = match self.selected {
+            super::app::SelectedEntity::Single(entity) => get_bbox_from_entity(world, entity),
+            crate::app::app::SelectedEntity::Multiple(_)
+            | crate::app::app::SelectedEntity::None => get_bounding_box_from_world(world),
         };
 
         center_camera_to_bounding_box(camera, bbox.clone());

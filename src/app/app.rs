@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::app::Settings;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
@@ -7,14 +9,21 @@ use crate::scene::Scene;
 use crate::ui::UiTexture;
 use legion::Entity;
 
+#[derive(Default, Clone)]
+pub enum SelectedEntity {
+    #[default]
+    None,
+    Single(Entity),
+    Multiple(HashSet<Entity>),
+}
+
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
     pub asset_mgr: AssetManager,
     pub globals: Globals,
     pub camera: Camera,
-    pub selected: Option<Entity>,
-    pub multiselct: Vec<u64>,
+    pub selected: SelectedEntity,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
     #[allow(unused)]

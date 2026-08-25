@@ -1,8 +1,7 @@
 use core::fmt;
-
 use super::tools;
 use super::*;
-use crate::EntityRawU64;
+use crate::app::app::SelectedEntity;
 use crate::app::domain::events::SelectionEvent;
 use crate::math::*;
 use crate::text_fmt;
@@ -61,7 +60,6 @@ impl Layer for SettimgsUi {
         let camera = &ctx.snapshot.camera;
         let globals = &ctx.snapshot.globals;
         let hovered_entity = ctx.snapshot.hovered;
-        let selected_entity = &ctx.snapshot.selected;
         let adapter_name = &ctx.adapter_string;
         let timestep = &ctx.timestep;
         let texture_resolver = ctx.snapshot.texture_resolver;
@@ -72,7 +70,11 @@ impl Layer for SettimgsUi {
         let transmission_stats = render_stats.frame_stats.transmission;
         let hdr_vec = ctx.snapshot.hdr_vec;
         let selected_ibl = ctx.snapshot.selected_ibl;
-        let multiselct = &ctx.snapshot.selected_muti;
+        let multiselct: Vec<_> = match &ctx.snapshot.selected {
+            SelectedEntity::Multiple(entities) => entities.iter().cloned().collect(),
+            SelectedEntity::Single(entity) => vec![*entity],
+            _ => Vec::new(),
+        };
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -85,7 +87,7 @@ impl Layer for SettimgsUi {
                     ));
                     text_fmt!(ui, "ResultGetPixel  : {} ", 0);
                     text_fmt!(ui, "Hovered Entity ID: {:?}", hovered_entity,);
-                    text_fmt!(ui, "Selected Entity ID: {:?}", selected_entity,);
+                    text_fmt!(ui, "Selected Entity ID: {:?}", multiselct,);
                     ui.separator();
                     tools::disabled(ui, || {
                         text_fmt!(ui, "Asset Textures     : {}", render_stats.texture);
@@ -137,9 +139,9 @@ impl Layer for SettimgsUi {
 
                 if ui.collapsing_header("Multiselct", TreeNodeFlags::DEFAULT_OPEN) {
                     for i in multiselct {
-                        let label = format!("{}", i);
+                        let label = format!("{:?}", i);
                         if ui.selectable(label) {
-                            let entity = Some(EntityRawU64::from_raw_u64(*i));
+                            let entity = Some(i);
                             ctx.bus
                                 .send_domain(DomainEvent::Selection(SelectionEvent::Select(
                                     entity,

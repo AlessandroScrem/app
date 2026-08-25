@@ -1,6 +1,7 @@
 use super::*;
 use imgui::*;
 
+use crate::app::app::SelectedEntity;
 use crate::assets::MaterialId;
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use imgui::{Drag, TreeNodeFlags};
@@ -23,10 +24,11 @@ impl Layer for PropertyUi {
 }
 
 pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let Some(selected) = ctx.snapshot.selected else {
-        return;
+    let selected = match ctx.snapshot.selected {
+        SelectedEntity::Single(entity) => entity,
+        SelectedEntity::Multiple(_) | SelectedEntity::None => return,
     };
-
+    
     let texture_resolver = ctx.snapshot.texture_resolver;
     let cv = &ctx.snapshot.comp_state;
 

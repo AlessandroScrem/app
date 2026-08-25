@@ -6,7 +6,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectHovered, SelectIbl, SelectMulti};
+use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl, SelectMulti};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -156,11 +156,16 @@ impl Runtime {
             match result {
                 QueryResult::Pick(id) => {
                     let entity = id.map(Entity::from_raw_u64);
-                    bus.send_domain(Selection(Hovered(entity)));
+                        bus.send_domain(Selection(Hovered(entity)));
+                    
                 }
 
                 QueryResult::Selection(vec_u64) => {
-                    bus.send_domain(Selection(SelectMulti(vec_u64)));
+                    if vec_u64.is_empty() {
+                        bus.send_domain(Selection(Select(None)));
+                    } else {
+                        bus.send_domain(Selection(SelectMulti(vec_u64)));
+                    }   
                 }
             }
         }
@@ -509,6 +514,12 @@ impl Runtime {
 
         let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals);
 
+        let entity_selected = match selected {
+            crate::app::app::SelectedEntity::Single(entity) => Some(entity),
+            crate::app::app::SelectedEntity::Multiple(_) |
+            crate::app::app::SelectedEntity::None => None,
+        };
+
         let camera_uniform = {
             let size = (
                 self.gpu_surface.get_config().width,
@@ -519,7 +530,7 @@ impl Runtime {
 
         let global_uniform = {
             use crate::EntityRawU64;
-            let entity_id = selected.map(|id| id.as_raw_u64()).unwrap_or(0);
+            let entity_id = entity_selected.map(|id| id.as_raw_u64()).unwrap_or(0);
             GlobalUniform::from_global_id(globals, entity_id)
         };
 
@@ -558,10 +569,11 @@ impl Runtime {
             frame.lines.as_slice(),
         );
 
+
         let tasks = FrameTasks {
             axis_enable: globals.axis_enable,
             build_mips_cp: globals.mips_cp,
-            entity_selected: selected,
+            entity_selected: entity_selected.cloned(),
             skybox_enable: globals.skybox_enable,
             skybox_blur: globals.skybox_enable_blur,
         };

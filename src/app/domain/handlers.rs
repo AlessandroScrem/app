@@ -1,3 +1,4 @@
+use crate::EntityRawU64;
 use crate::app::domain::events::*;
 use crate::app::*;
 use crate::assets::IblAsset;
@@ -70,7 +71,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
     match event {
         SceneEvent::ClearScene => {
             app.current_scene.clear_scene(&mut app.asset_mgr);
-            app.selected = None;
+            app.selected = app::SelectedEntity::None;
         }
         SceneEvent::SaveAs(path) => {
             let _ = app.current_scene.save_scene_json(path);
@@ -79,9 +80,13 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             let _ = app.current_scene.save();
         }
         SceneEvent::Open(path) => {
-            if app.current_scene.open_scene(&path, &mut app.asset_mgr, bus).is_ok() {
+            if app
+                .current_scene
+                .open_scene(&path, &mut app.asset_mgr, bus)
+                .is_ok()
+            {
                 app.current_scene.clear_scene(&mut app.asset_mgr);
-                app.selected = None;
+                app.selected = app::SelectedEntity::None;
                 app.settings.add_recent_file(path.into());
             }
         }
@@ -124,7 +129,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     match event {
         EntityEvent::RemoveEntity(entity) => {
             hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
-            app.selected = None;
+            app.selected = app::SelectedEntity::None;
         }
         EntityEvent::AddParent(entity) => {
             hierarchy::add_parent(entity, world);
@@ -193,13 +198,27 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
             app.hovered = entity;
         }
         SelectionEvent::Select(entity) => {
-            app.selected = entity;
+            if let Some(entity) = entity {
+                app.selected = app::SelectedEntity::Single(entity);
+            } else {
+                app.selected = app::SelectedEntity::None;
+            }
         }
         SelectionEvent::SelectMulti(entities) => {
-            app.multiselct = entities;
+            app.selected = app::SelectedEntity::Multiple(
+                entities
+                    .iter()
+                    .map(|id| EntityRawU64::from_raw_u64(*id))
+                    .collect(),
+            );
+            // app.multiselct = entities;
         }
         SelectionEvent::SelectHovered => {
-            app.selected = app.hovered;
+            if let Some(entity) = app.hovered {
+                app.selected = app::SelectedEntity::Single(entity);
+            } else {
+                app.selected = app::SelectedEntity::None;
+            }
         }
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);
