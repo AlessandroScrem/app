@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::EntityRawU64;
 use crate::app::domain::events::*;
 use crate::app::*;
@@ -71,7 +73,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
     match event {
         SceneEvent::ClearScene => {
             app.current_scene.clear_scene(&mut app.asset_mgr);
-            app.selected = app::SelectedEntity::None;
+            app.selected = HashSet::new();
         }
         SceneEvent::SaveAs(path) => {
             let _ = app.current_scene.save_scene_json(path);
@@ -86,7 +88,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
                 .is_ok()
             {
                 app.current_scene.clear_scene(&mut app.asset_mgr);
-                app.selected = app::SelectedEntity::None;
+                app.selected = HashSet::new();
                 app.settings.add_recent_file(path.into());
             }
         }
@@ -129,7 +131,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     match event {
         EntityEvent::RemoveEntity(entity) => {
             hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
-            app.selected = app::SelectedEntity::None;
+            app.selected = HashSet::new();
         }
         EntityEvent::AddParent(entity) => {
             hierarchy::add_parent(entity, world);
@@ -197,27 +199,18 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
         SelectionEvent::Hovered(entity) => {
             app.hovered = entity;
         }
-        SelectionEvent::Select(entity) => {
-            if let Some(entity) = entity {
-                app.selected = app::SelectedEntity::Single(entity);
-            } else {
-                app.selected = app::SelectedEntity::None;
-            }
-        }
-        SelectionEvent::SelectMulti(entities) => {
-            app.selected = app::SelectedEntity::Multiple(
+        SelectionEvent::Select(entities) => {
+            app.selected = 
                 entities
                     .iter()
                     .map(|id| EntityRawU64::from_raw_u64(*id))
-                    .collect(),
-            );
-            // app.multiselct = entities;
+                    .collect(); 
         }
         SelectionEvent::SelectHovered => {
             if let Some(entity) = app.hovered {
-                app.selected = app::SelectedEntity::Single(entity);
+                app.selected = HashSet::from([entity]);
             } else {
-                app.selected = app::SelectedEntity::None;
+                app.selected = HashSet::new();
             }
         }
         SelectionEvent::SelectIbl(ibl_id) => {

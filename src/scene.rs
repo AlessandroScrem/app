@@ -1,10 +1,10 @@
-use std::{fs, path::Path};
+use std::{collections::HashSet, fs, path::Path};
 
 use legion::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Globals, app::{app, domain::events::{DomainEvent, SceneEvent}}, assets::{
+    Globals, app::{domain::events::{DomainEvent, SceneEvent}}, assets::{
         MeshAsset,
         asset_manager::AssetManager,
         gltf_loader::{GltfGroup, NodeData, load_gltf},
@@ -272,7 +272,7 @@ pub fn spawn_scene(
 impl Scene {
     pub fn get_selected_componet_state(
         &self,
-        selected: &app::SelectedEntity,
+        selected: &HashSet<Entity>,
         asset_mgr: &AssetManager,
     ) -> UiComponentState {
         use crate::assets::{
@@ -284,9 +284,10 @@ impl Scene {
 
         let mut state = UiComponentState::default();
 
-        let entity = match selected {
-            app::SelectedEntity::Single(entity) => entity,
-            _ => return state,
+        let entity = if selected.len() == 1 {
+            selected.iter().next().unwrap()
+        } else {
+            return state
         };
 
         let Ok(entry) = world.entry_ref(*entity) else {

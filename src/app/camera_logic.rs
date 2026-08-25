@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::BoundingBox;
 use crate::Camera;
 use crate::app::App;
@@ -10,20 +12,26 @@ impl App {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
 
-        let bbox = match self.selected {
-            super::app::SelectedEntity::Single(entity) => get_bbox_from_entity(world, entity),
-            crate::app::app::SelectedEntity::Multiple(_)
-            | crate::app::app::SelectedEntity::None => get_bounding_box_from_world(world),
+        let bbox = if !self.selected.is_empty() {
+            get_bbox_from_entity(world, &self.selected)
+        } else {
+            get_bounding_box_from_world(world)
         };
 
         center_camera_to_bounding_box(camera, bbox.clone());
 
-        fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
-            let entry = world.entry_ref(entity).ok()?;
-            entry
-                .get_component::<BoundingBoxComponent>()
-                .ok()
-                .map(|b| b.global_bounding_box.clone())
+        fn get_bbox_from_entity(world: &legion::World, entities: &HashSet<Entity>) -> Option<BoundingBox> {
+            println!("Getting bounding box from entities: {:?}", entities);
+            entities
+                .iter()
+                .filter_map(|entity| {
+                    let entry = world.entry_ref(*entity).ok()?;
+                    let comp = entry.get_component::<BoundingBoxComponent>().ok()?;
+                    Some(comp.global_bounding_box.clone())
+                }).reduce(|mut bbox, other| {
+                    bbox.merge(&other);
+                    bbox
+                })
         }
 
         fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {

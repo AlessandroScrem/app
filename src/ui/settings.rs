@@ -1,11 +1,11 @@
-use core::fmt;
 use super::tools;
 use super::*;
-use crate::app::app::SelectedEntity;
+use crate::EntityRawU64;
 use crate::app::domain::events::SelectionEvent;
 use crate::math::*;
 use crate::text_fmt;
 use crate::{Camera, Globals};
+use core::fmt;
 
 use crate::assets::asset_manager::ResourceStats;
 use crate::gpu::GpuResourceStats;
@@ -70,11 +70,7 @@ impl Layer for SettimgsUi {
         let transmission_stats = render_stats.frame_stats.transmission;
         let hdr_vec = ctx.snapshot.hdr_vec;
         let selected_ibl = ctx.snapshot.selected_ibl;
-        let multiselct: Vec<_> = match &ctx.snapshot.selected {
-            SelectedEntity::Multiple(entities) => entities.iter().cloned().collect(),
-            SelectedEntity::Single(entity) => vec![*entity],
-            _ => Vec::new(),
-        };
+        let selected = &ctx.snapshot.selected;
 
         ui.window("Settings")
             .size([300.0, 300.0], Condition::FirstUseEver)
@@ -87,7 +83,7 @@ impl Layer for SettimgsUi {
                     ));
                     text_fmt!(ui, "ResultGetPixel  : {} ", 0);
                     text_fmt!(ui, "Hovered Entity ID: {:?}", hovered_entity,);
-                    text_fmt!(ui, "Selected Entity ID: {:?}", multiselct,);
+                    text_fmt!(ui, "Selected Entity ID: {:?}", selected,);
                     ui.separator();
                     tools::disabled(ui, || {
                         text_fmt!(ui, "Asset Textures     : {}", render_stats.texture);
@@ -138,13 +134,13 @@ impl Layer for SettimgsUi {
                 }
 
                 if ui.collapsing_header("Multiselct", TreeNodeFlags::DEFAULT_OPEN) {
-                    for i in multiselct {
-                        let label = format!("{:?}", i);
+                    for entity in selected.iter() {
+                        let label = format!("{:?}", entity);
                         if ui.selectable(label) {
-                            let entity = Some(i);
+                            let new_selection = vec![EntityRawU64::as_raw_u64(entity)];
                             ctx.bus
                                 .send_domain(DomainEvent::Selection(SelectionEvent::Select(
-                                    entity,
+                                    new_selection,
                                 )));
                         }
                     }

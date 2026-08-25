@@ -27,9 +27,7 @@ pub enum SceneEvent {
 
 pub enum SelectionEvent {
     Hovered(Option<Entity>),
-    Select(Option<Entity>),
-    #[allow(unused)]
-    SelectMulti(Vec<u64>),
+    Select(Vec<u64>),
     SelectHovered,
     SelectIbl(IblId),
 }

@@ -1,13 +1,12 @@
 use super::*;
-use crate::app::{
-    app::SelectedEntity,
+use crate::{EntityRawU64, app::{
     domain::events::{
         AssetEvent::LoadGltf,
         DomainEvent::{self, Assets, Selection},
         EntityEvent::{AddLight, AddParent, DisableEntity, RemoveEntity, UpdateLight},
         SelectionEvent::Select,
     },
-};
+}};
 use imgui::*;
 use legion::Entity;
 
@@ -53,7 +52,7 @@ fn build_wnd_list(ui: &Ui, ctx: &mut UiContext) {
     }
 
     if empty_window_clicked(ui, MouseButton::Left) {
-        ctx.bus.send_domain(Selection(Select(None)));
+        ctx.bus.send_domain(Selection(Select(vec![])));
     }
 }
 
@@ -122,7 +121,8 @@ fn draw_entity_node_recurse(
             ui.same_line();
             if ui.small_button(ICON_GEAR) {
                 // property
-                ctx.bus.send_domain(Selection(Select(Some(entity))));
+                let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];
+                ctx.bus.send_domain(Selection(Select(new_selection)));
             }
         });
     }
@@ -143,9 +143,10 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     ui.text("Meshes");
     ui.separator();
 
-    let current_selection = match ctx.snapshot.selected {
-        SelectedEntity::Single(entity) => Some(*entity),
-        SelectedEntity::Multiple(_) | SelectedEntity::None => None,
+    let current_selection = if ctx.snapshot.selected.len() == 1 {
+        ctx.snapshot.selected.iter().next().copied()
+    } else {
+        None
     };
 
     let mut selected = current_selection.clone();
@@ -188,14 +189,20 @@ fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
     }
 
     if selected != current_selection {
-        ctx.bus.send_domain(Selection(Select(selected)));
+        if let Some(selected) = selected {
+            let new_selection = vec![EntityRawU64::as_raw_u64(&selected)];
+            ctx.bus.send_domain(Selection(Select(new_selection)));
+        } else {
+            ctx.bus.send_domain(Selection(Select(vec![])));
+        }
     }
 }
 
 fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let selected = match ctx.snapshot.selected {
-        SelectedEntity::Single(entity) => Some(*entity),
-        SelectedEntity::Multiple(_) | SelectedEntity::None => None,
+    let current_selection = if ctx.snapshot.selected.len() == 1 {
+        ctx.snapshot.selected.iter().next().copied()
+    } else {
+        None
     };
     let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
 
@@ -210,7 +217,7 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
         let label = format!("{ICON_LIGHTBULB} {}:{:?}", node.name, i); // 💡 name:#
 
         let flags = TreeNodeFlags::LEAF
-            | if selected == Some(entity) {
+            | if current_selection == Some(entity) {
                 TreeNodeFlags::SELECTED
             } else {
                 TreeNodeFlags::empty()
@@ -245,15 +252,17 @@ fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
             ui.same_line();
             if ui.small_button(ICON_GEAR) {
                 // property
-                ctx.bus.send_domain(Selection(Select(Some(entity))));
+                let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];
+                ctx.bus.send_domain(Selection(Select(new_selection)));
             }
         });
-
+        
         if let Some(_token) = opened {}
-
+        
         if clicked {
             // Select
-            ctx.bus.send_domain(Selection(Select(Some(entity))));
+            let new_selection = vec![EntityRawU64::as_raw_u64(&entity)];
+            ctx.bus.send_domain(Selection(Select(new_selection)));
         }
     }
 }

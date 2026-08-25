@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::app::app::SelectedEntity;
+use std::collections::{HashMap, HashSet};
 use crate::app::{Settings};
 use crate::assets::material_desc::MaterialDesc;
 use crate::ecs::components::*;
@@ -61,7 +59,7 @@ pub struct UiSnapshot<'a> {
     pub globals: &'a Globals,
     pub root_snapshot: RootSnapshot,
     pub comp_state: UiComponentState,
-    pub selected: &'a SelectedEntity,
+    pub selected: &'a HashSet<Entity>,
     pub hovered: Option<Entity>,
     pub debug_texture_id: Option<UiTexture>,
     pub render_stats: RenderStats,

@@ -6,7 +6,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl, SelectMulti};
+use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
@@ -156,16 +156,10 @@ impl Runtime {
             match result {
                 QueryResult::Pick(id) => {
                     let entity = id.map(Entity::from_raw_u64);
-                        bus.send_domain(Selection(Hovered(entity)));
-                    
+                    bus.send_domain(Selection(Hovered(entity)));
                 }
-
                 QueryResult::Selection(vec_u64) => {
-                    if vec_u64.is_empty() {
-                        bus.send_domain(Selection(Select(None)));
-                    } else {
-                        bus.send_domain(Selection(SelectMulti(vec_u64)));
-                    }   
+                    bus.send_domain(Selection(Select(vec_u64)));
                 }
             }
         }
@@ -514,10 +508,10 @@ impl Runtime {
 
         let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals);
 
-        let entity_selected = match selected {
-            crate::app::app::SelectedEntity::Single(entity) => Some(entity),
-            crate::app::app::SelectedEntity::Multiple(_) |
-            crate::app::app::SelectedEntity::None => None,
+        let entity_selected = if selected.len() == 1 {
+            Some(selected.iter().next().unwrap())
+        } else {
+            None
         };
 
         let camera_uniform = {
@@ -568,7 +562,6 @@ impl Runtime {
             BufferKind::Lines,
             frame.lines.as_slice(),
         );
-
 
         let tasks = FrameTasks {
             axis_enable: globals.axis_enable,

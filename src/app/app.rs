@@ -9,21 +9,13 @@ use crate::scene::Scene;
 use crate::ui::UiTexture;
 use legion::Entity;
 
-#[derive(Default, Clone)]
-pub enum SelectedEntity {
-    #[default]
-    None,
-    Single(Entity),
-    Multiple(HashSet<Entity>),
-}
-
 #[derive(Default)]
 pub struct App {
     pub current_scene: Scene,
     pub asset_mgr: AssetManager,
     pub globals: Globals,
     pub camera: Camera,
-    pub selected: SelectedEntity,
+    pub selected: HashSet<Entity>,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
     #[allow(unused)]
