@@ -94,6 +94,8 @@ fn draw_entity_node_recurse(
         .default_open(true)
         .push();
 
+    let clicked = ui.is_item_clicked();
+
     if is_root {
         // Right Icons           👁 + 🗑 ⚙
         right_icons(ui, BUTTONS, |ui| {
@@ -125,7 +127,6 @@ fn draw_entity_node_recurse(
         });
     }
 
-    let clicked = ui.is_item_clicked();
 
     if let Some(_token) = opened {
         for child in children {
