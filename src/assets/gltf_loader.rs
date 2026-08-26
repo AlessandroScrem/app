@@ -5,10 +5,10 @@ use gltf::{
 use std::collections::hash_map::HashMap;
 use std::{path::Path, time::Instant};
 
-use crate::{BoundingBox, ecs::components::TransformComponent};
 use crate::error::ImportError;
 use crate::math::*;
 use crate::prelude::*;
+use crate::{BoundingBox, ecs::components::TransformComponent};
 
 use crate::assets::asset_manager::{AssetManager, GlobalAssetId};
 use crate::assets::material_asset::*;

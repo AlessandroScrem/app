@@ -4,9 +4,12 @@ use crate::{
     assets::{
         self,
         texture_asset::{ColorSpace, SamplerDesc},
-    }, gpu::{
-        Dimension::Array, GpuContextRef, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage, HasGpuStats, pipeline_manager::PipelineExt,
-    }, renderer::uniform::LightUniform,
+    },
+    gpu::{
+        Dimension::Array, GpuContextRef, GpuResourceStats, GpuTexture, GpuTextureBuilder,
+        GpuTextureUsage, HasGpuStats, pipeline_manager::PipelineExt,
+    },
+    renderer::uniform::LightUniform,
 };
 
 const MAX_SHADOWS: usize = 64;

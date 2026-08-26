@@ -24,8 +24,8 @@ pub(crate) use camera::Camera;
 pub(crate) use globals::Globals;
 
 pub(crate) mod prelude {
-    pub use log::{debug, error, info, trace, warn};
     pub use legion::{EntityStore, IntoQuery};
+    pub use log::{debug, error, info, trace, warn};
 }
 
 pub struct Engine {

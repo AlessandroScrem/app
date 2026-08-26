@@ -5,7 +5,6 @@ use crate::gpu::pipeline_manager::CsPipelineKind;
 
 pub struct BuildMipmapsPass {}
 
-
 impl RenderPass for BuildMipmapsPass {
     fn name(&self) -> &'static str {
         "BuildMipmapsPass"
@@ -27,7 +26,6 @@ impl RenderPass for BuildMipmapsPass {
         if frame.transmission_batches.is_empty() {
             return;
         }
-
 
         let device = ctx.device;
         let src_texture = ctx.gpu_mgr.get_framebuffer_texture(FramebufferKind::Hdr);

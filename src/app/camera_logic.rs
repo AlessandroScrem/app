@@ -24,13 +24,19 @@ impl App {
 
         center_camera_to_bounding_box(camera, bbox);
 
-        fn get_bbox_from_entities(world: &legion::World, entities: &HashSet<u64>) -> Option<BoundingBox> {
+        fn get_bbox_from_entities(
+            world: &legion::World,
+            entities: &HashSet<u64>,
+        ) -> Option<BoundingBox> {
             entities
                 .iter()
                 .filter_map(|id| {
                     let entity = EntityRawU64::from_raw_u64(*id);
                     let entry = world.entry_ref(entity).ok()?;
-                    entry.get_component::<BoundingBoxComponent>().ok().map(|b| b.global_bounding_box.clone())
+                    entry
+                        .get_component::<BoundingBoxComponent>()
+                        .ok()
+                        .map(|b| b.global_bounding_box.clone())
                 })
                 .reduce(|mut bbox, other| {
                     bbox.merge(&other);
@@ -40,7 +46,10 @@ impl App {
 
         fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
             let entry = world.entry_ref(entity).ok()?;
-            entry.get_component::<BoundingBoxComponent>().ok().map(|b| b.global_bounding_box.clone())
+            entry
+                .get_component::<BoundingBoxComponent>()
+                .ok()
+                .map(|b| b.global_bounding_box.clone())
         }
 
         fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {

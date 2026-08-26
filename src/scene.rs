@@ -160,14 +160,18 @@ pub fn spawn_scene(
             node.local_transform.clone()
         };
         let entity = world.push((
-            TagComponent { name: node.name.clone() },
+            TagComponent {
+                name: node.name.clone(),
+            },
             transform,
             HierarchyComponent::default(),
             GlobalModelComponent::default(),
         ));
         if *node_idx == 0 {
             if let Some(mut entry) = world.entry(entity) {
-                entry.add_component(SceneComponent { path: loaded.name.clone() });
+                entry.add_component(SceneComponent {
+                    path: loaded.name.clone(),
+                });
             }
         }
         node_to_entity[*node_idx] = Some(entity);
@@ -179,7 +183,9 @@ pub fn spawn_scene(
             let entity = node_to_entity[*node_idx].unwrap();
             let mesh_id = &loaded.meshes[mesh_idx];
             if let Some(mut entry) = world.entry(entity) {
-                entry.add_component(MeshComponent { handle: mesh_id.clone() });
+                entry.add_component(MeshComponent {
+                    handle: mesh_id.clone(),
+                });
                 if let Some(mesh_asset) = asset_mgr.get::<MeshAsset>(*mesh_id) {
                     let bbox = &mesh_asset.desc.bounds;
                     entry.add_component(BoundingBoxComponent {
@@ -193,9 +199,13 @@ pub fn spawn_scene(
 
     for node_idx in mesh_node_indices.iter() {
         let node = &loaded.nodes[*node_idx];
-        let Some(parent) = node_to_entity[*node_idx] else { continue; };
+        let Some(parent) = node_to_entity[*node_idx] else {
+            continue;
+        };
         for &child_idx in &node.children {
-            let Some(child) = node_to_entity[child_idx] else { continue; };
+            let Some(child) = node_to_entity[child_idx] else {
+                continue;
+            };
             if let Ok(mut entry) = world.entry_mut(parent) {
                 if let Ok(h) = entry.get_component_mut::<HierarchyComponent>() {
                     h.children.push(child);

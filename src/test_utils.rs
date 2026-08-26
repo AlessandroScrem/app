@@ -15,8 +15,8 @@ fn get_device_and_queue() -> &'static (wgpu::Device, wgpu::Queue) {
 
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).unwrap();
-            
-            (device, queue)
+
+        (device, queue)
     })
 }
 

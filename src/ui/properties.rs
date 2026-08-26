@@ -123,9 +123,11 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
                 rotation: [0.0; 3],
                 scale: [1.0; 3],
             };
-            ctx.connection.commands.send(EditorCommand::BeginTransformEdit {
-                entity: inspector.entity,
-            });
+            ctx.connection
+                .commands
+                .send(EditorCommand::BeginTransformEdit {
+                    entity: inspector.entity,
+                });
             ctx.connection.commands.send(EditorCommand::SetTransform {
                 entity: inspector.entity,
                 transform: identity,
@@ -140,9 +142,11 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         ui.same_line();
         if ui.small_button("Reset Position") {
             transform.translation = [0.0; 3];
-            ctx.connection.commands.send(EditorCommand::BeginTransformEdit {
-                entity: inspector.entity,
-            });
+            ctx.connection
+                .commands
+                .send(EditorCommand::BeginTransformEdit {
+                    entity: inspector.entity,
+                });
             ctx.connection.commands.send(EditorCommand::SetTransform {
                 entity: inspector.entity,
                 transform: transform.clone(),
@@ -157,9 +161,11 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         ui.same_line();
         if ui.small_button("Reset Rotation") {
             transform.rotation = [0.0; 3];
-            ctx.connection.commands.send(EditorCommand::BeginTransformEdit {
-                entity: inspector.entity,
-            });
+            ctx.connection
+                .commands
+                .send(EditorCommand::BeginTransformEdit {
+                    entity: inspector.entity,
+                });
             ctx.connection.commands.send(EditorCommand::SetTransform {
                 entity: inspector.entity,
                 transform: transform.clone(),
@@ -209,6 +215,8 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         changed |= ui.checkbox("Frustum", &mut light.frustum);
     }
     if changed {
-        ctx.connection.commands.send(EditorCommand::SetLight { entity, light });
+        ctx.connection
+            .commands
+            .send(EditorCommand::SetLight { entity, light });
     }
 }
