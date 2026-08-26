@@ -89,11 +89,10 @@ impl Runtime {
     pub fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder(); if let Some(frame) = self.gpu_surface.get_frame() { let target = frame.texture.create_view(&Default::default()); let frame_data = self.prepare_frame_data(app.render_data()); let context = SceneRenderContext { gpu_context: &self.gpu_context, gpu_manager: &self.gpu_manager, shadow_manager: &self.shadow_manager, pipeline_manager: &self.pipeline_manager, gpu_cache: &self.gpu_cache }; self.scene_renderer.render(&context, &mut encoder, &target, &frame_data); self.imgui_render.render(self.uilayer.get_draw_data(), &mut encoder, &target, &self.gpu_context.device, &self.gpu_context.queue); self.gpu_context.queue.submit([encoder.finish()]); frame.present(); }
     }
-    fn prepare_frame_data(&mut self, render_data: AppRenderData) {
+    fn prepare_frame_data(&mut self, render_data: AppRenderData) -> FrameData {
         let AppRenderData { render_objects, asset_mgr, camera, globals, selected } = render_data; let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals); let camera_uniform = CameraUniform::from_camera_size(camera, (self.gpu_surface.get_config().width, self.gpu_surface.get_config().height)); let global_uniform = GlobalUniform::from_global_id(globals, selected.map(|id| id.as_raw_u64()).unwrap_or(0));
         self.gpu_manager.update_buffer(&self.gpu_context.queue, BufferKind::Lights, std::slice::from_ref(&frame.light_uniform)); self.gpu_manager.update_buffer(&self.gpu_context.queue, BufferKind::Camera, std::slice::from_ref(&camera_uniform)); self.gpu_manager.update_buffer(&self.gpu_context.queue, BufferKind::Globals, std::slice::from_ref(&global_uniform)); self.gpu_manager.update_buffer(&self.gpu_context.queue, BufferKind::Instances, frame.instances.as_slice()); self.gpu_manager.update_buffer(&self.gpu_context.queue, BufferKind::Lines, frame.lines.as_slice());
         let tasks = FrameTasks { axis_enable: globals.axis_enable, build_mips_cp: globals.mips_cp, entity_selected: selected, skybox_enable: globals.skybox_enable, skybox_blur: globals.skybox_enable_blur };
-        // Constructed below to keep the render path unchanged.
-        let _ = FrameData { opaque_batches: frame.opaque_batches, transmission_batches: frame.transmission_batches, transmission_stats: frame.transmission_stats, lights: Some(frame.light_uniform), lines: frame.lines, opaque_stats: frame.opaque_stats, tasks };
+        FrameData { opaque_batches: frame.opaque_batches, transmission_batches: frame.transmission_batches, transmission_stats: frame.transmission_stats, lights: Some(frame.light_uniform), lines: frame.lines, opaque_stats: frame.opaque_stats, tasks }
     }
 }
