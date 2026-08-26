@@ -44,40 +44,22 @@ impl Runtime {
         if let Some(result) = self.readback.poll_results() {
             match result {
                 QueryResult::Pick(id) => bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64)))),
-                QueryResult::Selection(ids) => {
-                    let primary = ids.first().copied().map(Entity::from_raw_u64);
-                    bus.send_domain(Selection(Select(primary)));
-                    bus.send_domain(Selection(SelectMulti(ids)));
-                }
+                QueryResult::Selection(ids) => { let primary = ids.first().copied().map(Entity::from_raw_u64); bus.send_domain(Selection(Select(primary))); bus.send_domain(Selection(SelectMulti(ids))); }
             }
         }
         if input.is_cursor_moved() { self.readback.request_pick(&self.gpu_context.as_ref(), &self.gpu_manager.get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId), (input.mouse_position.x as u32, input.mouse_position.y as u32)); }
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) { bus.send_domain(Selection(SelectHovered)); }
         match self.editor_interaction {
-            EditorInteraction::None => {
-                if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
-                    let current = input.mouse_position;
-                    self.editor_interaction = EditorInteraction::Selecting { start: current, current };
-                }
-            }
+            EditorInteraction::None => { if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Control) { let current = input.mouse_position; self.editor_interaction = EditorInteraction::Selecting { start: current, current }; } }
             EditorInteraction::Selecting { start, current: _ } => {
-                if input.is_mouse_dragging(MouseButton::Left) && input.is_key_down(KeyButton::Control) {
-                    self.editor_interaction = EditorInteraction::Selecting { start, current: input.mouse_position };
-                }
-                if input.is_mouse_button_released(MouseButton::Left) {
-                    let current = input.mouse_position;
-                    let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
-                    let width = (start.x - current.x).abs() as u32;
-                    let height = (start.y - current.y).abs() as u32;
-                    self.readback.request_selection(&self.gpu_context.as_ref(), &self.gpu_manager.get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId), pos, (width, height));
-                    self.editor_interaction = EditorInteraction::None;
-                }
+                if input.is_mouse_dragging(MouseButton::Left) && input.is_key_down(KeyButton::Control) { self.editor_interaction = EditorInteraction::Selecting { start, current: input.mouse_position }; }
+                if input.is_mouse_button_released(MouseButton::Left) { let current = input.mouse_position; let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32); let width = (start.x - current.x).abs() as u32; let height = (start.y - current.y).abs() as u32; self.readback.request_selection(&self.gpu_context.as_ref(), &self.gpu_manager.get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId), pos, (width, height)); self.editor_interaction = EditorInteraction::None; }
             }
         }
         self.uilayer.set_editor_interaction(self.editor_interaction);
         if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() { bus.send_domain(Camera(CameraOrbit(input.mouse_delta.x as f64, input.mouse_delta.y as f64))); } if input.is_mouse_dragging(MouseButton::Middle) { bus.send_domain(Camera(CameraPan(input.mouse_delta.x as f64, input.mouse_delta.y as f64))); } if let Some(delta) = input.mouse_wheel_movement { bus.send_domain(Camera(CameraZoom(delta.y))); } self.input.clear();
     }
-    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) { for event in bus.drain_runtime() { match event { RuntimeEvent::Resize { width, height } => { if width == 0 || height == 0 { return; } self.gpu_manager.resize_frame(&self.gpu_context.as_ref(), width, height); self.gpu_surface.resize_frame(&self.gpu_context.device, width, height); app.on_resize(width, height); } RuntimeEvent::CloseRequested => { app.on_close(); self.wait_for_exit = true; } RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus), RuntimeEvent::SetWindowTitle(title) => { self.window.set_title(&title); info!("Set window title"); } RuntimeEvent::SyncImguiTextures => self.imgui_render.sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures), RuntimeEvent::UpdateIblMaps(id) => { self.gpu_manager.replace_pbrmap_skybox_bindgroup(self.ibl_manager.get(&id), &self.shadow_manager, &self.gpu_context.device); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, &mut self.gpu_cache.textures); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba()); } } } }
+    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) { for event in bus.drain_runtime() { match event { RuntimeEvent::Resize { width, height } => { if width == 0 || height == 0 { return; } self.gpu_manager.resize_frame(&self.gpu_context.as_ref(), width, height); self.gpu_surface.resize_frame(&self.gpu_context.device, width, height); app.on_resize(width, height); } RuntimeEvent::CloseRequested => { app.on_close(); self.wait_for_exit = true; } RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus), RuntimeEvent::SetWindowTitle(title) => { self.window.set_title(&title); info!("Set window title"); } RuntimeEvent::SyncImguiTextures => self.imgui_render.sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures), RuntimeEvent::UpdateIblMaps(id) => { self.gpu_manager.replace_pbrmap_skybox_bindgroup(self.ibl_manager.get(&id), &self.shadow_manager, &self.gpu_context.device); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba()); } } } }
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
         use crate::assets::asset_manager::AssetEventKind; use crate::assets::material_asset::MaterialAsset; use crate::assets::mesh_asset::MeshAsset; use crate::assets::texture_asset::{TextureAsset, TextureDesc}; use crate::assets::texture_upload::load_cpu_textures_par; use crate::gpu::{GpuMaterial, GpuMesh}; use crate::gpu::texture::GpuTextureBuilder;
         let Self { gpu_context, ibl_manager, gpu_manager, .. } = self; let texture_cache = &mut self.gpu_cache.textures; let material_cache = &mut self.gpu_cache.material; let mesh_cache = &mut self.gpu_cache.mesh; let grouped = asset_mgr.drain_grouped_events();
@@ -87,10 +69,7 @@ impl Runtime {
         grouped.process_type::<MeshAsset, _>(|kind, events| match kind { AssetEventKind::Created => events.iter().filter_map(|ev| asset_mgr.get::<MeshAsset>(ev.id).map(|a| (ev.id, a))).for_each(|(id, asset)| mesh_cache.insert(id, GpuMesh::new(&gpu_context.device, &asset.desc.vertices, &asset.desc.indices))), AssetEventKind::Removed => events.iter().for_each(|ev| mesh_cache.remove(ev.id)), _ => {} }); grouped.process_type::<TextureAsset, _>(|_, _| bus.send_runtime(RuntimeEvent::SyncImguiTextures));
     }
     pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
-        let now = std::time::Instant::now();
-        let dt = now.duration_since(self.last_ui_update).as_secs_f32().clamp(1.0 / 1000.0, 0.25);
-        self.last_ui_update = now;
-        self.statistics_dt = self.statistics_dt * 0.9 + dt * 0.1;
+        let now = std::time::Instant::now(); let dt = now.duration_since(self.last_ui_update).as_secs_f32().clamp(1.0 / 1000.0, 0.25); self.last_ui_update = now; self.statistics_dt = self.statistics_dt * 0.9 + dt * 0.1;
         let frame = self.scene_renderer.get_render_stats();
         self.editor_service.set_statistics(EditorStatisticsData { fps: 1.0 / self.statistics_dt, frametime: self.statistics_dt, adapter_name: self.gpu_context.get_adapter_string(), root_nodes: 0, opaque_draw_calls: frame.opaque.draw_calls, opaque_instances: frame.opaque.instances, transmission_draw_calls: frame.transmission.draw_calls, transmission_instances: frame.transmission.instances });
         self.editor_service.process(app, bus); self.uilayer.build(&self.window);
