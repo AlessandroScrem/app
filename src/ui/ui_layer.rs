@@ -179,9 +179,7 @@ impl UiLayer {
     pub fn build(&mut self, window: &Window) {
         self.process_connection();
         self.begin_frame(window);
-        if self.focus_properties { self.context.io_mut().nav_window = std::ptr::null_mut(); }
         let ui = self.context.frame();
-        if self.focus_properties { ui.set_next_window_focus(); }
         ui.dockspace_over_main_viewport();
         let hierarchy = self.hierarchy.as_ref();
         let inspector = self.inspector.as_ref();
