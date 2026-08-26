@@ -268,6 +268,7 @@ impl AssetManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_stats<T: Asset>(&self) -> ResourceStats {
         self.stats
             .get(&TypeId::of::<T>())

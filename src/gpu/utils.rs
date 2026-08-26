@@ -216,4 +216,3 @@ fn rgba16float_to_rgba8(raw: &[u8], width: u32, height: u32) -> Vec<u8> {
 
     out
 }
-

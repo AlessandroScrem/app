@@ -98,10 +98,12 @@ impl Camera {
         EuclideanSpace::from_vec(self.position)
     }
 
+    #[allow(dead_code)]
     pub fn get_focal_point(&self) -> Point3f {
         EuclideanSpace::from_vec(self.focal_point)
     }
 
+    #[allow(dead_code)]
     pub fn get_yaw_pitch(&self) -> (f32, f32) {
         (self.yaw, self.pitch)
     }

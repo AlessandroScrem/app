@@ -1,4 +1,4 @@
-use crate::math::{Vec3, Mat4};
+use crate::math::{Mat4, Vec3};
 const CORNERS: usize = 8;
 pub type BBoxCornerData = [Vec3; CORNERS];
 
@@ -94,7 +94,6 @@ impl BoundingBox {
         bbox
     }
 }
-
 
 #[cfg(test)]
 mod tests {

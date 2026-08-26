@@ -4,9 +4,12 @@ use crate::{
     assets::{
         self,
         texture_asset::{ColorSpace, SamplerDesc},
-    }, gpu::{
-        Dimension::Array, GpuContextRef, GpuResourceStats, GpuTexture, GpuTextureBuilder, GpuTextureUsage, HasGpuStats, pipeline_manager::PipelineExt,
-    }, renderer::uniform::LightUniform,
+    },
+    gpu::{
+        Dimension::Array, GpuContextRef, GpuResourceStats, GpuTexture, GpuTextureBuilder,
+        GpuTextureUsage, HasGpuStats, pipeline_manager::PipelineExt,
+    },
+    renderer::uniform::LightUniform,
 };
 
 const MAX_SHADOWS: usize = 64;
@@ -25,6 +28,7 @@ pub struct ShadowManager {
     bindgroup: BindGroup,
     shadow_map: GpuTexture, //max layer = MAX_SHADOWS
     layer_views: Vec<wgpu::TextureView>,
+    #[allow(dead_code)]
     stats: GpuResourceStats,
 }
 

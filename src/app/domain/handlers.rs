@@ -49,10 +49,18 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             app.multiselct.clear();
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
-        SceneEvent::SaveAs(path) => { let _ = app.current_scene.save_scene_json(path); }
-        SceneEvent::Save => { let _ = app.current_scene.save(); }
+        SceneEvent::SaveAs(path) => {
+            let _ = app.current_scene.save_scene_json(path);
+        }
+        SceneEvent::Save => {
+            let _ = app.current_scene.save();
+        }
         SceneEvent::Open(path) => {
-            if app.current_scene.open_scene(&path, &mut app.asset_mgr, bus).is_ok() {
+            if app
+                .current_scene
+                .open_scene(&path, &mut app.asset_mgr, bus)
+                .is_ok()
+            {
                 app.current_scene.clear_scene(&mut app.asset_mgr);
                 app.selected = None;
                 app.multiselct.clear();
@@ -110,19 +118,25 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         }
         EntityEvent::UpdateTag(entity, c) => {
             if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                if let Ok(t) = e.get_component_mut::<TagComponent>() { *t = c; }
+                if let Ok(t) = e.get_component_mut::<TagComponent>() {
+                    *t = c;
+                }
             }
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::UpdateTransform(entity, c) => {
             if let Ok(mut e) = world.entry_mut(entity) {
-                if let Ok(t) = e.get_component_mut::<TransformComponent>() { *t = c; }
+                if let Ok(t) = e.get_component_mut::<TransformComponent>() {
+                    *t = c;
+                }
             }
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::UpdateLight(entity, c) => {
             if let Ok(mut e) = world.entry_mut(entity) {
-                if let Ok(light) = e.get_component_mut::<LightComponent>() { *light = c; }
+                if let Ok(light) = e.get_component_mut::<LightComponent>() {
+                    *light = c;
+                }
             }
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
@@ -141,7 +155,8 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
 pub fn handle_asset_event(app: &mut App, event: AssetEvent, bus: &mut EventBus) {
     match event {
         AssetEvent::UpdateMaterial(material_id, desc) => {
-            app.asset_mgr.update::<MaterialAsset>(material_id, |asset| asset.desc = desc);
+            app.asset_mgr
+                .update::<MaterialAsset>(material_id, |asset| asset.desc = desc);
         }
         AssetEvent::LoadGltf(path) => {
             if let Some(loaded) = crate::assets::gltf_loader::load_gltf(path, &mut app.asset_mgr) {
@@ -167,16 +182,25 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
         SelectionEvent::Select(entity) => {
             app.selected = entity;
             app.multiselct.clear();
-            if let Some(entity) = entity { app.multiselct.insert(entity.as_raw_u64()); }
+            if let Some(entity) = entity {
+                app.multiselct.insert(entity.as_raw_u64());
+            }
         }
         SelectionEvent::SelectMulti(entities) => {
             app.multiselct = entities.into_iter().collect::<HashSet<_>>();
-            app.selected = app.multiselct.iter().copied().next().map(EntityRawU64::from_raw_u64);
+            app.selected = app
+                .multiselct
+                .iter()
+                .copied()
+                .next()
+                .map(EntityRawU64::from_raw_u64);
         }
         SelectionEvent::SelectHovered => {
             app.selected = app.hovered;
             app.multiselct.clear();
-            if let Some(entity) = app.hovered { app.multiselct.insert(entity.as_raw_u64()); }
+            if let Some(entity) = app.hovered {
+                app.multiselct.insert(entity.as_raw_u64());
+            }
         }
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);

@@ -11,7 +11,7 @@ use crate::renderer::renderpass::*;
 
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
-    pub gpu_manager: &'a  GpuManager,
+    pub gpu_manager: &'a GpuManager,
     pub shadow_manager: &'a ShadowManager,
     pub pipeline_manager: &'a PipelineManager,
     pub gpu_cache: &'a GpuCache,

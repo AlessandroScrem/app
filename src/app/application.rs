@@ -13,7 +13,9 @@ pub struct AppRenderData<'a> {
     pub selected: Option<Entity>,
 }
 
-pub trait HasAssetMgr { fn asset_mgr_mut(&mut self) -> &mut AssetManager; }
+pub trait HasAssetMgr {
+    fn asset_mgr_mut(&mut self) -> &mut AssetManager;
+}
 pub trait RuntimeApp: Application + HasAssetMgr {}
 impl<T> RuntimeApp for T where T: Application + HasAssetMgr {}
 

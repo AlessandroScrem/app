@@ -1,4 +1,3 @@
-
 // use legion::{systems::CommandBuffer, world::SubWorld, *};
 // use crate::ecs::components::{ HierarchyComponent, Hidden};
 

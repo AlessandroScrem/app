@@ -1,5 +1,8 @@
-use std::sync::{Arc, mpsc::{Receiver, channel}};
 use crate::gpu::utils;
+use std::sync::{
+    Arc,
+    mpsc::{Receiver, channel},
+};
 
 pub trait ReadbackProvider {
     fn request_readback(
@@ -35,7 +38,7 @@ impl ReadbackHandle {
     }
 }
 
-impl ReadbackProvider for GpuReadback { 
+impl ReadbackProvider for GpuReadback {
     fn request_readback(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -44,7 +47,10 @@ impl ReadbackProvider for GpuReadback {
         size: (u32, u32),
     ) -> ReadbackHandle {
         assert!(size.0 > 0 && size.1 > 0, "Error: invalid size: must be > 0");
-        assert!(origin.0 + size.0  <= texture.width() && origin.1 + size.1 <= texture.height() , "Error: invalid coords");
+        assert!(
+            origin.0 + size.0 <= texture.width() && origin.1 + size.1 <= texture.height(),
+            "Error: invalid coords"
+        );
 
         let bpp = super::utils::bytes_per_pixel(texture.format()).unwrap();
 

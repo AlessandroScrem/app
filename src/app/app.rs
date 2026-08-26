@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
+use crate::Camera;
+use crate::Globals;
 use crate::app::Settings;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
-use crate::Globals;
-use crate::Camera;
 use crate::scene::Scene;
 use legion::Entity;
 

@@ -39,11 +39,21 @@ pub struct GpuIbl {
 }
 
 impl GpuIbl {
-    pub fn get_sampler(&self) -> &wgpu::Sampler { &self.sampler }
-    pub fn get_irradiance_view(&self) -> &wgpu::TextureView { &self.irradiance_view }
-    pub fn get_prefilter_view(&self) -> &wgpu::TextureView { &self.prefilter_view }
-    pub fn get_brdf_lut_view(&self) -> &wgpu::TextureView { &self.brdf_lut_view }
-    pub fn get_cubemap_view(&self) -> &wgpu::TextureView { &self.cube_map_view }
+    pub fn get_sampler(&self) -> &wgpu::Sampler {
+        &self.sampler
+    }
+    pub fn get_irradiance_view(&self) -> &wgpu::TextureView {
+        &self.irradiance_view
+    }
+    pub fn get_prefilter_view(&self) -> &wgpu::TextureView {
+        &self.prefilter_view
+    }
+    pub fn get_brdf_lut_view(&self) -> &wgpu::TextureView {
+        &self.brdf_lut_view
+    }
+    pub fn get_cubemap_view(&self) -> &wgpu::TextureView {
+        &self.cube_map_view
+    }
 
     fn estimated_size(&self) -> usize {
         self.cube_map.estimated_size()
@@ -53,7 +63,9 @@ impl GpuIbl {
 }
 
 impl HasGpuStats for IblManager {
-    fn get_stats(&self) -> GpuResourceStats { self.stats.clone() }
+    fn get_stats(&self) -> GpuResourceStats {
+        self.stats.clone()
+    }
 }
 
 pub struct IblManager {
@@ -67,26 +79,40 @@ impl IblManager {
     pub fn new(gpu: &GpuContextRef) -> Self {
         let brdf_lut = BRDFLUTBuilder::build(gpu.device, gpu.queue);
         let brdf_lut_view = brdf_lut.create_view(&wgpu::TextureViewDescriptor::default());
-        Self { _brdf_lut: brdf_lut, brdf_lut_view, map: HashMap::new(), stats: GpuResourceStats::default() }
+        Self {
+            _brdf_lut: brdf_lut,
+            brdf_lut_view,
+            map: HashMap::new(),
+            stats: GpuResourceStats::default(),
+        }
     }
 
     pub fn insert(&mut self, id: IblId, gpu_ibl: GpuIbl) {
-        if !self.map.contains_key(&id) { self.stats.add(gpu_ibl.estimated_size()); }
+        if !self.map.contains_key(&id) {
+            self.stats.add(gpu_ibl.estimated_size());
+        }
         self.map.insert(id, gpu_ibl);
     }
 
-    pub fn get(&self, id: &IblId) -> Option<&GpuIbl> { self.map.get(id) }
+    pub fn get(&self, id: &IblId) -> Option<&GpuIbl> {
+        self.map.get(id)
+    }
 
     #[allow(unused)]
     pub fn remove(&mut self, id: IblId) {
-        if let Some(gpu_ibl) = self.map.remove(&id) { self.stats.remove(gpu_ibl.estimated_size()); }
+        if let Some(gpu_ibl) = self.map.remove(&id) {
+            self.stats.remove(gpu_ibl.estimated_size());
+        }
     }
 
     pub fn create(&self, hdr: &GpuTexture, gpu: &GpuContextRef) -> GpuIbl {
         let cube_map = EquirectangularToCubemap::build(&hdr, gpu.device, gpu.queue, 512);
         let _irradiance_map = IrrarianceMap::build(&cube_map, gpu.device, gpu.queue);
         let _prefilter_map = PrefilterMap::build(gpu.device, gpu.queue, &cube_map);
-        let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::Cube), ..Default::default() });
+        let cube_map_view = cube_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
         let sampler = gpu.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -96,8 +122,14 @@ impl IblManager {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
-        let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::Cube), ..Default::default() });
-        let prefilter_view = _prefilter_map.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::Cube), ..Default::default() });
+        let irradiance_view = _irradiance_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
+        let prefilter_view = _prefilter_map.create_view(&wgpu::TextureViewDescriptor {
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..Default::default()
+        });
         GpuIbl {
             cube_map,
             cube_map_view,
