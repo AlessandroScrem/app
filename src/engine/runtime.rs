@@ -5,7 +5,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl};
+use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectHovered, SelectIbl, SelectMulti};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::editor::{EditorConnection, EditorStatisticsData};
@@ -41,7 +41,16 @@ impl Runtime {
     pub fn handle_winit_event(&mut self, event: &Event<()>) { self.uilayer.handle_event(&self.window, event); match event { Event::WindowEvent { .. } | Event::DeviceEvent { .. } if !self.uilayer.want_capture_mouse() => self.input.update_events(&event), _ => {} } }
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton; let input = &self.input;
-        if let Some(result) = self.readback.poll_results() { match result { QueryResult::Pick(id) => bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64)))), QueryResult::Selection(ids) => bus.send_domain(Selection(Select(ids))) } }
+        if let Some(result) = self.readback.poll_results() {
+            match result {
+                QueryResult::Pick(id) => bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64)))),
+                QueryResult::Selection(ids) => {
+                    let primary = ids.first().copied().map(Entity::from_raw_u64);
+                    bus.send_domain(Selection(Select(primary)));
+                    bus.send_domain(Selection(SelectMulti(ids)));
+                }
+            }
+        }
         if input.is_cursor_moved() { self.readback.request_pick(&self.gpu_context.as_ref(), &self.gpu_manager.get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId), (input.mouse_position.x as u32, input.mouse_position.y as u32)); }
         if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) { bus.send_domain(Selection(SelectHovered)); }
         match self.editor_interaction {
@@ -68,7 +77,7 @@ impl Runtime {
         self.uilayer.set_editor_interaction(self.editor_interaction);
         if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() { bus.send_domain(Camera(CameraOrbit(input.mouse_delta.x as f64, input.mouse_delta.y as f64))); } if input.is_mouse_dragging(MouseButton::Middle) { bus.send_domain(Camera(CameraPan(input.mouse_delta.x as f64, input.mouse_delta.y as f64))); } if let Some(delta) = input.mouse_wheel_movement { bus.send_domain(Camera(CameraZoom(delta.y))); } self.input.clear();
     }
-    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) { for event in bus.drain_runtime() { match event { RuntimeEvent::Resize { width, height } => { if width == 0 || height == 0 { return; } self.gpu_manager.resize_frame(&self.gpu_context.as_ref(), width, height); self.gpu_surface.resize_frame(&self.gpu_context.device, width, height); app.on_resize(width, height); } RuntimeEvent::CloseRequested => { app.on_close(); self.wait_for_exit = true; } RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus), RuntimeEvent::SetWindowTitle(title) => { self.window.set_title(&title); info!("Set window title"); } RuntimeEvent::SyncImguiTextures => self.imgui_render.sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures), RuntimeEvent::UpdateIblMaps(id) => { self.gpu_manager.replace_pbrmap_skybox_bindgroup(self.ibl_manager.get(&id), &self.shadow_manager, &self.gpu_context.device); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba()); } } } }
+    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) { for event in bus.drain_runtime() { match event { RuntimeEvent::Resize { width, height } => { if width == 0 || height == 0 { return; } self.gpu_manager.resize_frame(&self.gpu_context.as_ref(), width, height); self.gpu_surface.resize_frame(&self.gpu_context.device, width, height); app.on_resize(width, height); } RuntimeEvent::CloseRequested => { app.on_close(); self.wait_for_exit = true; } RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus), RuntimeEvent::SetWindowTitle(title) => { self.window.set_title(&title); info!("Set window title"); } RuntimeEvent::SyncImguiTextures => self.imgui_render.sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures), RuntimeEvent::UpdateIblMaps(id) => { self.gpu_manager.replace_pbrmap_skybox_bindgroup(self.ibl_manager.get(&id), &self.shadow_manager, &self.gpu_context.device); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, &mut self.gpu_cache.textures); self.imgui_render.sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba()); } } } }
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
         use crate::assets::asset_manager::AssetEventKind; use crate::assets::material_asset::MaterialAsset; use crate::assets::mesh_asset::MeshAsset; use crate::assets::texture_asset::{TextureAsset, TextureDesc}; use crate::assets::texture_upload::load_cpu_textures_par; use crate::gpu::{GpuMaterial, GpuMesh}; use crate::gpu::texture::GpuTextureBuilder;
         let Self { gpu_context, ibl_manager, gpu_manager, .. } = self; let texture_cache = &mut self.gpu_cache.textures; let material_cache = &mut self.gpu_cache.material; let mesh_cache = &mut self.gpu_cache.mesh; let grouped = asset_mgr.drain_grouped_events();
