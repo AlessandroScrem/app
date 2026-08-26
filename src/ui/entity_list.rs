@@ -24,37 +24,22 @@ impl Layer for EntityListUi {
             let mut selection: HashSet<EntityId> = ctx.selection.iter().copied().collect();
             let old_selection = selection.clone();
             let mut action = None;
-
             ui.text("Meshes");
             ui.separator();
-            for node in hierarchy.nodes.iter().filter(|node| node.parent.is_none() && !node.is_light) {
-                draw_node(ui, node, hierarchy, &mut selection, &mut action);
-            }
-
+            for node in hierarchy.nodes.iter().filter(|node| node.parent.is_none() && !node.is_light) { draw_node(ui, node, hierarchy, &mut selection, &mut action); }
             ui.separator();
             ui.text("Lights");
             ui.separator();
-            for node in hierarchy.nodes.iter().filter(|node| node.is_light) {
-                draw_light_node(ui, node, &mut selection, &mut action);
-            }
-
-            if selection != old_selection {
-                ctx.connection.commands.send(EditorCommand::Select { entities: selection.iter().copied().collect() });
-            }
+            for node in hierarchy.nodes.iter().filter(|node| node.is_light) { draw_light_node(ui, node, &mut selection, &mut action); }
+            if selection != old_selection { ctx.connection.commands.send(EditorCommand::Select { entities: selection.iter().copied().collect() }); }
             if let Some(command) = action { ctx.connection.commands.send(command); }
-            if ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(MouseButton::Left) {
-                ctx.connection.commands.send(EditorCommand::Select { entities: Vec::new() });
-            }
+            if ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(MouseButton::Left) { ctx.connection.commands.send(EditorCommand::Select { entities: Vec::new() }); }
         });
     }
 }
 
 fn toolbar(ui: &Ui, ctx: &mut UiContext) {
-    if ui.small_button(format!("{ICON_FOLDER}##load_gltf")) {
-        if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) {
-            ctx.connection.commands.send(EditorCommand::LoadGltf { path });
-        }
-    }
+    if ui.small_button(format!("{ICON_FOLDER}##load_gltf")) { if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) { ctx.connection.commands.send(EditorCommand::LoadGltf { path }); } }
     if ui.is_item_hovered() { ui.tooltip_text("Load glTF / GLB"); }
     ui.same_line();
     if ui.small_button(format!("{ICON_LIGHTBULB}##add_light")) { ctx.connection.commands.send(EditorCommand::AddLight); }
@@ -83,7 +68,6 @@ fn draw_light_node(ui: &Ui, node: &HierarchyNode, selection: &mut HashSet<Entity
     let _disabled = (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
     let _opened = ui.tree_node_config(format!("{ICON_LIGHTBULB} {}##{}", node.name, node.entity)).flags(flags).push();
     handle_selection_click(ui, node.entity, selection);
-    if ui.is_item_clicked() && !ui.is_item_toggled_open() { *action = Some(EditorCommand::Select { entities: vec![node.entity] }); }
     row_icons(ui, node, action);
     context_menu(ui, node.entity, action);
 }
@@ -91,12 +75,7 @@ fn draw_light_node(ui: &Ui, node: &HierarchyNode, selection: &mut HashSet<Entity
 fn handle_selection_click(ui: &Ui, entity: EntityId, selection: &mut HashSet<EntityId>) {
     if !ui.is_item_clicked() || ui.is_item_toggled_open() { return; }
     let ctrl = ui.is_key_down(Key::LeftCtrl) || ui.is_key_down(Key::RightCtrl);
-    if ctrl {
-        if !selection.remove(&entity) { selection.insert(entity); }
-    } else {
-        selection.clear();
-        selection.insert(entity);
-    }
+    if ctrl { if !selection.remove(&entity) { selection.insert(entity); } } else { selection.clear(); selection.insert(entity); }
 }
 
 fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>) {
@@ -104,9 +83,7 @@ fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>) 
         if ui.small_button(format!("{ICON_EYE}##eye{}", node.entity)) { *action = Some(EditorCommand::SetEntityEnabled { entity: node.entity, enabled: !node.visible }); }
         if ui.is_item_hovered() { ui.tooltip_text(if node.visible { "Hide" } else { "Show" }); }
         ui.same_line();
-        if ui.small_button(format!("{ICON_ADD}##add{}", node.entity)) {
-            if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) { *action = Some(EditorCommand::LoadGltf { path }); }
-        }
+        if ui.small_button(format!("{ICON_ADD}##add{}", node.entity)) { if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) { *action = Some(EditorCommand::LoadGltf { path }); } }
         if ui.is_item_hovered() { ui.tooltip_text("Add glTF / GLB"); }
         ui.same_line();
         if ui.small_button(format!("{ICON_TRASH}##delete{}", node.entity)) { *action = Some(EditorCommand::Delete { entities: vec![node.entity] }); }
@@ -119,11 +96,7 @@ fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>) 
 
 fn context_menu(ui: &Ui, entity: EntityId, action: &mut Option<EditorCommand>) {
     if ui.is_item_hovered() && ui.is_mouse_clicked(MouseButton::Right) { ui.open_popup(format!("entity_context##{}", entity)); }
-    if let Some(popup) = ui.begin_popup(format!("entity_context##{}", entity)) {
-        if ui.menu_item("Remove") { *action = Some(EditorCommand::Delete { entities: vec![entity] }); }
-        if ui.menu_item("Add Parent") { *action = Some(EditorCommand::AddParent { entity }); }
-        popup.end();
-    }
+    if let Some(popup) = ui.begin_popup(format!("entity_context##{}", entity)) { if ui.menu_item("Remove") { *action = Some(EditorCommand::Delete { entities: vec![entity] }); } if ui.menu_item("Add Parent") { *action = Some(EditorCommand::AddParent { entity }); } popup.end(); }
 }
 
 fn right_icons<F: FnOnce(&Ui)>(ui: &Ui, f: F) {
