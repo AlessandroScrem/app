@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::app::Settings;
 use crate::assets::IblId;
 use crate::assets::asset_manager::AssetManager;
@@ -13,7 +15,7 @@ pub struct App {
     pub globals: Globals,
     pub camera: Camera,
     pub selected: Option<Entity>,
-    pub multiselct: Vec<u64>,
+    pub multiselct: HashSet<u64>,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
     pub settings: Settings,
