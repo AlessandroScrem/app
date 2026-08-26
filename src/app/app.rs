@@ -4,7 +4,6 @@ use crate::assets::asset_manager::AssetManager;
 use crate::Globals;
 use crate::Camera;
 use crate::scene::Scene;
-use crate::ui::UiTexture;
 use legion::Entity;
 
 #[derive(Default)]
@@ -17,7 +16,7 @@ pub struct App {
     pub multiselct: Vec<u64>,
     pub hovered: Option<Entity>,
     pub selected_ibl: Option<IblId>,
-    #[allow(unused)]
-    pub debug_texture_id: Option<UiTexture>,
     pub settings: Settings,
+    pub(crate) editor_scene_revision: u64,
+    pub(crate) transform_edit: Option<(Entity, crate::editor::TransformData)>,
 }

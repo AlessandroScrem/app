@@ -1,270 +1,105 @@
 use super::*;
-use crate::app::domain::events::{
-    AssetEvent::LoadGltf,
-    DomainEvent::{self, Assets, Selection},
-    EntityEvent::{AddLight, AddParent, RemoveEntity, UpdateLight, DisableEntity},
-    SelectionEvent::Select,
-};
+use crate::editor::{EditorCommand, EntityId, HierarchyData, HierarchyNode};
+use crate::ui::ui_layer::Layer;
 use imgui::*;
-use legion::Entity;
+use std::collections::HashSet;
 
-const ICON_LIGHTBULB: &str = "\u{EA61}"; // 💡
-const ICON_TRASH: &str = "\u{EA81}"; // 🗑
-const ICON_ADD: &str = "\u{EA60}"; //➕
-const ICON_GEAR: &str = "\u{EAF8}"; //⚙
-const ICON_EYE: &str = "\u{EA70}"; // 👁
+const ICON_LIGHTBULB: &str = "\u{EA61}";
+const ICON_TRASH: &str = "\u{EA81}";
+const ICON_ADD: &str = "\u{EA60}";
+const ICON_FOLDER: &str = "\u{EAF7}";
+const ICON_CLEAR: &str = "\u{EAC0}";
+const ICON_EYE: &str = "\u{EA70}";
+const ICON_LAYER: &str = "\u{EBD2}";
+const ICON_LAYER_DOT: &str = "\u{EBD3}";
+const ICON_LAYER_ACTIVE: &str = "\u{EBD4}";
 
-const ICON_LAYER: &str = "\u{EBD2}"; // ◈
-const ICON_LAYER_DOT: &str = "\u{EBD3}"; // ◈
-const ICON_LAYER_ACTIVE: &str = "\u{EBD4}"; // ◈
-
-pub struct EntityListUi {}
-
+pub struct EntityListUi;
 impl Layer for EntityListUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        ui.window("Entities")
-            .size([300.0, 100.0], Condition::FirstUseEver)
-            .build(|| build_wnd_list(ui, ctx));
-    }
-}
-fn build_wnd_list(ui: &Ui, ctx: &mut UiContext) {
-    draw_hierarchy_nodes(ui, ctx);
-    draw_lights_nodes(ui, ctx);
-
-    fn empty_window_clicked(ui: &Ui, button: MouseButton) -> bool {
-        ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(button)
-    }
-
-    if let Some(popup) = ui.begin_popup_context_window() {
-        if ui.menu_item("Load Gltf ..") {
-            if let Some(file) = menu_bar::file_open(FileFilter::Gltf) {
-                ctx.bus.send_domain(Assets(LoadGltf(file)));
-            }
-        }
-
-        if ui.menu_item("Add Light..") {
-            ctx.bus.send_domain(DomainEvent::Entity(AddLight));
-        }
-
-        popup.end();
-    }
-
-    if empty_window_clicked(ui, MouseButton::Left) {
-        ctx.bus.send_domain(Selection(Select(None)));
-    }
-}
-
-fn draw_entity_node_recurse(
-    ui: &Ui,
-    node: &HierarchyNode,
-    selected: &mut Option<Entity>,
-    ctx: &mut UiContext,
-) {
-    let entity = node.entity;
-    let children = &node.children;
-    let is_active = selected.is_some_and(|e| e == entity);
-    let is_root = node.parent.is_none();
-    const BUTTONS: usize = 4;
-
-    let flags = children
-        .is_empty()
-        .then_some(TreeNodeFlags::LEAF)
-        .unwrap_or(TreeNodeFlags::empty())
-        | is_active
-            .then_some(TreeNodeFlags::SELECTED)
-            .unwrap_or(TreeNodeFlags::empty());
-
-    let icon = if is_root {
-        ICON_LAYER_DOT
-    } else if is_active {
-        ICON_LAYER_ACTIVE
-    } else {
-        ICON_LAYER
-    };
-
-    let _disabled = disabled_style(ui, !node.visible);
-
-    let label = format!("{icon} {}", node.name,); // ◈ Name
-    let opened = ui
-        .tree_node_config(label)
-        .flags(flags)
-        .default_open(true)
-        .push();
-
-    
-    if is_root {
-        // Right Icons           👁 + 🗑 ⚙
-        right_icons(ui, BUTTONS, |ui| {
-            if ui.small_button(ICON_EYE) {
-                // Enabled
-                let mode = node.visible;
-                ctx.bus
-                    .send_domain(DomainEvent::Entity(DisableEntity(entity, mode)));
-            }
-            ui.same_line();
-            if ui.small_button(ICON_ADD) {
-                // Add
-                menu_bar::file_open(FileFilter::Gltf)
-                    .map(|f| ctx.bus.send_domain(Assets(LoadGltf(f))));
-            }
-
-            ui.same_line();
-            if ui.small_button(ICON_TRASH) {
-                // Delete
-                ctx.bus
-                    .send_domain(DomainEvent::Entity(RemoveEntity(entity)));
-            }
-
-            ui.same_line();
-            if ui.small_button(ICON_GEAR) {
-                // property
-                ctx.bus.send_domain(Selection(Select(Some(entity))));
-            }
-        });
-    }
-
-    let clicked = ui.is_item_clicked();
-
-    if let Some(_token) = opened {
-        for child in children {
-            draw_entity_node_recurse(ui, child, selected, ctx);
-        }
-    }
-
-    if clicked {
-        *selected = Some(entity);
-    };
-}
-
-fn draw_hierarchy_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    ui.text("Meshes");
-    ui.separator();
-    let mut selected = ctx.snapshot.selected.clone();
-
-    ui.group(|| {
-        for node in ctx.snapshot.root_snapshot.root_nodes.nodes.iter() {
-            // traverse from root nodes
-            draw_entity_node_recurse(ui, node, &mut selected, ctx);
-        }
-    });
-
-    // Commands on selected
-    if let Some(selected) = selected.clone() {
-        if let Some(node) = ctx
-            .snapshot
-            .root_snapshot
-            .root_nodes
-            .nodes
-            .iter()
-            .find(|n| n.entity == selected)
-        {
-            if node.parent.is_none() {
-                // add Context menu if ui.group is hovered
-                if ui.is_item_hovered() && ui.is_mouse_clicked(imgui::MouseButton::Right) {
-                    ui.open_popup("entity_context");
+        ui.window("Entities").size([340.0, 420.0], Condition::FirstUseEver).build(|| {
+            // Keep the frequently used editor actions available without forcing the user
+            // through the main menu. They still go through the editor protocol.
+            if ui.small_button(format!("{ICON_FOLDER}##load_gltf")) {
+                ui.tooltip_text("Load glTF / GLB");
+                if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) {
+                    ctx.connection.commands.send(EditorCommand::LoadGltf { path });
                 }
             }
-            if let Some(popup) = ui.begin_popup("entity_context") {
-                ui.menu_item("Remove ..").then(|| {
-                    ctx.bus
-                        .send_domain(DomainEvent::Entity(RemoveEntity(selected)));
-                });
-                ui.menu_item("Add Parent ..").then(|| {
-                    ctx.bus
-                        .send_domain(DomainEvent::Entity(AddParent(selected)))
-                });
+            if ui.is_item_hovered() { ui.tooltip_text("Load glTF / GLB"); }
+            ui.same_line();
+            if ui.small_button(format!("{ICON_LIGHTBULB}##add_light")) {
+                ctx.connection.commands.send(EditorCommand::AddLight);
+            }
+            if ui.is_item_hovered() { ui.tooltip_text("Add light"); }
+            ui.same_line();
+            if ui.small_button(format!("{ICON_CLEAR}##clear_selection")) {
+                ctx.connection.commands.send(EditorCommand::Select { entities: Vec::new() });
+            }
+            if ui.is_item_hovered() { ui.tooltip_text("Clear selection"); }
+            ui.separator();
+
+            let Some(hierarchy) = ctx.hierarchy else { ui.text("Loading hierarchy..."); return; };
+            let selection: HashSet<EntityId> = ctx.selection.iter().copied().collect();
+            let mut clicked = None;
+            let mut action = None;
+            for node in hierarchy.nodes.iter().filter(|node| node.parent.is_none()) {
+                draw_node(ui, node, hierarchy, &selection, &mut clicked, &mut action);
+            }
+            if let Some(entity) = clicked {
+                ctx.connection.commands.send(EditorCommand::Select { entities: vec![entity] });
+            }
+            if let Some(command) = action { ctx.connection.commands.send(command); }
+            if ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(MouseButton::Left) {
+                ctx.connection.commands.send(EditorCommand::Select { entities: Vec::new() });
+            }
+            if let Some(popup) = ui.begin_popup_context_window() {
+                if ui.menu_item("Load Gltf ..") {
+                    if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) {
+                        ctx.connection.commands.send(EditorCommand::LoadGltf { path });
+                    }
+                }
+                if ui.menu_item("Add Light") { ctx.connection.commands.send(EditorCommand::AddLight); }
                 popup.end();
             }
-        }
-    }
-
-    if selected != ctx.snapshot.selected.clone() {
-        ctx.bus.send_domain(Selection(Select(selected)));
-    }
-}
-
-fn draw_lights_nodes(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let selected = ctx.snapshot.selected;
-    let lights_nodes = &ctx.snapshot.root_snapshot.lights_nodes;
-
-    ui.separator();
-    ui.text("Lights");
-
-    const BUTTONS: usize = 4;
-
-    for (i, node) in lights_nodes.nodes.iter().enumerate() {
-        let entity = node.entity;
-        let mut light = node.comp.clone();
-        let label = format!("{ICON_LIGHTBULB} {}:{:?}", node.name, i); // 💡 name:#
-
-        let flags = TreeNodeFlags::LEAF
-            | if selected == Some(entity) {
-                TreeNodeFlags::SELECTED
-            } else {
-                TreeNodeFlags::empty()
-            };
-
-        let _disabled = disabled_style(ui, !light.enabled);
-
-        let opened = ui.tree_node_config(label.clone()).flags(flags).push();
-        let clicked = ui.is_item_clicked();
-
-        // Right Icons           👁 + 🗑 ⚙
-        right_icons(ui, BUTTONS, |ui| {
-            if ui.small_button(ICON_EYE) {
-                // Enabled
-                light.enabled = !light.enabled;
-                ctx.bus
-                    .send_domain(DomainEvent::Entity(UpdateLight(node.entity.clone(), light)));
-            }
-            ui.same_line();
-            if ui.small_button(ICON_ADD) {
-                // Add
-                ctx.bus.send_domain(DomainEvent::Entity(AddLight));
-            }
-
-            ui.same_line();
-            if ui.small_button(ICON_TRASH) {
-                // Delete
-                ctx.bus
-                    .send_domain(DomainEvent::Entity(RemoveEntity(entity)));
-            }
-
-            ui.same_line();
-            if ui.small_button(ICON_GEAR) {
-                // property
-                ctx.bus.send_domain(Selection(Select(Some(entity))));
-            }
         });
-
-        if let Some(_token) = opened {}
-
-        if clicked {
-            // Select
-            ctx.bus.send_domain(Selection(Select(Some(entity))));
-        }
     }
 }
 
-fn disabled_style(ui: &Ui, disabled: bool) -> Option<imgui::ColorStackToken<'_>> {
-    disabled.then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]))
+fn draw_node(ui: &Ui, node: &HierarchyNode, hierarchy: &HierarchyData, selection: &HashSet<EntityId>, clicked: &mut Option<EntityId>, action: &mut Option<EditorCommand>) {
+    let is_selected = selection.contains(&node.entity);
+    let children: Vec<&HierarchyNode> = hierarchy.nodes.iter().filter(|child| child.parent == Some(node.entity)).collect();
+    let flags = (if children.is_empty() { TreeNodeFlags::LEAF } else { TreeNodeFlags::empty() }) | if is_selected { TreeNodeFlags::SELECTED } else { TreeNodeFlags::empty() };
+    let icon = if node.is_light { ICON_LIGHTBULB } else if node.parent.is_none() { ICON_LAYER_DOT } else if is_selected { ICON_LAYER_ACTIVE } else { ICON_LAYER };
+    let _disabled = (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
+    let opened = ui.tree_node_config(format!("{icon} {}##{}", node.name, node.entity)).flags(flags).default_open(true).push();
+    if ui.is_item_clicked() { *clicked = Some(node.entity); }
+    right_icons(ui, |ui| {
+        if ui.small_button(format!("{ICON_EYE}##{}", node.entity)) { *action = Some(EditorCommand::SetEntityEnabled { entity: node.entity, enabled: !node.visible }); }
+        if ui.is_item_hovered() { ui.tooltip_text(if node.visible { "Hide" } else { "Show" }); }
+        ui.same_line();
+        if ui.small_button(format!("{ICON_ADD}##{}", node.entity)) {
+            if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) { *action = Some(EditorCommand::LoadGltf { path }); }
+        }
+        if ui.is_item_hovered() { ui.tooltip_text("Add glTF / GLB"); }
+        ui.same_line();
+        if ui.small_button(format!("{ICON_TRASH}##{}", node.entity)) { *action = Some(EditorCommand::Delete { entities: vec![node.entity] }); }
+        if ui.is_item_hovered() { ui.tooltip_text("Delete entity"); }
+    });
+    if let Some(_token) = opened { for child in children { draw_node(ui, child, hierarchy, selection, clicked, action); } }
+    if is_selected && ui.is_item_hovered() && ui.is_mouse_clicked(MouseButton::Right) { ui.open_popup(format!("entity_context##{}", node.entity)); }
+    if let Some(popup) = ui.begin_popup(format!("entity_context##{}", node.entity)) {
+        if ui.menu_item("Remove") { *action = Some(EditorCommand::Delete { entities: vec![node.entity] }); }
+        if ui.menu_item("Add Parent") { *action = Some(EditorCommand::AddParent { entity: node.entity }); }
+        popup.end();
+    }
 }
 
-fn right_icons<F>(ui: &Ui, buttons: usize, f: F)
-where
-    F: FnOnce(&Ui),
-{
+fn right_icons<F: FnOnce(&Ui)>(ui: &Ui, f: F) {
     let style = ui.clone_style();
-
     let padding = style.frame_padding[0];
-    let spacing = style.item_spacing[0] * buttons as f32 - 1.0;
-
-    let button_width = ui.calc_text_size(ICON_TRASH)[0] + padding * 2.0;
-    let total_width = buttons as f32 * button_width + spacing;
-
-    ui.same_line();
-    // Push buttons to right
-    ui.same_line_with_pos(ui.window_content_region_max()[0] - total_width);
-
+    let width = ui.calc_text_size(ICON_TRASH)[0] + padding * 2.0;
+    let total = width * 3.0 + style.item_spacing[0] * 2.0;
+    ui.same_line_with_pos(ui.window_content_region_max()[0] - total);
     f(ui);
 }

@@ -1,3 +1,4 @@
+pub(crate) mod editor;
 pub(crate) mod engine;
 pub(crate) mod events;
 pub(crate) mod runtime;
