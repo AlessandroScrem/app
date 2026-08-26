@@ -24,6 +24,7 @@ pub struct UiContext<'a> {
     pub statistics: Option<&'a EditorStatisticsData>,
     pub transform_edit: &'a mut Option<(EntityId, TransformData)>,
     pub editor_interaction: &'a EditorInteraction,
+    pub focus_properties: &'a mut bool,
 }
 
 pub struct UiLayer {
@@ -42,6 +43,7 @@ pub struct UiLayer {
     latest_queries: HashMap<QuerySlot, QueryId>,
     transform_edit: Option<(EntityId, TransformData)>,
     editor_interaction: EditorInteraction,
+    focus_properties: bool,
 }
 
 struct UiStack { layers: Vec<Box<dyn Layer>> }
@@ -60,7 +62,6 @@ impl Layer for UiStack {
 struct ViewportUi;
 impl Layer for ViewportUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        if ui.io().want_capture_mouse || ui.io().want_capture_keyboard { return; }
         let EditorInteraction::Selecting { start, current } = *ctx.editor_interaction else { return; };
         let scale = ui.io().display_framebuffer_scale;
         let start = [start.x / scale[0], start.y / scale[1]];
@@ -91,7 +92,7 @@ impl UiLayer {
             context, platform, ini_loaded: false, timestep: crate::timestep::Timestep::new(), stack: ui,
             adapter_string, connection, hierarchy: None, selection: Vec::new(), inspector: None,
             settings: None, statistics: None, latest_queries: HashMap::new(), transform_edit: None,
-            editor_interaction: EditorInteraction::None,
+            editor_interaction: EditorInteraction::None, focus_properties: false,
         }
     }
     pub fn want_capture_mouse(&self) -> bool { self.context.io().want_capture_mouse }
@@ -112,9 +113,7 @@ impl UiLayer {
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
-        if let Some(entity) = self.selection.first().copied() {
-            self.request(QuerySlot::Inspector, Query::Inspector { entity });
-        }
+        if let Some(entity) = self.selection.first().copied() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }
     }
     fn process_connection(&mut self) {
         while let Some(response) = self.connection.try_recv_response() {
@@ -123,7 +122,9 @@ impl UiLayer {
                 (QuerySlot::Hierarchy, QueryResult::Hierarchy(data)) => self.hierarchy = Some(data),
                 (QuerySlot::Selection, QueryResult::Selection(selection)) => {
                     self.selection = selection;
-                    if let Some(entity) = self.selection.first().copied() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); } else { self.inspector = None; }
+                    if self.transform_edit.is_none() {
+                        if let Some(entity) = self.selection.first().copied() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); } else { self.inspector = None; }
+                    }
                 }
                 (QuerySlot::Inspector, QueryResult::Inspector(data)) => {
                     if self.transform_edit.is_none() { self.inspector = data; }
@@ -138,8 +139,10 @@ impl UiLayer {
                 EditorEvent::SceneChanged | EditorEvent::EntityCreated { .. } | EditorEvent::EntityDeleted { .. } => self.invalidate_all(),
                 EditorEvent::SelectionChanged { entities } => {
                     self.selection = entities;
-                    self.inspector = None;
-                    if let Some(entity) = self.selection.first().copied() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }
+                    if self.transform_edit.is_none() {
+                        self.inspector = None;
+                        if let Some(entity) = self.selection.first().copied() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }
+                    }
                 }
                 EditorEvent::TransformChanged { entity, transform } => {
                     if let Some((editing_entity, local)) = &mut self.transform_edit {
@@ -148,7 +151,7 @@ impl UiLayer {
                 }
                 EditorEvent::NameChanged { entity, .. } | EditorEvent::LightChanged { entity } => {
                     self.latest_queries.remove(&QuerySlot::Inspector);
-                    if self.selection.first().copied() == Some(entity) { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }
+                    if self.selection.first().copied() == Some(entity) && self.transform_edit.is_none() { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }
                     self.latest_queries.remove(&QuerySlot::Hierarchy);
                     self.request(QuerySlot::Hierarchy, Query::Hierarchy);
                 }
@@ -176,7 +179,9 @@ impl UiLayer {
     pub fn build(&mut self, window: &Window) {
         self.process_connection();
         self.begin_frame(window);
+        if self.focus_properties { self.context.io_mut().nav_window = std::ptr::null_mut(); }
         let ui = self.context.frame();
+        if self.focus_properties { ui.set_next_window_focus(); }
         ui.dockspace_over_main_viewport();
         let hierarchy = self.hierarchy.as_ref();
         let inspector = self.inspector.as_ref();
@@ -185,6 +190,7 @@ impl UiLayer {
         let selection = &self.selection;
         let editor_interaction = &self.editor_interaction;
         let mut transform_edit = self.transform_edit.take();
+        let mut focus_properties = self.focus_properties;
         let mut ctx = UiContext {
             connection: &mut self.connection,
             hierarchy,
@@ -194,9 +200,11 @@ impl UiLayer {
             statistics,
             transform_edit: &mut transform_edit,
             editor_interaction,
+            focus_properties: &mut focus_properties,
         };
         self.stack.build(ui, &mut ctx);
         self.transform_edit = transform_edit;
+        self.focus_properties = focus_properties;
         self.platform.prepare_render(ui, window);
         self.end_frame();
     }
