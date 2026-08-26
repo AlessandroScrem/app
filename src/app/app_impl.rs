@@ -56,7 +56,7 @@ impl EditorBackend for App {
         if settings_changed { events.push(EditorEvent::SettingsChanged); } events
     }
     fn editor_scene_revision(&self) -> u64 { self.editor_scene_revision }
-    fn editor_selection(&self) -> Vec<EntityId> { if !self.multiselct.is_empty() { self.multiselct.clone() } else { self.selected.map(|e| e.as_raw_u64()).into_iter().collect() } }
+    fn editor_selection(&self) -> Vec<EntityId> { if !self.multiselct.is_empty() { self.multiselct.iter().copied().collect() } else { self.selected.map(|e| e.as_raw_u64()).into_iter().collect() } }
     fn editor_entities(&self) -> Vec<EntityId> { let mut query = <Entity>::query(); query.iter(&self.current_scene.world).map(|e| e.as_raw_u64()).collect() }
 }
 
