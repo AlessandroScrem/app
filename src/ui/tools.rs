@@ -5,6 +5,7 @@ macro_rules!  text_fmt {
 };
 }
 
+#[allow(dead_code)]
 pub fn disabled<F>(ui: &imgui::Ui, func: F)
 where
     F: FnOnce(),

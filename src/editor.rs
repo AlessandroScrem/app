@@ -4,14 +4,17 @@ use std::sync::mpsc::{self, Receiver, Sender};
 pub type EntityId = u64;
 pub type QueryId = u64;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Query { Hierarchy, Entity { entity: EntityId }, Children { parent: EntityId }, Inspector { entity: EntityId }, Selection, Settings, Statistics }
 #[derive(Clone, Debug)]
 pub struct QueryRequest { pub id: QueryId, pub query: Query }
 #[derive(Clone, Debug)]
 pub struct QueryResponse { pub id: QueryId, pub result: QueryResult }
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum QueryResult { Hierarchy(HierarchyData), Entity(Option<EntityData>), Children(Vec<EntityData>), Inspector(Option<InspectorData>), Selection(Vec<EntityId>), Settings(EditorSettingsData), Statistics(EditorStatisticsData) }
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct EntityData { pub id: EntityId, pub name: String }
 #[derive(Clone, Debug, Default)]
@@ -30,10 +33,12 @@ pub struct LightData { pub position: [f32; 3], pub color: [f32; 3], pub enabled:
 pub struct TransformData { pub translation: [f32; 3], pub rotation: [f32; 3], pub scale: [f32; 3] }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EditorStatisticsData { pub fps: f32, pub frametime: f32, pub adapter_name: String, pub root_nodes: usize, pub opaque_draw_calls: u32, pub opaque_instances: u32, pub transmission_draw_calls: u32, pub transmission_instances: u32 }
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct EditorSettingsData { pub light_enable: bool, pub ibl_enable: bool, pub skybox_enable: bool, pub skybox_enable_blur: bool, pub axis_enable: bool, pub bbox_enable: bool, pub bbox_axis_aligned: bool, pub mips_cp: bool, pub env_rotation: f32, pub debug_code: u32, pub exposure: f32, pub ibl_intensity: f32, pub tonemap_filter: u32, pub camera_fov: f32, pub camera_distance: f32, pub camera_near: f32, pub camera_far: f32, pub adapter_name: String, pub fps: f32, pub frametime: f32, pub root_nodes: usize, pub opaque_draw_calls: usize, pub opaque_instances: usize, pub transmission_draw_calls: usize, pub transmission_instances: usize }
 #[derive(Clone, Debug)]
 pub enum EditorCommand { Select { entities: Vec<EntityId> }, SetTransform { entity: EntityId, transform: TransformData }, SetName { entity: EntityId, name: String }, SetLight { entity: EntityId, light: LightData }, Delete { entities: Vec<EntityId> }, BeginTransformEdit { entity: EntityId }, EndTransformEdit { entity: EntityId }, AddLight, AddParent { entity: EntityId }, SetEntityEnabled { entity: EntityId, enabled: bool }, LoadGltf { path: std::path::PathBuf }, OpenScene { path: std::path::PathBuf }, SaveScene, SaveSceneAs { path: std::path::PathBuf }, ClearScene, Exit, SetLightEnable(bool), SetIblEnable(bool), SetSkyboxEnable(bool), SetSkyboxBlur(bool), SetAxisEnable(bool), SetBoundingBoxEnable(bool), SetBoundingBoxAxisAligned(bool), SetMipsWithCompute(bool), SetEnvironmentRotation(f32), SetDebugCode(u32), SetExposure(f32), SetIblIntensity(f32), SetTonemap(u32), RecenterCamera, SetCameraFov(f32), SetCameraDistance(f32), SetCameraNearFar { near: f32, far: f32 }, AddIbl { path: std::path::PathBuf } }
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum EditorEvent { EntityCreated { entity: EntityId }, EntityDeleted { entity: EntityId }, TransformChanged { entity: EntityId, transform: TransformData }, NameChanged { entity: EntityId, name: String }, LightChanged { entity: EntityId }, SelectionChanged { entities: Vec<EntityId> }, SceneChanged, SettingsChanged, StatisticsChanged }
 #[derive(Clone)]

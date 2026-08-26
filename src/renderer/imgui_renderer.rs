@@ -10,6 +10,7 @@ use wgpu::*;
 // registro imgui separato
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
+    #[allow(dead_code)]
     pub framebuffer_ids: HashMap<FramebufferKind, imgui::TextureId>,
     pub shadowmap_id: Option<imgui::TextureId>,
 }

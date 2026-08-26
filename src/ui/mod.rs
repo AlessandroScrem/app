@@ -10,6 +10,4 @@ pub(crate) use traits::{InternalCounter, UiTexture, UiTextureResolver};
 pub(crate) use ui_layer::{EditorInteraction, UiContext, UiLayer};
 
 use entity_list::EntityListUi;
-use menu_bar::MenuBarUi;
 use properties::PropertyUi;
-use settings::SettingsUi;
