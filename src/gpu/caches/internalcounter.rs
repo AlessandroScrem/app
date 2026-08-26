@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct GpuInternalCounters {
     pub textures: GpuResourceStats,
@@ -7,6 +8,7 @@ pub struct GpuInternalCounters {
     pub ibl: GpuResourceStats,
 }
 
+#[allow(dead_code)]
 pub trait HasGpuStats {
     fn get_stats(&self) -> GpuResourceStats;
 }
@@ -32,4 +34,3 @@ impl GpuResourceStats {
         self
     }
 }
-

@@ -36,6 +36,7 @@ pub enum SelectionEvent {
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
+    #[allow(dead_code)]
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {

@@ -33,6 +33,7 @@ pub struct UiLayer {
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
+    #[allow(dead_code)]
     adapter_string: String,
     pub connection: EditorConnection,
     hierarchy: Option<HierarchyData>,

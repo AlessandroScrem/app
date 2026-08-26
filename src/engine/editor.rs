@@ -16,5 +16,7 @@ impl EditorService {
     }
     fn respond<B: EditorBackend>(&self, backend: &B, request: QueryRequest) { let result = match &request.query { Query::Statistics => QueryResult::Statistics(self.statistics.clone()), _ => backend.query(&request.query) }; let _ = self.channels.response_tx.send(QueryResponse { id: request.id, result }); }
 }
+#[allow(dead_code)]
 pub(crate) fn select_command(entities: &[EntityId], bus: &mut EventBus) { let entity = entities.first().copied().map(crate::EntityRawU64::from_raw_u64); bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(entity))); bus.send_domain(DomainEvent::Selection(SelectionEvent::SelectMulti(entities.to_vec()))); }
+#[allow(dead_code)]
 pub(crate) fn set_transform_command(entity: EntityId, transform: crate::editor::TransformData, bus: &mut EventBus) { let entity = crate::EntityRawU64::from_raw_u64(entity); let transform = crate::ecs::components::TransformComponent { position: transform.translation, rotation: transform.rotation, scale: transform.scale }; bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(entity, transform))); }

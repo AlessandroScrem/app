@@ -12,10 +12,12 @@ pub enum UiTexture {
     ShadowMap,
 }
 
+#[allow(dead_code)]
 pub trait UiTextureResolver {
     fn resolve(&self, tex: UiTexture) -> Option<ImguiTextureId>;
 }
 
+#[allow(dead_code)]
 pub trait InternalCounter {
     fn internal_counter(&self) -> GpuInternalCounters;
 }

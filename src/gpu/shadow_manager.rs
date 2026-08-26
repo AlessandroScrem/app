@@ -25,6 +25,7 @@ pub struct ShadowManager {
     bindgroup: BindGroup,
     shadow_map: GpuTexture, //max layer = MAX_SHADOWS
     layer_views: Vec<wgpu::TextureView>,
+    #[allow(dead_code)]
     stats: GpuResourceStats,
 }
 
