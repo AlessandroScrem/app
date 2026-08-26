@@ -8,14 +8,13 @@ impl Layer for PropertyUi {
         let focus = *ctx.focus_properties;
         *ctx.focus_properties = false;
 
-        let mut window = ui
-            .window("Properties")
-            .size([420.0, 560.0], Condition::FirstUseEver);
-        if focus {
-            window = window.focused(true);
-        }
+        ui.window("Properties")
+            .size([420.0, 560.0], Condition::FirstUseEver)
+            .build(|| draw_inspector(ui, ctx));
 
-        window.build(|| draw_inspector(ui, ctx));
+        if focus {
+            ui.set_window_focus(Some("Properties"));
+        }
     }
 }
 
