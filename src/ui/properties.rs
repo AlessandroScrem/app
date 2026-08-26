@@ -25,24 +25,42 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
     }
 
     if ui.collapsing_header("Transform", TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP) {
-        let translation_changed = Drag::new("Translation").speed(0.1).build_array(ui, &mut transform.translation);
-        let translation_active = ui.is_item_active();
-        let rotation_changed = Drag::new("Rotation").speed(0.01).build_array(ui, &mut transform.rotation);
-        let rotation_active = ui.is_item_active();
-        let scale_changed = Drag::new("Scale").speed(0.1).build_array(ui, &mut transform.scale);
-        let scale_active = ui.is_item_active();
-        let changed = translation_changed || rotation_changed || scale_changed;
-        let active = translation_active || rotation_active || scale_active;
+        let mut began = false;
+        let mut ended = false;
+
+        let changed_translation = Drag::new("Translation").speed(0.1).build_array(ui, &mut transform.translation);
+        let active_translation = ui.is_item_active();
+        let activated_translation = ui.is_item_activated();
+        let deactivated_translation = ui.is_item_deactivated_after_edit();
+        let changed_rotation = Drag::new("Rotation").speed(0.01).build_array(ui, &mut transform.rotation);
+        let active_rotation = ui.is_item_active();
+        let activated_rotation = ui.is_item_activated();
+        let deactivated_rotation = ui.is_item_deactivated_after_edit();
+        let changed_scale = Drag::new("Scale").speed(0.1).build_array(ui, &mut transform.scale);
+        let active_scale = ui.is_item_active();
+        let activated_scale = ui.is_item_activated();
+        let deactivated_scale = ui.is_item_deactivated_after_edit();
+
+        let changed = changed_translation || changed_rotation || changed_scale;
+        let active = active_translation || active_rotation || active_scale;
+        let activated = activated_translation || activated_rotation || activated_scale;
+        let deactivated = deactivated_translation || deactivated_rotation || deactivated_scale;
         let editing_same_entity = ctx.transform_edit.as_ref().is_some_and(|(entity, _)| *entity == inspector.entity);
 
-        if active {
-            if !editing_same_entity { ctx.connection.commands.send(EditorCommand::BeginTransformEdit { entity: inspector.entity }); }
+        if activated || (active && !editing_same_entity) {
+            ctx.connection.commands.send(EditorCommand::BeginTransformEdit { entity: inspector.entity });
+            began = true;
+        }
+        if active || changed {
             *ctx.transform_edit = Some((inspector.entity, transform.clone()));
             if changed { ctx.connection.commands.send(EditorCommand::SetTransform { entity: inspector.entity, transform: transform.clone() }); }
-        } else if editing_same_entity {
+        }
+        if deactivated && (editing_same_entity || began) {
             ctx.connection.commands.send(EditorCommand::EndTransformEdit { entity: inspector.entity });
             *ctx.transform_edit = None;
+            ended = true;
         }
+        let _ = ended;
 
         ui.separator();
         if ui.small_button("Reset Transform") {
@@ -55,12 +73,18 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         ui.same_line();
         if ui.small_button("Reset Position") {
             transform.translation = [0.0; 3];
+            ctx.connection.commands.send(EditorCommand::BeginTransformEdit { entity: inspector.entity });
             ctx.connection.commands.send(EditorCommand::SetTransform { entity: inspector.entity, transform: transform.clone() });
+            ctx.connection.commands.send(EditorCommand::EndTransformEdit { entity: inspector.entity });
+            *ctx.transform_edit = None;
         }
         ui.same_line();
         if ui.small_button("Reset Rotation") {
             transform.rotation = [0.0; 3];
+            ctx.connection.commands.send(EditorCommand::BeginTransformEdit { entity: inspector.entity });
             ctx.connection.commands.send(EditorCommand::SetTransform { entity: inspector.entity, transform: transform.clone() });
+            ctx.connection.commands.send(EditorCommand::EndTransformEdit { entity: inspector.entity });
+            *ctx.transform_edit = None;
         }
     }
 
