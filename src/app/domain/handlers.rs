@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::app::domain::events::*;
 use crate::app::*;
 use crate::assets::IblAsset;
@@ -98,7 +100,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         EntityEvent::RemoveEntity(entity) => {
             hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
             app.selected = None;
-            app.multiselct.retain(|id| *id != entity.as_raw_u64());
+            app.multiselct.remove(&entity.as_raw_u64());
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::AddParent(entity) => {
@@ -161,9 +163,20 @@ pub fn handle_asset_event(app: &mut App, event: AssetEvent, bus: &mut EventBus) 
 pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut EventBus) {
     match event {
         SelectionEvent::Hovered(entity) => app.hovered = entity,
-        SelectionEvent::Select(entity) => app.selected = entity,
-        SelectionEvent::SelectMulti(entities) => app.multiselct = entities,
-        SelectionEvent::SelectHovered => app.selected = app.hovered,
+        SelectionEvent::Select(entity) => {
+            app.selected = entity;
+            app.multiselct.clear();
+            if let Some(entity) = entity { app.multiselct.insert(entity.as_raw_u64()); }
+        }
+        SelectionEvent::SelectMulti(entities) => {
+            app.multiselct = entities.into_iter().collect::<HashSet<_>>();
+            app.selected = app.multiselct.iter().copied().next().map(EntityRawU64::from_raw_u64);
+        }
+        SelectionEvent::SelectHovered => {
+            app.selected = app.hovered;
+            app.multiselct.clear();
+            if let Some(entity) = app.hovered { app.multiselct.insert(entity.as_raw_u64()); }
+        }
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);
             bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
