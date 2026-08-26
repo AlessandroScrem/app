@@ -26,11 +26,11 @@ impl Layer for EntityListUi {
             let mut action = None;
             ui.text("Meshes");
             ui.separator();
-            for node in hierarchy.nodes.iter().filter(|node| node.parent.is_none() && !node.is_light) { draw_node(ui, node, hierarchy, &mut selection, &mut action); }
+            for node in hierarchy.nodes.iter().filter(|node| node.parent.is_none() && !node.is_light) { draw_node(ui, node, hierarchy, &mut selection, &mut action, ctx); }
             ui.separator();
             ui.text("Lights");
             ui.separator();
-            for node in hierarchy.nodes.iter().filter(|node| node.is_light) { draw_light_node(ui, node, &mut selection, &mut action); }
+            for node in hierarchy.nodes.iter().filter(|node| node.is_light) { draw_light_node(ui, node, &mut selection, &mut action, ctx); }
             if selection != old_selection { ctx.connection.commands.send(EditorCommand::Select { entities: selection.iter().copied().collect() }); }
             if let Some(command) = action { ctx.connection.commands.send(command); }
             if ui.is_window_hovered() && !ui.is_any_item_hovered() && ui.is_mouse_clicked(MouseButton::Left) { ctx.connection.commands.send(EditorCommand::Select { entities: Vec::new() }); }
@@ -49,7 +49,7 @@ fn toolbar(ui: &Ui, ctx: &mut UiContext) {
     if ui.is_item_hovered() { ui.tooltip_text("Clear selection"); }
 }
 
-fn draw_node(ui: &Ui, node: &HierarchyNode, hierarchy: &HierarchyData, selection: &mut HashSet<EntityId>, action: &mut Option<EditorCommand>) {
+fn draw_node(ui: &Ui, node: &HierarchyNode, hierarchy: &HierarchyData, selection: &mut HashSet<EntityId>, action: &mut Option<EditorCommand>, ctx: &mut UiContext) {
     let is_selected = selection.contains(&node.entity);
     let children: Vec<&HierarchyNode> = hierarchy.nodes.iter().filter(|child| child.parent == Some(node.entity) && !child.is_light).collect();
     let flags = (if children.is_empty() { TreeNodeFlags::LEAF } else { TreeNodeFlags::empty() }) | if is_selected { TreeNodeFlags::SELECTED } else { TreeNodeFlags::empty() };
@@ -57,18 +57,18 @@ fn draw_node(ui: &Ui, node: &HierarchyNode, hierarchy: &HierarchyData, selection
     let _disabled = (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
     let opened = ui.tree_node_config(format!("{icon} {}##{}", node.name, node.entity)).flags(flags).default_open(true).push();
     handle_selection_click(ui, node.entity, selection);
-    row_icons(ui, node, action);
-    if let Some(_token) = opened { for child in children { draw_node(ui, child, hierarchy, selection, action); } }
+    row_icons(ui, node, action, ctx);
+    if let Some(_token) = opened { for child in children { draw_node(ui, child, hierarchy, selection, action, ctx); } }
     context_menu(ui, node.entity, action);
 }
 
-fn draw_light_node(ui: &Ui, node: &HierarchyNode, selection: &mut HashSet<EntityId>, action: &mut Option<EditorCommand>) {
+fn draw_light_node(ui: &Ui, node: &HierarchyNode, selection: &mut HashSet<EntityId>, action: &mut Option<EditorCommand>, ctx: &mut UiContext) {
     let is_selected = selection.contains(&node.entity);
     let flags = TreeNodeFlags::LEAF | if is_selected { TreeNodeFlags::SELECTED } else { TreeNodeFlags::empty() };
     let _disabled = (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
     let _opened = ui.tree_node_config(format!("{ICON_LIGHTBULB} {}##{}", node.name, node.entity)).flags(flags).push();
     handle_selection_click(ui, node.entity, selection);
-    row_icons(ui, node, action);
+    row_icons(ui, node, action, ctx);
     context_menu(ui, node.entity, action);
 }
 
@@ -78,7 +78,7 @@ fn handle_selection_click(ui: &Ui, entity: EntityId, selection: &mut HashSet<Ent
     if ctrl { if !selection.remove(&entity) { selection.insert(entity); } } else { selection.clear(); selection.insert(entity); }
 }
 
-fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>) {
+fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>, ctx: &mut UiContext) {
     right_icons(ui, |ui| {
         if ui.small_button(format!("{ICON_EYE}##eye{}", node.entity)) { *action = Some(EditorCommand::SetEntityEnabled { entity: node.entity, enabled: !node.visible }); }
         if ui.is_item_hovered() { ui.tooltip_text(if node.visible { "Hide" } else { "Show" }); }
@@ -89,7 +89,10 @@ fn row_icons(ui: &Ui, node: &HierarchyNode, action: &mut Option<EditorCommand>) 
         if ui.small_button(format!("{ICON_TRASH}##delete{}", node.entity)) { *action = Some(EditorCommand::Delete { entities: vec![node.entity] }); }
         if ui.is_item_hovered() { ui.tooltip_text("Delete entity"); }
         ui.same_line();
-        if ui.small_button(format!("{ICON_GEAR}##properties{}", node.entity)) { *action = Some(EditorCommand::Select { entities: vec![node.entity] }); }
+        if ui.small_button(format!("{ICON_GEAR}##properties{}", node.entity)) {
+            *action = Some(EditorCommand::Select { entities: vec![node.entity] });
+            *ctx.focus_properties = true;
+        }
         if ui.is_item_hovered() { ui.tooltip_text("Properties"); }
     });
 }
