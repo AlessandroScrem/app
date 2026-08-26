@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::BoundingBox;
 use crate::Camera;
+use crate::EntityRawU64;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
