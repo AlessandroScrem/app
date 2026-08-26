@@ -146,6 +146,9 @@ impl UiLayer {
                     }
                 }
                 EditorEvent::TransformChanged { entity, transform } => {
+                    if let Some(inspector) = &mut self.inspector {
+                        if inspector.entity == entity { inspector.transform = transform.clone(); }
+                    }
                     if let Some((editing_entity, local)) = &mut self.transform_edit {
                         if *editing_entity == entity { *local = transform; }
                     } else { self.request(QuerySlot::Inspector, Query::Inspector { entity }); }

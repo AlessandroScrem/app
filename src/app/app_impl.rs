@@ -2,7 +2,7 @@ use super::{App, Application, HasAssetMgr};
 use crate::app::Settings;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::SelectionEvent::SelectIbl;
-use crate::app::domain::events::{AssetEvent, CameraEvent, DomainEvent, EntityEvent, GlobalEvent, SceneEvent, SelectionEvent};
+use crate::app::domain::events::{AssetEvent, CameraEvent, DomainEvent, EntityEvent, GlobalEvent, SceneEvent};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::ibl_asset::IblAsset;
 use crate::assets::TextureAsset;
@@ -30,8 +30,8 @@ impl EditorBackend for App {
         let settings_changed = matches!(&command, EditorCommand::SetLightEnable(_) | EditorCommand::SetIblEnable(_) | EditorCommand::SetSkyboxEnable(_) | EditorCommand::SetSkyboxBlur(_) | EditorCommand::SetAxisEnable(_) | EditorCommand::SetBoundingBoxEnable(_) | EditorCommand::SetBoundingBoxAxisAligned(_) | EditorCommand::SetMipsWithCompute(_) | EditorCommand::SetEnvironmentRotation(_) | EditorCommand::SetDebugCode(_) | EditorCommand::SetExposure(_) | EditorCommand::SetIblIntensity(_) | EditorCommand::SetTonemap(_) | EditorCommand::RecenterCamera | EditorCommand::SetCameraFov(_) | EditorCommand::SetCameraDistance(_) | EditorCommand::SetCameraNearFar { .. } | EditorCommand::AddIbl { .. });
         let mut events = Vec::new();
         match command {
-            EditorCommand::Select { entities } => { let entity = entities.first().copied().map(EntityRawU64::from_raw_u64); bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(entity))); bus.send_domain(DomainEvent::Selection(SelectionEvent::SelectMulti(entities))); }
-            EditorCommand::SetTransform { entity, transform } => { bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(EntityRawU64::from_raw_u64(entity), TransformComponent { position: transform.translation, rotation: transform.rotation, scale: transform.scale }))); events.push(EditorEvent::TransformChanged { entity, transform }); }
+            EditorCommand::Select { entities } => { self.selected = entities.first().copied().map(EntityRawU64::from_raw_u64); self.multiselct = entities.into_iter().collect(); }
+            EditorCommand::SetTransform { entity, transform } => { if let Ok(mut e) = self.current_scene.world.entry_mut(EntityRawU64::from_raw_u64(entity)) { if let Ok(t) = e.get_component_mut::<TransformComponent>() { *t = TransformComponent { position: transform.translation, rotation: transform.rotation, scale: transform.scale }; } } self.current_scene.update_scene(bus, &self.globals); events.push(EditorEvent::TransformChanged { entity, transform }); }
             EditorCommand::SetName { entity, name } => { bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTag(EntityRawU64::from_raw_u64(entity), TagComponent { name: name.clone() }))); events.push(EditorEvent::NameChanged { entity, name }); }
             EditorCommand::SetLight { entity, light } => {
                 let e = EntityRawU64::from_raw_u64(entity);
@@ -56,7 +56,7 @@ impl EditorBackend for App {
         if settings_changed { events.push(EditorEvent::SettingsChanged); } events
     }
     fn editor_scene_revision(&self) -> u64 { self.editor_scene_revision }
-    fn editor_selection(&self) -> Vec<EntityId> { if !self.multiselct.is_empty() { self.multiselct.iter().copied().collect() } else { self.selected.map(|e| e.as_raw_u64()).into_iter().collect() } }
+    fn editor_selection(&self) -> Vec<EntityId> { let Some(selected) = self.selected.map(|e| e.as_raw_u64()) else { return Vec::new(); }; let mut entities = vec![selected]; entities.extend(self.multiselct.iter().copied().filter(|entity| *entity != selected)); entities }
     fn editor_entities(&self) -> Vec<EntityId> { let mut query = <Entity>::query(); query.iter(&self.current_scene.world).map(|e| e.as_raw_u64()).collect() }
 }
 
