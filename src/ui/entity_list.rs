@@ -107,15 +107,7 @@ fn draw_node(
         .iter()
         .filter(|child| child.parent == Some(node.entity) && !child.is_light)
         .collect();
-    let flags = (if children.is_empty() {
-        TreeNodeFlags::LEAF
-    } else {
-        TreeNodeFlags::empty()
-    }) | if is_selected {
-        TreeNodeFlags::SELECTED
-    } else {
-        TreeNodeFlags::empty()
-    };
+
     let icon = if node.parent.is_none() {
         ICON_LAYER_DOT
     } else if is_selected {
@@ -123,15 +115,22 @@ fn draw_node(
     } else {
         ICON_LAYER
     };
+
     let _disabled =
         (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
+
     let opened = ui
         .tree_node_config(format!("{icon} {}##{}", node.name, node.entity))
-        .flags(flags)
-        .default_open(true)
+        .leaf(children.is_empty())
+        .selected(is_selected)
         .push();
+
     handle_selection_click(ui, node.entity, selection);
-    row_icons(ui, node, action, ctx);
+    
+    if node.parent.is_none() {
+        row_icons(ui, node, action, ctx);
+    }
+
     if let Some(_token) = opened {
         for child in children {
             draw_node(ui, child, hierarchy, selection, action, ctx);

@@ -7,6 +7,8 @@ use std::path::PathBuf;
 pub struct MenuBarUi;
 impl Layer for MenuBarUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
+        // let recent_files = &ctx.settings;
+
         if let Some(_bar) = ui.begin_main_menu_bar() {
             if let Some(_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {
@@ -49,6 +51,17 @@ impl Layer for MenuBarUi {
                 if ui.menu_item("Exit") {
                     ctx.connection.commands.send(EditorCommand::Exit);
                 }
+                // ui.separator();
+                // ui.menu("Recent Files", || {
+                //     for item in recent_files.iter() {
+                //         if ui.menu_item(&item.name) {
+                //             ctx.bus.send_domain(Scene(Open(item.path.clone())));
+                //         }
+                //     }
+                //     if recent_files.is_empty() {
+                //         ui.text_disabled("No recent files");
+                //     }
+                // });
             }
             if let Some(_menu) = ui.begin_menu("Edit") {
                 ui.menu_item("Undo");
