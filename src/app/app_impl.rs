@@ -66,7 +66,11 @@ impl Application for App {
             asset_mgr: &self.asset_mgr,
             camera: &self.camera,
             globals: &self.globals,
-            selected: self.selected,
+            selected: if self.selected.len() == 1 {
+                self.selected.iter().next().copied()
+            } else {
+                None
+            },
         }
     }
     fn on_close(&mut self) {
@@ -112,8 +116,10 @@ impl EditorBackend for App {
         let mut events = Vec::new();
         match command {
             EditorCommand::Select { entities } => {
-                self.selected = entities.first().copied().map(EntityRawU64::from_raw_u64);
-                self.multiselct = entities.into_iter().collect();
+                self.selected = entities
+                    .into_iter()
+                    .map(EntityRawU64::from_raw_u64)
+                    .collect();
             }
             EditorCommand::SetTransform { entity, transform } => {
                 if let Ok(mut e) = self
@@ -270,17 +276,10 @@ impl EditorBackend for App {
         self.editor_scene_revision
     }
     fn editor_selection(&self) -> Vec<EntityId> {
-        let Some(selected) = self.selected.map(|e| e.as_raw_u64()) else {
-            return Vec::new();
-        };
-        let mut entities = vec![selected];
-        entities.extend(
-            self.multiselct
-                .iter()
-                .copied()
-                .filter(|entity| *entity != selected),
-        );
-        entities
+        self.selected
+            .iter()
+            .map(EntityRawU64::as_raw_u64)
+            .collect()
     }
     fn editor_entities(&self) -> Vec<EntityId> {
         let mut query = <Entity>::query();
