@@ -106,7 +106,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     match event {
         EntityEvent::RemoveEntity(entity) => {
             hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
-            app.selected.remove(&entity.as_raw_u64());
+            app.selected.remove(&entity);
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::AddParent(entity) => {
