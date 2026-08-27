@@ -90,15 +90,10 @@ impl EditorService {
     }
 }
 #[allow(dead_code)]
-pub(crate) fn select_command(entities: &[EntityId], bus: &mut EventBus) {
-    let entity = entities
-        .first()
-        .copied()
-        .map(crate::EntityRawU64::from_raw_u64);
-    bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(entity)));
-    bus.send_domain(DomainEvent::Selection(SelectionEvent::SelectMulti(
-        entities.to_vec(),
-    )));
+pub(crate) fn select_command(ids: &[EntityId], bus: &mut EventBus) {
+    let entities = ids.to_vec();
+    bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(entities)));
+
 }
 #[allow(dead_code)]
 pub(crate) fn set_transform_command(

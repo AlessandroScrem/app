@@ -4,9 +4,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{
-    Hovered, Select, SelectHovered, SelectIbl, SelectMulti,
-};
+use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::editor::{EditorConnection, EditorStatisticsData};
@@ -150,9 +148,7 @@ impl Runtime {
                     bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
                 }
                 QueryResult::Selection(ids) => {
-                    let primary = ids.first().copied().map(Entity::from_raw_u64);
-                    bus.send_domain(Selection(Select(primary)));
-                    bus.send_domain(Selection(SelectMulti(ids)));
+                    bus.send_domain(Selection(Select(ids)));
                 }
             }
         }
@@ -165,9 +161,7 @@ impl Runtime {
                 (input.mouse_position.x as u32, input.mouse_position.y as u32),
             );
         }
-        if input.is_mouse_button_pressed(MouseButton::Left) && input.is_key_down(KeyButton::Alt) {
-            bus.send_domain(Selection(SelectHovered));
-        }
+
         match self.editor_interaction {
             EditorInteraction::None => {
                 if input.is_mouse_button_pressed(MouseButton::Left)

@@ -176,23 +176,11 @@ pub fn handle_asset_event(app: &mut App, event: AssetEvent, bus: &mut EventBus) 
 pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut EventBus) {
     match event {
         SelectionEvent::Hovered(entity) => app.hovered = entity,
-        SelectionEvent::Select(entity) => {
-            app.selected.clear();
-            if let Some(entity) = entity {
-                app.selected.insert(entity);
-            }
-        }
-        SelectionEvent::SelectMulti(entities) => {
+        SelectionEvent::Select(entities) => {
             app.selected = entities
                 .into_iter()
                 .map(EntityRawU64::from_raw_u64)
                 .collect::<HashSet<_>>();
-        }
-        SelectionEvent::SelectHovered => {
-            app.selected.clear();
-            if let Some(entity) = app.hovered {
-                app.selected.insert(entity);
-            }
         }
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);

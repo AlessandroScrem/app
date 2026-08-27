@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use crate::BoundingBox;
 use crate::Camera;
-use crate::EntityRawU64;
 use crate::app::App;
 use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
@@ -14,10 +13,8 @@ impl App {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
 
-        let bbox = if !self.multiselct.is_empty() {
-            get_bbox_from_entities(world, &self.multiselct)
-        } else if let Some(selected) = self.selected {
-            get_bbox_from_entity(world, selected)
+        let bbox = if !self.selected.is_empty() {
+            get_bbox_from_entities(world, &self.selected)
         } else {
             get_bounding_box_from_world(world)
         };
@@ -26,13 +23,12 @@ impl App {
 
         fn get_bbox_from_entities(
             world: &legion::World,
-            entities: &HashSet<u64>,
+            entities: &HashSet<Entity>,
         ) -> Option<BoundingBox> {
             entities
                 .iter()
-                .filter_map(|id| {
-                    let entity = EntityRawU64::from_raw_u64(*id);
-                    let entry = world.entry_ref(entity).ok()?;
+                .filter_map(|entity| {
+                    let entry = world.entry_ref(*entity).ok()?;
                     entry
                         .get_component::<BoundingBoxComponent>()
                         .ok()
@@ -42,14 +38,6 @@ impl App {
                     bbox.merge(&other);
                     bbox
                 })
-        }
-
-        fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
-            let entry = world.entry_ref(entity).ok()?;
-            entry
-                .get_component::<BoundingBoxComponent>()
-                .ok()
-                .map(|b| b.global_bounding_box.clone())
         }
 
         fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
