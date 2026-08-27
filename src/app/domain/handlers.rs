@@ -45,8 +45,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
     match event {
         SceneEvent::ClearScene => {
             app.current_scene.clear_scene(&mut app.asset_mgr);
-            app.selected = None;
-            app.multiselct.clear();
+            app.selected.clear();
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         SceneEvent::SaveAs(path) => {
@@ -62,8 +61,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
                 .is_ok()
             {
                 app.current_scene.clear_scene(&mut app.asset_mgr);
-                app.selected = None;
-                app.multiselct.clear();
+                app.selected.clear();
                 app.settings.add_recent_file(path.into());
                 app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
             }
@@ -108,8 +106,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
     match event {
         EntityEvent::RemoveEntity(entity) => {
             hierarchy::remove_entity(&mut app.asset_mgr, entity, world);
-            app.selected = None;
-            app.multiselct.remove(&entity.as_raw_u64());
+            app.selected.remove(&entity.as_raw_u64());
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::AddParent(entity) => {
@@ -180,26 +177,21 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
     match event {
         SelectionEvent::Hovered(entity) => app.hovered = entity,
         SelectionEvent::Select(entity) => {
-            app.selected = entity;
-            app.multiselct.clear();
+            app.selected.clear();
             if let Some(entity) = entity {
-                app.multiselct.insert(entity.as_raw_u64());
+                app.selected.insert(entity);
             }
         }
         SelectionEvent::SelectMulti(entities) => {
-            app.multiselct = entities.into_iter().collect::<HashSet<_>>();
-            app.selected = app
-                .multiselct
-                .iter()
-                .copied()
-                .next()
-                .map(EntityRawU64::from_raw_u64);
+            app.selected = entities
+                .into_iter()
+                .map(EntityRawU64::from_raw_u64)
+                .collect::<HashSet<_>>();
         }
         SelectionEvent::SelectHovered => {
-            app.selected = app.hovered;
-            app.multiselct.clear();
+            app.selected.clear();
             if let Some(entity) = app.hovered {
-                app.multiselct.insert(entity.as_raw_u64());
+                app.selected.insert(entity);
             }
         }
         SelectionEvent::SelectIbl(ibl_id) => {
