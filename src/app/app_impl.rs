@@ -147,21 +147,21 @@ impl EditorBackend for App {
             }
             EditorCommand::SetLight { entity, light } => {
                 let e = EntityRawU64::from_raw_u64(entity);
-                let mut component = self
-                    .current_scene
-                    .world
-                    .entry_ref(e)
-                    .ok()
-                    .and_then(|entry| entry.get_component::<LightComponent>().ok().cloned())
-                    .unwrap_or_default();
-                component.color = light.color;
-                component.directional = light.directional;
-                component.cast_shadow = light.cast_shadow;
-                component.entity_id = entity;
-                component.enabled = light.enabled;
-                component.frustum = light.frustum;
-                component.update_position(light.position);
-                bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(e, component)));
+
+                if let Ok(mut entry) = self.current_scene.world.entry_mut(e) {
+                    if let Ok(component) = entry.get_component_mut::<LightComponent>() {
+                        component.color = light.color;
+                        component.directional = light.directional;
+                        component.cast_shadow = light.cast_shadow;
+                        component.entity_id = entity;
+                        component.enabled = light.enabled;
+                        component.frustum = light.frustum;
+                        component.update_position(light.position);
+                    }
+                }
+
+                self.current_scene.update_scene(bus, &self.globals);
+
                 events.push(EditorEvent::LightChanged { entity, light });
             }
             EditorCommand::Delete { entities } => {
