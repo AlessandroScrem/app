@@ -122,6 +122,8 @@ fn draw_node(
     let opened = ui
         .tree_node_config(format!("{icon} {}##{}", node.name, node.entity))
         .leaf(children.is_empty())
+        .open_on_arrow(true)
+        .open_on_double_click(true)
         .selected(is_selected)
         .push();
 
@@ -183,7 +185,7 @@ fn row_icons(
     ui: &Ui,
     node: &HierarchyNode,
     action: &mut Option<EditorCommand>,
-    ctx: &mut UiContext,
+    _ctx: &mut UiContext,
 ) {
     right_icons(ui, |ui| {
         if ui.small_button(format!("{ICON_EYE}##eye{}", node.entity)) {
@@ -220,7 +222,6 @@ fn row_icons(
             *action = Some(EditorCommand::Select {
                 entities: vec![node.entity],
             });
-            *ctx.focus_properties = true;
         }
         if ui.is_item_hovered() {
             ui.tooltip_text("Properties");

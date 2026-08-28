@@ -36,7 +36,6 @@ pub struct UiContext<'a> {
     pub statistics: Option<&'a EditorStatisticsData>,
     pub transform_edit: &'a mut Option<(EntityId, TransformData)>,
     pub editor_interaction: &'a EditorInteraction,
-    pub focus_properties: &'a mut bool,
 }
 
 pub struct UiLayer {
@@ -56,7 +55,6 @@ pub struct UiLayer {
     latest_queries: HashMap<QuerySlot, QueryId>,
     transform_edit: Option<(EntityId, TransformData)>,
     editor_interaction: EditorInteraction,
-    focus_properties: bool,
 }
 
 struct UiStack {
@@ -138,7 +136,6 @@ impl UiLayer {
             latest_queries: HashMap::new(),
             transform_edit: None,
             editor_interaction: EditorInteraction::None,
-            focus_properties: false,
         }
     }
     pub fn want_capture_mouse(&self) -> bool {
@@ -237,7 +234,7 @@ impl UiLayer {
                 }
                 EditorEvent::NameChanged { entity, .. } | EditorEvent::LightChanged { entity } => {
                     self.latest_queries.remove(&QuerySlot::Inspector);
-                    if self.selection.first().copied() == Some(entity)
+                    if [entity] == *self.selection.as_slice()
                         && self.transform_edit.is_none()
                     {
                         self.request(QuerySlot::Inspector, Query::Inspector { entity });
@@ -298,7 +295,6 @@ impl UiLayer {
         let selection = &self.selection;
         let editor_interaction = &self.editor_interaction;
         let mut transform_edit = self.transform_edit.take();
-        let mut focus_properties = self.focus_properties;
         let mut ctx = UiContext {
             connection: &mut self.connection,
             hierarchy,
@@ -308,11 +304,9 @@ impl UiLayer {
             statistics,
             transform_edit: &mut transform_edit,
             editor_interaction,
-            focus_properties: &mut focus_properties,
         };
         self.stack.build(ui, &mut ctx);
         self.transform_edit = transform_edit;
-        self.focus_properties = focus_properties;
         self.platform.prepare_render(ui, window);
         self.end_frame();
     }

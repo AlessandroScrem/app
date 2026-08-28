@@ -5,15 +5,9 @@ use imgui::*;
 pub struct PropertyUi;
 impl Layer for PropertyUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let focus = *ctx.focus_properties;
-        *ctx.focus_properties = false;
-
-        let mut window = ui
+        let window = ui
             .window("Properties")
             .size([420.0, 560.0], Condition::FirstUseEver);
-        if focus {
-            window = window.focused(true);
-        }
 
         window.build(|| draw_inspector(ui, ctx));
     }
@@ -51,7 +45,10 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
         let mut name = inspector.name.clone();
-        if ui.input_text("Name", &mut name).build() && name != inspector.name {
+        if ui.input_text("Name", &mut name).build()
+            && name != inspector.name
+            && ui.is_item_deactivated_after_edit()
+        {
             ctx.connection.commands.send(EditorCommand::SetName {
                 entity: inspector.entity,
                 name,
