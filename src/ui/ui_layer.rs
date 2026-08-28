@@ -167,18 +167,27 @@ impl UiLayer {
         self.latest_queries.insert(slot, id);
     }
     fn invalidate_all(&mut self) {
+        let editing_inspector = self.is_editing_inspector();
+
         self.hierarchy = None;
-        self.inspector = None;
+        if !editing_inspector {
+            self.inspector = None;
+        }
+
         self.settings = None;
         self.statistics = None;
+
         self.latest_queries.clear();
+
         self.request(QuerySlot::Hierarchy, Query::Hierarchy);
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
-        if let [entity] = *self.selection.as_slice() {
-            println!("Selection len: {}", self.selection.len());
-            self.request(QuerySlot::Inspector, Query::Inspector { entity });
+
+        if !editing_inspector {
+            if let [entity] = *self.selection.as_slice() {
+                self.request(QuerySlot::Inspector, Query::Inspector { entity });
+            }
         }
     }
     fn process_connection(&mut self) {
@@ -221,7 +230,6 @@ impl UiLayer {
                     self.selection = entities;
                     if !self.is_editing_inspector() {
                         if let [entity] = *self.selection.as_slice() {
-                            println!("Selection len: {}", self.selection.len());
                             self.request(QuerySlot::Inspector, Query::Inspector { entity });
                         }
                     }
