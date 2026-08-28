@@ -168,7 +168,8 @@ impl UiLayer {
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
-        if let Some(entity) = self.selection.first().copied() {
+        if let [entity] = *self.selection.as_slice() {
+            println!("Selection len: {}", self.selection.len());
             self.request(QuerySlot::Inspector, Query::Inspector { entity });
         }
     }
@@ -214,7 +215,8 @@ impl UiLayer {
                     self.selection = entities;
                     if self.transform_edit.is_none() {
                         self.inspector = None;
-                        if let Some(entity) = self.selection.first().copied() {
+                        if let [entity] = *self.selection.as_slice() {
+                            println!("Selection len: {}", self.selection.len());
                             self.request(QuerySlot::Inspector, Query::Inspector { entity });
                         }
                     }

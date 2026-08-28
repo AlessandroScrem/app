@@ -21,9 +21,13 @@ impl Layer for PropertyUi {
 
 fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
     let Some(inspector) = ctx.inspector else {
-        ui.text("No entity selected");
+        ui.text(format!("{} entities selected", ctx.selection.len()));
+        for entity in ctx.selection.iter() {
+            ui.text(format!("Entity: {}", entity));
+        }
         return;
     };
+
     ui.text(format!("{}  [#{}]", inspector.name, inspector.entity));
     ui.separator();
 
