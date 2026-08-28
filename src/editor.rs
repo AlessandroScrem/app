@@ -4,6 +4,18 @@ use std::sync::mpsc::{self, Receiver, Sender};
 pub type EntityId = u64;
 pub type QueryId = u64;
 
+#[derive(Clone, Debug)]
+pub struct EditorEdit<K, T> {
+    pub key: K,
+    pub value: T,
+}
+
+impl<K, T> EditorEdit<K, T> {
+    pub fn new(key: K, value: T) -> Self {
+        Self { key, value }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Query {

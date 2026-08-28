@@ -1,5 +1,5 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditorCommand, LightData, TransformData};
+use crate::editor::{EditorCommand, EditorEdit, LightData, TransformData};
 use imgui::*;
 
 pub struct PropertyUi;
@@ -28,31 +28,55 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
     if ctx
         .transform_edit
         .as_ref()
-        .is_some_and(|(entity, _)| *entity != inspector.entity)
+        .is_some_and(|edit| edit.key != inspector.entity)
     {
         *ctx.transform_edit = None;
     }
 
-    let mut transform = ctx
-        .transform_edit
+    if ctx
+        .light_edit
         .as_ref()
-        .filter(|(entity, _)| *entity == inspector.entity)
-        .map(|(_, t)| t.clone())
-        .unwrap_or_else(|| inspector.transform.clone());
+        .is_some_and(|edit| edit.key != inspector.entity)
+    {
+        *ctx.light_edit = None;
+    }
+
+    if ctx
+        .name_edit
+        .as_ref()
+        .is_some_and(|edit| edit.key != inspector.entity)
+    {
+        *ctx.name_edit = None;
+    }
 
     if ui.collapsing_header(
         "Tag",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
-        let mut name = inspector.name.clone();
-        if ui.input_text("Name", &mut name).build()
-            && name != inspector.name
-            && ui.is_item_deactivated_after_edit()
-        {
+        let mut name = ctx
+            .name_edit
+            .as_ref()
+            .filter(|edit| edit.key == inspector.entity)
+            .map(|edit| edit.value.clone())
+            .unwrap_or_else(|| inspector.name.clone());
+
+        let changed = ui.input_text("Name", &mut name).build();
+        let active = ui.is_item_active();
+        let activated = ui.is_item_activated();
+        let deactivated = ui.is_item_deactivated();
+
+        if activated {
+            *ctx.name_edit = Some(EditorEdit::new(inspector.entity, name.clone()));
+        }
+
+        if active || changed {
             ctx.connection.commands.send(EditorCommand::SetName {
                 entity: inspector.entity,
-                name,
+                name: name.clone(),
             });
+        }
+        if deactivated {
+            *ctx.name_edit = None;
         }
     }
 
@@ -60,6 +84,13 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
+        let mut transform = ctx
+            .transform_edit
+            .as_ref()
+            .filter(|edit| edit.key == inspector.entity)
+            .map(|edit| edit.value.clone())
+            .unwrap_or_else(|| inspector.transform.clone());
+
         let translation_changed = Drag::new("Translation")
             .speed(0.1)
             .build_array(ui, &mut transform.translation);
@@ -88,7 +119,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         let editing_same_entity = ctx
             .transform_edit
             .as_ref()
-            .is_some_and(|(entity, _)| *entity == inspector.entity);
+            .is_some_and(|edit| edit.key == inspector.entity);
 
         if activated || (active && !editing_same_entity) {
             ctx.connection
@@ -99,7 +130,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         }
 
         if active || changed || editing_same_entity {
-            *ctx.transform_edit = Some((inspector.entity, transform.clone()));
+            *ctx.transform_edit = Some(EditorEdit::new(inspector.entity, transform.clone()));
             if changed {
                 ctx.connection.commands.send(EditorCommand::SetTransform {
                     entity: inspector.entity,
@@ -203,21 +234,101 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
     if !ui.collapsing_header("Light", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }
-    let mut light = source.clone();
-    let mut changed = false;
-    changed |= Drag::new("Position")
+
+    let mut light = ctx
+        .light_edit
+        .as_ref()
+        .filter(|edit| edit.key == entity)
+        .map(|edit| edit.value.clone())
+        .unwrap_or_else(|| source.clone());
+
+    let position_changed = Drag::new("Position")
         .speed(0.1)
         .build_array(ui, &mut light.position);
-    changed |= ui.color_edit3("Color", &mut light.color);
-    changed |= ui.checkbox("Enabled", &mut light.enabled);
-    changed |= ui.checkbox("Directional", &mut light.directional);
-    changed |= ui.checkbox("Cast Shadow", &mut light.cast_shadow);
+    let position_active = ui.is_item_active();
+    let position_activated = ui.is_item_activated();
+    let position_deactivated = ui.is_item_deactivated_after_edit();
+
+    let color_changed = ui.color_edit3("Color", &mut light.color);
+    let color_active = ui.is_item_active();
+    let color_activated = ui.is_item_activated();
+    let color_deactivated = ui.is_item_deactivated_after_edit();
+
+    let enabled_changed = ui.checkbox("Enabled", &mut light.enabled);
+    let enabled_active = ui.is_item_active();
+    let enabled_activated = ui.is_item_activated();
+    let enabled_deactivated = ui.is_item_deactivated_after_edit();
+
+    let directional_changed = ui.checkbox("Directional", &mut light.directional);
+    let directional_active = ui.is_item_active();
+    let directional_activated = ui.is_item_activated();
+    let directional_deactivated = ui.is_item_deactivated_after_edit();
+
+    let cast_shadow_changed = ui.checkbox("Cast Shadow", &mut light.cast_shadow);
+    let cast_shadow_active = ui.is_item_active();
+    let cast_shadow_activated = ui.is_item_activated();
+    let cast_shadow_deactivated = ui.is_item_deactivated_after_edit();
+
+    let mut frustum_changed = false;
+    let mut frustum_active = false;
+    let mut frustum_activated = false;
+    let mut frustum_deactivated = false;
+
     if light.cast_shadow {
-        changed |= ui.checkbox("Frustum", &mut light.frustum);
+        frustum_changed = ui.checkbox("Frustum", &mut light.frustum);
+        frustum_active = ui.is_item_active();
+        frustum_activated = ui.is_item_activated();
+        frustum_deactivated = ui.is_item_deactivated_after_edit();
     }
-    if changed {
-        ctx.connection
-            .commands
-            .send(EditorCommand::SetLight { entity, light });
+
+    let changed = position_changed
+        || color_changed
+        || enabled_changed
+        || directional_changed
+        || cast_shadow_changed
+        || frustum_changed;
+
+    let active = position_active
+        || color_active
+        || enabled_active
+        || directional_active
+        || cast_shadow_active
+        || frustum_active;
+
+    let activated = position_activated
+        || color_activated
+        || enabled_activated
+        || directional_activated
+        || cast_shadow_activated
+        || frustum_activated;
+
+    let deactivated = position_deactivated
+        || color_deactivated
+        || enabled_deactivated
+        || directional_deactivated
+        || cast_shadow_deactivated
+        || frustum_deactivated;
+
+    let editing_same_entity = ctx
+        .light_edit
+        .as_ref()
+        .is_some_and(|edit| edit.key == entity);
+
+    if activated || (active && !editing_same_entity) {
+        *ctx.light_edit = Some(EditorEdit::new(entity, source.clone()));
+    }
+
+    if active || changed || editing_same_entity {
+        *ctx.light_edit = Some(EditorEdit::new(entity, light.clone()));
+
+        if changed {
+            ctx.connection
+                .commands
+                .send(EditorCommand::SetLight { entity, light });
+        }
+    }
+
+    if deactivated && editing_same_entity {
+        *ctx.light_edit = None;
     }
 }
