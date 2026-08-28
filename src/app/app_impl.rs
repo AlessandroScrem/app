@@ -276,10 +276,7 @@ impl EditorBackend for App {
         self.editor_scene_revision
     }
     fn editor_selection(&self) -> Vec<EntityId> {
-        self.selected
-            .iter()
-            .map(EntityRawU64::as_raw_u64)
-            .collect()
+        self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
     }
     fn editor_entities(&self) -> Vec<EntityId> {
         let mut query = <Entity>::query();
@@ -335,6 +332,20 @@ impl App {
                 is_light,
             });
         }
+        let mut query = <(Entity, &LightComponent)>::query();
+        for (entity, light) in query.iter(&self.current_scene.world) {
+            let name = self
+                .entity_data(entity.as_raw_u64())
+                .map(|d| d.name)
+                .unwrap_or_else(|| "<unnamed>".into());
+            nodes.push(HierarchyNode {
+                entity: entity.as_raw_u64(),
+                parent: None,
+                name,
+                visible: light.enabled,
+                is_light: true,
+            });
+        }
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
         HierarchyData { nodes }
     }
@@ -366,7 +377,21 @@ impl App {
             .get_component::<TagComponent>()
             .map(|tag| tag.name.clone())
             .unwrap_or_else(|_| "<unnamed>".into());
-        let transform = entry.get_component::<TransformComponent>().ok()?.clone();
+        let transform = {
+            if let Some(t) = entry.get_component::<TransformComponent>().ok() {
+                TransformData {
+                    translation: t.position,
+                    rotation: t.rotation,
+                    scale: t.scale,
+                }
+            } else {
+                TransformData {
+                    translation: [0.0, 0.0, 0.0],
+                    rotation: [0.0, 0.0, 0.0],
+                    scale: [1.0, 1.0, 1.0],
+                }
+            }
+        };
         let mesh = entry
             .get_component::<MeshComponent>()
             .ok()
@@ -396,11 +421,7 @@ impl App {
         Some(InspectorData {
             entity: id,
             name,
-            transform: TransformData {
-                translation: transform.position,
-                rotation: transform.rotation,
-                scale: transform.scale,
-            },
+            transform,
             mesh,
             bounding_box,
             light,
