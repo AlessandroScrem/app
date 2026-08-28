@@ -230,6 +230,7 @@ pub enum EditorEvent {
     },
     LightChanged {
         entity: EntityId,
+        light: LightData,
     },
     SelectionChanged {
         entities: Vec<EntityId>,

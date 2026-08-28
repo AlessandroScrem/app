@@ -162,7 +162,7 @@ impl EditorBackend for App {
                 component.frustum = light.frustum;
                 component.update_position(light.position);
                 bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(e, component)));
-                events.push(EditorEvent::LightChanged { entity });
+                events.push(EditorEvent::LightChanged { entity, light });
             }
             EditorCommand::Delete { entities } => {
                 for entity in entities {
