@@ -1,8 +1,52 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
-    EditValue, EditorCommand, EditorEdit, InspectorData, LightData, TransformData,
+    EditValue, EditorCommand, EditorEdit, EntityId, InspectorData, LightData, TransformData,
 };
 use imgui::*;
+
+impl UiContext<'_> {
+    fn edit(&self, entity: EntityId) -> Option<&EditValue> {
+        self.edit
+            .as_ref()
+            .filter(|edit| edit.key == entity)
+            .map(|edit| &edit.value)
+    }
+
+    pub fn is_editing(&self, entity: EntityId) -> bool {
+        self.edit.as_ref().is_some_and(|edit| edit.key == entity)
+    }
+
+    pub fn begin_edit(&mut self, entity: EntityId, value: EditValue) {
+        *self.edit = Some(EditorEdit::new(entity, value));
+    }
+
+    pub fn end_edit(&mut self) {
+        *self.edit = None;
+    }
+}
+
+impl EditValue {
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            Self::Name(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn transform(&self) -> Option<&TransformData> {
+        match self {
+            Self::Transform(value) => Some(value),
+            _ => None,
+        }
+    }
+    #[allow(dead_code)]
+    pub fn light(&self) -> Option<&LightData> {
+        match self {
+            Self::Light(value) => Some(value),
+            _ => None,
+        }
+    }
+}
 
 pub struct PropertyUi;
 impl Layer for PropertyUi {
@@ -27,12 +71,8 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
     ui.text(format!("{}  [#{}]", inspector.name, inspector.entity));
     ui.separator();
 
-    if ctx
-        .edit
-        .as_ref()
-        .is_some_and(|edit| edit.key != inspector.entity)
-    {
-        *ctx.edit = None;
+    if !ctx.is_editing(inspector.entity) {
+        ctx.end_edit();
     }
 
     draw_inspector_name(ui, ctx, inspector);
@@ -59,41 +99,36 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
 }
 
 fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) {
-    if ui.collapsing_header(
+    if !ui.collapsing_header(
         "Tag",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
-        let mut name = ctx
-            .edit
-            .as_ref()
-            .filter(|edit| edit.key == inspector.entity)
-            .and_then(|edit| match &edit.value {
-                EditValue::Name(name) => Some(name.clone()),
-                _ => None,
-            })
-            .unwrap_or_else(|| inspector.name.clone());
+        return;
+    }
 
-        let changed = ui.input_text("Name", &mut name).build();
-        let active = ui.is_item_active();
-        let activated = ui.is_item_activated();
-        let deactivated = ui.is_item_deactivated();
+    let mut name = ctx
+        .edit(inspector.entity)
+        .and_then(EditValue::name)
+        .unwrap_or(&inspector.name.clone())
+        .to_owned();
 
-        if activated {
-            *ctx.edit = Some(EditorEdit::new(
-                inspector.entity,
-                EditValue::Name(name.clone()),
-            ));
-        }
+    let changed = ui.input_text("Name", &mut name).build();
+    let active = ui.is_item_active();
+    let activated = ui.is_item_activated();
+    let deactivated = ui.is_item_deactivated();
 
-        if active || changed {
-            ctx.connection.commands.send(EditorCommand::SetName {
-                entity: inspector.entity,
-                name: name.clone(),
-            });
-        }
-        if deactivated {
-            *ctx.edit = None;
-        }
+    if activated {
+        ctx.begin_edit(inspector.entity, EditValue::Name(name.clone()));
+    }
+
+    if active || changed {
+        ctx.connection.commands.send(EditorCommand::SetName {
+            entity: inspector.entity,
+            name: name.clone(),
+        });
+    }
+    if deactivated {
+        ctx.end_edit();
     }
 }
 
@@ -102,138 +137,107 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
-        let mut transform = ctx
-            .edit
-            .as_ref()
-            .filter(|edit| edit.key == inspector.entity)
-            .and_then(|edit| match &edit.value {
-                EditValue::Transform(transform) => Some(transform.clone()),
-                _ => None,
-            })
-            .unwrap_or_else(|| inspector.transform.clone());
+        return;
+    }
 
-        let translation_changed = Drag::new("Translation")
-            .speed(0.1)
-            .build_array(ui, &mut transform.translation);
-        let translation_active = ui.is_item_active();
-        let translation_activated = ui.is_item_activated();
-        let translation_deactivated = ui.is_item_deactivated_after_edit();
+    let mut transform = ctx
+        .edit(inspector.entity)
+        .and_then(EditValue::transform)
+        .unwrap_or(&inspector.transform.clone())
+        .to_owned();
 
-        let rotation_changed = Drag::new("Rotation")
-            .speed(0.01)
-            .build_array(ui, &mut transform.rotation);
-        let rotation_active = ui.is_item_active();
-        let rotation_activated = ui.is_item_activated();
-        let rotation_deactivated = ui.is_item_deactivated_after_edit();
+    let translation_changed = Drag::new("Translation")
+        .speed(0.1)
+        .build_array(ui, &mut transform.translation);
+    let translation_active = ui.is_item_active();
+    let translation_activated = ui.is_item_activated();
+    let translation_deactivated = ui.is_item_deactivated_after_edit();
 
-        let scale_changed = Drag::new("Scale")
-            .speed(0.1)
-            .build_array(ui, &mut transform.scale);
-        let scale_active = ui.is_item_active();
-        let scale_activated = ui.is_item_activated();
-        let scale_deactivated = ui.is_item_deactivated_after_edit();
+    let rotation_changed = Drag::new("Rotation")
+        .speed(0.01)
+        .build_array(ui, &mut transform.rotation);
+    let rotation_active = ui.is_item_active();
+    let rotation_activated = ui.is_item_activated();
+    let rotation_deactivated = ui.is_item_deactivated_after_edit();
 
-        let changed = translation_changed || rotation_changed || scale_changed;
-        let active = translation_active || rotation_active || scale_active;
-        let activated = translation_activated || rotation_activated || scale_activated;
-        let deactivated = translation_deactivated || rotation_deactivated || scale_deactivated;
-        let editing_same_entity = ctx
-            .edit
-            .as_ref()
-            .is_some_and(|edit| edit.key == inspector.entity);
+    let scale_changed = Drag::new("Scale")
+        .speed(0.1)
+        .build_array(ui, &mut transform.scale);
+    let scale_active = ui.is_item_active();
+    let scale_activated = ui.is_item_activated();
+    let scale_deactivated = ui.is_item_deactivated_after_edit();
 
-        if activated || (active && !editing_same_entity) {
-            ctx.connection
-                .commands
-                .send(EditorCommand::BeginTransformEdit {
-                    entity: inspector.entity,
-                });
-        }
+    let changed = translation_changed || rotation_changed || scale_changed;
+    let active = translation_active || rotation_active || scale_active;
+    let activated = translation_activated || rotation_activated || scale_activated;
+    let deactivated = translation_deactivated || rotation_deactivated || scale_deactivated;
+    let editing_same_entity = ctx.is_editing(inspector.entity);
 
-        if active || changed || editing_same_entity {
-            *ctx.edit = Some(EditorEdit::new(
-                inspector.entity,
-                EditValue::Transform(transform.clone()),
-            ));
-            if changed {
-                ctx.connection.commands.send(EditorCommand::SetTransform {
-                    entity: inspector.entity,
-                    transform: transform.clone(),
-                });
-            }
-        }
-
-        if deactivated && editing_same_entity {
-            ctx.connection
-                .commands
-                .send(EditorCommand::EndTransformEdit {
-                    entity: inspector.entity,
-                });
-            *ctx.edit = None;
-        }
-
-        ui.separator();
-        if ui.small_button("Reset Transform") {
-            let identity = TransformData {
-                translation: [0.0; 3],
-                rotation: [0.0; 3],
-                scale: [1.0; 3],
-            };
-            ctx.connection
-                .commands
-                .send(EditorCommand::BeginTransformEdit {
-                    entity: inspector.entity,
-                });
-            ctx.connection.commands.send(EditorCommand::SetTransform {
+    if activated || (active && !editing_same_entity) {
+        ctx.connection
+            .commands
+            .send(EditorCommand::BeginTransformEdit {
                 entity: inspector.entity,
-                transform: identity,
             });
-            ctx.connection
-                .commands
-                .send(EditorCommand::EndTransformEdit {
-                    entity: inspector.entity,
-                });
-            *ctx.edit = None;
-        }
-        ui.same_line();
-        if ui.small_button("Reset Position") {
-            transform.translation = [0.0; 3];
-            ctx.connection
-                .commands
-                .send(EditorCommand::BeginTransformEdit {
-                    entity: inspector.entity,
-                });
+    }
+
+    if active || changed || editing_same_entity {
+        ctx.begin_edit(inspector.entity, EditValue::Transform(transform.clone()));
+
+        if changed {
             ctx.connection.commands.send(EditorCommand::SetTransform {
                 entity: inspector.entity,
                 transform: transform.clone(),
             });
-            ctx.connection
-                .commands
-                .send(EditorCommand::EndTransformEdit {
-                    entity: inspector.entity,
-                });
-            *ctx.edit = None;
-        }
-        ui.same_line();
-        if ui.small_button("Reset Rotation") {
-            transform.rotation = [0.0; 3];
-            ctx.connection
-                .commands
-                .send(EditorCommand::BeginTransformEdit {
-                    entity: inspector.entity,
-                });
-            ctx.connection.commands.send(EditorCommand::SetTransform {
-                entity: inspector.entity,
-                transform: transform.clone(),
-            });
-            ctx.connection
-                .commands
-                .send(EditorCommand::EndTransformEdit {
-                    entity: inspector.entity,
-                });
-            *ctx.edit = None;
         }
     }
+
+    if deactivated && editing_same_entity {
+        ctx.connection
+            .commands
+            .send(EditorCommand::EndTransformEdit {
+                entity: inspector.entity,
+            });
+        ctx.end_edit();
+    }
+
+    ui.separator();
+    if ui.small_button("Reset Transform") {
+        let identity = TransformData {
+            translation: [0.0; 3],
+            rotation: [0.0; 3],
+            scale: [1.0; 3],
+        };
+        reset_transform(ctx, inspector.entity, identity);
+    }
+
+    ui.same_line();
+    if ui.small_button("Reset Position") {
+        transform.translation = [0.0; 3];
+        reset_transform(ctx, inspector.entity, transform.clone());
+    }
+
+    ui.same_line();
+    if ui.small_button("Reset Rotation") {
+        transform.rotation = [0.0; 3];
+        reset_transform(ctx, inspector.entity, transform.clone());
+    }
+}
+
+fn reset_transform(ctx: &mut UiContext, entity: EntityId, transform: TransformData) {
+    ctx.connection
+        .commands
+        .send(EditorCommand::BeginTransformEdit { entity });
+
+    ctx.connection
+        .commands
+        .send(EditorCommand::SetTransform { entity, transform });
+
+    ctx.connection
+        .commands
+        .send(EditorCommand::EndTransformEdit { entity });
+
+    ctx.end_edit();
 }
 
 fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
@@ -318,14 +322,14 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         || cast_shadow_deactivated
         || frustum_deactivated;
 
-    let editing_same_entity = ctx.edit.as_ref().is_some_and(|edit| edit.key == entity);
+    let editing_same_entity = ctx.is_editing(entity);
 
-    if activated || (active && !editing_same_entity) {
-        *ctx.edit = Some(EditorEdit::new(entity, EditValue::Light(source.clone())));
+    if activated || (active && !editing_same_entity){
+        ctx.begin_edit(entity, EditValue::Light(source.clone()));
     }
 
     if active || changed || editing_same_entity {
-        *ctx.edit = Some(EditorEdit::new(entity, EditValue::Light(light.clone())));
+        ctx.begin_edit(entity, EditValue::Light(light.clone()));
 
         if changed {
             ctx.connection
@@ -335,6 +339,6 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
     }
 
     if deactivated && editing_same_entity {
-        *ctx.edit = None;
+        ctx.end_edit();
     }
 }
