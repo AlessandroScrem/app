@@ -1,7 +1,7 @@
 use super::*;
 use crate::editor::{
-    EditorConnection, EditorEdit, EditorEvent, EditorSettingsData, EditorStatisticsData, EntityId,
-    HierarchyData, InspectorData, LightData, Query, QueryId, QueryResult, TransformData,
+    EditValue, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
 };
 use imgui::*;
 use imgui_winit_support::WinitPlatform;
@@ -34,9 +34,7 @@ pub struct UiContext<'a> {
     pub inspector: Option<&'a InspectorData>,
     pub settings: Option<&'a EditorSettingsData>,
     pub statistics: Option<&'a EditorStatisticsData>,
-    pub transform_edit: &'a mut Option<EditorEdit<EntityId, TransformData>>,
-    pub light_edit: &'a mut Option<EditorEdit<EntityId, LightData>>,
-    pub name_edit: &'a mut Option<EditorEdit<EntityId, String>>,
+    pub edit: &'a mut  Option<EditorEdit<EntityId, EditValue>>,
     pub editor_interaction: &'a EditorInteraction,
 }
 
@@ -55,9 +53,7 @@ pub struct UiLayer {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
     latest_queries: HashMap<QuerySlot, QueryId>,
-    transform_edit: Option<EditorEdit<EntityId, TransformData>>,
-    light_edit: Option<EditorEdit<EntityId, LightData>>,
-    name_edit: Option<EditorEdit<EntityId, String>>,
+    edit: Option<EditorEdit<EntityId, EditValue>>,
     editor_interaction: EditorInteraction,
 }
 
@@ -138,9 +134,7 @@ impl UiLayer {
             settings: None,
             statistics: None,
             latest_queries: HashMap::new(),
-            transform_edit: None,
-            light_edit: None,
-            name_edit: None,
+            edit: None,
             editor_interaction: EditorInteraction::None,
         }
     }
@@ -159,7 +153,7 @@ impl UiLayer {
     }
 
     fn is_editing_inspector(&self) -> bool {
-        self.transform_edit.is_some() || self.light_edit.is_some() || self.name_edit.is_some()
+        self.edit.is_some()
     }
 
     fn request(&mut self, slot: QuerySlot, query: Query) {
@@ -240,22 +234,30 @@ impl UiLayer {
                             inspector.transform = transform.clone();
                         }
                     }
-                    if let Some(edit) = &mut self.transform_edit {
+                    if let Some(edit) = &mut self.edit {
                         if edit.key == entity {
-                            edit.value = transform;
+                            if let EditValue::Transform(current) = &mut edit.value {
+                                *current = transform;
+                            }
                         }
                     } else {
                         self.request(QuerySlot::Inspector, Query::Inspector { entity });
                     }
                 }
-                EditorEvent::NameChanged { entity, .. }  => {
-                    if !self.is_editing_inspector() && [entity] == *self.selection.as_slice() {
-                        self.latest_queries.remove(&QuerySlot::Inspector);
-                        self.request(QuerySlot::Inspector, Query::Inspector { entity });
+                EditorEvent::NameChanged { entity, name } => {
+                    if let Some(inspector) = &mut self.inspector {
+                        if inspector.entity == entity {
+                            inspector.name = name.clone();
+                        }
                     }
 
-                    self.latest_queries.remove(&QuerySlot::Hierarchy);
-                    self.request(QuerySlot::Hierarchy, Query::Hierarchy);
+                    if let Some(edit) = &mut self.edit {
+                        if edit.key == entity {
+                            if let EditValue::Name(current) = &mut edit.value {
+                                *current = name;
+                            }
+                        }
+                    }
                 }
                 EditorEvent::LightChanged { entity, light } => {
                     if let Some(inspector) = &mut self.inspector {
@@ -264,9 +266,11 @@ impl UiLayer {
                         }
                     }
 
-                    if let Some(edit) = &mut self.light_edit {
+                    if let Some(edit) = &mut self.edit {
                         if edit.key == entity {
-                            edit.value = light;
+                            if let EditValue::Light(current) = &mut edit.value {
+                                *current = light;
+                            }
                         }
                     }
                 }
@@ -322,9 +326,7 @@ impl UiLayer {
         let statistics = self.statistics.as_ref();
         let selection = &self.selection;
         let editor_interaction = &self.editor_interaction;
-        let mut transform_edit = self.transform_edit.take();
-        let mut light_edit = self.light_edit.take();
-        let mut name_edit = self.name_edit.take();
+        let mut edit = self.edit.take();
         let mut ctx = UiContext {
             connection: &mut self.connection,
             hierarchy,
@@ -332,15 +334,11 @@ impl UiLayer {
             inspector,
             settings,
             statistics,
-            transform_edit: &mut transform_edit,
-            light_edit: &mut light_edit,
-            name_edit: &mut name_edit,
+            edit: &mut edit,
             editor_interaction,
         };
         self.stack.build(ui, &mut ctx);
-        self.transform_edit = transform_edit;
-        self.light_edit = light_edit;
-        self.name_edit = name_edit;
+        self.edit = edit;
         self.platform.prepare_render(ui, window);
         self.end_frame();
     }

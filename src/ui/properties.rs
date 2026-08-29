@@ -1,5 +1,5 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditorCommand, EditorEdit, LightData, TransformData};
+use crate::editor::{EditValue, EditorCommand, EditorEdit, LightData, TransformData};
 use imgui::*;
 
 pub struct PropertyUi;
@@ -26,38 +26,26 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
     ui.separator();
 
     if ctx
-        .transform_edit
+        .edit
         .as_ref()
         .is_some_and(|edit| edit.key != inspector.entity)
     {
-        *ctx.transform_edit = None;
+        *ctx.edit = None;
     }
 
-    if ctx
-        .light_edit
-        .as_ref()
-        .is_some_and(|edit| edit.key != inspector.entity)
-    {
-        *ctx.light_edit = None;
-    }
-
-    if ctx
-        .name_edit
-        .as_ref()
-        .is_some_and(|edit| edit.key != inspector.entity)
-    {
-        *ctx.name_edit = None;
-    }
 
     if ui.collapsing_header(
         "Tag",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
         let mut name = ctx
-            .name_edit
+            .edit
             .as_ref()
             .filter(|edit| edit.key == inspector.entity)
-            .map(|edit| edit.value.clone())
+            .and_then(|edit| match &edit.value {
+                EditValue::Name(name) => Some(name.clone()),
+                _ => None,
+            })
             .unwrap_or_else(|| inspector.name.clone());
 
         let changed = ui.input_text("Name", &mut name).build();
@@ -66,7 +54,10 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         let deactivated = ui.is_item_deactivated();
 
         if activated {
-            *ctx.name_edit = Some(EditorEdit::new(inspector.entity, name.clone()));
+            *ctx.edit = Some(EditorEdit::new(
+                inspector.entity,
+                EditValue::Name(name.clone()),
+            ));
         }
 
         if active || changed {
@@ -76,7 +67,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
             });
         }
         if deactivated {
-            *ctx.name_edit = None;
+            *ctx.edit = None;
         }
     }
 
@@ -85,10 +76,13 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
         let mut transform = ctx
-            .transform_edit
+            .edit
             .as_ref()
             .filter(|edit| edit.key == inspector.entity)
-            .map(|edit| edit.value.clone())
+            .and_then(|edit| match &edit.value {
+                EditValue::Transform(transform) => Some(transform.clone()),
+                _ => None,
+            })
             .unwrap_or_else(|| inspector.transform.clone());
 
         let translation_changed = Drag::new("Translation")
@@ -117,7 +111,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         let activated = translation_activated || rotation_activated || scale_activated;
         let deactivated = translation_deactivated || rotation_deactivated || scale_deactivated;
         let editing_same_entity = ctx
-            .transform_edit
+            .edit
             .as_ref()
             .is_some_and(|edit| edit.key == inspector.entity);
 
@@ -130,7 +124,10 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         }
 
         if active || changed || editing_same_entity {
-            *ctx.transform_edit = Some(EditorEdit::new(inspector.entity, transform.clone()));
+            *ctx.edit = Some(EditorEdit::new(
+                inspector.entity,
+                EditValue::Transform(transform.clone()),
+            ));
             if changed {
                 ctx.connection.commands.send(EditorCommand::SetTransform {
                     entity: inspector.entity,
@@ -145,7 +142,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
                 .send(EditorCommand::EndTransformEdit {
                     entity: inspector.entity,
                 });
-            *ctx.transform_edit = None;
+            *ctx.edit = None;
         }
 
         ui.separator();
@@ -169,7 +166,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
                 .send(EditorCommand::EndTransformEdit {
                     entity: inspector.entity,
                 });
-            *ctx.transform_edit = None;
+            *ctx.edit = None;
         }
         ui.same_line();
         if ui.small_button("Reset Position") {
@@ -188,7 +185,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
                 .send(EditorCommand::EndTransformEdit {
                     entity: inspector.entity,
                 });
-            *ctx.transform_edit = None;
+            *ctx.edit = None;
         }
         ui.same_line();
         if ui.small_button("Reset Rotation") {
@@ -207,7 +204,7 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
                 .send(EditorCommand::EndTransformEdit {
                     entity: inspector.entity,
                 });
-            *ctx.transform_edit = None;
+            *ctx.edit = None;
         }
     }
 
@@ -236,10 +233,13 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
     }
 
     let mut light = ctx
-        .light_edit
+        .edit
         .as_ref()
         .filter(|edit| edit.key == entity)
-        .map(|edit| edit.value.clone())
+        .and_then(|edit| match &edit.value {
+            EditValue::Light(light) => Some(light.clone()),
+            _ => None,
+        })
         .unwrap_or_else(|| source.clone());
 
     let position_changed = Drag::new("Position")
@@ -310,16 +310,16 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         || frustum_deactivated;
 
     let editing_same_entity = ctx
-        .light_edit
+        .edit
         .as_ref()
         .is_some_and(|edit| edit.key == entity);
 
     if activated || (active && !editing_same_entity) {
-        *ctx.light_edit = Some(EditorEdit::new(entity, source.clone()));
+        *ctx.edit = Some(EditorEdit::new(entity, EditValue::Light(source.clone())));
     }
 
     if active || changed || editing_same_entity {
-        *ctx.light_edit = Some(EditorEdit::new(entity, light.clone()));
+        *ctx.edit = Some(EditorEdit::new(entity, EditValue::Light(light.clone())));
 
         if changed {
             ctx.connection
@@ -329,6 +329,6 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
     }
 
     if deactivated && editing_same_entity {
-        *ctx.light_edit = None;
+        *ctx.edit = None;
     }
 }

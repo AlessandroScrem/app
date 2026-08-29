@@ -16,6 +16,13 @@ impl<K, T> EditorEdit<K, T> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum EditValue {
+    Transform(TransformData),
+    Light(LightData),
+    Name(String),
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Query {
