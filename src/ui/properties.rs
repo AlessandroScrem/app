@@ -1,5 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditValue, EditorCommand, EditorEdit, LightData, TransformData};
+use crate::editor::{
+    EditValue, EditorCommand, EditorEdit, InspectorData, LightData, TransformData,
+};
 use imgui::*;
 
 pub struct PropertyUi;
@@ -33,7 +35,30 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
         *ctx.edit = None;
     }
 
+    draw_inspector_name(ui, ctx, inspector);
 
+    draw_inspector_transform(ui, ctx, inspector);
+
+    if let Some(mesh) = &inspector.mesh {
+        if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+            ui.text(format!("Mesh: {}", mesh.id));
+        }
+    }
+    if let Some(bbox) = &inspector.bounding_box {
+        if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
+            ui.text(format!("Local min: {:?}", bbox.min));
+            ui.text(format!("Local max: {:?}", bbox.max));
+            ui.separator();
+            ui.text(format!("Global min: {:?}", bbox.global_min));
+            ui.text(format!("Global max: {:?}", bbox.global_max));
+        }
+    }
+    if let Some(light) = &inspector.light {
+        draw_light(ui, ctx, inspector.entity, light);
+    }
+}
+
+fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) {
     if ui.collapsing_header(
         "Tag",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -70,7 +95,9 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
             *ctx.edit = None;
         }
     }
+}
 
+fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) {
     if ui.collapsing_header(
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -207,24 +234,6 @@ fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
             *ctx.edit = None;
         }
     }
-
-    if let Some(mesh) = &inspector.mesh {
-        if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-            ui.text(format!("Mesh: {}", mesh.id));
-        }
-    }
-    if let Some(bbox) = &inspector.bounding_box {
-        if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
-            ui.text(format!("Local min: {:?}", bbox.min));
-            ui.text(format!("Local max: {:?}", bbox.max));
-            ui.separator();
-            ui.text(format!("Global min: {:?}", bbox.global_min));
-            ui.text(format!("Global max: {:?}", bbox.global_max));
-        }
-    }
-    if let Some(light) = &inspector.light {
-        draw_light(ui, ctx, inspector.entity, light);
-    }
 }
 
 fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
@@ -309,10 +318,7 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         || cast_shadow_deactivated
         || frustum_deactivated;
 
-    let editing_same_entity = ctx
-        .edit
-        .as_ref()
-        .is_some_and(|edit| edit.key == entity);
+    let editing_same_entity = ctx.edit.as_ref().is_some_and(|edit| edit.key == entity);
 
     if activated || (active && !editing_same_entity) {
         *ctx.edit = Some(EditorEdit::new(entity, EditValue::Light(source.clone())));

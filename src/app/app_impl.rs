@@ -139,10 +139,14 @@ impl EditorBackend for App {
                 events.push(EditorEvent::TransformChanged { entity, transform });
             }
             EditorCommand::SetName { entity, name } => {
-                bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTag(
-                    EntityRawU64::from_raw_u64(entity),
-                    TagComponent { name: name.clone() },
-                )));
+                let entity_raw = EntityRawU64::from_raw_u64(entity);
+
+                if let Ok(mut entry) = self.current_scene.world.entry_mut(entity_raw) {
+                    if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
+                        tag.name = name.clone();
+                    }
+                }
+
                 events.push(EditorEvent::NameChanged { entity, name });
             }
             EditorCommand::SetLight { entity, light } => {
