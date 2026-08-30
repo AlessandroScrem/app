@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use winit::event::Event;
 use winit::window::Window;
 
-
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 enum QuerySlot {
     Hierarchy,
@@ -73,7 +72,7 @@ impl Layer for UiStack {
 
 #[derive(Debug, Default, Clone)]
 struct ViewportUi {
-    click_pos: Option<[f32;2]>,
+    click_pos: Option<[f32; 2]>,
 }
 
 impl Layer for ViewportUi {
@@ -113,7 +112,7 @@ impl Layer for ViewportUi {
                     ctx.connection
                         .commands
                         .send(EditorCommand::DragSelection(pos, size));
-                    
+
                     self.click_pos = None;
                 }
             }
@@ -182,13 +181,11 @@ impl UiLayer {
         self.latest_queries.insert(slot, id);
     }
     fn invalidate_all(&mut self) {
-        let editing_inspector = self.is_editing_inspector();
-
-        self.hierarchy = None;
-        if !editing_inspector {
+        if !self.is_editing_inspector() {
             self.inspector = None;
         }
 
+        self.hierarchy = None;
         self.settings = None;
         self.statistics = None;
 
@@ -199,7 +196,7 @@ impl UiLayer {
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
 
-        if !editing_inspector {
+        if !self.is_editing_inspector() {
             if let [entity] = *self.selection.as_slice() {
                 self.request(QuerySlot::Inspector, Query::Inspector { entity });
             }
@@ -241,11 +238,14 @@ impl UiLayer {
                 EditorEvent::SceneChanged
                 | EditorEvent::EntityCreated { .. }
                 | EditorEvent::EntityDeleted { .. } => self.invalidate_all(),
+
                 EditorEvent::SelectionChanged { entities } => {
                     self.selection = entities;
                     if !self.is_editing_inspector() {
                         if let [entity] = *self.selection.as_slice() {
                             self.request(QuerySlot::Inspector, Query::Inspector { entity });
+                        } else {
+                            self.inspector = None;
                         }
                     }
                 }
@@ -281,6 +281,7 @@ impl UiLayer {
                         }
                     }
                 }
+
                 EditorEvent::LightChanged { entity, light } => {
                     if let Some(inspector) = &mut self.inspector {
                         if inspector.entity == entity {
