@@ -259,7 +259,7 @@ impl EditorBackend for App {
                 bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera))
             }
             EditorCommand::SetCameraFov(v) => bus.send_domain(DomainEvent::Camera(
-                CameraEvent::CameraFov(cgmath::Rad(v.to_radians())),
+                CameraEvent::CameraFov(v),
             )),
             EditorCommand::SetCameraDistance(v) => {
                 bus.send_domain(DomainEvent::Camera(CameraEvent::CameraDistance(v)))
@@ -447,7 +447,7 @@ impl App {
             exposure: self.globals.exposure,
             ibl_intensity: self.globals.ibl_intensity,
             tonemap_filter: self.globals.tonemap_filter,
-            camera_fov: cgmath::Deg::from(self.camera.get_fov()).0,
+            camera_fov: self.camera.get_fov(),
             camera_distance: self.camera.get_distance(),
             camera_near: near,
             camera_far: far,

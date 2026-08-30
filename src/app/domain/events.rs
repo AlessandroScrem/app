@@ -2,7 +2,6 @@ use crate::assets::gltf_loader::GltfGroup;
 use crate::assets::material_desc::MaterialDesc;
 use crate::assets::{IblId, MaterialId};
 use crate::ecs::components::*;
-use crate::math::*;
 use std::path::PathBuf;
 
 use legion::Entity;
@@ -69,7 +68,7 @@ pub enum CameraEvent {
     CameraPan(f64, f64),
     CameraZoom(f32),
     RecenterCamera,
-    CameraFov(Rad<f32>),
+    CameraFov(f32),
     CameraDistance(f32),
     CameraNearFar((f32, f32)),
 }

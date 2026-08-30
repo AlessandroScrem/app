@@ -61,7 +61,7 @@ impl App {
                 let size = max - min;
                 let fit_offset = 1.1f32;
 
-                let fov = camera.get_fov();
+                let fov = Rad(camera.get_fov().to_radians());
                 let aspect = camera.get_aspect();
                 let max_size = size.magnitude();
                 let fit_height_distance = max_size / Angle::tan(fov);

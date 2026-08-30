@@ -120,7 +120,7 @@ fn draw_node(
         (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
 
     let opened = ui
-        .tree_node_config::<_, String>(TreeNodeId::Str(node.entity.to_string()))
+        .tree_node_config(TreeNodeId::Str(node.entity.to_string()))
         .label::<String, String>(format!("{icon} {}", node.name))
         .leaf(children.is_empty())
         .open_on_arrow(true)

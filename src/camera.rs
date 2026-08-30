@@ -16,14 +16,14 @@ pub struct Camera {
 
 impl Default for Camera {
     fn default() -> Self {
-        const FOV: Deg<f32> = Deg::<f32>(30.0);
+        const FOV: f32 = 30.0;
         Camera::new(FOV, 1.0, 0.1, 100.0)
     }
 }
 
 impl Camera {
-    pub fn new<F: Into<Rad<f32>> + std::marker::Copy>(
-        fov: F,
+    pub fn new(
+        fov: f32,
         aspect: f32,
         near: f32,
         far: f32,
@@ -31,7 +31,7 @@ impl Camera {
         let mut camera = Self {
             position: Vec3::new(0.0, 0.0, 0.0),
             aspect,
-            fov: fov.into(),
+            fov: Rad(fov.to_radians()),
             near,
             far,
             yaw: 0.0,
@@ -114,8 +114,8 @@ impl Camera {
     pub fn get_aspect(&self) -> f32 {
         self.aspect
     }
-    pub fn get_fov(&self) -> Rad<f32> {
-        self.fov
+    pub fn get_fov(&self) -> f32 {
+        self.fov.0.to_degrees()
     }
     pub fn get_near_far(&self) -> (f32, f32) {
         (self.near, self.far)
@@ -131,8 +131,8 @@ impl Camera {
         self.aspect = aspect;
     }
 
-    pub fn set_fov(&mut self, fov: Rad<f32>) {
-        self.fov = fov;
+    pub fn set_fov(&mut self, fov: f32) {
+        self.fov = Rad(fov.to_radians());
     }
 
     pub fn set_near_far(&mut self, near_far: (f32, f32)) {
@@ -228,7 +228,7 @@ mod tests {
     fn test_camera_perspective_is_rh_and_wgpu_compatible() {
         use super::*;
 
-        let fovy = Deg(45.0);
+        let fovy = 45.0;
         let aspect = 1.0;
         let near = 1.0;
         let far = 100.0;
