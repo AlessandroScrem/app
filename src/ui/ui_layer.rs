@@ -245,6 +245,7 @@ impl UiLayer {
                     }
                 }
                 EditorEvent::NameChanged { entity, name } => {
+                    self.request(QuerySlot::Hierarchy, Query::Hierarchy);
                     if let Some(inspector) = &mut self.inspector {
                         if inspector.entity == entity {
                             inspector.name = name.clone();

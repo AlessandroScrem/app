@@ -112,8 +112,7 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
         .unwrap_or(&inspector.name.clone())
         .to_owned();
 
-    let changed = ui.input_text("Name", &mut name).build();
-    let active = ui.is_item_active();
+    let edited = ui.input_text("Name", &mut name).build();
     let activated = ui.is_item_activated();
     let deactivated = ui.is_item_deactivated();
 
@@ -121,12 +120,13 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
         ctx.begin_edit(inspector.entity, EditValue::Name(name.clone()));
     }
 
-    if active || changed {
+    if edited {
         ctx.connection.commands.send(EditorCommand::SetName {
             entity: inspector.entity,
             name: name.clone(),
         });
     }
+    
     if deactivated {
         ctx.end_edit();
     }
@@ -146,34 +146,25 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
         .unwrap_or(&inspector.transform.clone())
         .to_owned();
 
-    let translation_changed = Drag::new("Translation")
-        .speed(0.1)
-        .build_array(ui, &mut transform.translation);
-    let translation_active = ui.is_item_active();
-    let translation_activated = ui.is_item_activated();
-    let translation_deactivated = ui.is_item_deactivated_after_edit();
+    ui.group(|| {
+        Drag::new("Translation")
+            .speed(0.1)
+            .build_array(ui, &mut transform.translation);
+        Drag::new("Rotation")
+            .speed(0.01)
+            .build_array(ui, &mut transform.rotation);
+        Drag::new("Scale")
+            .speed(0.1)
+            .build_array(ui, &mut transform.scale);
+    });
 
-    let rotation_changed = Drag::new("Rotation")
-        .speed(0.01)
-        .build_array(ui, &mut transform.rotation);
-    let rotation_active = ui.is_item_active();
-    let rotation_activated = ui.is_item_activated();
-    let rotation_deactivated = ui.is_item_deactivated_after_edit();
+    let edited = ui.is_item_edited();
+    let activated = ui.is_item_activated();
+    let deactivated = ui.is_item_deactivated_after_edit();
 
-    let scale_changed = Drag::new("Scale")
-        .speed(0.1)
-        .build_array(ui, &mut transform.scale);
-    let scale_active = ui.is_item_active();
-    let scale_activated = ui.is_item_activated();
-    let scale_deactivated = ui.is_item_deactivated_after_edit();
+    if activated {
+        ctx.begin_edit(inspector.entity, EditValue::Transform(transform.clone()));
 
-    let changed = translation_changed || rotation_changed || scale_changed;
-    let active = translation_active || rotation_active || scale_active;
-    let activated = translation_activated || rotation_activated || scale_activated;
-    let deactivated = translation_deactivated || rotation_deactivated || scale_deactivated;
-    let editing_same_entity = ctx.is_editing(inspector.entity);
-
-    if activated || (active && !editing_same_entity) {
         ctx.connection
             .commands
             .send(EditorCommand::BeginTransformEdit {
@@ -181,18 +172,14 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
             });
     }
 
-    if active || changed || editing_same_entity {
-        ctx.begin_edit(inspector.entity, EditValue::Transform(transform.clone()));
-
-        if changed {
-            ctx.connection.commands.send(EditorCommand::SetTransform {
-                entity: inspector.entity,
-                transform: transform.clone(),
-            });
-        }
+    if edited {
+        ctx.connection.commands.send(EditorCommand::SetTransform {
+            entity: inspector.entity,
+            transform: transform.clone(),
+        });
     }
 
-    if deactivated && editing_same_entity {
+    if deactivated {
         ctx.connection
             .commands
             .send(EditorCommand::EndTransformEdit {
@@ -255,90 +242,35 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         })
         .unwrap_or_else(|| source.clone());
 
-    let position_changed = Drag::new("Position")
-        .speed(0.1)
-        .build_array(ui, &mut light.position);
-    let position_active = ui.is_item_active();
-    let position_activated = ui.is_item_activated();
-    let position_deactivated = ui.is_item_deactivated_after_edit();
+    ui.group(|| {
+        Drag::new("Position")
+            .speed(0.1)
+            .build_array(ui, &mut light.position);
+        ui.color_edit3("Color", &mut light.color);
+        ui.checkbox("Enabled", &mut light.enabled);
+        ui.checkbox("Directional", &mut light.directional);
+        ui.checkbox("Cast Shadow", &mut light.cast_shadow);
+        if light.cast_shadow {
+            ui.checkbox("Frustum", &mut light.frustum);
+        }
+    });
 
-    let color_changed = ui.color_edit3("Color", &mut light.color);
-    let color_active = ui.is_item_active();
-    let color_activated = ui.is_item_activated();
-    let color_deactivated = ui.is_item_deactivated_after_edit();
+    let activated = ui.is_item_activated();
+    let edited = ui.is_item_edited();
+    let deactivated = ui.is_item_deactivated_after_edit();
 
-    let enabled_changed = ui.checkbox("Enabled", &mut light.enabled);
-    let enabled_active = ui.is_item_active();
-    let enabled_activated = ui.is_item_activated();
-    let enabled_deactivated = ui.is_item_deactivated_after_edit();
-
-    let directional_changed = ui.checkbox("Directional", &mut light.directional);
-    let directional_active = ui.is_item_active();
-    let directional_activated = ui.is_item_activated();
-    let directional_deactivated = ui.is_item_deactivated_after_edit();
-
-    let cast_shadow_changed = ui.checkbox("Cast Shadow", &mut light.cast_shadow);
-    let cast_shadow_active = ui.is_item_active();
-    let cast_shadow_activated = ui.is_item_activated();
-    let cast_shadow_deactivated = ui.is_item_deactivated_after_edit();
-
-    let mut frustum_changed = false;
-    let mut frustum_active = false;
-    let mut frustum_activated = false;
-    let mut frustum_deactivated = false;
-
-    if light.cast_shadow {
-        frustum_changed = ui.checkbox("Frustum", &mut light.frustum);
-        frustum_active = ui.is_item_active();
-        frustum_activated = ui.is_item_activated();
-        frustum_deactivated = ui.is_item_deactivated_after_edit();
-    }
-
-    let changed = position_changed
-        || color_changed
-        || enabled_changed
-        || directional_changed
-        || cast_shadow_changed
-        || frustum_changed;
-
-    let active = position_active
-        || color_active
-        || enabled_active
-        || directional_active
-        || cast_shadow_active
-        || frustum_active;
-
-    let activated = position_activated
-        || color_activated
-        || enabled_activated
-        || directional_activated
-        || cast_shadow_activated
-        || frustum_activated;
-
-    let deactivated = position_deactivated
-        || color_deactivated
-        || enabled_deactivated
-        || directional_deactivated
-        || cast_shadow_deactivated
-        || frustum_deactivated;
-
-    let editing_same_entity = ctx.is_editing(entity);
-
-    if activated || (active && !editing_same_entity){
+    if activated {
         ctx.begin_edit(entity, EditValue::Light(source.clone()));
     }
 
-    if active || changed || editing_same_entity {
-        ctx.begin_edit(entity, EditValue::Light(light.clone()));
-
-        if changed {
-            ctx.connection
-                .commands
-                .send(EditorCommand::SetLight { entity, light });
-        }
+    if edited {
+        println!("Light edited");
+        ctx.connection
+            .commands
+            .send(EditorCommand::SetLight { entity, light });
     }
 
-    if deactivated && editing_same_entity {
+    if deactivated {
         ctx.end_edit();
     }
 }
