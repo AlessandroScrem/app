@@ -217,6 +217,7 @@ pub enum EditorCommand {
     AddIbl {
         path: std::path::PathBuf,
     },
+    DragSelection((u32, u32), (u32, u32)),
 }
 #[allow(dead_code)]
 #[derive(Clone, Debug)]

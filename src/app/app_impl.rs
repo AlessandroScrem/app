@@ -270,6 +270,9 @@ impl EditorBackend for App {
             EditorCommand::AddIbl { path } => {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)))
             }
+            EditorCommand::DragSelection(pos, size) => {
+                bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(pos, size))
+            }
         }
         if settings_changed {
             events.push(EditorEvent::SettingsChanged);

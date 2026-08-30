@@ -1,22 +1,15 @@
 use super::*;
 use crate::editor::{
-    EditValue, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData, EditorStatisticsData,
-    EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
+    EditValue, EditorCommand, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
+    EditorStatisticsData, EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
 };
+
 use imgui::*;
 use imgui_winit_support::WinitPlatform;
 use std::collections::HashMap;
 use winit::event::Event;
 use winit::window::Window;
 
-#[derive(Clone, Copy, Debug)]
-pub enum EditorInteraction {
-    None,
-    Selecting {
-        start: crate::math::Vec2,
-        current: crate::math::Vec2,
-    },
-}
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 enum QuerySlot {
@@ -34,8 +27,7 @@ pub struct UiContext<'a> {
     pub inspector: Option<&'a InspectorData>,
     pub settings: Option<&'a EditorSettingsData>,
     pub statistics: Option<&'a EditorStatisticsData>,
-    pub edit: &'a mut  Option<EditorEdit<EntityId, EditValue>>,
-    pub editor_interaction: &'a EditorInteraction,
+    pub edit: &'a mut Option<EditorEdit<EntityId, EditValue>>,
 }
 
 pub struct UiLayer {
@@ -54,7 +46,6 @@ pub struct UiLayer {
     statistics: Option<EditorStatisticsData>,
     latest_queries: HashMap<QuerySlot, QueryId>,
     edit: Option<EditorEdit<EntityId, EditValue>>,
-    editor_interaction: EditorInteraction,
 }
 
 struct UiStack {
@@ -80,19 +71,53 @@ impl Layer for UiStack {
     }
 }
 
-struct ViewportUi;
+#[derive(Debug, Default, Clone)]
+struct ViewportUi {
+    click_pos: Option<[f32;2]>,
+}
+
 impl Layer for ViewportUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let EditorInteraction::Selecting { start, current } = *ctx.editor_interaction else {
+        if ui.io().want_capture_mouse {
             return;
-        };
-        let scale = ui.io().display_framebuffer_scale;
-        let start = [start.x / scale[0], start.y / scale[1]];
-        let current = [current.x / scale[0], current.y / scale[1]];
-        ui.get_foreground_draw_list()
-            .add_rect(start, current, [1.0, 0.0, 0.0, 1.0])
-            .thickness(1.0)
-            .build();
+        }
+
+        match self.click_pos {
+            None => {
+                if ui.is_mouse_clicked(MouseButton::Left) && ui.is_key_down(Key::LeftCtrl) {
+                    self.click_pos = Some(ui.io().mouse_pos);
+                }
+            }
+            Some(start) => {
+                let current = ui.io().mouse_pos;
+                if ui.is_mouse_dragging(MouseButton::Left) && ui.is_key_down(Key::LeftCtrl) {
+                    ui.get_foreground_draw_list()
+                        .add_rect(start, current, [1.0, 0.0, 0.0, 1.0])
+                        .thickness(1.0)
+                        .build();
+                }
+
+                if ui.is_mouse_released(MouseButton::Left) {
+                    let scale = ui.io().display_framebuffer_scale;
+                    let start = [start[0] * scale[0], start[1] * scale[1]];
+                    let current = [current[0] * scale[0], current[1] * scale[1]];
+
+                    let pos = (
+                        start[0].min(current[0]) as u32,
+                        start[1].min(current[1]) as u32,
+                    );
+                    let width = (start[0] - current[0]).abs() as u32;
+                    let height = (start[1] - current[1]).abs() as u32;
+                    let size = (width, height);
+
+                    ctx.connection
+                        .commands
+                        .send(EditorCommand::DragSelection(pos, size));
+                    
+                    self.click_pos = None;
+                }
+            }
+        }
     }
 }
 
@@ -115,7 +140,7 @@ impl UiLayer {
             imgui_winit_support::HiDpiMode::Default,
         );
         let mut ui = UiStack::new();
-        ui.push(ViewportUi);
+        ui.push(ViewportUi::default());
         ui.push(crate::ui::menu_bar::MenuBarUi);
         ui.push(EntityListUi);
         ui.push(PropertyUi);
@@ -135,7 +160,6 @@ impl UiLayer {
             statistics: None,
             latest_queries: HashMap::new(),
             edit: None,
-            editor_interaction: EditorInteraction::None,
         }
     }
     pub fn want_capture_mouse(&self) -> bool {
@@ -147,9 +171,6 @@ impl UiLayer {
     }
     pub fn get_draw_data(&mut self) -> &imgui::DrawData {
         self.context.render()
-    }
-    pub fn set_editor_interaction(&mut self, interaction: EditorInteraction) {
-        self.editor_interaction = interaction;
     }
 
     fn is_editing_inspector(&self) -> bool {
@@ -326,7 +347,6 @@ impl UiLayer {
         let settings = self.settings.as_ref();
         let statistics = self.statistics.as_ref();
         let selection = &self.selection;
-        let editor_interaction = &self.editor_interaction;
         let mut edit = self.edit.take();
         let mut ctx = UiContext {
             connection: &mut self.connection,
@@ -336,7 +356,6 @@ impl UiLayer {
             settings,
             statistics,
             edit: &mut edit,
-            editor_interaction,
         };
         self.stack.build(ui, &mut ctx);
         self.edit = edit;

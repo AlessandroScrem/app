@@ -81,7 +81,8 @@ impl Input {
     pub fn any_key_down(&self) -> bool {
         self.keys_down.is_empty()
     }
-
+    
+    #[allow(unused)]
     pub fn is_key_down(&self, key: KeyButton) -> bool {
         self.keys_down.contains(&key)
     }
@@ -94,14 +95,17 @@ impl Input {
     pub fn is_mouse_button_down(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button)
     }
-
+    
     pub fn is_mouse_dragging(&self, button: MouseButton) -> bool {
         self.mouse_buttons_down.contains(&button) & self.is_cursor_moved()
     }
-
+    
+    #[allow(unused)]
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_buttons_pressed.contains(&button)
     }
+
+    #[allow(unused)]
     pub fn is_mouse_button_released(&self, button: MouseButton) -> bool {
         self.mouse_buttons_released.contains(&button)
     }

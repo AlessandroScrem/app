@@ -9,4 +9,5 @@ pub enum RuntimeEvent {
     SetWindowTitle(String),
     SyncImguiTextures,
     UpdateIblMaps(IblId),
+    ReadbackSelection((u32, u32), (u32, u32))
 }

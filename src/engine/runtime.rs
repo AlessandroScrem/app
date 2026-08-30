@@ -17,7 +17,7 @@ use crate::gpu::{
     GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager,
     ShadowManager,
 };
-use crate::input::{Input, KeyButton};
+use crate::input::Input;
 use crate::prelude::info;
 use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
@@ -25,7 +25,7 @@ use crate::renderer::SceneRenderer;
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
-use crate::ui::{EditorInteraction, InternalCounter, UiLayer};
+use crate::ui::{InternalCounter, UiLayer};
 use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
@@ -55,7 +55,6 @@ pub struct Runtime {
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
-    pub editor_interaction: EditorInteraction,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -110,7 +109,6 @@ impl Runtime {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
-            editor_interaction: EditorInteraction::None,
             imgui_render,
             uilayer,
             gpu_context,
@@ -162,45 +160,6 @@ impl Runtime {
             );
         }
 
-        match self.editor_interaction {
-            EditorInteraction::None => {
-                if input.is_mouse_button_pressed(MouseButton::Left)
-                    && input.is_key_down(KeyButton::Control)
-                {
-                    let current = input.mouse_position;
-                    self.editor_interaction = EditorInteraction::Selecting {
-                        start: current,
-                        current,
-                    };
-                }
-            }
-            EditorInteraction::Selecting { start, current: _ } => {
-                if input.is_mouse_dragging(MouseButton::Left)
-                    && input.is_key_down(KeyButton::Control)
-                {
-                    self.editor_interaction = EditorInteraction::Selecting {
-                        start,
-                        current: input.mouse_position,
-                    };
-                }
-                if input.is_mouse_button_released(MouseButton::Left) {
-                    let current = input.mouse_position;
-                    let pos = (start.x.min(current.x) as u32, start.y.min(current.y) as u32);
-                    let width = (start.x - current.x).abs() as u32;
-                    let height = (start.y - current.y).abs() as u32;
-                    self.readback.request_selection(
-                        &self.gpu_context.as_ref(),
-                        &self
-                            .gpu_manager
-                            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
-                        pos,
-                        (width, height),
-                    );
-                    self.editor_interaction = EditorInteraction::None;
-                }
-            }
-        }
-        self.uilayer.set_editor_interaction(self.editor_interaction);
         if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() {
             bus.send_domain(Camera(CameraOrbit(
                 input.mouse_delta.x as f64,
@@ -251,6 +210,16 @@ impl Runtime {
                     );
                     self.imgui_render
                         .sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba());
+                }
+                RuntimeEvent::ReadbackSelection(pos, size) => {
+                    self.readback.request_selection(
+                        &self.gpu_context.as_ref(),
+                        &self
+                            .gpu_manager
+                            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
+                        pos,
+                        size,
+                    );
                 }
             }
         }
