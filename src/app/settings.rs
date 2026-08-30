@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RecentFile {
     pub name: String,
-    pub path: PathBuf,
+    pub path: String,
 }
 
 impl From<PathBuf> for RecentFile {
@@ -16,7 +16,7 @@ impl From<PathBuf> for RecentFile {
             .unwrap_or_default()
             .to_owned();
 
-        Self { name, path }
+        Self { name, path: path.to_string_lossy().into_owned() }
     }
 }
 
@@ -27,6 +27,7 @@ pub struct Settings {
 
 impl Settings {
     const FILE: &'static str = crate::project_path!("settings.json");
+    const MAX_RECENT: usize = 5;
 
     pub fn load() -> Self {
         match fs::read_to_string(Self::FILE) {
@@ -46,8 +47,7 @@ impl Settings {
 
         self.recent_files.insert(0, file);
 
-        const MAX_RECENT: usize = 5;
 
-        self.recent_files.truncate(MAX_RECENT);
+        self.recent_files.truncate(Self::MAX_RECENT);
     }
 }

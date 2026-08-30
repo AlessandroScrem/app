@@ -51,17 +51,19 @@ impl Layer for MenuBarUi {
                 if ui.menu_item("Exit") {
                     ctx.connection.commands.send(EditorCommand::Exit);
                 }
-                // ui.separator();
-                // ui.menu("Recent Files", || {
-                //     for item in recent_files.iter() {
-                //         if ui.menu_item(&item.name) {
-                //             ctx.bus.send_domain(Scene(Open(item.path.clone())));
-                //         }
-                //     }
-                //     if recent_files.is_empty() {
-                //         ui.text_disabled("No recent files");
-                //     }
-                // });
+                ui.separator();
+                ui.menu("Recent Files", || {
+                    for (name, path) in ctx.scene_settings.recent.iter() {
+                        if ui.menu_item(&name) {
+                            ctx.connection
+                                .commands
+                                .send(EditorCommand::OpenScene { path: path.into() });
+                        }
+                    }
+                    if ctx.scene_settings.recent.is_empty() {
+                        ui.text_disabled("No recent files");
+                    }
+                });
             }
             if let Some(_menu) = ui.begin_menu("Edit") {
                 ui.menu_item("Undo");

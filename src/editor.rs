@@ -33,6 +33,7 @@ pub enum Query {
     Selection,
     Settings,
     Statistics,
+    SceneSettings,
 }
 #[derive(Clone, Debug)]
 pub struct QueryRequest {
@@ -54,6 +55,7 @@ pub enum QueryResult {
     Selection(Vec<EntityId>),
     Settings(EditorSettingsData),
     Statistics(EditorStatisticsData),
+    SceneSettings(SceneSettingsData,)
 }
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -119,6 +121,12 @@ pub struct EditorStatisticsData {
     pub transmission_draw_calls: u32,
     pub transmission_instances: u32,
 }
+
+#[derive(Clone, Debug, Default)]
+pub struct SceneSettingsData{
+    pub recent: Vec<(String, String)>,
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct EditorSettingsData {

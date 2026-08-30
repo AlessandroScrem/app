@@ -1,7 +1,7 @@
 use super::*;
 use crate::editor::{
     EditValue, EditorCommand, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
+    EditorStatisticsData, EntityId, SceneSettingsData, HierarchyData, InspectorData, Query, QueryId, QueryResult,
 };
 
 use imgui::*;
@@ -17,6 +17,7 @@ enum QuerySlot {
     Inspector,
     Settings,
     Statistics,
+    SceneSettings,
 }
 
 pub struct UiContext<'a> {
@@ -27,6 +28,7 @@ pub struct UiContext<'a> {
     pub settings: Option<&'a EditorSettingsData>,
     pub statistics: Option<&'a EditorStatisticsData>,
     pub edit: &'a mut Option<EditorEdit<EntityId, EditValue>>,
+    pub scene_settings: &'a SceneSettingsData,
 }
 
 pub struct UiLayer {
@@ -43,6 +45,7 @@ pub struct UiLayer {
     inspector: Option<InspectorData>,
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
+    scene_settings: SceneSettingsData,
     latest_queries: HashMap<QuerySlot, QueryId>,
     edit: Option<EditorEdit<EntityId, EditValue>>,
 }
@@ -159,6 +162,7 @@ impl UiLayer {
             statistics: None,
             latest_queries: HashMap::new(),
             edit: None,
+            scene_settings: SceneSettingsData::default(),
         }
     }
     pub fn want_capture_mouse(&self) -> bool {
@@ -195,6 +199,7 @@ impl UiLayer {
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
+        self.request(QuerySlot::SceneSettings, Query::SceneSettings);
 
         if !self.is_editing_inspector() {
             if let [entity] = *self.selection.as_slice() {
@@ -230,6 +235,10 @@ impl UiLayer {
                 (QuerySlot::Statistics, QueryResult::Statistics(data)) => {
                     self.statistics = Some(data)
                 }
+                (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
+                    self.scene_settings = data;
+                    println!("Scene settings updated: {:?}", self.scene_settings);
+                },
                 _ => {}
             }
         }
@@ -347,6 +356,7 @@ impl UiLayer {
         let inspector = self.inspector.as_ref();
         let settings = self.settings.as_ref();
         let statistics = self.statistics.as_ref();
+        let scene_settings = &self.scene_settings;
         let selection = &self.selection;
         let mut edit = self.edit.take();
         let mut ctx = UiContext {
@@ -357,6 +367,7 @@ impl UiLayer {
             settings,
             statistics,
             edit: &mut edit,
+            scene_settings,
         };
         self.stack.build(ui, &mut ctx);
         self.edit = edit;

@@ -16,7 +16,7 @@ use crate::ecs::components::{
 use crate::editor::{
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityData, EntityId,
     HierarchyData, HierarchyNode, InspectorData, LightData, MeshData, Query, QueryResult,
-    TransformData,
+    SceneSettingsData, TransformData,
 };
 use crate::engine::editor::EditorBackend;
 use crate::engine::engine::EventBus;
@@ -81,6 +81,7 @@ impl Application for App {
 
 impl EditorBackend for App {
     fn query(&self, query: &Query) -> QueryResult {
+
         match query {
             Query::Hierarchy => QueryResult::Hierarchy(self.hierarchy_data()),
             Query::Entity { entity } => QueryResult::Entity(self.entity_data(*entity)),
@@ -89,6 +90,7 @@ impl EditorBackend for App {
             Query::Selection => QueryResult::Selection(self.editor_selection()),
             Query::Settings => QueryResult::Settings(self.editor_settings()),
             Query::Statistics => QueryResult::Statistics(Default::default()),
+            Query::SceneSettings => QueryResult::SceneSettings(self.scene_settings()),
         }
     }
     fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent> {
@@ -258,9 +260,9 @@ impl EditorBackend for App {
             EditorCommand::RecenterCamera => {
                 bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera))
             }
-            EditorCommand::SetCameraFov(v) => bus.send_domain(DomainEvent::Camera(
-                CameraEvent::CameraFov(v),
-            )),
+            EditorCommand::SetCameraFov(v) => {
+                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraFov(v)))
+            }
             EditorCommand::SetCameraDistance(v) => {
                 bus.send_domain(DomainEvent::Camera(CameraEvent::CameraDistance(v)))
             }
@@ -468,5 +470,15 @@ impl App {
             transmission_draw_calls: 0,
             transmission_instances: 0,
         }
+    }
+
+    fn scene_settings(&self) ->SceneSettingsData {
+        let recent: Vec<(String, String)> = self
+            .settings
+            .recent_files
+            .iter()
+            .map(|i| (i.name.clone(), i.path.clone()))
+            .collect();
+        SceneSettingsData {recent}
     }
 }
