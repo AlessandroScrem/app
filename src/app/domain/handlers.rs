@@ -55,13 +55,14 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             let _ = app.current_scene.save();
         }
         SceneEvent::Open(path) => {
+            app.current_scene.clear_scene(&mut app.asset_mgr);
+            app.selected.clear();
             if app
                 .current_scene
                 .open_scene(&path, &mut app.asset_mgr, bus)
                 .is_ok()
             {
-                app.current_scene.clear_scene(&mut app.asset_mgr);
-                app.selected.clear();
+
                 app.settings.add_recent_file(path.into());
                 app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
             }

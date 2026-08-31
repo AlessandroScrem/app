@@ -33,7 +33,7 @@ pub struct Scene {
     pub world: World,
     pub resources: Resources,
     pub schedule: Schedule,
-    pub dirty: bool,
+    dirty: bool,
     pub render_objects: RenderObjects,
 }
 
@@ -57,6 +57,7 @@ impl Scene {
     pub fn update_scene(&mut self, bus: &mut EventBus, globals: &Globals) {
         self.schedule.execute(&mut self.world, &mut self.resources);
         self.render_objects = RenderObjects::build(&self.world, globals);
+
         if self.dirty {
             let title = self.filename.clone().unwrap_or("Untitled scene *".into());
             bus.send_runtime(RuntimeEvent::SetWindowTitle(title));
@@ -119,7 +120,12 @@ impl Scene {
                 )));
             }
         }
-        let string_name = filename.as_ref().to_string_lossy().to_string();
+        let string_name = filename
+            .as_ref()
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_owned();
         self.filename = Some(string_name);
         self.dirty = true;
         Ok(())

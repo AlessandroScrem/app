@@ -237,7 +237,6 @@ impl UiLayer {
                 }
                 (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                     self.scene_settings = data;
-                    println!("Scene settings updated: {:?}", self.scene_settings);
                 },
                 _ => {}
             }
