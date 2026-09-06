@@ -114,8 +114,6 @@ pub struct TransformData {
 pub struct EditorStatisticsData {
     pub fps: f32,
     pub frametime: f32,
-    pub adapter_name: String,
-    pub root_nodes: usize,
     pub opaque_draw_calls: u32,
     pub opaque_instances: u32,
     pub transmission_draw_calls: u32,
@@ -147,14 +145,6 @@ pub struct EditorSettingsData {
     pub camera_distance: f32,
     pub camera_near: f32,
     pub camera_far: f32,
-    pub adapter_name: String,
-    pub fps: f32,
-    pub frametime: f32,
-    pub root_nodes: usize,
-    pub opaque_draw_calls: usize,
-    pub opaque_instances: usize,
-    pub transmission_draw_calls: usize,
-    pub transmission_instances: usize,
 }
 #[derive(Clone, Debug)]
 pub enum EditorCommand {

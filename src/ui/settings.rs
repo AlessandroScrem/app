@@ -27,7 +27,6 @@ impl SettingsUi {
             if let Some(stats) = ctx.statistics {
                 ui.text(format!("FPS: {:.1}", stats.fps));
                 ui.text(format!("Frametime: {:.2} ms", stats.frametime * 1000.0));
-                ui.text(format!("Root nodes: {}", stats.root_nodes));
                 ui.text(format!(
                     "Opaque: {} calls | {} instances",
                     stats.opaque_draw_calls, stats.opaque_instances
@@ -36,7 +35,7 @@ impl SettingsUi {
                     "Transmission: {} calls | {} instances",
                     stats.transmission_draw_calls, stats.transmission_instances
                 ));
-                ui.text(format!("Adapter: {}", stats.adapter_name));
+                ui.text(format!("Adapter: {}", ctx.adapter_string));
             } else {
                 ui.text("Collecting statistics...");
             }

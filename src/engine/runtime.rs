@@ -103,6 +103,7 @@ impl Runtime {
             &window,
             imgui_context,
             gpu_context.get_adapter_string(),
+            Vec::new(),
             connection,
         );
         Self {
@@ -126,6 +127,7 @@ impl Runtime {
             statistics_dt: 1.0 / 60.0,
         }
     }
+
     pub fn handle_winit_event(&mut self, event: &Event<()>) {
         self.uilayer.handle_event(&self.window, event);
         match event {
@@ -137,6 +139,7 @@ impl Runtime {
             _ => {}
         }
     }
+
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
         let input = &self.input;
@@ -177,6 +180,7 @@ impl Runtime {
         }
         self.input.clear();
     }
+
     pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
         for event in bus.drain_runtime() {
             match event {
@@ -199,9 +203,11 @@ impl Runtime {
                     self.window.set_title(&title);
                     info!("Set window title");
                 }
-                RuntimeEvent::SyncImguiTextures => self
-                    .imgui_render
-                    .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures),
+                RuntimeEvent::SyncImguiTextures => {
+                    self.imgui_render
+                        .sync_imgui_texture(&self.gpu_context, &mut self.gpu_cache.textures);
+                }
+
                 RuntimeEvent::UpdateIblMaps(id) => {
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                         self.ibl_manager.get(&id),
@@ -224,6 +230,7 @@ impl Runtime {
             }
         }
     }
+
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
         use crate::assets::asset_manager::AssetEventKind;
         use crate::assets::material_asset::MaterialAsset;
@@ -322,6 +329,7 @@ impl Runtime {
             bus.send_runtime(RuntimeEvent::SyncImguiTextures)
         });
     }
+
     pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
         let now = std::time::Instant::now();
         let dt = now
@@ -334,8 +342,6 @@ impl Runtime {
         self.editor_service.set_statistics(EditorStatisticsData {
             fps: 1.0 / self.statistics_dt,
             frametime: self.statistics_dt,
-            adapter_name: self.gpu_context.get_adapter_string(),
-            root_nodes: 0,
             opaque_draw_calls: frame.opaque.draw_calls,
             opaque_instances: frame.opaque.instances,
             transmission_draw_calls: frame.transmission.draw_calls,
@@ -344,6 +350,7 @@ impl Runtime {
         self.editor_service.process(app, bus);
         self.uilayer.build(&self.window);
     }
+
     pub fn render<A: Application>(&mut self, app: &A) {
         let mut encoder = self.gpu_context.create_encoder();
         if let Some(frame) = self.gpu_surface.get_frame() {
@@ -369,6 +376,7 @@ impl Runtime {
             frame.present();
         }
     }
+
     fn prepare_frame_data(&mut self, render_data: AppRenderData) -> FrameData {
         let AppRenderData {
             render_objects,

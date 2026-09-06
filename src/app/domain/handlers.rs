@@ -11,7 +11,6 @@ use crate::engine::RuntimeEvent;
 use crate::engine::engine::EventBus;
 use crate::prelude::*;
 use crate::scene;
-use legion::*;
 
 impl App {
     pub fn update_domain_event(&mut self, bus: &mut EventBus) {
@@ -112,30 +111,6 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         }
         EntityEvent::AddParent(entity) => {
             hierarchy::add_parent(entity, world);
-            app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
-        }
-        EntityEvent::UpdateTag(entity, c) => {
-            if let Ok(mut e) = app.current_scene.world.entry_mut(entity) {
-                if let Ok(t) = e.get_component_mut::<TagComponent>() {
-                    *t = c;
-                }
-            }
-            app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
-        }
-        EntityEvent::UpdateTransform(entity, c) => {
-            if let Ok(mut e) = world.entry_mut(entity) {
-                if let Ok(t) = e.get_component_mut::<TransformComponent>() {
-                    *t = c;
-                }
-            }
-            app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
-        }
-        EntityEvent::UpdateLight(entity, c) => {
-            if let Ok(mut e) = world.entry_mut(entity) {
-                if let Ok(light) = e.get_component_mut::<LightComponent>() {
-                    *light = c;
-                }
-            }
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::EnableAllLight(enable) => light::enable_all_lights(enable, world),

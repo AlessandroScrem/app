@@ -1,4 +1,3 @@
-use crate::app::domain::events::{DomainEvent, EntityEvent, SelectionEvent};
 use crate::editor::{
     EditorCommand, EditorEvent, EditorServiceChannels, EditorStatisticsData, EntityId, Query,
     QueryRequest, QueryResponse, QueryResult,
@@ -89,25 +88,4 @@ impl EditorService {
         });
     }
 }
-#[allow(dead_code)]
-pub(crate) fn select_command(ids: &[EntityId], bus: &mut EventBus) {
-    let entities = ids.to_vec();
-    bus.send_domain(DomainEvent::Selection(SelectionEvent::Select(entities)));
 
-}
-#[allow(dead_code)]
-pub(crate) fn set_transform_command(
-    entity: EntityId,
-    transform: crate::editor::TransformData,
-    bus: &mut EventBus,
-) {
-    let entity = crate::EntityRawU64::from_raw_u64(entity);
-    let transform = crate::ecs::components::TransformComponent {
-        position: transform.translation,
-        rotation: transform.rotation,
-        scale: transform.scale,
-    };
-    bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(
-        entity, transform,
-    )));
-}

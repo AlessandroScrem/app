@@ -39,11 +39,6 @@ pub enum EntityEvent {
     AddLight,
     RemoveEntity(Entity),
     AddParent(Entity),
-    #[allow(dead_code)]
-    UpdateTag(Entity, TagComponent),
-    UpdateTransform(Entity, TransformComponent),
-    #[allow(dead_code)]
-    UpdateLight(Entity, LightComponent),
     EnableAllLight(bool),
     DisableEntity(Entity, bool),
 }
