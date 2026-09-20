@@ -32,88 +32,138 @@ impl EditorBackend for App {
         }
     }
     fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent> {
-        let settings_changed = matches!(
-            &command,
-            EditorCommand::SetLightEnable(_)
-                | EditorCommand::SetIblEnable(_)
-                | EditorCommand::SetSkyboxEnable(_)
-                | EditorCommand::SetSkyboxBlur(_)
-                | EditorCommand::SetAxisEnable(_)
-                | EditorCommand::SetBoundingBoxEnable(_)
-                | EditorCommand::SetBoundingBoxAxisAligned(_)
-                | EditorCommand::SetMipsWithCompute(_)
-                | EditorCommand::SetEnvironmentRotation(_)
-                | EditorCommand::SetDebugCode(_)
-                | EditorCommand::SetExposure(_)
-                | EditorCommand::SetIblIntensity(_)
-                | EditorCommand::SetTonemap(_)
-                | EditorCommand::RecenterCamera
-                | EditorCommand::SetCameraFov(_)
-                | EditorCommand::SetCameraDistance(_)
-                | EditorCommand::SetCameraNearFar { .. }
-                | EditorCommand::AddIbl { .. }
-        );
-        let mut events = Vec::new();
         match command {
-            EditorCommand::Select { entities } => {
-                bus.send_domain(Selection(SelectionEvent::Select(entities)));
+            EditorCommand::Exit => {
+                bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested);
+                Vec::new()
             }
-            EditorCommand::SetTransform { entity, transform } => {
-                if let Ok(mut e) = self
-                    .current_scene
-                    .world
-                    .entry_mut(EntityRawU64::from_raw_u64(entity))
-                {
-                    if let Ok(t) = e.get_component_mut::<TransformComponent>() {
-                        *t = TransformComponent {
-                            position: transform.translation,
-                            rotation: transform.rotation,
-                            scale: transform.scale,
-                        };
-                    }
-                }
-                self.current_scene.update_scene(bus, &self.globals);
-                events.push(EditorEvent::TransformChanged { entity, transform });
+            EditorCommand::DragSelection(pos, size) => {
+                bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(pos, size));
+                Vec::new()
             }
-            EditorCommand::SetName { entity, name } => {
-                let entity_raw = EntityRawU64::from_raw_u64(entity);
+            command => {
+                let settings_changed = matches!(
+                    &command,
+                    EditorCommand::SetLightEnable(_)
+                        | EditorCommand::SetIblEnable(_)
+                        | EditorCommand::SetSkyboxEnable(_)
+                        | EditorCommand::SetSkyboxBlur(_)
+                        | EditorCommand::SetAxisEnable(_)
+                        | EditorCommand::SetBoundingBoxEnable(_)
+                        | EditorCommand::SetBoundingBoxAxisAligned(_)
+                        | EditorCommand::SetMipsWithCompute(_)
+                        | EditorCommand::SetEnvironmentRotation(_)
+                        | EditorCommand::SetDebugCode(_)
+                        | EditorCommand::SetExposure(_)
+                        | EditorCommand::SetIblIntensity(_)
+                        | EditorCommand::SetTonemap(_)
+                        | EditorCommand::RecenterCamera
+                        | EditorCommand::SetCameraFov(_)
+                        | EditorCommand::SetCameraDistance(_)
+                        | EditorCommand::SetCameraNearFar { .. }
+                        | EditorCommand::AddIbl { .. }
+                );
 
-                if let Ok(mut entry) = self.current_scene.world.entry_mut(entity_raw) {
-                    if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
-                        tag.name = name.clone();
-                    }
-                }
+                let Some(command) = command.domain() else {
+                    unreachable!("all non-domain editor commands are handled above");
+                };
 
-                events.push(EditorEvent::NameChanged { entity, name });
-            }
-            EditorCommand::SetLight { entity, light } => {
-                let e = EntityRawU64::from_raw_u64(entity);
+                let mut events = self.domain_command(command, bus);
 
-                if let Ok(mut entry) = self.current_scene.world.entry_mut(e) {
-                    if let Ok(component) = entry.get_component_mut::<LightComponent>() {
-                        component.color = light.color;
-                        component.directional = light.directional;
-                        component.cast_shadow = light.cast_shadow;
-                        component.entity_id = entity;
-                        component.enabled = light.enabled;
-                        component.frustum = light.frustum;
-                        component.update_position(light.position);
-                    }
+                if settings_changed {
+                    events.push(EditorEvent::SettingsChanged);
                 }
 
-                self.current_scene.update_scene(bus, &self.globals);
-
-                events.push(EditorEvent::LightChanged { entity, light });
+                events
             }
-            EditorCommand::Delete { entities } => {
+        }
+    }
+
+    fn domain_command(
+        &mut self,
+        command: crate::editor::DomainCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::DomainCommand::Entity(command) => self.entity_command(command, bus),
+            crate::editor::DomainCommand::Selection(command) => {
+                self.selection_command(command, bus)
+            }
+            crate::editor::DomainCommand::Scene(command) => self.scene_command(command, bus),
+            crate::editor::DomainCommand::Asset(command) => self.asset_command(command, bus),
+            crate::editor::DomainCommand::Camera(command) => self.camera_command(command, bus),
+            crate::editor::DomainCommand::Global(command) => self.global_command(command, bus),
+        }
+    }
+
+    fn entity_command(
+        &mut self,
+        command: crate::editor::EntityCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::EntityCommand::Edit { entity, edit } => match edit {
+                crate::editor::EditValue::Transform(transform) => {
+                    if let Ok(mut entry) = self
+                        .current_scene
+                        .world
+                        .entry_mut(EntityRawU64::from_raw_u64(entity))
+                    {
+                        if let Ok(component) = entry.get_component_mut::<TransformComponent>() {
+                            *component = TransformComponent {
+                                position: transform.translation,
+                                rotation: transform.rotation,
+                                scale: transform.scale,
+                            };
+                        }
+                    }
+
+                    self.current_scene.update_scene(bus, &self.globals);
+                    vec![EditorEvent::TransformChanged { entity, transform }]
+                }
+                crate::editor::EditValue::Name(name) => {
+                    if let Ok(mut entry) = self
+                        .current_scene
+                        .world
+                        .entry_mut(EntityRawU64::from_raw_u64(entity))
+                    {
+                        if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
+                            tag.name = name.clone();
+                        }
+                    }
+
+                    vec![EditorEvent::NameChanged { entity, name }]
+                }
+                crate::editor::EditValue::Light(light) => {
+                    let raw_entity = EntityRawU64::from_raw_u64(entity);
+
+                    if let Ok(mut entry) = self.current_scene.world.entry_mut(raw_entity) {
+                        if let Ok(component) = entry.get_component_mut::<LightComponent>() {
+                            component.color = light.color;
+                            component.directional = light.directional;
+                            component.cast_shadow = light.cast_shadow;
+                            component.entity_id = entity;
+                            component.enabled = light.enabled;
+                            component.frustum = light.frustum;
+                            component.update_position(light.position);
+                        }
+                    }
+
+                    self.current_scene.update_scene(bus, &self.globals);
+                    vec![EditorEvent::LightChanged { entity, light }]
+                }
+            },
+            crate::editor::EntityCommand::Remove { entities } => {
                 for entity in entities {
                     bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(
                         EntityRawU64::from_raw_u64(entity),
                     )));
                 }
+                Vec::new()
             }
-            EditorCommand::BeginTransformEdit { entity } => {
+            crate::editor::EntityCommand::BeginTransformEdit { entity } => {
                 let entity = EntityRawU64::from_raw_u64(entity);
+
                 if let Some(transform) = self.transform_for(entity) {
                     self.transform_edit = Some((
                         entity,
@@ -124,98 +174,171 @@ impl EditorBackend for App {
                         },
                     ));
                 }
+
+                Vec::new()
             }
-            EditorCommand::EndTransformEdit { entity } => {
+            crate::editor::EntityCommand::EndTransformEdit { entity } => {
                 let entity = EntityRawU64::from_raw_u64(entity);
                 self.transform_edit.take().filter(|(id, _)| *id == entity);
+                Vec::new()
             }
-            EditorCommand::AddLight => bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight)),
-            EditorCommand::AddParent { entity } => bus.send_domain(DomainEvent::Entity(
-                EntityEvent::AddParent(EntityRawU64::from_raw_u64(entity)),
-            )),
-            EditorCommand::SetEntityEnabled { entity, enabled } => {
+            crate::editor::EntityCommand::AddLight => {
+                bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
+                Vec::new()
+            }
+            crate::editor::EntityCommand::AddParent { entity } => {
+                bus.send_domain(DomainEvent::Entity(EntityEvent::AddParent(
+                    EntityRawU64::from_raw_u64(entity),
+                )));
+                Vec::new()
+            }
+            crate::editor::EntityCommand::SetEnabled { entity, enabled } => {
                 bus.send_domain(DomainEvent::Entity(EntityEvent::DisableEntity(
                     EntityRawU64::from_raw_u64(entity),
                     !enabled,
-                )))
-            }
-            EditorCommand::LoadGltf { path } => {
-                bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path)))
-            }
-            EditorCommand::OpenScene { path } => {
-                bus.send_domain(DomainEvent::Scene(SceneEvent::Open(path)))
-            }
-            EditorCommand::SaveScene => bus.send_domain(DomainEvent::Scene(SceneEvent::Save)),
-            EditorCommand::SaveSceneAs { path } => {
-                bus.send_domain(DomainEvent::Scene(SceneEvent::SaveAs(path)))
-            }
-            EditorCommand::ClearScene => {
-                bus.send_domain(DomainEvent::Scene(SceneEvent::ClearScene))
-            }
-            EditorCommand::Exit => bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested),
-            EditorCommand::SetLightEnable(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::LightEnable(v)))
-            }
-            EditorCommand::SetIblEnable(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::IblEnable(v)))
-            }
-            EditorCommand::SetSkyboxEnable(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::SkyboxEnable(v)))
-            }
-            EditorCommand::SetSkyboxBlur(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::SkyboxEnableBlur(v)))
-            }
-            EditorCommand::SetAxisEnable(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::AxisEnable(v)))
-            }
-            EditorCommand::SetBoundingBoxEnable(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::BboxEnable(v)))
-            }
-            EditorCommand::SetBoundingBoxAxisAligned(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::BboxAxisAligned(v)))
-            }
-            EditorCommand::SetMipsWithCompute(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::MipsCsEnable(v)))
-            }
-            EditorCommand::SetEnvironmentRotation(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::EnvRotation(v)))
-            }
-            EditorCommand::SetDebugCode(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::DebugCode(v)))
-            }
-            EditorCommand::SetExposure(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::Exposure(v)))
-            }
-            EditorCommand::SetIblIntensity(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::IblIntensity(v)))
-            }
-            EditorCommand::SetTonemap(v) => {
-                bus.send_domain(DomainEvent::Global(GlobalEvent::TonemapFilter(v)))
-            }
-            EditorCommand::RecenterCamera => {
-                bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera))
-            }
-            EditorCommand::SetCameraFov(v) => {
-                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraFov(v)))
-            }
-            EditorCommand::SetCameraDistance(v) => {
-                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraDistance(v)))
-            }
-            EditorCommand::SetCameraNearFar { near, far } => bus.send_domain(DomainEvent::Camera(
-                CameraEvent::CameraNearFar((near.max(0.1), far.max(near + 0.1))),
-            )),
-            EditorCommand::AddIbl { path } => {
-                bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)))
-            }
-            EditorCommand::DragSelection(pos, size) => {
-                bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(pos, size))
+                )));
+                Vec::new()
             }
         }
-        if settings_changed {
-            events.push(EditorEvent::SettingsChanged);
-        }
-        events
     }
+
+    fn selection_command(
+        &mut self,
+        command: crate::editor::SelectionCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::SelectionCommand::Set { entities } => {
+                bus.send_domain(Selection(SelectionEvent::Select(entities)));
+            }
+            crate::editor::SelectionCommand::Clear
+            | crate::editor::SelectionCommand::Add { .. }
+            | crate::editor::SelectionCommand::Remove { .. }
+            | crate::editor::SelectionCommand::Toggle { .. }
+            | crate::editor::SelectionCommand::SelectHovered
+            | crate::editor::SelectionCommand::Drag { .. } => {}
+        }
+
+        Vec::new()
+    }
+
+    fn scene_command(
+        &mut self,
+        command: crate::editor::SceneCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::SceneCommand::Open(path) => {
+                bus.send_domain(DomainEvent::Scene(SceneEvent::Open(path)));
+            }
+            crate::editor::SceneCommand::Save => {
+                bus.send_domain(DomainEvent::Scene(SceneEvent::Save));
+            }
+            crate::editor::SceneCommand::SaveAs(path) => {
+                bus.send_domain(DomainEvent::Scene(SceneEvent::SaveAs(path)));
+            }
+            crate::editor::SceneCommand::Clear => {
+                bus.send_domain(DomainEvent::Scene(SceneEvent::ClearScene));
+            }
+        }
+
+        Vec::new()
+    }
+
+    fn asset_command(
+        &mut self,
+        command: crate::editor::AssetCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::AssetCommand::LoadGltf(path) => {
+                bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path)));
+            }
+            crate::editor::AssetCommand::AddIbl(path) => {
+                bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)));
+            }
+            crate::editor::AssetCommand::UpdateMaterial { .. } => {}
+        }
+
+        Vec::new()
+    }
+
+    fn camera_command(
+        &mut self,
+        command: crate::editor::CameraCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::CameraCommand::Recenter => {
+                bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera));
+            }
+            crate::editor::CameraCommand::SetFov(value) => {
+                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraFov(value)));
+            }
+            crate::editor::CameraCommand::SetDistance(value) => {
+                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraDistance(value)));
+            }
+            crate::editor::CameraCommand::SetNearFar { near, far } => {
+                bus.send_domain(DomainEvent::Camera(CameraEvent::CameraNearFar((
+                    near.max(0.1),
+                    far.max(near + 0.1),
+                ))));
+            }
+        }
+
+        Vec::new()
+    }
+
+    fn global_command(
+        &mut self,
+        command: crate::editor::GlobalCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent> {
+        match command {
+            crate::editor::GlobalCommand::SetLightEnable(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::LightEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetIblEnable(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::IblEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetSkyboxEnable(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::SkyboxEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetSkyboxBlur(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::SkyboxEnableBlur(value)));
+            }
+            crate::editor::GlobalCommand::SetAxisEnable(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::AxisEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetBoundingBoxEnable(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::BboxEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetBoundingBoxAxisAligned(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::BboxAxisAligned(value)));
+            }
+            crate::editor::GlobalCommand::SetMipsWithCompute(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::MipsCsEnable(value)));
+            }
+            crate::editor::GlobalCommand::SetEnvironmentRotation(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::EnvRotation(value)));
+            }
+            crate::editor::GlobalCommand::SetDebugCode(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::DebugCode(value)));
+            }
+            crate::editor::GlobalCommand::SetExposure(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::Exposure(value)));
+            }
+            crate::editor::GlobalCommand::SetIblIntensity(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::IblIntensity(value)));
+            }
+            crate::editor::GlobalCommand::SetTonemap(value) => {
+                bus.send_domain(DomainEvent::Global(GlobalEvent::TonemapFilter(value)));
+            }
+        }
+
+        Vec::new()
+    }
+
     fn editor_scene_revision(&self) -> u64 {
         self.editor_scene_revision
     }
