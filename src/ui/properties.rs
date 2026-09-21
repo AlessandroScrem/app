@@ -242,35 +242,26 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         })
         .unwrap_or_else(|| source.clone());
 
-    ui.group(|| {
-        Drag::new("Position")
+    let edited = ui.group(|| {
+        let mut edited = Drag::new("Position")
             .speed(0.1)
             .build_array(ui, &mut light.position);
-        ui.color_edit3("Color", &mut light.color);
-        ui.checkbox("Enabled", &mut light.enabled);
-        ui.checkbox("Directional", &mut light.directional);
-        ui.checkbox("Cast Shadow", &mut light.cast_shadow);
+
+        edited |= ui.color_edit3("Color", &mut light.color);
+
+        edited |= ui.checkbox("Enabled", &mut light.enabled);
+        edited |= ui.checkbox("Directional", &mut light.directional);
+        edited |= ui.checkbox("Cast Shadow", &mut light.cast_shadow);
         if light.cast_shadow {
-            ui.checkbox("Frustum", &mut light.frustum);
+            edited |= ui.checkbox("Frustum", &mut light.frustum);
         }
+        return edited;
     });
-
-    let activated = ui.is_item_activated();
-    let edited = ui.is_item_edited();
-    let deactivated = ui.is_item_deactivated_after_edit();
-
-    if activated {
-        ctx.begin_edit(entity, EditValue::Light(source.clone()));
-    }
 
     if edited {
         println!("Light edited");
         ctx.connection
             .commands
             .send(EditorCommand::SetLight { entity, light });
-    }
-
-    if deactivated {
-        ctx.end_edit();
     }
 }
