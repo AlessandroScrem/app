@@ -7,6 +7,41 @@ use crate::engine::engine::EventBus;
 pub trait EditorBackend {
     fn query(&self, query: &Query) -> QueryResult;
     fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent>;
+    fn domain_command(
+        &mut self,
+        command: crate::editor::DomainCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn entity_command(
+        &mut self,
+        command: crate::editor::EntityCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn selection_command(
+        &mut self,
+        command: crate::editor::SelectionCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn scene_command(
+        &mut self,
+        command: crate::editor::SceneCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn asset_command(
+        &mut self,
+        command: crate::editor::AssetCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn camera_command(
+        &mut self,
+        command: crate::editor::CameraCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
+    fn global_command(
+        &mut self,
+        command: crate::editor::GlobalCommand,
+        bus: &mut EventBus,
+    ) -> Vec<EditorEvent>;
     fn editor_scene_revision(&self) -> u64;
     fn editor_selection(&self) -> Vec<EntityId>;
     fn editor_entities(&self) -> Vec<EntityId>;
@@ -88,4 +123,3 @@ impl EditorService {
         });
     }
 }
-
