@@ -126,7 +126,7 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
             name: name.clone(),
         });
     }
-    
+
     if deactivated {
         ctx.end_edit();
     }

@@ -1,7 +1,8 @@
 use super::*;
 use crate::editor::{
     EditValue, EditorCommand, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, SceneSettingsData, HierarchyData, InspectorData, Query, QueryId, QueryResult,
+    EditorStatisticsData, EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
+    SceneSettingsData,
 };
 
 use imgui::*;
@@ -48,8 +49,6 @@ pub struct UiLayer {
     scene_settings: SceneSettingsData,
     latest_queries: HashMap<QuerySlot, QueryId>,
     edit: Option<EditorEdit<EntityId, EditValue>>,
-    iblvec: Vec<TextureId>,
-
 }
 
 struct UiStack {
@@ -130,7 +129,6 @@ impl UiLayer {
         window: &Window,
         mut context: imgui::Context,
         adapter_string: String,
-        iblvec: Vec<TextureId>,
         connection: EditorConnection,
     ) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
@@ -166,7 +164,6 @@ impl UiLayer {
             latest_queries: HashMap::new(),
             edit: None,
             scene_settings: SceneSettingsData::default(),
-            iblvec,
         }
     }
     pub fn want_capture_mouse(&self) -> bool {
@@ -241,7 +238,7 @@ impl UiLayer {
                 }
                 (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                     self.scene_settings = data;
-                },
+                }
                 _ => {}
             }
         }
@@ -377,9 +374,5 @@ impl UiLayer {
         self.edit = edit;
         self.platform.prepare_render(ui, window);
         self.end_frame();
-    }
-
-    pub fn update_iblvec(&mut self, ids: Vec<TextureId>) {
-        self.iblvec = ids;
     }
 }

@@ -1,4 +1,3 @@
-
 mod file;
 mod image_decoder;
 mod vertexdata;

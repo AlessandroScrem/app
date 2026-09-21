@@ -103,7 +103,6 @@ impl Runtime {
             &window,
             imgui_context,
             gpu_context.get_adapter_string(),
-            Vec::new(),
             connection,
         );
         Self {

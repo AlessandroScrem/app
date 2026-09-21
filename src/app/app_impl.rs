@@ -64,7 +64,7 @@ impl Application for App {
             },
         }
     }
-    
+
     fn on_close(&mut self) {
         let _ = self.settings.save();
         info!("Exit requested; App stopping");

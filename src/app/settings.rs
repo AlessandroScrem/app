@@ -16,7 +16,10 @@ impl From<PathBuf> for RecentFile {
             .unwrap_or_default()
             .to_owned();
 
-        Self { name, path: path.to_string_lossy().into_owned() }
+        Self {
+            name,
+            path: path.to_string_lossy().into_owned(),
+        }
     }
 }
 
@@ -46,7 +49,6 @@ impl Settings {
         self.recent_files.retain(|f| f.path != file.path);
 
         self.recent_files.insert(0, file);
-
 
         self.recent_files.truncate(Self::MAX_RECENT);
     }

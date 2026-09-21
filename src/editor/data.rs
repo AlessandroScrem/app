@@ -21,6 +21,7 @@ pub enum EditValue {
 
 #[derive(Clone, Debug)]
 pub struct EntityData {
+    #[allow(dead_code)]
     pub id: EntityId,
     pub name: String,
 }
@@ -119,12 +120,27 @@ pub struct EditorSettingsData {
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum EditorEvent {
-    EntityCreated { entity: EntityId },
-    EntityDeleted { entity: EntityId },
-    TransformChanged { entity: EntityId, transform: TransformData },
-    NameChanged { entity: EntityId, name: String },
-    LightChanged { entity: EntityId, light: LightData },
-    SelectionChanged { entities: Vec<EntityId> },
+    EntityCreated {
+        entity: EntityId,
+    },
+    EntityDeleted {
+        entity: EntityId,
+    },
+    TransformChanged {
+        entity: EntityId,
+        transform: TransformData,
+    },
+    NameChanged {
+        entity: EntityId,
+        name: String,
+    },
+    LightChanged {
+        entity: EntityId,
+        light: LightData,
+    },
+    SelectionChanged {
+        entities: Vec<EntityId>,
+    },
     SceneChanged,
     SettingsChanged,
     StatisticsChanged,

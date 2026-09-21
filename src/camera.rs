@@ -22,12 +22,7 @@ impl Default for Camera {
 }
 
 impl Camera {
-    pub fn new(
-        fov: f32,
-        aspect: f32,
-        near: f32,
-        far: f32,
-    ) -> Self {
+    pub fn new(fov: f32, aspect: f32, near: f32, far: f32) -> Self {
         let mut camera = Self {
             position: Vec3::new(0.0, 0.0, 0.0),
             aspect,

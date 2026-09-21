@@ -61,7 +61,6 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
                 .open_scene(&path, &mut app.asset_mgr, bus)
                 .is_ok()
             {
-
                 app.settings.add_recent_file(path.into());
                 app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
             }

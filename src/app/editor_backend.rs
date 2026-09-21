@@ -210,13 +210,12 @@ impl EditorBackend for App {
         match command {
             crate::editor::SelectionCommand::Set { entities } => {
                 bus.send_domain(Selection(SelectionEvent::Select(entities)));
-            }
-            crate::editor::SelectionCommand::Clear
-            | crate::editor::SelectionCommand::Add { .. }
-            | crate::editor::SelectionCommand::Remove { .. }
-            | crate::editor::SelectionCommand::Toggle { .. }
-            | crate::editor::SelectionCommand::SelectHovered
-            | crate::editor::SelectionCommand::Drag { .. } => {}
+            } // crate::editor::SelectionCommand::Clear
+              // | crate::editor::SelectionCommand::Add { .. }
+              // | crate::editor::SelectionCommand::Remove { .. }
+              // | crate::editor::SelectionCommand::Toggle { .. }
+              // | crate::editor::SelectionCommand::SelectHovered
+              // | crate::editor::SelectionCommand::Drag { .. } => {}
         }
 
         Vec::new()
@@ -256,8 +255,7 @@ impl EditorBackend for App {
             }
             crate::editor::AssetCommand::AddIbl(path) => {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)));
-            }
-            crate::editor::AssetCommand::UpdateMaterial { .. } => {}
+            } // crate::editor::AssetCommand::UpdateMaterial { .. } => {}
         }
 
         Vec::new()
@@ -518,7 +516,6 @@ impl App {
     }
 
     fn scene_settings(&self) -> SceneSettingsData {
-
         let recent: Vec<(String, String)> = self
             .settings
             .recent_files
