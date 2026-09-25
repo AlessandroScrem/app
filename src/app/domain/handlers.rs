@@ -121,6 +121,13 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
             hierarchy::disable_entity(entity, world, disable);
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
+        EntityEvent::UpdateTransform(entity, transform) => {
+            if let Ok(mut entry) = world.entry_mut(entity) {
+                if let Ok(component) = entry.get_component_mut::<TransformComponent>() {
+                    *component = transform;
+                }
+            }
+        }
     }
 }
 
