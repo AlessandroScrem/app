@@ -104,7 +104,7 @@ impl EditorBackend for App {
         match command {
             crate::editor::EntityCommand::Edit { entity, edit } => match edit {
                 crate::editor::EditValue::Transform(transform) => {
-                    let transform = TransformComponent {
+                    let component = TransformComponent {
                         position: transform.translation,
                         rotation: transform.rotation,
                         scale: transform.scale,
@@ -112,14 +112,10 @@ impl EditorBackend for App {
 
                     bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(
                         EntityRawU64::from_raw_u64(entity),
-                        transform,
+                        component,
                     )));
 
-                    vec![EditorEvent::TransformChanged { entity, transform: TransformData {
-                        translation: transform.position,
-                        rotation: transform.rotation,
-                        scale: transform.scale,
-                    }}]
+                    vec![EditorEvent::TransformChanged { entity, transform }]
                 }
                 crate::editor::EditValue::Name(name) => {
                     if let Ok(mut entry) = self
