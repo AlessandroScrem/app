@@ -104,22 +104,22 @@ impl EditorBackend for App {
         match command {
             crate::editor::EntityCommand::Edit { entity, edit } => match edit {
                 crate::editor::EditValue::Transform(transform) => {
-                    if let Ok(mut entry) = self
-                        .current_scene
-                        .world
-                        .entry_mut(EntityRawU64::from_raw_u64(entity))
-                    {
-                        if let Ok(component) = entry.get_component_mut::<TransformComponent>() {
-                            *component = TransformComponent {
-                                position: transform.translation,
-                                rotation: transform.rotation,
-                                scale: transform.scale,
-                            };
-                        }
-                    }
+                    let transform = TransformComponent {
+                        position: transform.translation,
+                        rotation: transform.rotation,
+                        scale: transform.scale,
+                    };
 
-                    self.current_scene.update_scene(bus, &self.globals);
-                    vec![EditorEvent::TransformChanged { entity, transform }]
+                    bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(
+                        EntityRawU64::from_raw_u64(entity),
+                        transform,
+                    )));
+
+                    vec![EditorEvent::TransformChanged { entity, transform: TransformData {
+                        translation: transform.position,
+                        rotation: transform.rotation,
+                        scale: transform.scale,
+                    }}]
                 }
                 crate::editor::EditValue::Name(name) => {
                     if let Ok(mut entry) = self
