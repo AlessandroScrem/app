@@ -11,3 +11,9 @@ pub enum AssetCommand {
     //     desc: MaterialDesc,
     // },
 }
+
+impl AssetCommand {
+    pub fn settings_changed(&self) -> bool {
+        matches!(self, Self::AddIbl { .. })
+    }
+}

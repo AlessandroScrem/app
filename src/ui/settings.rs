@@ -1,7 +1,5 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{
-    AssetCommand, CameraCommand, EditorCommand, EditorSettingsData, GlobalCommand,
-};
+use crate::editor::{AssetCommand, CameraCommand, EditorSettingsData, GlobalCommand};
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
 #[derive(Default)]
@@ -44,29 +42,29 @@ impl SettingsUi {
         }
         if ui.collapsing_header("Toggles", TreeNodeFlags::DEFAULT_OPEN) {
             toggle(ui, "Mips with CS", settings.mips_cp, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetMipsWithCompute(value))
+                GlobalCommand::SetMipsWithCompute(value)
             });
             toggle(ui, "Light", settings.light_enable, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetLightEnable(value))
+                GlobalCommand::SetLightEnable(value)
             });
             toggle(ui, "IBL", settings.ibl_enable, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetIblEnable(value))
+                GlobalCommand::SetIblEnable(value)
             });
             toggle(ui, "Skybox", settings.skybox_enable, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetSkyboxEnable(value))
+                GlobalCommand::SetSkyboxEnable(value)
             });
             toggle(
                 ui,
                 "Skybox blur",
                 settings.skybox_enable_blur,
                 ctx,
-                |value| EditorCommand::Global(GlobalCommand::SetSkyboxBlur(value)),
+                |value| GlobalCommand::SetSkyboxBlur(value),
             );
             toggle(ui, "Axis", settings.axis_enable, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetAxisEnable(value))
+                GlobalCommand::SetAxisEnable(value)
             });
             toggle(ui, "Bounding box", settings.bbox_enable, ctx, |value| {
-                EditorCommand::Global(GlobalCommand::SetBoundingBoxEnable(value))
+                GlobalCommand::SetBoundingBoxEnable(value)
             });
             if settings.bbox_enable {
                 toggle(
@@ -74,7 +72,7 @@ impl SettingsUi {
                     "Box aligned",
                     settings.bbox_axis_aligned,
                     ctx,
-                    |value| EditorCommand::Global(GlobalCommand::SetBoundingBoxAxisAligned(value)),
+                    |value| GlobalCommand::SetBoundingBoxAxisAligned(value),
                 );
             }
             let mut exposure = settings.exposure;
@@ -85,7 +83,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Global(GlobalCommand::SetExposure(exposure)));
+                    .send(GlobalCommand::SetExposure(exposure));
             }
             let mut ibl_intensity = settings.ibl_intensity;
             if ui
@@ -93,18 +91,18 @@ impl SettingsUi {
                 .flags(SliderFlags::LOGARITHMIC)
                 .build(&mut ibl_intensity)
             {
-                ctx.connection.commands.send(EditorCommand::Global(
-                    GlobalCommand::SetIblIntensity(ibl_intensity),
-                ));
+                ctx.connection
+                    .commands
+                    .send(GlobalCommand::SetIblIntensity(ibl_intensity));
             }
             let mut env_rotation = settings.env_rotation;
             if ui
                 .slider_config("Env rotation", 0.0, 360.0)
                 .build(&mut env_rotation)
             {
-                ctx.connection.commands.send(EditorCommand::Global(
-                    GlobalCommand::SetEnvironmentRotation(env_rotation),
-                ));
+                ctx.connection
+                    .commands
+                    .send(GlobalCommand::SetEnvironmentRotation(env_rotation));
             }
             const DEBUG: [&str; 18] = [
                 "None",
@@ -132,9 +130,7 @@ impl SettingsUi {
             }) {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Global(GlobalCommand::SetDebugCode(
-                        debug as u32,
-                    )));
+                    .send(GlobalCommand::SetDebugCode(debug as u32));
             }
             const TONEMAP: [&str; 9] = [
                 "Khronos PBR Neutral",
@@ -153,18 +149,14 @@ impl SettingsUi {
             }) {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Global(GlobalCommand::SetTonemap(
-                        tonemap as u32,
-                    )));
+                    .send(GlobalCommand::SetTonemap(tonemap as u32));
             }
             if ui.button("Add IBL") {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("hdr", &["hdr"])
                     .pick_file()
                 {
-                    ctx.connection
-                        .commands
-                        .send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
+                    ctx.connection.commands.send(AssetCommand::AddIbl(path));
                 }
             }
             ui.checkbox("Show demo window", &mut self.demo_open);
@@ -175,9 +167,7 @@ impl SettingsUi {
         if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
             ui.text(format!("FOV: {:.1}", settings.camera_fov));
             if ui.button("Recenter") {
-                ctx.connection
-                    .commands
-                    .send(EditorCommand::Camera(CameraCommand::Recenter));
+                ctx.connection.commands.send(CameraCommand::Recenter);
             }
             let mut fov = settings.camera_fov;
             if Drag::new("FOV")
@@ -185,9 +175,7 @@ impl SettingsUi {
                 .speed(1.0)
                 .build(ui, &mut fov)
             {
-                ctx.connection
-                    .commands
-                    .send(EditorCommand::Camera(CameraCommand::SetFov(fov)));
+                ctx.connection.commands.send(CameraCommand::SetFov(fov));
             }
             let mut distance = settings.camera_distance;
             if Drag::new("Distance")
@@ -197,7 +185,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Camera(CameraCommand::SetDistance(distance)));
+                    .send(CameraCommand::SetDistance(distance));
             }
             let mut near = settings.camera_near;
             let mut far = settings.camera_far;
@@ -208,10 +196,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Camera(CameraCommand::SetNearFar {
-                        near,
-                        far,
-                    }));
+                    .send(CameraCommand::SetNearFar { near, far });
             }
             if Drag::new("Far")
                 .range(0.1, f32::MAX)
@@ -220,10 +205,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::Camera(CameraCommand::SetNearFar {
-                        near,
-                        far,
-                    }));
+                    .send(CameraCommand::SetNearFar { near, far });
             }
         }
     }
@@ -231,10 +213,10 @@ impl SettingsUi {
 
 fn toggle<F>(ui: &Ui, label: &str, value: bool, ctx: &mut UiContext, make: F)
 where
-    F: FnOnce(bool) -> EditorCommand,
+    F: FnOnce(bool) -> GlobalCommand,
 {
     let mut value = value;
     if ui.checkbox(label, &mut value) {
-        ctx.connection.commands.send(make(value));
+        ctx.connection.commands.send(make(value.into()));
     }
 }

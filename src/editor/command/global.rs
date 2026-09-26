@@ -14,3 +14,23 @@ pub enum GlobalCommand {
     SetIblIntensity(f32),
     SetTonemap(u32),
 }
+
+impl GlobalCommand {
+    pub fn settings_changed(&self) -> bool {
+        matches!(
+            self,
+            Self::SetIblEnable(_)
+                | Self::SetSkyboxEnable(_)
+                | Self::SetSkyboxBlur(_)
+                | Self::SetAxisEnable(_)
+                | Self::SetBoundingBoxEnable(_)
+                | Self::SetBoundingBoxAxisAligned(_)
+                | Self::SetMipsWithCompute(_)
+                | Self::SetEnvironmentRotation(_)
+                | Self::SetDebugCode(_)
+                | Self::SetExposure(_)
+                | Self::SetIblIntensity(_)
+                | Self::SetTonemap(_)
+        )
+    }
+}

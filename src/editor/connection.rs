@@ -21,9 +21,9 @@ pub struct EditorCommandClient {
     sender: Sender<EditorCommand>,
 }
 impl EditorCommandClient {
-    pub fn send(&self, command: EditorCommand) {
+    pub fn send(&self, command: impl Into<EditorCommand>) {
         self.sender
-            .send(command)
+            .send(command.into())
             .expect("editor service command channel disconnected");
     }
 }
