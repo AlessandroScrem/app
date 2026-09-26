@@ -1,8 +1,8 @@
 use super::*;
 use crate::editor::{
-    EditValue, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
-    SceneSettingsData,
+    EditValue, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    EntityId, HierarchyData, InspectorData, LightData, Query, QueryId, QueryResponse, QueryResult,
+    SceneSettingsData, TransformData,
 };
 
 use imgui::Ui;
@@ -47,7 +47,7 @@ pub struct UiLayer {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
     scene_settings: SceneSettingsData,
-    latest_queries: HashMap<QuerySlot, QueryId>,
+    pending_queries: HashMap<QueryId, QuerySlot>,
     edit: Option<EditorEdit<EntityId, EditValue>>,
 }
 
@@ -75,8 +75,6 @@ impl Layer for UiStack {
         }
     }
 }
-
-
 
 impl UiLayer {
     pub fn new(
@@ -115,7 +113,7 @@ impl UiLayer {
             inspector: None,
             settings: None,
             statistics: None,
-            latest_queries: HashMap::new(),
+            pending_queries: HashMap::new(),
             edit: None,
             scene_settings: SceneSettingsData::default(),
         }
@@ -140,152 +138,212 @@ impl UiLayer {
 
     fn request(&mut self, slot: QuerySlot, query: Query) {
         let id = self.connection.queries.request(query);
-        self.latest_queries.insert(slot, id);
+        self.pending_queries.insert(id, slot);
     }
 
-    fn invalidate_all(&mut self) {
-        if !self.is_editing_inspector() {
-            self.inspector = None;
-        }
-
-        self.hierarchy = None;
-        self.settings = None;
-        self.statistics = None;
-
-        self.latest_queries.clear();
-
+    fn request_initial_queries(&mut self) {
         self.request(QuerySlot::Hierarchy, Query::Hierarchy);
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
         self.request(QuerySlot::SceneSettings, Query::SceneSettings);
+    }
+
+    fn remove_pending_queries(&mut self) {
+        self.pending_queries.clear();
+    }
+
+    fn invalidate_all(&mut self) {
+        self.hierarchy = None;
+        self.settings = None;
+        self.statistics = None;
+        
+        self.remove_pending_queries();
 
         if !self.is_editing_inspector() {
-            if let [entity] = *self.selection.as_slice() {
-                self.request(QuerySlot::Inspector, Query::Inspector { entity });
+            self.inspector = None;
+        }
+
+        self.request_initial_queries();
+
+        self.request_inspector();
+
+    }
+
+    fn request_inspector(&mut self) {
+        if self.is_editing_inspector() {
+            return;
+        }
+        if let [entity] = *self.selection.as_slice() {
+            self.request(QuerySlot::Inspector, Query::Inspector { entity });
+        }
+    }
+
+    fn apply_query_response(&mut self, response: QueryResponse) {
+        let Some(slot) = self.pending_queries.remove(&response.id) else {
+            return;
+        };
+
+        match (slot, response.result) {
+            (QuerySlot::Hierarchy, QueryResult::Hierarchy(data)) => self.hierarchy = Some(data),
+            (QuerySlot::Settings, QueryResult::Settings(data)) => self.settings = Some(data),
+            (QuerySlot::Statistics, QueryResult::Statistics(data)) => self.statistics = Some(data),
+            (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
+                self.scene_settings = data;
+            }
+            (QuerySlot::Selection, QueryResult::Selection(selection)) => {
+                self.selection = selection;
+                self.request_inspector();
+            }
+            (QuerySlot::Inspector, QueryResult::Inspector(data)) => {
+                if !self.is_editing_inspector() {
+                    self.inspector = data;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn update_inspector(&mut self) {
+        self.request_inspector();
+    }
+
+    fn apply_transform_changed(&mut self, entity: EntityId, transform: TransformData) {
+        if let Some(inspector) = &mut self.inspector {
+            if inspector.entity == entity {
+                inspector.transform = transform.clone();
+            }
+        }
+
+        if let Some(edit) = &mut self.edit {
+            if edit.key == entity {
+                if let EditValue::Transform(current) = &mut edit.value {
+                    *current = transform;
+                }
+            }
+        } else {
+            self.request(QuerySlot::Inspector, Query::Inspector { entity });
+        }
+    }
+
+    fn apply_name_changed(&mut self, entity: EntityId, name: String) {
+        self.request(QuerySlot::Hierarchy, Query::Hierarchy);
+
+        if let Some(inspector) = &mut self.inspector {
+            if inspector.entity == entity {
+                inspector.name = name.clone();
+            }
+        }
+
+        if let Some(edit) = &mut self.edit {
+            if edit.key == entity {
+                if let EditValue::Name(current) = &mut edit.value {
+                    *current = name;
+                }
             }
         }
     }
 
-    fn process_connection(&mut self) {
+    fn apply_light_changed(&mut self, entity: EntityId, light: LightData) {
+        if let Some(inspector) = &mut self.inspector {
+            if inspector.entity == entity {
+                inspector.light = Some(light.clone());
+            }
+        }
+
+        if let Some(edit) = &mut self.edit {
+            if edit.key == entity {
+                if let EditValue::Light(current) = &mut edit.value {
+                    *current = light;
+                }
+            }
+        }
+    }
+
+    fn apply_event(&mut self, event: EditorEvent) {
+        match event {
+            EditorEvent::SceneChanged
+            | EditorEvent::EntityCreated { .. }
+            | EditorEvent::EntityDeleted { .. } => self.invalidate_all(),
+
+            EditorEvent::SelectionChanged { entities } => {
+                self.selection = entities;
+                self.update_inspector();
+            }
+            EditorEvent::TransformChanged { entity, transform } => {
+                self.apply_transform_changed(entity, transform);
+            }
+            EditorEvent::NameChanged { entity, name } => {
+                self.apply_name_changed(entity, name);
+            }
+
+            EditorEvent::LightChanged { entity, light } => {
+                self.apply_light_changed(entity, light);
+            }
+
+            EditorEvent::SettingsChanged => {
+                self.settings = None;
+                self.request(QuerySlot::Settings, Query::Settings);
+            }
+
+            EditorEvent::StatisticsChanged => {
+                self.statistics = None;
+                self.request(QuerySlot::Statistics, Query::Statistics);
+            }
+        }
+    }
+
+    fn process_responses(&mut self) {
         while let Some(response) = self.connection.try_recv_response() {
-            let Some(slot) = self
-                .latest_queries
-                .iter()
-                .find_map(|(slot, id)| (*id == response.id).then_some(*slot))
-            else {
-                continue;
-            };
-            match (slot, response.result) {
-                (QuerySlot::Hierarchy, QueryResult::Hierarchy(data)) => self.hierarchy = Some(data),
-                (QuerySlot::Selection, QueryResult::Selection(selection)) => {
-                    self.selection = selection;
-                    if !self.is_editing_inspector() {
-                        if let [entity] = *self.selection.as_slice() {
-                            self.request(QuerySlot::Inspector, Query::Inspector { entity });
-                        }
-                    }
-                }
-                (QuerySlot::Inspector, QueryResult::Inspector(data)) => {
-                    if !self.is_editing_inspector() {
-                        self.inspector = data;
-                    }
-                }
-                (QuerySlot::Settings, QueryResult::Settings(data)) => self.settings = Some(data),
-                (QuerySlot::Statistics, QueryResult::Statistics(data)) => {
-                    self.statistics = Some(data)
-                }
-                (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
-                    self.scene_settings = data;
-                }
-                _ => {}
-            }
+            self.apply_query_response(response);
         }
+    }
 
+    fn process_events(&mut self) {
         while let Some(event) = self.connection.events.try_recv() {
-            match event {
-                EditorEvent::SceneChanged
-                | EditorEvent::EntityCreated { .. }
-                | EditorEvent::EntityDeleted { .. } => self.invalidate_all(),
-
-                EditorEvent::SelectionChanged { entities } => {
-                    self.selection = entities;
-                    if !self.is_editing_inspector() {
-                        if let [entity] = *self.selection.as_slice() {
-                            self.request(QuerySlot::Inspector, Query::Inspector { entity });
-                        } else {
-                            self.inspector = None;
-                        }
-                    }
-                }
-                EditorEvent::TransformChanged { entity, transform } => {
-                    if let Some(inspector) = &mut self.inspector {
-                        if inspector.entity == entity {
-                            inspector.transform = transform.clone();
-                        }
-                    }
-                    if let Some(edit) = &mut self.edit {
-                        if edit.key == entity {
-                            if let EditValue::Transform(current) = &mut edit.value {
-                                *current = transform;
-                            }
-                        }
-                    } else {
-                        self.request(QuerySlot::Inspector, Query::Inspector { entity });
-                    }
-                }
-                EditorEvent::NameChanged { entity, name } => {
-                    self.request(QuerySlot::Hierarchy, Query::Hierarchy);
-                    if let Some(inspector) = &mut self.inspector {
-                        if inspector.entity == entity {
-                            inspector.name = name.clone();
-                        }
-                    }
-
-                    if let Some(edit) = &mut self.edit {
-                        if edit.key == entity {
-                            if let EditValue::Name(current) = &mut edit.value {
-                                *current = name;
-                            }
-                        }
-                    }
-                }
-
-                EditorEvent::LightChanged { entity, light } => {
-                    if let Some(inspector) = &mut self.inspector {
-                        if inspector.entity == entity {
-                            inspector.light = Some(light.clone())
-                        }
-                    }
-
-                    if let Some(edit) = &mut self.edit {
-                        if edit.key == entity {
-                            if let EditValue::Light(current) = &mut edit.value {
-                                *current = light;
-                            }
-                        }
-                    }
-                }
-                EditorEvent::SettingsChanged => {
-                    self.latest_queries.remove(&QuerySlot::Settings);
-                    self.request(QuerySlot::Settings, Query::Settings);
-                }
-                EditorEvent::StatisticsChanged => {
-                    self.latest_queries.remove(&QuerySlot::Statistics);
-                    self.request(QuerySlot::Statistics, Query::Statistics);
-                }
-            }
+            self.apply_event(event);
         }
-        if self.hierarchy.is_none() && !self.latest_queries.contains_key(&QuerySlot::Hierarchy) {
+    }
+
+    fn ensure_queries(&mut self) {
+        self.ensure_hierarchy();
+        self.ensure_selection();
+        self.ensure_settings();
+        self.ensure_statistics();
+    }
+
+    fn process_connection(&mut self) {
+        self.process_responses();
+        self.process_events();
+        self.ensure_queries();
+    }
+
+    fn has_pending(&self, slot: QuerySlot) -> bool {
+        self.pending_queries
+            .values()
+            .any(|pending| *pending == slot)
+    }
+
+    fn ensure_hierarchy(&mut self) {
+        if self.hierarchy.is_none() && !self.has_pending(QuerySlot::Hierarchy) {
             self.request(QuerySlot::Hierarchy, Query::Hierarchy);
         }
-        if !self.latest_queries.contains_key(&QuerySlot::Selection) {
+    }
+
+    fn ensure_selection(&mut self) {
+        if !self.has_pending(QuerySlot::Selection) {
             self.request(QuerySlot::Selection, Query::Selection);
         }
-        if self.settings.is_none() && !self.latest_queries.contains_key(&QuerySlot::Settings) {
+    }
+
+    fn ensure_settings(&mut self) {
+        if self.settings.is_none() && !self.has_pending(QuerySlot::Settings) {
             self.request(QuerySlot::Settings, Query::Settings);
         }
-        if self.statistics.is_none() && !self.latest_queries.contains_key(&QuerySlot::Statistics) {
+    }
+
+    fn ensure_statistics(&mut self) {
+        if self.statistics.is_none() && !self.has_pending(QuerySlot::Statistics) {
             self.request(QuerySlot::Statistics, Query::Statistics);
         }
     }
