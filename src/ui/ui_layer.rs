@@ -1,11 +1,11 @@
 use super::*;
 use crate::editor::{
-    EditValue, EditorCommand, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
+    EditValue, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
     EditorStatisticsData, EntityId, HierarchyData, InspectorData, Query, QueryId, QueryResult,
     SceneSettingsData,
 };
 
-use imgui::*;
+use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
 use std::collections::HashMap;
 use winit::event::Event;
@@ -54,6 +54,7 @@ pub struct UiLayer {
 struct UiStack {
     layers: Vec<Box<dyn Layer>>,
 }
+
 impl UiStack {
     fn new() -> Self {
         Self { layers: Vec::new() }
@@ -66,60 +67,11 @@ impl UiStack {
 pub trait Layer {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext);
 }
+
 impl Layer for UiStack {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         for layer in self.layers.iter_mut() {
             layer.build(ui, ctx);
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-struct ViewportUi {
-    click_pos: Option<[f32; 2]>,
-}
-
-impl Layer for ViewportUi {
-    fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        if ui.io().want_capture_mouse {
-            return;
-        }
-
-        match self.click_pos {
-            None => {
-                if ui.is_mouse_clicked(MouseButton::Left) && ui.is_key_down(Key::LeftCtrl) {
-                    self.click_pos = Some(ui.io().mouse_pos);
-                }
-            }
-            Some(start) => {
-                let current = ui.io().mouse_pos;
-                if ui.is_mouse_dragging(MouseButton::Left) && ui.is_key_down(Key::LeftCtrl) {
-                    ui.get_foreground_draw_list()
-                        .add_rect(start, current, [1.0, 0.0, 0.0, 1.0])
-                        .thickness(1.0)
-                        .build();
-                }
-
-                if ui.is_mouse_released(MouseButton::Left) {
-                    let scale = ui.io().display_framebuffer_scale;
-                    let start = [start[0] * scale[0], start[1] * scale[1]];
-                    let current = [current[0] * scale[0], current[1] * scale[1]];
-
-                    let pos = (
-                        start[0].min(current[0]) as u32,
-                        start[1].min(current[1]) as u32,
-                    );
-                    let width = (start[0] - current[0]).abs() as u32;
-                    let height = (start[1] - current[1]).abs() as u32;
-                    let size = (width, height);
-
-                    ctx.connection
-                        .commands
-                        .send(EditorCommand::DragSelection(pos, size));
-
-                    self.click_pos = None;
-                }
-            }
         }
     }
 }
@@ -144,10 +96,10 @@ impl UiLayer {
         );
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
-        ui.push(crate::ui::menu_bar::MenuBarUi);
+        ui.push(MenuBarUi);
         ui.push(EntityListUi);
         ui.push(PropertyUi);
-        ui.push(crate::ui::settings::SettingsUi::default());
+        ui.push(SettingsUi::default());
         Self {
             context,
             platform,
@@ -166,13 +118,16 @@ impl UiLayer {
             scene_settings: SceneSettingsData::default(),
         }
     }
+
     pub fn want_capture_mouse(&self) -> bool {
         self.context.io().want_capture_mouse
     }
+
     pub fn handle_event<T>(&mut self, window: &Window, event: &Event<T>) {
         self.platform
             .handle_event::<T>(self.context.io_mut(), window, event);
     }
+
     pub fn get_draw_data(&mut self) -> &imgui::DrawData {
         self.context.render()
     }
@@ -185,6 +140,7 @@ impl UiLayer {
         let id = self.connection.queries.request(query);
         self.latest_queries.insert(slot, id);
     }
+
     fn invalidate_all(&mut self) {
         if !self.is_editing_inspector() {
             self.inspector = None;
@@ -208,6 +164,7 @@ impl UiLayer {
             }
         }
     }
+
     fn process_connection(&mut self) {
         while let Some(response) = self.connection.try_recv_response() {
             let Some(slot) = self
@@ -242,6 +199,7 @@ impl UiLayer {
                 _ => {}
             }
         }
+
         while let Some(event) = self.connection.events.try_recv() {
             match event {
                 EditorEvent::SceneChanged
@@ -329,6 +287,7 @@ impl UiLayer {
             self.request(QuerySlot::Statistics, Query::Statistics);
         }
     }
+
     fn begin_frame(&mut self, window: &Window) {
         self.timestep.update();
         self.context
@@ -338,6 +297,7 @@ impl UiLayer {
             .prepare_frame(self.context.io_mut(), window)
             .expect("failed to prepare frame");
     }
+
     fn end_frame(&mut self) {
         if !self.ini_loaded {
             self.context.set_ini_filename(Some("imgui.ini".into()));
@@ -347,6 +307,7 @@ impl UiLayer {
             self.ini_loaded = true;
         }
     }
+
     pub fn build(&mut self, window: &Window) {
         self.process_connection();
         self.begin_frame(window);
