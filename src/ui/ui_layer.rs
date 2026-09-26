@@ -133,6 +133,8 @@ impl UiLayer {
         let ui = self.context.frame();
         ui.dockspace_over_main_viewport();
 
+        let mut edit = self.commands.take_edit();
+
         let hierarchy = self.commands.hierarchy();
         let selection = self.commands.selection();
         let inspector = self.commands.inspector();
@@ -140,7 +142,7 @@ impl UiLayer {
         let statistics = self.commands.statistics();
         let scene_settings = self.commands.scene_settings();
         let command_client = self.commands.command_client();
-        let mut edit = self.commands.take_edit();
+
 
         let mut ctx = UiContext {
             commands: command_client,
