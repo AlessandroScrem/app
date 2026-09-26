@@ -19,18 +19,29 @@ pub struct UiContext<'a> {
     pub adapter_string: &'a String,
 }
 
-struct UiStack { layers: Vec<Box<dyn Layer>> }
-
-impl UiStack {
-    fn new() -> Self { Self { layers: Vec::new() } }
-    fn push<L: Layer + 'static>(&mut self, layer: L) { self.layers.push(Box::new(layer)); }
+struct UiStack {
+    layers: Vec<Box<dyn Layer>>,
 }
 
-pub trait Layer { fn build(&mut self, ui: &Ui, ctx: &mut UiContext); }
+impl UiStack {
+    fn new() -> Self {
+        Self { layers: Vec::new() }
+    }
+
+    fn push<L: Layer + 'static>(&mut self, layer: L) {
+        self.layers.push(Box::new(layer));
+    }
+}
+
+pub trait Layer {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext);
+}
 
 impl Layer for UiStack {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        for layer in self.layers.iter_mut() { layer.build(ui, ctx); }
+        for layer in self.layers.iter_mut() {
+            layer.build(ui, ctx);
+        }
     }
 }
 
@@ -45,20 +56,32 @@ pub struct UiLayer {
 }
 
 impl UiLayer {
-    pub fn new(window: &Window, mut context: imgui::Context, adapter_string: String, connection: crate::editor::EditorConnection) -> Self {
+    pub fn new(
+        window: &Window,
+        mut context: imgui::Context,
+        adapter_string: String,
+        connection: crate::editor::EditorConnection,
+    ) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
         let io = context.io_mut();
         io.config_flags.insert(imgui::ConfigFlags::DOCKING_ENABLE);
         io.config_flags.insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
         context.set_ini_filename(None);
+
         let mut platform = WinitPlatform::new(&mut context);
-        platform.attach_window(context.io_mut(), window, imgui_winit_support::HiDpiMode::Default);
+        platform.attach_window(
+            context.io_mut(),
+            window,
+            imgui_winit_support::HiDpiMode::Default,
+        );
+
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
         ui.push(MenuBarUi);
         ui.push(EntityListUi);
         ui.push(PropertyUi);
         ui.push(SettingsUi::default());
+
         Self {
             context,
             platform,
@@ -70,24 +93,35 @@ impl UiLayer {
         }
     }
 
-    pub fn want_capture_mouse(&self) -> bool { self.context.io().want_capture_mouse }
-
-    pub fn handle_event<T>(&mut self, window: &Window, event: &Event<T>) {
-        self.platform.handle_event::<T>(self.context.io_mut(), window, event);
+    pub fn want_capture_mouse(&self) -> bool {
+        self.context.io().want_capture_mouse
     }
 
-    pub fn get_draw_data(&mut self) -> &imgui::DrawData { self.context.render() }
+    pub fn handle_event<T>(&mut self, window: &Window, event: &Event<T>) {
+        self.platform
+            .handle_event::<T>(self.context.io_mut(), window, event);
+    }
+
+    pub fn get_draw_data(&mut self) -> &imgui::DrawData {
+        self.context.render()
+    }
 
     fn begin_frame(&mut self, window: &Window) {
         self.timestep.update();
-        self.context.io_mut().update_delta_time(self.timestep.delta());
-        self.platform.prepare_frame(self.context.io_mut(), window).expect("failed to prepare frame");
+        self.context
+            .io_mut()
+            .update_delta_time(self.timestep.delta());
+        self.platform
+            .prepare_frame(self.context.io_mut(), window)
+            .expect("failed to prepare frame");
     }
 
     fn end_frame(&mut self) {
         if !self.ini_loaded {
             self.context.set_ini_filename(Some("imgui.ini".into()));
-            if let Ok(content) = std::fs::read_to_string("imgui.ini") { self.context.load_ini_settings(&content); }
+            if let Ok(content) = std::fs::read_to_string("imgui.ini") {
+                self.context.load_ini_settings(&content);
+            }
             self.ini_loaded = true;
         }
     }
@@ -95,6 +129,7 @@ impl UiLayer {
     pub fn build(&mut self, window: &Window) {
         self.commands.process();
         self.begin_frame(window);
+
         let ui = self.context.frame();
         ui.dockspace_over_main_viewport();
 
@@ -104,13 +139,21 @@ impl UiLayer {
         let settings = self.commands.settings();
         let statistics = self.commands.statistics();
         let scene_settings = self.commands.scene_settings();
-        let commands = self.commands.commands();
+        let command_client = self.commands.command_client();
         let mut edit = self.commands.take_edit();
 
         let mut ctx = UiContext {
-            commands, hierarchy, selection, inspector, settings, statistics,
-            edit: &mut edit, scene_settings, adapter_string: &self.adapter_string,
+            commands: command_client,
+            hierarchy,
+            selection,
+            inspector,
+            settings,
+            statistics,
+            edit: &mut edit,
+            scene_settings,
+            adapter_string: &self.adapter_string,
         };
+
         self.stack.build(ui, &mut ctx);
         self.commands.set_edit(edit);
         self.platform.prepare_render(ui, window);
