@@ -7,87 +7,44 @@ use std::path::PathBuf;
 pub struct MenuBarUi;
 impl Layer for MenuBarUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        // let recent_files = &ctx.settings;
-
         if let Some(_bar) = ui.begin_main_menu_bar() {
             if let Some(_menu) = ui.begin_menu("File") {
-                if ui.menu_item("New") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Clear));
-                }
+                if ui.menu_item("New") { ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear)); }
                 if ui.menu_item("Open Scene") {
-                    if let Some(path) = file_open(FileFilter::Json) {
-                        ctx.connection
-                            .commands
-                            .send(EditorCommand::Scene(SceneCommand::Open  (path) ));
-                    }
+                    if let Some(path) = file_open(FileFilter::Json) { ctx.commands.send(EditorCommand::Scene(SceneCommand::Open(path))); }
                 }
                 if ui.menu_item("Save As..") {
-                    if let Some(path) = file_save(FileFilter::Json) {
-                        ctx.connection
-                            .commands
-                            .send(EditorCommand::Scene(SceneCommand::SaveAs ( path )));
-                    }
+                    if let Some(path) = file_save(FileFilter::Json) { ctx.commands.send(EditorCommand::Scene(SceneCommand::SaveAs(path))); }
                 }
-                if ui.menu_item("Save") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Save));
-                }
+                if ui.menu_item("Save") { ctx.commands.send(EditorCommand::Scene(SceneCommand::Save)); }
                 ui.separator();
                 if ui.menu_item("Load Gltf") {
-                    if let Some(path) = file_open(FileFilter::Gltf) {
-                        ctx.connection
-                            .commands
-                            .send(EditorCommand::Asset(crate::editor::AssetCommand::LoadGltf(path)));
-                    }
+                    if let Some(path) = file_open(FileFilter::Gltf) { ctx.commands.send(EditorCommand::Asset(AssetCommand::LoadGltf(path))); }
                 }
                 if ui.menu_item("Add Ibl") {
-                    if let Some(path) = file_open(FileFilter::Hdr) {
-                        ctx.connection.commands.send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
-                    }
+                    if let Some(path) = file_open(FileFilter::Hdr) { ctx.commands.send(EditorCommand::Asset(AssetCommand::AddIbl(path))); }
                 }
-                if ui.menu_item("Clear Scene") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Clear));
-                }
+                if ui.menu_item("Clear Scene") { ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear)); }
                 ui.separator();
-                if ui.menu_item("Exit") {
-                    ctx.connection.commands.send(EditorCommand::Exit);
-                }
+                if ui.menu_item("Exit") { ctx.commands.send(EditorCommand::Exit); }
                 ui.separator();
                 ui.menu("Recent Files", || {
                     for (name, path) in ctx.scene_settings.recent.iter() {
-                        if ui.menu_item(&name) {
-                            ctx.connection
-                                .commands
-                                .send(EditorCommand::Scene(SceneCommand::Open  (path.into()) ));
-                        }
+                        if ui.menu_item(&name) { ctx.commands.send(EditorCommand::Scene(SceneCommand::Open(path.into()))); }
                     }
-                    if ctx.scene_settings.recent.is_empty() {
-                        ui.text_disabled("No recent files");
-                    }
+                    if ctx.scene_settings.recent.is_empty() { ui.text_disabled("No recent files"); }
                 });
             }
-            if let Some(_menu) = ui.begin_menu("Edit") {
-                ui.menu_item("Undo");
-                ui.menu_item("Redo");
-            }
-            if let Some(_menu) = ui.begin_menu("View") {
-                ui.menu_item("Show Stats");
-            }
+            if let Some(_menu) = ui.begin_menu("Edit") { ui.menu_item("Undo"); ui.menu_item("Redo"); }
+            if let Some(_menu) = ui.begin_menu("View") { ui.menu_item("Show Stats"); }
         }
     }
 }
 
-pub enum FileFilter {
-    Gltf,
-    Json,
-    Hdr,
-}
+pub enum FileFilter { Gltf, Json, Hdr }
 impl FileFilter {
     fn as_args(&self) -> (&str, &[&str]) {
-        match self {
-            Self::Gltf => ("glTF", &["gltf", "glb"]),
-            Self::Json => ("json", &["json"]),
-            Self::Hdr => ("hdr", &["hdr"]),
-        }
+        match self { Self::Gltf => ("glTF", &["gltf", "glb"]), Self::Json => ("json", &["json"]), Self::Hdr => ("hdr", &["hdr"]) }
     }
 }
 pub fn file_save(filter: FileFilter) -> Option<PathBuf> {
