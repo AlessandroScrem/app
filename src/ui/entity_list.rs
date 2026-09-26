@@ -45,18 +45,18 @@ impl Layer for EntityListUi {
                     draw_light_node(ui, node, &mut selection, &mut action, ctx);
                 }
                 if selection != old_selection {
-                    ctx.connection.commands.send(EditorCommand::Selection(SelectionCommand::Select {
+                    ctx.commands.commands.send(EditorCommand::Selection(SelectionCommand::Select {
                         entities: selection.iter().copied().collect(),
                     }));
                 }
                 if let Some(command) = action {
-                    ctx.connection.commands.send(command);
+                    ctx.commands.commands.send(command);
                 }
                 if ui.is_window_hovered()
                     && !ui.is_any_item_hovered()
                     && ui.is_mouse_clicked(MouseButton::Left)
                 {
-                    ctx.connection.commands.send(EditorCommand::Selection(SelectionCommand::Select {
+                    ctx.commands.commands.send(EditorCommand::Selection(SelectionCommand::Select {
                         entities: Vec::new(),
                     }));
                 }
@@ -67,7 +67,7 @@ impl Layer for EntityListUi {
 fn toolbar(ui: &Ui, ctx: &mut UiContext) {
     if ui.small_button(format!("{ICON_FOLDER}##load_gltf")) {
         if let Some(path) = crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf) {
-            ctx.connection
+            ctx.commands
                 .commands
                 .send(EditorCommand::Asset(AssetCommand::LoadGltf(path )));
         }
@@ -77,14 +77,14 @@ fn toolbar(ui: &Ui, ctx: &mut UiContext) {
     }
     ui.same_line();
     if ui.small_button(format!("{ICON_LIGHTBULB}##add_light")) {
-        ctx.connection.commands.send(EditorCommand::Entity(EntityCommand::AddLight));
+        ctx.commands.commands.send(EditorCommand::Entity(EntityCommand::AddLight));
     }
     if ui.is_item_hovered() {
         ui.tooltip_text("Add light");
     }
     ui.same_line();
     if ui.small_button(format!("{ICON_CLEAR}##clear_selection")) {
-        ctx.connection.commands.send(EditorCommand::Selection(SelectionCommand::Select {
+        ctx.commands.commands.send(EditorCommand::Selection(SelectionCommand::Select {
             entities: Vec::new(),
         }));
     }

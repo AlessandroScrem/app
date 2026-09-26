@@ -7,7 +7,6 @@ use crate::editor::{
 
 use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
-use std::collections::HashMap;
 use winit::event::Event;
 use winit::window::Window;
 

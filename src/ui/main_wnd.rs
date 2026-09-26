@@ -44,7 +44,7 @@ impl Layer for ViewportUi {
                     let height = (start[1] - current[1]).abs() as u32;
                     let size = (width, height);
 
-                    ctx.connection
+                    ctx.commands
                         .commands
                         .send(EditorCommand::DragSelection(pos, size));
 

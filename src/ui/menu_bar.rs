@@ -12,50 +12,50 @@ impl Layer for MenuBarUi {
         if let Some(_bar) = ui.begin_main_menu_bar() {
             if let Some(_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Clear));
+                    ctx.commands.commands.send(EditorCommand::Scene(SceneCommand::Clear));
                 }
                 if ui.menu_item("Open Scene") {
                     if let Some(path) = file_open(FileFilter::Json) {
-                        ctx.connection
+                        ctx.commands
                             .commands
                             .send(EditorCommand::Scene(SceneCommand::Open  (path) ));
                     }
                 }
                 if ui.menu_item("Save As..") {
                     if let Some(path) = file_save(FileFilter::Json) {
-                        ctx.connection
+                        ctx.commands
                             .commands
                             .send(EditorCommand::Scene(SceneCommand::SaveAs ( path )));
                     }
                 }
                 if ui.menu_item("Save") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Save));
+                    ctx.commands.commands.send(EditorCommand::Scene(SceneCommand::Save));
                 }
                 ui.separator();
                 if ui.menu_item("Load Gltf") {
                     if let Some(path) = file_open(FileFilter::Gltf) {
-                        ctx.connection
+                        ctx.commands
                             .commands
                             .send(EditorCommand::Asset(crate::editor::AssetCommand::LoadGltf(path)));
                     }
                 }
                 if ui.menu_item("Add Ibl") {
                     if let Some(path) = file_open(FileFilter::Hdr) {
-                        ctx.connection.commands.send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
+                        ctx.commands.commands.send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
                     }
                 }
                 if ui.menu_item("Clear Scene") {
-                    ctx.connection.commands.send(EditorCommand::Scene(SceneCommand::Clear));
+                    ctx.commands.commands.send(EditorCommand::Scene(SceneCommand::Clear));
                 }
                 ui.separator();
                 if ui.menu_item("Exit") {
-                    ctx.connection.commands.send(EditorCommand::Exit);
+                    ctx.commands.commands.send(EditorCommand::Exit);
                 }
                 ui.separator();
                 ui.menu("Recent Files", || {
                     for (name, path) in ctx.scene_settings.recent.iter() {
                         if ui.menu_item(&name) {
-                            ctx.connection
+                            ctx.commands
                                 .commands
                                 .send(EditorCommand::Scene(SceneCommand::Open  (path.into()) ));
                         }

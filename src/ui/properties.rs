@@ -111,7 +111,7 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
     }
     if edited {
         ctx.begin_edit(inspector.entity, EditValue::Name(name.clone()));
-        ctx.connection
+        ctx.commands
             .commands
             .send(EditorCommand::Entity(EntityCommand::Edit {
                 entity: inspector.entity,
@@ -168,7 +168,7 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
 
     if activated {
         ctx.begin_edit(inspector.entity, EditValue::Transform(transform.clone()));
-        ctx.connection
+        ctx.commands
             .commands
             .send(EntityCommand::BeginTransformEdit {
                 entity: inspector.entity,
@@ -176,7 +176,7 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
     }
     if edited {
         ctx.begin_edit(inspector.entity, EditValue::Transform(transform.clone()));
-        ctx.connection
+        ctx.commands
             .commands
             .send(EntityCommand::SetTransform {
                 entity: inspector.entity,
@@ -184,7 +184,7 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
             });
     }
     if deactivated {
-        ctx.connection
+        ctx.commands
             .commands
             .send(EntityCommand::EndTransformEdit {
                 entity: inspector.entity,
@@ -216,18 +216,18 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorD
 }
 
 fn reset_transform(ctx: &mut UiContext, entity: EntityId, transform: TransformData) {
-    ctx.connection
+    ctx.commands
         .commands
         .send(EntityCommand::BeginTransformEdit {
             entity,
         });
-    ctx.connection
+    ctx.commands
         .commands
         .send(EntityCommand::SetTransform {
             entity,
             transform,
         });
-    ctx.connection
+    ctx.commands
         .commands
         .send(EntityCommand::EndTransformEdit {
             entity,
@@ -262,7 +262,7 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         edited
     });
     if edited {
-        ctx.connection
+        ctx.commands
             .commands
             .send(EntityCommand::Edit {
                 entity,

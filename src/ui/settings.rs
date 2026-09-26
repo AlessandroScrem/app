@@ -81,7 +81,7 @@ impl SettingsUi {
                 .flags(SliderFlags::LOGARITHMIC)
                 .build(&mut exposure)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(GlobalCommand::SetExposure(exposure));
             }
@@ -91,7 +91,7 @@ impl SettingsUi {
                 .flags(SliderFlags::LOGARITHMIC)
                 .build(&mut ibl_intensity)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(GlobalCommand::SetIblIntensity(ibl_intensity));
             }
@@ -100,7 +100,7 @@ impl SettingsUi {
                 .slider_config("Env rotation", 0.0, 360.0)
                 .build(&mut env_rotation)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(GlobalCommand::SetEnvironmentRotation(env_rotation));
             }
@@ -128,7 +128,7 @@ impl SettingsUi {
             if ui.combo("Debug Mode", &mut debug, &DEBUG, |item| {
                 std::borrow::Cow::Borrowed(*item)
             }) {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(GlobalCommand::SetDebugCode(debug as u32));
             }
@@ -147,7 +147,7 @@ impl SettingsUi {
             if ui.combo("Tonemap", &mut tonemap, &TONEMAP, |item| {
                 std::borrow::Cow::Borrowed(*item)
             }) {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(GlobalCommand::SetTonemap(tonemap as u32));
             }
@@ -156,7 +156,7 @@ impl SettingsUi {
                     .add_filter("hdr", &["hdr"])
                     .pick_file()
                 {
-                    ctx.connection.commands.send(AssetCommand::AddIbl(path));
+                    ctx.commands.commands.send(AssetCommand::AddIbl(path));
                 }
             }
             ui.checkbox("Show demo window", &mut self.demo_open);
@@ -167,7 +167,7 @@ impl SettingsUi {
         if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
             ui.text(format!("FOV: {:.1}", settings.camera_fov));
             if ui.button("Recenter") {
-                ctx.connection.commands.send(CameraCommand::Recenter);
+                ctx.commands.commands.send(CameraCommand::Recenter);
             }
             let mut fov = settings.camera_fov;
             if Drag::new("FOV")
@@ -175,7 +175,7 @@ impl SettingsUi {
                 .speed(1.0)
                 .build(ui, &mut fov)
             {
-                ctx.connection.commands.send(CameraCommand::SetFov(fov));
+                ctx.commands.commands.send(CameraCommand::SetFov(fov));
             }
             let mut distance = settings.camera_distance;
             if Drag::new("Distance")
@@ -183,7 +183,7 @@ impl SettingsUi {
                 .speed(1.0)
                 .build(ui, &mut distance)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(CameraCommand::SetDistance(distance));
             }
@@ -194,7 +194,7 @@ impl SettingsUi {
                 .speed(0.1)
                 .build(ui, &mut near)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(CameraCommand::SetNearFar { near, far });
             }
@@ -203,7 +203,7 @@ impl SettingsUi {
                 .speed(1.0)
                 .build(ui, &mut far)
             {
-                ctx.connection
+                ctx.commands
                     .commands
                     .send(CameraCommand::SetNearFar { near, far });
             }
@@ -217,6 +217,6 @@ where
 {
     let mut value = value;
     if ui.checkbox(label, &mut value) {
-        ctx.connection.commands.send(make(value.into()));
+        ctx.commands.commands.send(make(value.into()));
     }
 }
