@@ -1,5 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditorCommand, EditorSettingsData};
+use crate::editor::{
+    AssetCommand, CameraCommand, EditorCommand, EditorSettingsData, GlobalCommand,
+};
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
 #[derive(Default)]
@@ -41,62 +43,38 @@ impl SettingsUi {
             }
         }
         if ui.collapsing_header("Toggles", TreeNodeFlags::DEFAULT_OPEN) {
-            toggle(
-                ui,
-                "Mips with CS",
-                settings.mips_cp,
-                ctx,
-                EditorCommand::SetMipsWithCompute,
-            );
-            toggle(
-                ui,
-                "Light",
-                settings.light_enable,
-                ctx,
-                EditorCommand::SetLightEnable,
-            );
-            toggle(
-                ui,
-                "IBL",
-                settings.ibl_enable,
-                ctx,
-                EditorCommand::SetIblEnable,
-            );
-            toggle(
-                ui,
-                "Skybox",
-                settings.skybox_enable,
-                ctx,
-                EditorCommand::SetSkyboxEnable,
-            );
+            toggle(ui, "Mips with CS", settings.mips_cp, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetMipsWithCompute(value))
+            });
+            toggle(ui, "Light", settings.light_enable, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetLightEnable(value))
+            });
+            toggle(ui, "IBL", settings.ibl_enable, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetIblEnable(value))
+            });
+            toggle(ui, "Skybox", settings.skybox_enable, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetSkyboxEnable(value))
+            });
             toggle(
                 ui,
                 "Skybox blur",
                 settings.skybox_enable_blur,
                 ctx,
-                EditorCommand::SetSkyboxBlur,
+                |value| EditorCommand::Global(GlobalCommand::SetSkyboxBlur(value)),
             );
-            toggle(
-                ui,
-                "Axis",
-                settings.axis_enable,
-                ctx,
-                EditorCommand::SetAxisEnable,
-            );
-            toggle(
-                ui,
-                "Bounding box",
-                settings.bbox_enable,
-                ctx,
-                EditorCommand::SetBoundingBoxEnable,
-            );
+            toggle(ui, "Axis", settings.axis_enable, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetAxisEnable(value))
+            });
+            toggle(ui, "Bounding box", settings.bbox_enable, ctx, |value| {
+                EditorCommand::Global(GlobalCommand::SetBoundingBoxEnable(value))
+            });
             if settings.bbox_enable {
                 toggle(
                     ui,
                     "Box aligned",
                     settings.bbox_axis_aligned,
                     ctx,
-                    EditorCommand::SetBoundingBoxAxisAligned,
+                    |value| EditorCommand::Global(GlobalCommand::SetBoundingBoxAxisAligned(value)),
                 );
             }
             let mut exposure = settings.exposure;
@@ -107,7 +85,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetExposure(exposure));
+                    .send(EditorCommand::Global(GlobalCommand::SetExposure(exposure)));
             }
             let mut ibl_intensity = settings.ibl_intensity;
             if ui
@@ -115,18 +93,18 @@ impl SettingsUi {
                 .flags(SliderFlags::LOGARITHMIC)
                 .build(&mut ibl_intensity)
             {
-                ctx.connection
-                    .commands
-                    .send(EditorCommand::SetIblIntensity(ibl_intensity));
+                ctx.connection.commands.send(EditorCommand::Global(
+                    GlobalCommand::SetIblIntensity(ibl_intensity),
+                ));
             }
             let mut env_rotation = settings.env_rotation;
             if ui
                 .slider_config("Env rotation", 0.0, 360.0)
                 .build(&mut env_rotation)
             {
-                ctx.connection
-                    .commands
-                    .send(EditorCommand::SetEnvironmentRotation(env_rotation));
+                ctx.connection.commands.send(EditorCommand::Global(
+                    GlobalCommand::SetEnvironmentRotation(env_rotation),
+                ));
             }
             const DEBUG: [&str; 18] = [
                 "None",
@@ -154,7 +132,9 @@ impl SettingsUi {
             }) {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetDebugCode(debug as u32));
+                    .send(EditorCommand::Global(GlobalCommand::SetDebugCode(
+                        debug as u32,
+                    )));
             }
             const TONEMAP: [&str; 9] = [
                 "Khronos PBR Neutral",
@@ -173,14 +153,18 @@ impl SettingsUi {
             }) {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetTonemap(tonemap as u32));
+                    .send(EditorCommand::Global(GlobalCommand::SetTonemap(
+                        tonemap as u32,
+                    )));
             }
             if ui.button("Add IBL") {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("hdr", &["hdr"])
                     .pick_file()
                 {
-                    ctx.connection.commands.send(EditorCommand::AddIbl { path });
+                    ctx.connection
+                        .commands
+                        .send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
                 }
             }
             ui.checkbox("Show demo window", &mut self.demo_open);
@@ -191,7 +175,9 @@ impl SettingsUi {
         if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
             ui.text(format!("FOV: {:.1}", settings.camera_fov));
             if ui.button("Recenter") {
-                ctx.connection.commands.send(EditorCommand::RecenterCamera);
+                ctx.connection
+                    .commands
+                    .send(EditorCommand::Camera(CameraCommand::Recenter));
             }
             let mut fov = settings.camera_fov;
             if Drag::new("FOV")
@@ -201,7 +187,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetCameraFov(fov));
+                    .send(EditorCommand::Camera(CameraCommand::SetFov(fov)));
             }
             let mut distance = settings.camera_distance;
             if Drag::new("Distance")
@@ -211,7 +197,7 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetCameraDistance(distance));
+                    .send(EditorCommand::Camera(CameraCommand::SetDistance(distance)));
             }
             let mut near = settings.camera_near;
             let mut far = settings.camera_far;
@@ -222,7 +208,10 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetCameraNearFar { near, far });
+                    .send(EditorCommand::Camera(CameraCommand::SetNearFar {
+                        near,
+                        far,
+                    }));
             }
             if Drag::new("Far")
                 .range(0.1, f32::MAX)
@@ -231,7 +220,10 @@ impl SettingsUi {
             {
                 ctx.connection
                     .commands
-                    .send(EditorCommand::SetCameraNearFar { near, far });
+                    .send(EditorCommand::Camera(CameraCommand::SetNearFar {
+                        near,
+                        far,
+                    }));
             }
         }
     }

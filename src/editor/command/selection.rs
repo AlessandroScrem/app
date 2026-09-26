@@ -2,7 +2,7 @@ use crate::editor::EntityId;
 
 #[derive(Clone, Debug)]
 pub enum SelectionCommand {
-    Set { entities: Vec<EntityId> },
+    Select { entities: Vec<EntityId> },
     // Clear,
     // Add { entity: EntityId },
     // Remove { entity: EntityId },

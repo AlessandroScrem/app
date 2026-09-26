@@ -1,4 +1,4 @@
-use crate::editor::{EditValue, EntityId};
+use crate::editor::{EditValue, EntityId, TransformData};
 
 #[derive(Clone, Debug)]
 pub enum EntityCommand {
@@ -7,6 +7,7 @@ pub enum EntityCommand {
     AddParent { entity: EntityId },
     SetEnabled { entity: EntityId, enabled: bool },
     Edit { entity: EntityId, edit: EditValue },
+    SetTransform { entity: EntityId, transform: TransformData },
     BeginTransformEdit { entity: EntityId },
     EndTransformEdit { entity: EntityId },
 }

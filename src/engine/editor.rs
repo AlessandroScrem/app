@@ -7,9 +7,9 @@ use crate::engine::engine::EventBus;
 pub trait EditorBackend {
     fn query(&self, query: &Query) -> QueryResult;
     fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent>;
-    fn domain_command(
+    fn editor_command(
         &mut self,
-        command: crate::editor::DomainCommand,
+        command: crate::editor::EditorCommand,
         bus: &mut EventBus,
     ) -> Vec<EditorEvent>;
     fn entity_command(

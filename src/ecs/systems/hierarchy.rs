@@ -1,7 +1,48 @@
+use cgmath::{ElementWise, Rotation};
 use legion::{systems::CommandBuffer, world::SubWorld, *};
 
 use crate::ecs::components::{GlobalModelComponent, HierarchyComponent, TransformComponent};
 use crate::math::*;
+
+#[derive(Clone, Copy)]
+struct GlobalTransform {
+    position: Vec3,
+    rotation: Quat,
+    scale: Vec3,
+}
+
+impl GlobalTransform {
+    fn from_local(transform: &TransformComponent) -> Self {
+        Self {
+            position: Vec3::from(transform.position),
+            rotation: quat_from_euler(&transform.rotation),
+            scale: Vec3::from(transform.scale),
+        }
+    }
+
+    fn combine(self, local: &TransformComponent) -> Self {
+        let local_position = Vec3::from(local.position);
+        let local_rotation = quat_from_euler(&local.rotation);
+        let local_scale = Vec3::from(local.scale);
+
+        Self {
+            position: self.position
+                + self.rotation.rotate_vector(local_position.mul_element_wise(self.scale)),
+            rotation: self.rotation * local_rotation,
+            scale: self.scale.mul_element_wise(local_scale),
+        }
+    }
+
+    fn matrix(self) -> Mat4 {
+        Mat4::from_translation(self.position)
+            * Mat4::from(self.rotation)
+            * Mat4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z)
+    }
+}
+
+fn quat_from_euler(rotation: &[f32; 3]) -> Quat {
+    Quat::from(Euler::new(Rad(rotation[0]), Rad(rotation[1]), Rad(rotation[2])))
+}
 
 #[system]
 #[read_component(TransformComponent)]
@@ -9,32 +50,23 @@ use crate::math::*;
 pub fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
     let mut query = <(Entity, Read<HierarchyComponent>, Read<TransformComponent>)>::query();
 
-    // Entities with a `HierarchyComponent` and NOT a `Parent`
-    // (roots of a hierarchy)
-    for (entity, hirarchy, transform) in query.iter(world).filter(|(_e, h, _t)| h.parent.is_none())
-    {
-        // Calcolo della matrice globale
-        let local_matrix = transform.compute_model_matrix();
-        let global_model = GlobalModelComponent { mat: local_matrix };
+    for (entity, hierarchy, transform) in query.iter(world).filter(|(_, h, _)| h.parent.is_none()) {
+        let global = GlobalTransform::from_local(transform);
+        commands.add_component(*entity, GlobalModelComponent { mat: global.matrix() });
 
-        // Aggiorna o sostituisce il componente
-        commands.add_component(*entity, global_model);
-
-        // Propaga ai figli
-        for child in hirarchy.children.iter() {
-            propagate_recursive(local_matrix, world, *child, commands);
+        for child in &hierarchy.children {
+            propagate_recursive(global, world, *child, commands);
         }
     }
 }
 
 fn propagate_recursive(
-    parent_matrix: Mat4,
+    parent_global: GlobalTransform,
     world: &SubWorld,
     entity: Entity,
     commands: &mut CommandBuffer,
 ) {
-    // Ottieni la matrice locale
-    let local_matrix = {
+    let local_transform = {
         let entry = match world.entry_ref(entity) {
             Ok(e) => e,
             Err(_) => {
@@ -43,39 +75,34 @@ fn propagate_recursive(
             }
         };
 
-        if let Ok(transform) = entry.get_component::<TransformComponent>() {
-            transform.compute_model_matrix()
-        } else {
-            log::warn!(
-                "Entity {:?} is a child in the hierarchy but does not have a TransformComponent",
-                entity
-            );
-            return;
+        match entry.get_component::<TransformComponent>() {
+            Ok(transform) => transform.clone(),
+            Err(_) => {
+                log::warn!(
+                    "Entity {:?} is a child in the hierarchy but does not have a TransformComponent",
+                    entity
+                );
+                return;
+            }
         }
     };
 
-    // Calcolo della matrice globale
-    let local_matrix = parent_matrix * local_matrix;
+    let global = parent_global.combine(&local_transform);
+    commands.add_component(entity, GlobalModelComponent { mat: global.matrix() });
 
-    // Aggiorna o sostituisce il componente
-    let global_model = GlobalModelComponent { mat: local_matrix };
-    commands.add_component(entity, global_model);
-
-    // Propaga ai figli
     let children = {
         let entry = match world.entry_ref(entity) {
             Ok(e) => e,
             Err(_) => return,
         };
 
-        if let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() {
-            hierarchy.children.clone()
-        } else {
-            return;
+        match entry.get_component::<HierarchyComponent>() {
+            Ok(hierarchy) => hierarchy.children.clone(),
+            Err(_) => return,
         }
     };
 
     for child in children {
-        propagate_recursive(local_matrix, world, child, commands);
+        propagate_recursive(global, world, child, commands);
     }
 }
