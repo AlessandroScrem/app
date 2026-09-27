@@ -276,6 +276,8 @@ impl UiCommands {
     }
 
     fn has_pending(&self, slot: QuerySlot) -> bool {
-        self.pending_queries.values().any(|pending| *pending == slot)
+        self.pending_queries
+            .values()
+            .any(|pending| *pending == slot)
     }
 }

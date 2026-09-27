@@ -12,7 +12,6 @@ pub use global::GlobalCommand;
 pub use scene::SceneCommand;
 pub use selection::SelectionCommand;
 
-
 #[derive(Clone, Debug)]
 pub enum EditorCommand {
     Scene(SceneCommand),

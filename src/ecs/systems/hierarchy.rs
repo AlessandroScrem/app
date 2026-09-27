@@ -27,7 +27,9 @@ impl GlobalTransform {
 
         Self {
             position: self.position
-                + self.rotation.rotate_vector(local_position.mul_element_wise(self.scale)),
+                + self
+                    .rotation
+                    .rotate_vector(local_position.mul_element_wise(self.scale)),
             rotation: self.rotation * local_rotation,
             scale: self.scale.mul_element_wise(local_scale),
         }
@@ -41,7 +43,11 @@ impl GlobalTransform {
 }
 
 fn quat_from_euler(rotation: &[f32; 3]) -> Quat {
-    Quat::from(Euler::new(Rad(rotation[0]), Rad(rotation[1]), Rad(rotation[2])))
+    Quat::from(Euler::new(
+        Rad(rotation[0]),
+        Rad(rotation[1]),
+        Rad(rotation[2]),
+    ))
 }
 
 #[system]
@@ -52,7 +58,12 @@ pub fn update_hieararchy(world: &SubWorld, commands: &mut CommandBuffer) {
 
     for (entity, hierarchy, transform) in query.iter(world).filter(|(_, h, _)| h.parent.is_none()) {
         let global = GlobalTransform::from_local(transform);
-        commands.add_component(*entity, GlobalModelComponent { mat: global.matrix() });
+        commands.add_component(
+            *entity,
+            GlobalModelComponent {
+                mat: global.matrix(),
+            },
+        );
 
         for child in &hierarchy.children {
             propagate_recursive(global, world, *child, commands);
@@ -88,7 +99,12 @@ fn propagate_recursive(
     };
 
     let global = parent_global.combine(&local_transform);
-    commands.add_component(entity, GlobalModelComponent { mat: global.matrix() });
+    commands.add_component(
+        entity,
+        GlobalModelComponent {
+            mat: global.matrix(),
+        },
+    );
 
     let children = {
         let entry = match world.entry_ref(entity) {

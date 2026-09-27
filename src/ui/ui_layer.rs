@@ -1,6 +1,6 @@
+use super::ui_commands::UiCommands;
 use super::*;
 use crate::editor::EditorCommandClient;
-use super::ui_commands::UiCommands;
 
 use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
@@ -14,7 +14,9 @@ pub struct UiContext<'a> {
     pub inspector: Option<&'a crate::editor::InspectorData>,
     pub settings: Option<&'a crate::editor::EditorSettingsData>,
     pub statistics: Option<&'a crate::editor::EditorStatisticsData>,
-    pub edit: &'a mut Option<crate::editor::EditorEdit<crate::editor::EntityId, crate::editor::EditValue>>,
+    pub edit: &'a mut Option<
+        crate::editor::EditorEdit<crate::editor::EntityId, crate::editor::EditValue>,
+    >,
     pub scene_settings: &'a crate::editor::SceneSettingsData,
     pub adapter_string: &'a String,
 }
@@ -142,7 +144,6 @@ impl UiLayer {
         let statistics = self.commands.statistics();
         let scene_settings = self.commands.scene_settings();
         let command_client = self.commands.command_client();
-
 
         let mut ctx = UiContext {
             commands: command_client,
