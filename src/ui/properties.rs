@@ -6,7 +6,7 @@ use imgui::*;
 #[derive(Default)]
 pub struct PropertyUi {
     inspector: Option<InspectorData>,
-    draft: Option<InspectorData>,
+    editable_inspector: Option<InspectorData>,
     selection: Vec<EntityId>,
 }
 
@@ -15,9 +15,9 @@ impl Layer for PropertyUi {
         let inspector = commands.inspector().cloned();
 
         if self
-            .draft
+            .editable_inspector
             .as_ref()
-            .is_none_or(|draft| inspector.as_ref().is_none_or(|data| data.entity != draft.entity))
+            .is_none_or(|editable| inspector.as_ref().is_none_or(|data| data.entity != editable.entity))
         {
             self.draft = inspector.clone();
         }
