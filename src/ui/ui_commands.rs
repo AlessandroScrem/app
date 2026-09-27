@@ -1,6 +1,6 @@
 use crate::editor::{
     EditValue, EditorCommandClient, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, LightData, Query, QueryId,
+    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
@@ -164,7 +164,12 @@ impl UiCommands {
     fn apply_transform_changed(&mut self, entity: EntityId, transform: TransformData) {
         if let Some(inspector) = &mut self.inspector {
             if inspector.entity == entity {
-                inspector.transform = transform.clone();
+                for section in &mut inspector.sections {
+                    if let InspectorSection::Transform(current) = section {
+                        *current = transform.clone();
+                        break;
+                    }
+                }
             }
         }
 
@@ -200,7 +205,12 @@ impl UiCommands {
     fn apply_light_changed(&mut self, entity: EntityId, light: LightData) {
         if let Some(inspector) = &mut self.inspector {
             if inspector.entity == entity {
-                inspector.light = Some(light.clone());
+                for section in &mut inspector.sections {
+                    if let InspectorSection::Light(current) = section {
+                        *current = light.clone();
+                        break;
+                    }
+                }
             }
         }
 
