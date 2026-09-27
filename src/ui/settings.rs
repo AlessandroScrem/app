@@ -28,7 +28,7 @@ impl Layer for SettingsUi {
     }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let Some(settings) = self.settings.as_ref() else {
+        let Some(settings) = self.settings.clone() else {
             ui.window("Settings")
                 .size([320.0, 300.0], imgui::Condition::FirstUseEver)
                 .build(|| ui.text("Loading settings..."));
@@ -36,7 +36,7 @@ impl Layer for SettingsUi {
         };
         ui.window("Settings")
             .size([320.0, 500.0], imgui::Condition::FirstUseEver)
-            .build(|| self.draw(ui, ctx, settings));
+            .build(|| self.draw(ui, ctx, &settings));
     }
 }
 
