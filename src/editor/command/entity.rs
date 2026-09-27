@@ -1,4 +1,4 @@
-use crate::editor::{EditValue, EntityId, TransformData};
+use crate::editor::{EntityId, LightData, TransformData};
 
 #[derive(Clone, Debug)]
 pub enum EntityCommand {
@@ -13,9 +13,13 @@ pub enum EntityCommand {
         entity: EntityId,
         enabled: bool,
     },
-    Edit {
+    SetName {
         entity: EntityId,
-        edit: EditValue,
+        name: String,
+    },
+    SetLight {
+        entity: EntityId,
+        light: LightData,
     },
     SetTransform {
         entity: EntityId,
