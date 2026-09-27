@@ -1,7 +1,7 @@
 use crate::editor::{
     EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
-    QueryResponse, QueryResult, SceneSettingsData, TransformData,
+    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData,
+    Query, QueryId, QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
 
@@ -123,8 +123,10 @@ impl UiCommands {
             (QuerySlot::Settings, QueryResult::Settings(data)) => {
                 self.settings = Some(data);
                 self.request_inspector();
-            },
-            (QuerySlot::Statistics, QueryResult::Statistics(data)) => self.statistics = Some(data),
+            }
+            (QuerySlot::Statistics, QueryResult::Statistics(data)) => {
+                self.statistics = Some(data);
+            }
             (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                 self.scene_settings = data;
             }
@@ -150,6 +152,7 @@ impl UiCommands {
                 }
             }
         }
+    }
 
     fn apply_name_changed(&mut self, entity: EntityId, name: String) {
         self.request(QuerySlot::Hierarchy, Query::Hierarchy);
@@ -159,6 +162,7 @@ impl UiCommands {
                 inspector.name = name.clone();
             }
         }
+    }
 
     fn apply_light_changed(&mut self, entity: EntityId, light: LightData) {
         if let Some(inspector) = &mut self.inspector {
@@ -171,6 +175,7 @@ impl UiCommands {
                 }
             }
         }
+    }
 
     fn apply_event(&mut self, event: EditorEvent) {
         match event {
