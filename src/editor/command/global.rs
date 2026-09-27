@@ -20,6 +20,7 @@ impl GlobalCommand {
         matches!(
             self,
             Self::SetIblEnable(_)
+                | Self::SetLightEnable(_)
                 | Self::SetSkyboxEnable(_)
                 | Self::SetSkyboxBlur(_)
                 | Self::SetAxisEnable(_)
