@@ -5,6 +5,13 @@ use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 #[derive(Default)]
 pub struct SettingsUi {
     demo_open: bool,
+    adapter_string: String,
+}
+
+impl SettingsUi {
+    pub(crate) fn new(adapter_string: String) -> Self {
+        Self { demo_open: false, adapter_string }
+    }
 }
 
 impl Layer for SettingsUi {
@@ -35,7 +42,7 @@ impl SettingsUi {
                     "Transmission: {} calls | {} instances",
                     stats.transmission_draw_calls, stats.transmission_instances
                 ));
-                ui.text(format!("Adapter: {}", ctx.adapter_string));
+                ui.text(format!("Adapter: {}", self.adapter_string));
             } else {
                 ui.text("Collecting statistics...");
             }

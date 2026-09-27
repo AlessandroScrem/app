@@ -18,7 +18,6 @@ pub struct UiContext<'a> {
         crate::editor::EditorEdit<crate::editor::EntityId, crate::editor::EditValue>,
     >,
     pub scene_settings: &'a crate::editor::SceneSettingsData,
-    pub adapter_string: &'a String,
 }
 
 struct UiStack {
@@ -53,7 +52,6 @@ pub struct UiLayer {
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
-    adapter_string: String,
     commands: UiCommands,
 }
 
@@ -82,7 +80,7 @@ impl UiLayer {
         ui.push(MenuBarUi);
         ui.push(EntityListUi);
         ui.push(PropertyUi);
-        ui.push(SettingsUi::default());
+        ui.push(SettingsUi::new(adapter_string));
 
         Self {
             context,
@@ -90,7 +88,6 @@ impl UiLayer {
             ini_loaded: false,
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
-            adapter_string,
             commands: UiCommands::new(connection),
         }
     }
@@ -154,7 +151,6 @@ impl UiLayer {
             statistics,
             edit: &mut edit,
             scene_settings,
-            adapter_string: &self.adapter_string,
         };
 
         self.stack.build(ui, &mut ctx);
