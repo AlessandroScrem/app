@@ -1,6 +1,6 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{EditValue, EntityId, InspectorData, InspectorSection, LightData, TransformData};
-use crate::editor::{EditorCommand, EntityCommand};
+use crate::editor::EntityCommand;
 use imgui::*;
 
 #[derive(Default)]
@@ -108,19 +108,19 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, tran
     let (edited, activated, deactivated) = ui.group(|| {
         let translation_edited = Drag::new("Translation")
             .speed(0.1)
-            .build_array(ui, &mut inspector.transform.translation);
+            .build_array(ui, &mut transform.translation);
         let translation_activated = ui.is_item_activated();
         let translation_deactivated = ui.is_item_deactivated_after_edit();
 
         let rotation_edited = Drag::new("Rotation")
             .speed(0.01)
-            .build_array(ui, &mut inspector.transform.rotation);
+            .build_array(ui, &mut transform.rotation);
         let rotation_activated = ui.is_item_activated();
         let rotation_deactivated = ui.is_item_deactivated_after_edit();
 
         let scale_edited = Drag::new("Scale")
             .speed(0.1)
-            .build_array(ui, &mut inspector.transform.scale);
+            .build_array(ui, &mut transform.scale);
         let scale_activated = ui.is_item_activated();
         let scale_deactivated = ui.is_item_deactivated_after_edit();
 
@@ -148,13 +148,12 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, tran
 
     ui.separator();
     if ui.small_button("Reset Transform") {
-        let transform = TransformData {
+        *transform = TransformData {
             translation: [0.0; 3],
             rotation: [0.0; 3],
             scale: [1.0; 3],
         };
-        *transform = transform.clone();
-        reset_transform(ctx, entity, transform);
+        reset_transform(ctx, entity, transform.clone());
     }
 
     ui.same_line();
