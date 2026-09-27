@@ -19,7 +19,6 @@ pub struct LightRenderObject {
     pub entity_id: u64,
     pub light: LightComponent,
     pub position: Point3f,
-    pub view: Mat4,
 }
 
 impl LightRenderObject {
@@ -60,7 +59,7 @@ impl From<&LightRenderObject> for LightUniform {
             position: value.position.into(),
             cast_shadow: value.light.cast_shadow.into(),
             entity_id: value.entity_id,
-            view_proj: value.view.into(),
+            view_proj: value.get_view_proj_matrix().into(),
             ..Default::default()
         }
     }
@@ -144,13 +143,11 @@ fn extract_lights(world: &World) -> Vec<LightRenderObject> {
         }
 
         let pos: [f32;3] = (transform.mat * Vec4::new(0.0, 0.0, 0.0, 1.0)).truncate().into();
-        let view = LightRenderObject::view_matrix(pos);
 
         lights.push(LightRenderObject {
             entity_id: entity.as_raw_u64(),
             light: light.clone(),
             position: pos.into(),
-            view,
         });
     }
     lights
