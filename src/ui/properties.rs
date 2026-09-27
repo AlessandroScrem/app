@@ -1,5 +1,5 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditValue, EntityId, InspectorData, InspectorSection, LightData, TransformData};
+use crate::editor::{EntityId, InspectorData, InspectorSection, LightData, TransformData};
 use crate::editor::EntityCommand;
 use imgui::*;
 
@@ -90,9 +90,9 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &mut InspectorDa
 
     let edited = ui.input_text("Name", &mut inspector.name).build();
     if edited {
-        ctx.commands.send(EntityCommand::Edit {
+        ctx.commands.send(EntityCommand::SetName {
             entity: inspector.entity,
-            edit: EditValue::Name(inspector.name.clone()),
+            name: inspector.name.clone(),
         });
     }
 }
@@ -189,9 +189,9 @@ fn draw_light(
     }
 
     if draw_light_properties(ui, light) {
-        ctx.commands.send(EntityCommand::Edit {
+        ctx.commands.send(EntityCommand::SetLight {
             entity,
-            edit: EditValue::Light(light.clone()),
+            light: light.clone(),
         });
     }
 }
