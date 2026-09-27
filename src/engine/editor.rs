@@ -1,47 +1,16 @@
 use crate::editor::{
     EditorCommand, EditorEvent, EditorServiceChannels, EditorStatisticsData, EntityId, Query,
-    QueryRequest, QueryResponse, QueryResult,
+    QueryResponse, QueryResult,
 };
 use crate::engine::engine::EventBus;
 
 pub trait EditorBackend {
     fn query(&self, query: &Query) -> QueryResult;
-    fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent>;
-    fn editor_command(
+    fn execute_command(
         &mut self,
-        command: crate::editor::EditorCommand,
+        command: EditorCommand,
         bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn entity_command(
-        &mut self,
-        command: crate::editor::EntityCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn selection_command(
-        &mut self,
-        command: crate::editor::SelectionCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn scene_command(
-        &mut self,
-        command: crate::editor::SceneCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn asset_command(
-        &mut self,
-        command: crate::editor::AssetCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn camera_command(
-        &mut self,
-        command: crate::editor::CameraCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
-    fn global_command(
-        &mut self,
-        command: crate::editor::GlobalCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent>;
+    ) -> Option<EditorEvent>;
     fn editor_scene_revision(&self) -> u64;
     fn editor_selection(&self) -> Vec<EntityId>;
     fn editor_entities(&self) -> Vec<EntityId>;
@@ -69,15 +38,35 @@ impl EditorService {
             let _ = self.channels.event_tx.send(EditorEvent::StatisticsChanged);
         }
     }
+
     pub fn process<B: EditorBackend>(&mut self, backend: &mut B, bus: &mut EventBus) {
+        self.process_commands(backend, bus);
+        self.process_queries(backend);
+        self.publish_state_changes(backend);
+    }
+
+    fn process_commands<B: EditorBackend>(&self, backend: &mut B, bus: &mut EventBus) {
         while let Ok(command) = self.channels.command_rx.try_recv() {
-            for event in backend.command(command, bus) {
+            if let Some(event) = backend.execute_command(command, bus) {
                 let _ = self.channels.event_tx.send(event);
             }
         }
+    }
+
+    fn process_queries<B: EditorBackend>(&self, backend: &B) {
         while let Ok(request) = self.channels.query_rx.try_recv() {
-            self.respond(backend, request);
+            let result = match &request.query {
+                Query::Statistics => QueryResult::Statistics(self.statistics.clone()),
+                _ => backend.query(&request.query),
+            };
+            let _ = self.channels.response_tx.send(QueryResponse {
+                id: request.id,
+                result,
+            });
         }
+    }
+
+    fn publish_state_changes<B: EditorBackend>(&mut self, backend: &B) {
         let entities = backend.editor_entities();
         for entity in entities
             .iter()
@@ -111,15 +100,5 @@ impl EditorService {
                 entities: selection,
             });
         }
-    }
-    fn respond<B: EditorBackend>(&self, backend: &B, request: QueryRequest) {
-        let result = match &request.query {
-            Query::Statistics => QueryResult::Statistics(self.statistics.clone()),
-            _ => backend.query(&request.query),
-        };
-        let _ = self.channels.response_tx.send(QueryResponse {
-            id: request.id,
-            result,
-        });
     }
 }

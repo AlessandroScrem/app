@@ -28,10 +28,6 @@ impl Layer for SettingsUi {
     fn update(&mut self, commands: &super::ui_commands::UiCommands) {
         self.settings = commands.settings().cloned();
         self.statistics = commands.statistics().cloned();
-
-        if commands.settings().is_some() {
-            println!("Statistics updated");
-        }
     }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {

@@ -32,43 +32,78 @@ impl EditorBackend for App {
         }
     }
 
-    fn command(&mut self, command: EditorCommand, bus: &mut EventBus) -> Vec<EditorEvent> {
+    fn execute_command(
+        &mut self,
+        command: EditorCommand,
+        bus: &mut EventBus,
+    ) -> Option<EditorEvent> {
         match command {
             EditorCommand::Exit => {
                 bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested);
-                Vec::new()
+                None
             }
             EditorCommand::DragSelection(pos, size) => {
                 bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(pos, size));
-                Vec::new()
+                None
             }
             command => {
                 let settings_changed = command.settings_changed();
-                let mut events = self.editor_command(command, bus);
-
                 if settings_changed {
-                    events.push(EditorEvent::SettingsChanged);
+                    self.dispatch_editor_command(command, bus);
+                    Some(EditorEvent::SettingsChanged)
+                } else {
+                    self.dispatch_editor_command(command, bus)
                 }
-
-                events
             }
         }
     }
 
-    fn editor_command(
+    fn editor_scene_revision(&self) -> u64 {
+        self.editor_scene_revision
+    }
+
+    fn editor_selection(&self) -> Vec<EntityId> {
+        self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
+    }
+
+    fn editor_entities(&self) -> Vec<EntityId> {
+        let mut query = <Entity>::query();
+        query
+            .iter(&self.current_scene.world)
+            .map(|e| e.as_raw_u64())
+            .collect()
+    }
+}
+
+impl App {
+    fn dispatch_editor_command(
         &mut self,
-        command: crate::editor::EditorCommand,
+        command: EditorCommand,
         bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    ) -> Option<EditorEvent> {
         match command {
-            EditorCommand::Selection(command) => self.selection_command(command, bus),
+            EditorCommand::Selection(command) => {
+                self.selection_command(command, bus);
+                None
+            }
             EditorCommand::Entity(command) => self.entity_command(command, bus),
-            EditorCommand::Scene(command) => self.scene_command(command, bus),
-            EditorCommand::Asset(command) => self.asset_command(command, bus),
-            EditorCommand::Camera(command) => self.camera_command(command, bus),
-            EditorCommand::Global(command) => self.global_command(command, bus),
-            EditorCommand::DragSelection(..) => vec![],
-            EditorCommand::Exit => vec![],
+            EditorCommand::Scene(command) => {
+                self.scene_command(command, bus);
+                None
+            }
+            EditorCommand::Asset(command) => {
+                self.asset_command(command, bus);
+                None
+            }
+            EditorCommand::Camera(command) => {
+                self.camera_command(command, bus);
+                None
+            }
+            EditorCommand::Global(command) => {
+                self.global_command(command, bus);
+                None
+            }
+            EditorCommand::DragSelection(..) | EditorCommand::Exit => None,
         }
     }
 
@@ -76,7 +111,7 @@ impl EditorBackend for App {
         &mut self,
         command: crate::editor::EntityCommand,
         bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    ) -> Option<EditorEvent> {
         match command {
             EntityCommand::SetTransform { entity, transform } => {
                 if let Ok(mut entry) = self
@@ -92,7 +127,7 @@ impl EditorBackend for App {
                         };
                     }
                 }
-                vec![EditorEvent::TransformChanged { entity, transform }]
+                Some(EditorEvent::TransformChanged { entity, transform })
             }
             EntityCommand::Edit { entity, edit } => match edit {
                 EditValue::Transform(transform) => {
@@ -109,7 +144,7 @@ impl EditorBackend for App {
                             };
                         }
                     }
-                    vec![EditorEvent::TransformChanged { entity, transform }]
+                    Some(EditorEvent::TransformChanged { entity, transform })
                 }
                 EditValue::Name(name) => {
                     if let Ok(mut entry) = self
@@ -121,7 +156,7 @@ impl EditorBackend for App {
                             tag.name = name.clone();
                         }
                     }
-                    vec![EditorEvent::NameChanged { entity, name }]
+                    Some(EditorEvent::NameChanged { entity, name })
                 }
                 EditValue::Light(light) => {
                     let raw_entity = EntityRawU64::from_raw_u64(entity);
@@ -136,7 +171,7 @@ impl EditorBackend for App {
                             component.update_position(light.position);
                         }
                     }
-                    vec![EditorEvent::LightChanged { entity, light }]
+                    Some(EditorEvent::LightChanged { entity, light })
                 }
             },
             EntityCommand::Remove { entities } => {
@@ -145,7 +180,7 @@ impl EditorBackend for App {
                         EntityRawU64::from_raw_u64(entity),
                     )));
                 }
-                Vec::new()
+                None
             }
             EntityCommand::BeginTransformEdit { entity } => {
                 let entity = EntityRawU64::from_raw_u64(entity);
@@ -159,52 +194,43 @@ impl EditorBackend for App {
                         },
                     ));
                 }
-                Vec::new()
+                None
             }
             EntityCommand::EndTransformEdit { entity } => {
                 let entity = EntityRawU64::from_raw_u64(entity);
                 self.transform_edit.take().filter(|(id, _)| *id == entity);
-                Vec::new()
+                None
             }
             EntityCommand::AddLight => {
                 bus.send_domain(DomainEvent::Entity(EntityEvent::AddLight));
-                Vec::new()
+                None
             }
             EntityCommand::AddParent { entity } => {
                 bus.send_domain(DomainEvent::Entity(EntityEvent::AddParent(
                     EntityRawU64::from_raw_u64(entity),
                 )));
-                Vec::new()
+                None
             }
             EntityCommand::SetEnabled { entity, enabled } => {
                 bus.send_domain(DomainEvent::Entity(EntityEvent::DisableEntity(
                     EntityRawU64::from_raw_u64(entity),
                     !enabled,
                 )));
-                Vec::new()
+                None
             }
         }
     }
 
-    fn selection_command(
-        &mut self,
-        command: crate::editor::SelectionCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    fn selection_command(&mut self, command: crate::editor::SelectionCommand, bus: &mut EventBus) {
         use crate::editor::SelectionCommand;
         match command {
             SelectionCommand::Select { entities } => {
                 bus.send_domain(Selection(SelectionEvent::Select(entities)));
             }
         }
-        Vec::new()
     }
 
-    fn scene_command(
-        &mut self,
-        command: crate::editor::SceneCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    fn scene_command(&mut self, command: crate::editor::SceneCommand, bus: &mut EventBus) {
         use crate::editor::SceneCommand;
         match command {
             SceneCommand::Open(path) => bus.send_domain(DomainEvent::Scene(SceneEvent::Open(path))),
@@ -214,14 +240,9 @@ impl EditorBackend for App {
             }
             SceneCommand::Clear => bus.send_domain(DomainEvent::Scene(SceneEvent::ClearScene)),
         }
-        Vec::new()
     }
 
-    fn asset_command(
-        &mut self,
-        command: crate::editor::AssetCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    fn asset_command(&mut self, command: crate::editor::AssetCommand, bus: &mut EventBus) {
         use crate::editor::AssetCommand;
         match command {
             AssetCommand::LoadGltf(path) => {
@@ -231,14 +252,9 @@ impl EditorBackend for App {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)))
             }
         }
-        Vec::new()
     }
 
-    fn camera_command(
-        &mut self,
-        command: crate::editor::CameraCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    fn camera_command(&mut self, command: crate::editor::CameraCommand, bus: &mut EventBus) {
         use crate::editor::CameraCommand;
         match command {
             CameraCommand::Recenter => {
@@ -254,14 +270,9 @@ impl EditorBackend for App {
                 CameraEvent::CameraNearFar((near.max(0.1), far.max(near + 0.1))),
             )),
         }
-        Vec::new()
     }
 
-    fn global_command(
-        &mut self,
-        command: crate::editor::GlobalCommand,
-        bus: &mut EventBus,
-    ) -> Vec<EditorEvent> {
+    fn global_command(&mut self, command: crate::editor::GlobalCommand, bus: &mut EventBus) {
         use crate::editor::GlobalCommand;
         match command {
             GlobalCommand::SetLightEnable(value) => {
@@ -304,23 +315,6 @@ impl EditorBackend for App {
                 bus.send_domain(DomainEvent::Global(GlobalEvent::TonemapFilter(value)))
             }
         }
-        Vec::new()
-    }
-
-    fn editor_scene_revision(&self) -> u64 {
-        self.editor_scene_revision
-    }
-
-    fn editor_selection(&self) -> Vec<EntityId> {
-        self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
-    }
-
-    fn editor_entities(&self) -> Vec<EntityId> {
-        let mut query = <Entity>::query();
-        query
-            .iter(&self.current_scene.world)
-            .map(|e| e.as_raw_u64())
-            .collect()
     }
 }
 

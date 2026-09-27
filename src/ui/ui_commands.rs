@@ -229,11 +229,9 @@ impl UiCommands {
                 self.apply_light_changed(entity, light);
             }
             EditorEvent::SettingsChanged => {
-                self.settings = None;
                 self.request(QuerySlot::Settings, Query::Settings);
             }
             EditorEvent::StatisticsChanged => {
-                self.statistics = None;
                 self.request(QuerySlot::Statistics, Query::Statistics);
             }
         }

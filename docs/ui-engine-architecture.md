@@ -33,7 +33,7 @@ flowchart TD
 
 - **ImGui UI**: panels in `src/ui` display received state and produce commands or queries in response to user interactions.
 - **`EditorConnection`**: exposes command and query clients, plus event and response receivers, to the UI. The underlying channels are created with `std::sync::mpsc`.
-- **`EditorService`**: adapts between the UI channels and the application. It processes commands, responds to queries, and detects changes in editor state.
+- **`EditorService`**: adapts between the UI channels and `EditorBackend`. It forwards commands and queries to the backend, then publishes editor events when observed state changes.
 - **`EventBus`**: contains two internal queues, one for domain events and one for runtime events.
 - **`App`**: implements `EditorBackend`, applies domain events, and provides the data requested by the UI.
 - **`Runtime`**: coordinates input, runtime events, UI updates, GPU synchronization, and rendering.
@@ -67,7 +67,8 @@ UI
   -> EditorCommand
   -> command channel
   -> EditorService::process
-  -> App's EditorBackend
+  -> EditorBackend::execute_command
+  -> App command handlers
   -> DomainEvent
   -> EventBus
   -> domain-layer handler
@@ -84,7 +85,7 @@ EndTransformEdit
 
 The `SetTransform` command is converted into `EntityEvent::UpdateTransform`, inserted into the `EventBus`, and applied to `TransformComponent` by `handle_entity_event`.
 
-Commands are consumed by `EditorService::process`, which runs during `Runtime::update_ui`. Because the UI is built after `process`, a command emitted during `UiLayer::build` is normally processed in the following frame.
+Commands are consumed by `EditorService::process`, which forwards each command to `EditorBackend::execute_command` during `Runtime::update_ui`. The application owns command routing and domain behavior; the service owns channel handling. Because the UI is built after `process`, a command emitted during `UiLayer::build` is normally processed in the following frame.
 
 ## UI Queries and Responses
 
@@ -102,7 +103,7 @@ Each query receives a `QueryId`, which associates the response with the most rec
 Query
   -> query channel
   -> EditorService::process
-  -> App::EditorBackend::query
+  -> EditorBackend::query
   -> QueryResponse
   -> response channel
   -> UiLayer::process_connection
@@ -110,7 +111,7 @@ Query
   -> ImGui panels
 ```
 
-`EditorService` answers queries through `EditorBackend::query`. Statistics are an exception: the service owns them and the runtime updates them before queries are processed.
+`EditorService` answers queries through `EditorBackend::query`. Statistics are an exception: the service owns them and the runtime updates them before queries are processed. The backend contract stays focused on application reads and command execution; command-family routing remains private to `App`.
 
 `UiLayer::process_connection` ignores responses that do not match the latest `QueryId` registered for the relevant slot. This prevents an old response from overwriting newer data.
 
@@ -204,10 +205,9 @@ In summary, the UI sends intentions through commands, the application translates
 
 - [`src/ui/ui_layer.rs`](../src/ui/ui_layer.rs): UI state, queries, and reception of responses and events.
 - [`src/editor.rs`](../src/editor.rs): command, query, response, event, and channel types.
-- [`src/engine/editor.rs`](../src/engine/editor.rs): `EditorService` and its adapter to `EditorBackend`.
+- [`src/engine/editor.rs`](../src/engine/editor.rs): `EditorBackend` contract and `EditorService` channel adapter.
 - [`src/engine/engine.rs`](../src/engine/engine.rs): `EventBus`, `Engine`, and the main loop.
 - [`src/engine/runtime.rs`](../src/engine/runtime.rs): input, UI updates, and rendering.
 - [`src/app/app_impl.rs`](../src/app/app_impl.rs): `Application` and `EditorBackend` implementations for `App`.
 - [`src/app/domain/handlers.rs`](../src/app/domain/handlers.rs): application of domain events to application state.
-
 
