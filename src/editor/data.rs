@@ -65,7 +65,6 @@ pub struct BoundingBoxData {
 
 #[derive(Clone, Debug)]
 pub struct LightData {
-    pub position: [f32; 3],
     pub color: [f32; 3],
     pub directional: bool,
     pub cast_shadow: bool,

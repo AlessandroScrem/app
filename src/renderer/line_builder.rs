@@ -1,6 +1,6 @@
 use crate::assets::LinesVertexData;
-use crate::ecs::components::LightComponent;
 use crate::math::*;
+use crate::renderer::render_objects::LightRenderObject;
 
 pub trait LineSink {
     fn line(&mut self, a: Vec3, b: Vec3, color: Vec3);
@@ -91,7 +91,7 @@ impl<'a> LineDrawable for AxisAlignedBoundingBox<'a> {
     }
 }
 
-impl LineDrawable for LightComponent {
+impl LineDrawable for LightRenderObject {
     fn emit(&self, sink: &mut dyn LineSink) {
         use crate::colors;
 
@@ -133,7 +133,7 @@ impl LineDrawable for LightComponent {
         sink.line(near[3], far[3], colors::GREEN_COLOR.into());
 
         let origin = Vec3::new(0.0, 0.0, 0.0);
-        let position: Vec3 = self.get_position().into();
+        let position= Vec3::new(self.position.x, self.position.y, self.position.z);
         let direction = (origin - position).normalize();
         let target = position + direction * 20.0;
 

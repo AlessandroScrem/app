@@ -243,9 +243,7 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
         })
         .unwrap_or_else(|| source.clone());
     let edited = ui.group(|| {
-        let mut edited = Drag::new("Position")
-            .speed(0.1)
-            .build_array(ui, &mut light.position);
+        let mut edited = false;
         edited |= ui.color_edit3("Color", &mut light.color);
         edited |= ui.checkbox("Directional", &mut light.directional);
         edited |= ui.checkbox("Cast Shadow", &mut light.cast_shadow);

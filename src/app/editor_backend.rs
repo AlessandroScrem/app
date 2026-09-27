@@ -165,9 +165,7 @@ impl App {
                             component.color = light.color;
                             component.directional = light.directional;
                             component.cast_shadow = light.cast_shadow;
-                            component.entity_id = entity;
                             component.frustum = light.frustum;
-                            component.update_position(light.position);
                         }
                     }
                     Some(EditorEvent::LightChanged { entity, light })
@@ -430,7 +428,6 @@ impl App {
             .get_component::<LightComponent>()
             .ok()
             .map(|light| LightData {
-                position: light.get_position(),
                 color: light.color,
                 directional: light.directional,
                 cast_shadow: light.cast_shadow,

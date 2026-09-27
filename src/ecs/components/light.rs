@@ -9,25 +9,22 @@ use legion::world::World;
 
 /// A function to help create a light entity.
 pub fn create(world: &mut World) -> Entity {
-    let mut light = LightComponent::default();
-    light.update_position([3.0, 20.0, 10.0]);
-
     world.push((
         TagComponent {
             name: "Directional".to_string(),
         },
-        TransformComponent::default(),
+        TransformComponent{position: [3.0, 20.0, 10.0], ..Default::default()},
         HierarchyComponent::default(),
         GlobalModelComponent::default(),
-        light,
+        LightComponent::default(),
     ))
 }
 
 /// A function to help create a light entity.
-pub fn add_light(world: &mut World, light: LightComponent, name: TagComponent) -> Entity {
+pub fn add_light(world: &mut World, light: LightComponent, name: TagComponent, transform: TransformComponent) -> Entity {
     world.push((
         name,
-        TransformComponent::default(),
+        transform,
         HierarchyComponent::default(),
         GlobalModelComponent::default(),
         light,

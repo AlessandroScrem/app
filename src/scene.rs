@@ -31,12 +31,12 @@ pub struct SceneEntry {
 
 #[derive(Serialize, Deserialize)]
 pub struct LightEntry {
-    pub position: [f32; 3],
-    pub color: [f32; 3],
-    pub directional: bool,
-    pub cast_shadow: bool,
-    pub frustum: bool,
+    pub light_component: LightComponent,
+    pub tag: TagComponent,
+    pub transform: TransformComponent, 
 }
+
+
 
 pub struct Scene {
     pub filename: Option<String>,
@@ -103,15 +103,12 @@ impl Scene {
             });
         }
         let mut lights = Vec::new();
-        let mut query = <&LightComponent>::query();
-        for light in query.iter(&self.world) {
-            println!("Saving light component: {:?}", light.get_position());
+        let mut query = <(&LightComponent, &TagComponent,&TransformComponent)>::query();
+        for (light, tag, transform) in query.iter(&self.world) {
             lights.push(LightEntry {
-                position: light.get_position(),
-                color: light.color,
-                directional: light.directional,
-                cast_shadow: light.cast_shadow,
-                frustum: light.frustum,
+                light_component: light.clone(),
+                tag: tag.clone(),
+                transform: transform.clone(),
             });
         }
         let file = SceneFile { version: 1, scenes, lights };
@@ -145,14 +142,7 @@ impl Scene {
             println!("Loading scene: {}", scene.path);
         }
         for light in scene_file.lights {
-            let mut light_component = LightComponent::default();
-            light_component.update_position(light.position);
-            light_component.color = light.color;
-            light_component.directional = light.directional;
-            light_component.cast_shadow = light.cast_shadow;
-            light_component.frustum = light.frustum;
-
-            bus.send_domain(DomainEvent::Scene(SceneEvent::AddLightComponent(light_component)));
+            bus.send_domain(DomainEvent::Scene(SceneEvent::AddLightComponent(light.light_component, light.tag, light.transform)));
             // Add the light component to the world
         }
 
