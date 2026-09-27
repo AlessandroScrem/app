@@ -1,5 +1,5 @@
 use crate::editor::{
-    EditValue, EditorCommandClient, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData,
     EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
@@ -24,7 +24,6 @@ pub(crate) struct UiCommands {
     statistics: Option<EditorStatisticsData>,
     scene_settings: SceneSettingsData,
     pending_queries: HashMap<QueryId, QuerySlot>,
-    edit: Option<EditorEdit<EntityId, EditValue>>,
 }
 
 impl UiCommands {
@@ -38,7 +37,6 @@ impl UiCommands {
             statistics: None,
             scene_settings: SceneSettingsData::default(),
             pending_queries: HashMap::new(),
-            edit: None,
         }
     }
 
@@ -70,22 +68,10 @@ impl UiCommands {
         &self.scene_settings
     }
 
-    pub(crate) fn take_edit(&mut self) -> Option<EditorEdit<EntityId, EditValue>> {
-        self.edit.take()
-    }
-
-    pub(crate) fn set_edit(&mut self, edit: Option<EditorEdit<EntityId, EditValue>>) {
-        self.edit = edit;
-    }
-
     pub(crate) fn process(&mut self) {
         self.process_responses();
         self.process_events();
         self.ensure_queries();
-    }
-
-    fn is_editing_inspector(&self) -> bool {
-        self.edit.is_some()
     }
 
     fn request(&mut self, slot: QuerySlot, query: Query) {
@@ -112,19 +98,13 @@ impl UiCommands {
         self.statistics = None;
         self.pending_queries.clear();
 
-        if !self.is_editing_inspector() {
-            self.inspector = None;
-        }
+        self.inspector = None;
 
         self.request_initial_queries();
         self.request_inspector();
     }
 
     fn request_inspector(&mut self) {
-        if self.is_editing_inspector() {
-            return;
-        }
-
         if let [entity] = *self.selection.as_slice() {
             self.request(QuerySlot::Inspector, Query::Inspector { entity });
         } else {
@@ -153,9 +133,7 @@ impl UiCommands {
                 self.request_inspector();
             }
             (QuerySlot::Inspector, QueryResult::Inspector(data)) => {
-                if !self.is_editing_inspector() {
-                    self.inspector = data;
-                }
+                self.inspector = data;
             }
             _ => {}
         }
@@ -173,17 +151,6 @@ impl UiCommands {
             }
         }
 
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Transform(current) = &mut edit.value {
-                    *current = transform;
-                }
-            }
-        } else {
-            self.request(QuerySlot::Inspector, Query::Inspector { entity });
-        }
-    }
-
     fn apply_name_changed(&mut self, entity: EntityId, name: String) {
         self.request(QuerySlot::Hierarchy, Query::Hierarchy);
 
@@ -192,15 +159,6 @@ impl UiCommands {
                 inspector.name = name.clone();
             }
         }
-
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Name(current) = &mut edit.value {
-                    *current = name;
-                }
-            }
-        }
-    }
 
     fn apply_light_changed(&mut self, entity: EntityId, light: LightData) {
         if let Some(inspector) = &mut self.inspector {
@@ -213,15 +171,6 @@ impl UiCommands {
                 }
             }
         }
-
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Light(current) = &mut edit.value {
-                    *current = light;
-                }
-            }
-        }
-    }
 
     fn apply_event(&mut self, event: EditorEvent) {
         match event {
