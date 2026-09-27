@@ -12,7 +12,7 @@ use crate::ecs::components::{
     TransformComponent,
 };
 use crate::editor::{
-    BoundingBoxData, EditValue, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand,
+    BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand,
     EntityData, EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MeshData, Query,
     QueryResult, SceneSettingsData, TransformData,
 };
@@ -129,48 +129,30 @@ impl App {
                 }
                 Some(EditorEvent::TransformChanged { entity, transform })
             }
-            EntityCommand::Edit { entity, edit } => match edit {
-                EditValue::Transform(transform) => {
-                    if let Ok(mut entry) = self
-                        .current_scene
-                        .world
-                        .entry_mut(EntityRawU64::from_raw_u64(entity))
-                    {
-                        if let Ok(component) = entry.get_component_mut::<TransformComponent>() {
-                            *component = TransformComponent {
-                                position: transform.translation,
-                                rotation: transform.rotation,
-                                scale: transform.scale,
-                            };
-                        }
+                       EntityCommand::SetName { entity, name } => {
+                if let Ok(mut entry) = self
+                    .current_scene
+                    .world
+                    .entry_mut(EntityRawU64::from_raw_u64(entity))
+                {
+                    if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
+                        tag.name = name.clone();
                     }
-                    Some(EditorEvent::TransformChanged { entity, transform })
                 }
-                EditValue::Name(name) => {
-                    if let Ok(mut entry) = self
-                        .current_scene
-                        .world
-                        .entry_mut(EntityRawU64::from_raw_u64(entity))
-                    {
-                        if let Ok(tag) = entry.get_component_mut::<TagComponent>() {
-                            tag.name = name.clone();
-                        }
+                Some(EditorEvent::NameChanged { entity, name })
+            }
+            EntityCommand::SetLight { entity, light } => {
+                let raw_entity = EntityRawU64::from_raw_u64(entity);
+                if let Ok(mut entry) = self.current_scene.world.entry_mut(raw_entity) {
+                    if let Ok(component) = entry.get_component_mut::<LightComponent>() {
+                        component.color = light.color;
+                        component.directional = light.directional;
+                        component.cast_shadow = light.cast_shadow;
+                        component.frustum = light.frustum;
                     }
-                    Some(EditorEvent::NameChanged { entity, name })
                 }
-                EditValue::Light(light) => {
-                    let raw_entity = EntityRawU64::from_raw_u64(entity);
-                    if let Ok(mut entry) = self.current_scene.world.entry_mut(raw_entity) {
-                        if let Ok(component) = entry.get_component_mut::<LightComponent>() {
-                            component.color = light.color;
-                            component.directional = light.directional;
-                            component.cast_shadow = light.cast_shadow;
-                            component.frustum = light.frustum;
-                        }
-                    }
-                    Some(EditorEvent::LightChanged { entity, light })
-                }
-            },
+                Some(EditorEvent::LightChanged { entity, light })
+            }
             EntityCommand::Remove { entities } => {
                 for entity in entities {
                     bus.send_domain(DomainEvent::Entity(EntityEvent::RemoveEntity(
