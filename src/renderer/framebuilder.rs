@@ -235,7 +235,6 @@ impl FrameBuilder {
 
         lights_objects
             .iter()
-            .filter(|l| l.light.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
             .for_each(|(i, l_obj)| {

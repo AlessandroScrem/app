@@ -8,7 +8,7 @@ use legion::*;
 pub(crate) fn disable_entity(entity: Entity, world: &mut legion::World, disable: bool) {
     // if not root node do nothing
     if !is_root(entity, world) {
-        warn!("{:?} Not Root: Add Parent abort", entity);
+        warn!("{:?} Not Root: Disable entity abort", entity);
         return;
     }
 

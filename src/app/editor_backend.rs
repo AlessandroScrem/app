@@ -166,7 +166,6 @@ impl App {
                             component.directional = light.directional;
                             component.cast_shadow = light.cast_shadow;
                             component.entity_id = entity;
-                            component.enabled = light.enabled;
                             component.frustum = light.frustum;
                             component.update_position(light.position);
                         }
@@ -365,20 +364,7 @@ impl App {
                 is_light,
             });
         }
-        let mut query = <(Entity, &LightComponent)>::query();
-        for (entity, light) in query.iter(&self.current_scene.world) {
-            let name = self
-                .entity_data(entity.as_raw_u64())
-                .map(|d| d.name)
-                .unwrap_or_else(|| "<unnamed>".into());
-            nodes.push(HierarchyNode {
-                entity: entity.as_raw_u64(),
-                parent: None,
-                name,
-                visible: light.enabled,
-                is_light: true,
-            });
-        }
+
         nodes.sort_by(|a, b| a.name.cmp(&b.name));
         HierarchyData { nodes }
     }
@@ -439,13 +425,13 @@ impl App {
                 global_min: bbox.global_bounding_box.min,
                 global_max: bbox.global_bounding_box.max,
             });
+
         let light = entry
             .get_component::<LightComponent>()
             .ok()
             .map(|light| LightData {
                 position: light.get_position(),
                 color: light.color,
-                enabled: light.enabled,
                 directional: light.directional,
                 cast_shadow: light.cast_shadow,
                 frustum: light.frustum,

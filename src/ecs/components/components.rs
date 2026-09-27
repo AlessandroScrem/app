@@ -14,7 +14,7 @@ pub struct LightComponent {
     position: [f32; 3],
     pub cast_shadow: bool,
     pub entity_id: u64,
-    pub enabled: bool,
+    // pub enabled: bool,
     pub frustum: bool,
     view_matrix: Mat4,
     proj_matrix: Mat4,
@@ -31,7 +31,7 @@ impl Default for LightComponent {
 
         Self {
             color: WHITE,
-            enabled: true,
+            // enabled: true,
             frustum: false,
             cast_shadow: false,
             directional: true,

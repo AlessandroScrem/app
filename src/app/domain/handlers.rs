@@ -75,6 +75,17 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
             bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera));
         }
+
+        SceneEvent::AddLightComponent(light_component) => {
+            light::add_light(
+                &mut app.current_scene.world,
+                light_component,
+                TagComponent {
+                    name: "Directional".to_string(),
+                },
+            );
+            app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
+        }
     }
 }
 

@@ -140,7 +140,10 @@ impl UiCommands {
 
         match (slot, response.result) {
             (QuerySlot::Hierarchy, QueryResult::Hierarchy(data)) => self.hierarchy = Some(data),
-            (QuerySlot::Settings, QueryResult::Settings(data)) => self.settings = Some(data),
+            (QuerySlot::Settings, QueryResult::Settings(data)) => {
+                self.settings = Some(data);
+                self.request_inspector();
+            },
             (QuerySlot::Statistics, QueryResult::Statistics(data)) => self.statistics = Some(data),
             (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                 self.scene_settings = data;

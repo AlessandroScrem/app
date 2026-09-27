@@ -2,26 +2,6 @@
   "version": 1,
   "scenes": [
     {
-      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app/assets/Lantern/Lantern.gltf",
-      "transform": {
-        "position": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
       "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app\\assets\\cube\\cube.gltf",
       "transform": {
         "position": [
@@ -40,6 +20,43 @@
           37.4
         ]
       }
+    },
+    {
+      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app/assets/Lantern/Lantern.gltf",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "lights": [
+    {
+      "position": [
+        3.0,
+        20.0,
+        10.0
+      ],
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "directional": true,
+      "cast_shadow": false,
+      "frustum": false
     }
   ]
 }

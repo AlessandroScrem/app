@@ -21,6 +21,7 @@ pub enum SceneEvent {
     SaveAs(PathBuf),
     Open(PathBuf),
     AddComponent(GltfGroup, TransformComponent),
+    AddLightComponent(LightComponent),
     ClearScene,
 }
 

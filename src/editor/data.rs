@@ -67,7 +67,6 @@ pub struct BoundingBoxData {
 pub struct LightData {
     pub position: [f32; 3],
     pub color: [f32; 3],
-    pub enabled: bool,
     pub directional: bool,
     pub cast_shadow: bool,
     pub frustum: bool,

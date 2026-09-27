@@ -96,7 +96,7 @@ fn extract_lights(world: &World) -> Vec<LightRenderObject> {
 
     let mut lights = Vec::new();
     for (entity, light) in query.iter(world) {
-        if !light.enabled {
+        if is_hidden(world, *entity) {
             continue;
         }
 

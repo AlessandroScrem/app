@@ -247,7 +247,6 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: u64, source: &LightData) {
             .speed(0.1)
             .build_array(ui, &mut light.position);
         edited |= ui.color_edit3("Color", &mut light.color);
-        edited |= ui.checkbox("Enabled", &mut light.enabled);
         edited |= ui.checkbox("Directional", &mut light.directional);
         edited |= ui.checkbox("Cast Shadow", &mut light.cast_shadow);
         if light.cast_shadow {

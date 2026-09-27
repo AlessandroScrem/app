@@ -16,16 +16,26 @@ use crate::{
     renderer::render_objects::RenderObjects,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct SceneFile {
     pub version: u32,
     pub scenes: Vec<SceneEntry>,
+    pub lights: Vec<LightEntry>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SceneEntry {
     pub path: String,
     pub transform: TransformComponent,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LightEntry {
+    pub position: [f32; 3],
+    pub color: [f32; 3],
+    pub directional: bool,
+    pub cast_shadow: bool,
+    pub frustum: bool,
 }
 
 pub struct Scene {
@@ -92,7 +102,19 @@ impl Scene {
                 transform: transform.clone(),
             });
         }
-        let file = SceneFile { version: 1, scenes };
+        let mut lights = Vec::new();
+        let mut query = <&LightComponent>::query();
+        for light in query.iter(&self.world) {
+            println!("Saving light component: {:?}", light.get_position());
+            lights.push(LightEntry {
+                position: light.get_position(),
+                color: light.color,
+                directional: light.directional,
+                cast_shadow: light.cast_shadow,
+                frustum: light.frustum,
+            });
+        }
+        let file = SceneFile { version: 1, scenes, lights };
         let json = serde_json::to_string_pretty(&file)?;
         fs::write(&filename, json)?;
         let string_name = filename.as_ref().to_string_lossy().to_string();
@@ -109,6 +131,7 @@ impl Scene {
     ) -> anyhow::Result<()> {
         let json = fs::read_to_string(&filename)?;
         let scene_file: SceneFile = serde_json::from_str(&json)?;
+
         for scene in scene_file.scenes {
             let pathname = std::path::PathBuf::from(&scene.path);
             let loaded = load_gltf(pathname, asset_mgr);
@@ -119,7 +142,20 @@ impl Scene {
                     root_transform,
                 )));
             }
+            println!("Loading scene: {}", scene.path);
         }
+        for light in scene_file.lights {
+            let mut light_component = LightComponent::default();
+            light_component.update_position(light.position);
+            light_component.color = light.color;
+            light_component.directional = light.directional;
+            light_component.cast_shadow = light.cast_shadow;
+            light_component.frustum = light.frustum;
+
+            bus.send_domain(DomainEvent::Scene(SceneEvent::AddLightComponent(light_component)));
+            // Add the light component to the world
+        }
+
         let string_name = filename
             .as_ref()
             .file_name()
