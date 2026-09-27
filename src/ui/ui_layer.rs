@@ -79,7 +79,7 @@ impl UiLayer {
 
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
-        ui.push(MenuBarUi);
+        ui.push(MenuBarUi::default());
         ui.push(EntityListUi::default());
         ui.push(PropertyUi::default());
         ui.push(SettingsUi::new(adapter_string));
