@@ -1,22 +1,41 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{AssetCommand, CameraCommand, EditorSettingsData, GlobalCommand};
+use crate::editor::{
+    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand,
+};
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
 #[derive(Default)]
 pub struct SettingsUi {
+    settings: Option<EditorSettingsData>,
+    statistics: Option<EditorStatisticsData>,
+
     demo_open: bool,
     adapter_string: String,
 }
 
 impl SettingsUi {
     pub(crate) fn new(adapter_string: String) -> Self {
-        Self { demo_open: false, adapter_string }
+        Self {
+            demo_open: false,
+            adapter_string,
+            settings: None,
+            statistics: None,
+        }
     }
 }
 
 impl Layer for SettingsUi {
+    fn update(&mut self, commands: &super::ui_commands::UiCommands) {
+        self.settings = commands.settings().cloned();
+        self.statistics = commands.statistics().cloned();
+
+        if commands.settings().is_some() {
+            println!("Statistics updated");
+        }
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let Some(settings) = ctx.settings else {
+        let Some(settings) = self.settings.clone() else {
             ui.window("Settings")
                 .size([320.0, 300.0], imgui::Condition::FirstUseEver)
                 .build(|| ui.text("Loading settings..."));
@@ -24,14 +43,14 @@ impl Layer for SettingsUi {
         };
         ui.window("Settings")
             .size([320.0, 500.0], imgui::Condition::FirstUseEver)
-            .build(|| self.draw(ui, ctx, settings));
+            .build(|| self.draw(ui, ctx, &settings));
     }
 }
 
 impl SettingsUi {
     fn draw(&mut self, ui: &Ui, ctx: &mut UiContext, settings: &EditorSettingsData) {
         if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
-            if let Some(stats) = ctx.statistics {
+            if let Some(stats) = self.statistics.as_ref() {
                 ui.text(format!("FPS: {:.1}", stats.fps));
                 ui.text(format!("Frametime: {:.2} ms", stats.frametime * 1000.0));
                 ui.text(format!(

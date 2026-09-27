@@ -43,24 +43,40 @@ impl EditValue {
     }
 }
 
-pub struct PropertyUi;
+#[derive(Default)]
+pub struct PropertyUi {
+    inspector: Option<InspectorData>,
+    selection: Vec<EntityId>,
+}
+
 impl Layer for PropertyUi {
+    fn update(&mut self, commands: &super::ui_commands::UiCommands) {
+        self.inspector = commands.inspector().cloned();
+        self.selection = commands.selection().to_vec();
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let window = ui
             .window("Properties")
             .size([420.0, 560.0], Condition::FirstUseEver);
-        window.build(|| draw_inspector(ui, ctx));
+        window.build(|| draw_inspector(ui, ctx, self.inspector.as_ref(), &self.selection));
     }
 }
 
-fn draw_inspector(ui: &Ui, ctx: &mut UiContext) {
-    let Some(inspector) = ctx.inspector else {
-        ui.text(format!("{} entities selected", ctx.selection.len()));
-        for entity in ctx.selection.iter() {
+fn draw_inspector(
+    ui: &Ui,
+    ctx: &mut UiContext,
+    inspector: Option<&InspectorData>,
+    selection: &[EntityId],
+) {
+    let Some(inspector) = inspector else {
+        ui.text(format!("{} entities selected", selection.len()));
+        for entity in selection.iter() {
             ui.text(format!("Entity: {}", entity));
         }
         return;
     };
+
     ui.text(format!("{}  [#{}]", inspector.name, inspector.entity));
     ui.separator();
     if !ctx.is_editing(inspector.entity) {
@@ -94,17 +110,21 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
     ) {
         return;
     }
+
     let mut name = ctx
         .edit(inspector.entity)
         .and_then(EditValue::name)
         .unwrap_or(&inspector.name.clone())
         .to_owned();
+
     let edited = ui.input_text("Name", &mut name).build();
     let activated = ui.is_item_activated();
     let deactivated = ui.is_item_deactivated();
+
     if activated {
         ctx.begin_edit(inspector.entity, EditValue::Name(name.clone()));
     }
+
     if edited {
         ctx.begin_edit(inspector.entity, EditValue::Name(name.clone()));
         ctx.commands
@@ -113,6 +133,7 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &InspectorData) 
                 edit: EditValue::Name(name.clone()),
             }));
     }
+
     if deactivated {
         ctx.end_edit();
     }

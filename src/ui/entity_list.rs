@@ -18,18 +18,28 @@ const ICON_LAYER: &str = "\u{EBD2}";
 const ICON_LAYER_DOT: &str = "\u{EBD3}";
 const ICON_LAYER_ACTIVE: &str = "\u{EBD4}";
 
-pub struct EntityListUi;
+#[derive(Default)]
+pub struct EntityListUi {
+    hierarchy: Option<HierarchyData>,
+    selection: Vec<EntityId>,
+}
+
 impl Layer for EntityListUi {
+    fn update(&mut self, commands: &ui_commands::UiCommands) {
+        self.hierarchy = commands.hierarchy().cloned();
+        self.selection = commands.selection().to_vec();
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         ui.window("Entities")
             .size([340.0, 420.0], Condition::FirstUseEver)
             .build(|| {
                 toolbar(ui, ctx);
-                let Some(hierarchy) = ctx.hierarchy else {
+                let Some(hierarchy) = self.hierarchy.as_ref() else {
                     ui.text("Loading hierarchy...");
                     return;
                 };
-                let mut selection: HashSet<EntityId> = ctx.selection.iter().copied().collect();
+                let mut selection: HashSet<EntityId> = self.selection.iter().copied().collect();
                 let old_selection = selection.clone();
                 let mut action = None;
                 ui.text("Meshes");

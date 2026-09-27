@@ -1,11 +1,18 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{AssetCommand, EditorCommand, SceneCommand};
+use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
 use imgui::Ui;
 use std::path::PathBuf;
 
 #[derive(Default)]
-pub struct MenuBarUi;
+pub struct MenuBarUi {
+    scene_settings: SceneSettingsData,
+}
+
 impl Layer for MenuBarUi {
+    fn update(&mut self, commands: &super::ui_commands::UiCommands) {
+        self.scene_settings = commands.scene_settings().clone();
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         if let Some(_bar) = ui.begin_main_menu_bar() {
             if let Some(_menu) = ui.begin_menu("File") {
@@ -49,13 +56,13 @@ impl Layer for MenuBarUi {
                 }
                 ui.separator();
                 ui.menu("Recent Files", || {
-                    for (name, path) in ctx.scene_settings.recent.iter() {
+                    for (name, path) in self.scene_settings.recent.iter() {
                         if ui.menu_item(&name) {
                             ctx.commands
                                 .send(EditorCommand::Scene(SceneCommand::Open(path.into())));
                         }
                     }
-                    if ctx.scene_settings.recent.is_empty() {
+                    if self.scene_settings.recent.is_empty() {
                         ui.text_disabled("No recent files");
                     }
                 });

@@ -1,6 +1,6 @@
 use super::ui_commands::UiCommands;
 use super::*;
-use crate::editor::EditorCommandClient;
+use crate::editor::{EditValue, EditorCommandClient, EditorEdit, EntityId};
 
 use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
@@ -9,15 +9,7 @@ use winit::window::Window;
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
-    pub hierarchy: Option<&'a crate::editor::HierarchyData>,
-    pub selection: &'a [crate::editor::EntityId],
-    pub inspector: Option<&'a crate::editor::InspectorData>,
-    pub settings: Option<&'a crate::editor::EditorSettingsData>,
-    pub statistics: Option<&'a crate::editor::EditorStatisticsData>,
-    pub edit: &'a mut Option<
-        crate::editor::EditorEdit<crate::editor::EntityId, crate::editor::EditValue>,
-    >,
-    pub scene_settings: &'a crate::editor::SceneSettingsData,
+    pub edit: &'a mut Option<EditorEdit<EntityId, EditValue>>,
 }
 
 struct UiStack {
@@ -36,12 +28,19 @@ impl UiStack {
 
 pub trait Layer {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext);
+    fn update(&mut self, commands: &UiCommands);
 }
 
 impl Layer for UiStack {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         for layer in self.layers.iter_mut() {
             layer.build(ui, ctx);
+        }
+    }
+
+    fn update(&mut self, commands: &UiCommands) {
+        for layer in self.layers.iter_mut() {
+            layer.update(commands);
         }
     }
 }
@@ -77,9 +76,9 @@ impl UiLayer {
 
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
-        ui.push(MenuBarUi);
-        ui.push(EntityListUi);
-        ui.push(PropertyUi);
+        ui.push(MenuBarUi::default());
+        ui.push(EntityListUi::default());
+        ui.push(PropertyUi::default());
         ui.push(SettingsUi::new(adapter_string));
 
         Self {
@@ -128,29 +127,18 @@ impl UiLayer {
     pub fn build(&mut self, window: &Window) {
         self.commands.process();
         self.begin_frame(window);
+        self.stack.update(&self.commands);
 
         let ui = self.context.frame();
         ui.dockspace_over_main_viewport();
 
         let mut edit = self.commands.take_edit();
 
-        let hierarchy = self.commands.hierarchy();
-        let selection = self.commands.selection();
-        let inspector = self.commands.inspector();
-        let settings = self.commands.settings();
-        let statistics = self.commands.statistics();
-        let scene_settings = self.commands.scene_settings();
         let command_client = self.commands.command_client();
 
         let mut ctx = UiContext {
             commands: command_client,
-            hierarchy,
-            selection,
-            inspector,
-            settings,
-            statistics,
             edit: &mut edit,
-            scene_settings,
         };
 
         self.stack.build(ui, &mut ctx);

@@ -10,6 +10,8 @@ pub struct ViewportUi {
 }
 
 impl Layer for ViewportUi {
+    fn update(&mut self, _commands: &super::ui_commands::UiCommands) {}
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         if ui.io().want_capture_mouse {
             return;
