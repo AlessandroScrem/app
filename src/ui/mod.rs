@@ -1,3 +1,4 @@
+mod ui_commands;
 mod entity_list;
 mod menu_bar;
 mod properties;

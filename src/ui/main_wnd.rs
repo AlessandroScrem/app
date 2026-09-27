@@ -4,7 +4,6 @@ use super::ui_layer::{Layer, UiContext};
 
 use imgui::*;
 
-
 #[derive(Debug, Default, Clone)]
 pub struct ViewportUi {
     click_pos: Option<[f32; 2]>,
@@ -44,10 +43,7 @@ impl Layer for ViewportUi {
                     let height = (start[1] - current[1]).abs() as u32;
                     let size = (width, height);
 
-                    ctx.connection
-                        .commands
-                        .send(EditorCommand::DragSelection(pos, size));
-
+                    ctx.commands.send(EditorCommand::DragSelection(pos, size));
                     self.click_pos = None;
                 }
             }
