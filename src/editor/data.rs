@@ -44,10 +44,15 @@ pub struct HierarchyNode {
 pub struct InspectorData {
     pub entity: EntityId,
     pub name: String,
-    pub transform: TransformData,
-    pub mesh: Option<MeshData>,
-    pub bounding_box: Option<BoundingBoxData>,
-    pub light: Option<LightData>,
+    pub sections: Vec<InspectorSection>,
+}
+
+#[derive(Clone, Debug)]
+pub enum InspectorSection {
+    Transform(TransformData),
+    Mesh(MeshData),
+    BoundingBox(BoundingBoxData),
+    Light(LightData),
 }
 
 #[derive(Clone, Debug)]
