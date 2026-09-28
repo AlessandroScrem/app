@@ -1,6 +1,6 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EditValue, EntityId, InspectorData, LightData, TransformData};
-use crate::editor::{EditorCommand, EntityCommand};
+use crate::editor::{EditValue, EntityId, InspectorData, InspectorSection, LightData, TransformData};
+use crate::editor::EntityCommand;
 use imgui::*;
 
 #[derive(Default)]
@@ -52,26 +52,31 @@ fn draw_inspector(
     ui.separator();
 
     draw_inspector_name(ui, ctx, inspector);
-    draw_inspector_transform(ui, ctx, inspector);
 
-    if let Some(mesh) = &inspector.mesh {
-        if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
-            ui.text(format!("Mesh: {}", mesh.id));
+    let entity = inspector.entity;
+    for section in &mut inspector.sections {
+        match section {
+            InspectorSection::Transform(transform) => {
+                draw_inspector_transform(ui, ctx, entity, transform);
+            }
+            InspectorSection::Mesh(mesh) => {
+                if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+                    ui.text(format!("Mesh: {}", mesh.id));
+                }
+            }
+            InspectorSection::BoundingBox(bbox) => {
+                if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
+                    ui.text(format!("Local min: {:?}", bbox.min));
+                    ui.text(format!("Local max: {:?}", bbox.max));
+                    ui.separator();
+                    ui.text(format!("Global min: {:?}", bbox.global_min));
+                    ui.text(format!("Global max: {:?}", bbox.global_max));
+                }
+            }
+            InspectorSection::Light(light) => {
+                draw_light(ui, ctx, entity, light);
+            }
         }
-    }
-
-    if let Some(bbox) = &inspector.bounding_box {
-        if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
-            ui.text(format!("Local min: {:?}", bbox.min));
-            ui.text(format!("Local max: {:?}", bbox.max));
-            ui.separator();
-            ui.text(format!("Global min: {:?}", bbox.global_min));
-            ui.text(format!("Global max: {:?}", bbox.global_max));
-        }
-    }
-
-    if inspector.light.is_some() {
-        draw_light(ui, ctx, inspector);
     }
 }
 
@@ -92,7 +97,7 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &mut InspectorDa
     }
 }
 
-fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &mut InspectorData) {
+fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, transform: &mut TransformData) {
     if !ui.collapsing_header(
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -103,19 +108,19 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &mut Inspec
     let (edited, activated, deactivated) = ui.group(|| {
         let translation_edited = Drag::new("Translation")
             .speed(0.1)
-            .build_array(ui, &mut inspector.transform.translation);
+            .build_array(ui, &mut transform.translation);
         let translation_activated = ui.is_item_activated();
         let translation_deactivated = ui.is_item_deactivated_after_edit();
 
         let rotation_edited = Drag::new("Rotation")
             .speed(0.01)
-            .build_array(ui, &mut inspector.transform.rotation);
+            .build_array(ui, &mut transform.rotation);
         let rotation_activated = ui.is_item_activated();
         let rotation_deactivated = ui.is_item_deactivated_after_edit();
 
         let scale_edited = Drag::new("Scale")
             .speed(0.1)
-            .build_array(ui, &mut inspector.transform.scale);
+            .build_array(ui, &mut transform.scale);
         let scale_activated = ui.is_item_activated();
         let scale_deactivated = ui.is_item_deactivated_after_edit();
 
@@ -127,45 +132,40 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, inspector: &mut Inspec
     });
 
     if activated {
-        ctx.commands.send(EntityCommand::BeginTransformEdit {
-            entity: inspector.entity,
-        });
+        ctx.commands.send(EntityCommand::BeginTransformEdit { entity });
     }
 
     if edited {
         ctx.commands.send(EntityCommand::SetTransform {
-            entity: inspector.entity,
-            transform: inspector.transform.clone(),
+            entity,
+            transform: transform.clone(),
         });
     }
 
     if deactivated {
-        ctx.commands.send(EntityCommand::EndTransformEdit {
-            entity: inspector.entity,
-        });
+        ctx.commands.send(EntityCommand::EndTransformEdit { entity });
     }
 
     ui.separator();
     if ui.small_button("Reset Transform") {
-        let transform = TransformData {
+        *transform = TransformData {
             translation: [0.0; 3],
             rotation: [0.0; 3],
             scale: [1.0; 3],
         };
-        inspector.transform = transform.clone();
-        reset_transform(ctx, inspector.entity, transform);
+        reset_transform(ctx, entity, transform.clone());
     }
 
     ui.same_line();
     if ui.small_button("Reset Position") {
-        inspector.transform.translation = [0.0; 3];
-        reset_transform(ctx, inspector.entity, inspector.transform.clone());
+        transform.translation = [0.0; 3];
+        reset_transform(ctx, entity, transform.clone());
     }
 
     ui.same_line();
     if ui.small_button("Reset Rotation") {
-        inspector.transform.rotation = [0.0; 3];
-        reset_transform(ctx, inspector.entity, inspector.transform.clone());
+        transform.rotation = [0.0; 3];
+        reset_transform(ctx, entity, transform.clone());
     }
 }
 
@@ -178,19 +178,19 @@ fn reset_transform(ctx: &mut UiContext, entity: EntityId, transform: TransformDa
         .send(EntityCommand::EndTransformEdit { entity });
 }
 
-fn draw_light(ui: &Ui, ctx: &mut UiContext, inspector: &mut InspectorData) {
+fn draw_light(
+    ui: &Ui,
+    ctx: &mut UiContext,
+    entity: EntityId,
+    light: &mut LightData,
+) {
     if !ui.collapsing_header("Light", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }
 
-    let Some(light) = inspector.light.as_mut() else {
-        return;
-    };
-
-    let edited = draw_light_properties(ui, light);
-    if edited {
+    if draw_light_properties(ui, light) {
         ctx.commands.send(EntityCommand::Edit {
-            entity: inspector.entity,
+            entity,
             edit: EditValue::Light(light.clone()),
         });
     }

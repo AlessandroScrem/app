@@ -13,7 +13,7 @@ use crate::ecs::components::{
 };
 use crate::editor::{
     BoundingBoxData, EditValue, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand,
-    EntityData, EntityId, HierarchyData, HierarchyNode, InspectorData, LightData, MeshData, Query,
+    EntityData, EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MeshData, Query,
     QueryResult, SceneSettingsData, TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
@@ -433,13 +433,24 @@ impl App {
                 cast_shadow: light.cast_shadow,
                 frustum: light.frustum,
             });
+        let mut sections = vec![InspectorSection::Transform(transform)];
+
+        if let Some(mesh) = mesh {
+            sections.push(InspectorSection::Mesh(mesh));
+        }
+
+        if let Some(bounding_box) = bounding_box {
+            sections.push(InspectorSection::BoundingBox(bounding_box));
+        }
+
+        if let Some(light) = light {
+            sections.push(InspectorSection::Light(light));
+        }
+
         Some(InspectorData {
             entity: id,
             name,
-            transform,
-            mesh,
-            bounding_box,
-            light,
+            sections,
         })
     }
 
