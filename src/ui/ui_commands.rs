@@ -380,4 +380,101 @@ mod tests {
         let hierarchy_query = service.query_rx.recv().expect("hierarchy refresh");
         assert!(matches!(hierarchy_query.query, Query::Hierarchy));
     }
+    #[test]
+    fn stale_inspector_response_is_ignored_when_no_current_response_arrives() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.apply_event(EditorEvent::SelectionChanged { entities: vec![1] });
+        let request = service.query_rx.recv().expect("inspector query");
+
+        commands.apply_event(EditorEvent::SelectionChanged { entities: vec![2] });
+        assert!(commands.inspector().is_none());
+
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: request.id,
+                result: QueryResult::Inspector(Some(inspector(1, "stale"))),
+            })
+            .unwrap();
+
+        commands.process_responses();
+
+        assert!(commands.inspector().is_none());
+        assert_eq!(commands.selection(), &[2]);
+    }
+
+    #[test]
+    fn unknown_query_response_is_ignored() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: 999,
+                result: QueryResult::Selection(vec![42]),
+            })
+            .unwrap();
+
+        commands.process_responses();
+
+        assert!(commands.selection().is_empty());
+    }
+
+    #[test]
+    fn settings_and_statistics_events_refresh_only_their_cache() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.apply_event(EditorEvent::SettingsChanged);
+        let settings = service.query_rx.recv().expect("settings query");
+        assert!(matches!(settings.query, Query::Settings));
+        assert!(service.query_rx.try_recv().is_err());
+
+        commands.apply_event(EditorEvent::StatisticsChanged);
+        let statistics = service.query_rx.recv().expect("statistics query");
+        assert!(matches!(statistics.query, Query::Statistics));
+        assert!(service.query_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn scene_changed_invalidates_cached_editor_data() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.hierarchy = Some(HierarchyData::default());
+        commands.settings = Some(EditorSettingsData {
+            light_enable: true,
+            ibl_enable: true,
+            skybox_enable: true,
+            skybox_enable_blur: true,
+            axis_enable: true,
+            bbox_enable: true,
+            bbox_axis_aligned: true,
+            mips_cp: true,
+            env_rotation: 0.0,
+            debug_code: 0,
+            exposure: 0.0,
+            ibl_intensity: 1.0,
+            tonemap_filter: 0,
+            camera_fov: 1.0,
+            camera_distance: 1.0,
+            camera_near: 0.1,
+            camera_far: 100.0,
+        });
+        commands.inspector = Some(inspector(7, "entity"));
+
+        commands.apply_event(EditorEvent::SceneChanged);
+
+        assert!(commands.hierarchy().is_none());
+        assert!(commands.settings().is_none());
+        assert!(commands.inspector().is_none());
+
+        for _ in 0..5 {
+            let _ = service.query_rx.recv().expect("refresh query");
+        }
+    }
+
 }
