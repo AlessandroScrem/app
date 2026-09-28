@@ -13,7 +13,6 @@ pub trait EditorBackend {
     ) -> Option<EditorEvent>;
     fn editor_scene_revision(&self) -> u64;
     fn editor_selection(&self) -> Vec<EntityId>;
-    fn editor_entities(&self) -> Vec<EntityId>;
 }
 
 pub struct EditorService {
