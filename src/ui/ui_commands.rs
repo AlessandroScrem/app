@@ -246,3 +246,151 @@ impl UiCommands {
             .any(|pending| *pending == slot)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn inspector(entity: EntityId, name: &str) -> InspectorData {
+        InspectorData {
+            entity,
+            name: name.to_string(),
+            sections: vec![
+                InspectorSection::Transform(TransformData {
+                    translation: [0.0; 3],
+                    rotation: [0.0; 3],
+                    scale: [1.0; 3],
+                }),
+                InspectorSection::Light(LightData {
+                    color: [1.0, 1.0, 1.0],
+                    directional: false,
+                    cast_shadow: false,
+                    frustum: false,
+                }),
+            ],
+        }
+    }
+
+    #[test]
+    fn stale_inspector_response_is_ignored() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.apply_event(EditorEvent::SelectionChanged {
+            entities: vec![1],
+        });
+        let first = service.query_rx.recv().expect("first inspector query");
+        assert!(matches!(
+            first.query,
+            Query::Inspector { entity: 1 }
+        ));
+
+        commands.apply_event(EditorEvent::SelectionChanged {
+            entities: vec![2],
+        });
+        let second = service.query_rx.recv().expect("second inspector query");
+        assert!(matches!(
+            second.query,
+            Query::Inspector { entity: 2 }
+        ));
+
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: first.id,
+                result: QueryResult::Inspector(Some(inspector(1, "stale"))),
+            })
+            .unwrap();
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: second.id,
+                result: QueryResult::Inspector(Some(inspector(2, "current"))),
+            })
+            .unwrap();
+
+        commands.process_responses();
+
+        let current = commands.inspector().expect("current inspector");
+        assert_eq!(current.entity, 2);
+        assert_eq!(current.name, "current");
+    }
+
+    #[test]
+    fn selection_with_multiple_entities_clears_inspector_request() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.apply_event(EditorEvent::SelectionChanged {
+            entities: vec![1, 2],
+        });
+
+        assert!(service.query_rx.try_recv().is_err());
+        assert!(commands.inspector().is_none());
+    }
+
+    #[test]
+    fn inspector_change_events_update_cached_sections() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.apply_event(EditorEvent::SelectionChanged {
+            entities: vec![7],
+        });
+        let request = service.query_rx.recv().expect("inspector query");
+
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: request.id,
+                result: QueryResult::Inspector(Some(inspector(7, "entity"))),
+            })
+            .unwrap();
+        commands.process_responses();
+
+        let transform = TransformData {
+            translation: [1.0, 2.0, 3.0],
+            rotation: [4.0, 5.0, 6.0],
+            scale: [2.0, 2.0, 2.0],
+        };
+        commands.apply_event(EditorEvent::TransformChanged {
+            entity: 7,
+            transform: transform.clone(),
+        });
+        commands.apply_event(EditorEvent::NameChanged {
+            entity: 7,
+            name: "renamed".to_string(),
+        });
+        commands.apply_event(EditorEvent::LightChanged {
+            entity: 7,
+            light: LightData {
+                color: [0.2, 0.4, 0.6],
+                directional: true,
+                cast_shadow: true,
+                frustum: true,
+            },
+        });
+
+        let current = commands.inspector().expect("cached inspector");
+        assert_eq!(current.name, "renamed");
+
+        match &current.sections[0] {
+            InspectorSection::Transform(value) => assert_eq!(value, &transform),
+            _ => panic!("expected transform section"),
+        }
+
+        match &current.sections[1] {
+            InspectorSection::Light(value) => {
+                assert_eq!(value.color, [0.2, 0.4, 0.6]);
+                assert!(value.directional);
+                assert!(value.cast_shadow);
+                assert!(value.frustum);
+            }
+            _ => panic!("expected light section"),
+        }
+
+        let hierarchy_query = service.query_rx.recv().expect("hierarchy refresh");
+        assert!(matches!(hierarchy_query.query, Query::Hierarchy));
+    }
+}
