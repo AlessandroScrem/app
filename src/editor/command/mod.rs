@@ -4,6 +4,7 @@ mod entity;
 mod global;
 mod scene;
 mod selection;
+mod pick;
 
 pub use asset::AssetCommand;
 pub use camera::CameraCommand;
@@ -11,16 +12,17 @@ pub use entity::EntityCommand;
 pub use global::GlobalCommand;
 pub use scene::SceneCommand;
 pub use selection::SelectionCommand;
+pub use pick::PickCommand;
 
 #[derive(Clone, Debug)]
 pub enum EditorCommand {
     Scene(SceneCommand),
     Selection(SelectionCommand),
+    Pick(PickCommand),
     Entity(EntityCommand),
     Asset(AssetCommand),
     Camera(CameraCommand),
     Global(GlobalCommand),
-    DragSelection((u32, u32), (u32, u32)),
     Exit,
 }
 
