@@ -179,9 +179,7 @@ impl UiCommands {
 
     fn apply_event(&mut self, event: EditorEvent) {
         match event {
-            EditorEvent::SceneChanged
-            | EditorEvent::EntityCreated { .. }
-            | EditorEvent::EntityDeleted { .. } => self.invalidate_all(),
+            EditorEvent::SceneChanged => self.invalidate_all(),
             EditorEvent::SelectionChanged { entities } => {
                 self.selection = entities;
                 self.request_inspector();
