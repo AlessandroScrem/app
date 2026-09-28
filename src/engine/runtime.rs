@@ -4,7 +4,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectIbl};
+use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
