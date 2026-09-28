@@ -33,10 +33,8 @@ pub struct SceneEntry {
 pub struct LightEntry {
     pub light_component: LightComponent,
     pub tag: TagComponent,
-    pub transform: TransformComponent, 
+    pub transform: TransformComponent,
 }
-
-
 
 pub struct Scene {
     pub filename: Option<String>,
@@ -103,7 +101,7 @@ impl Scene {
             });
         }
         let mut lights = Vec::new();
-        let mut query = <(&LightComponent, &TagComponent,&TransformComponent)>::query();
+        let mut query = <(&LightComponent, &TagComponent, &TransformComponent)>::query();
         for (light, tag, transform) in query.iter(&self.world) {
             lights.push(LightEntry {
                 light_component: light.clone(),
@@ -111,7 +109,11 @@ impl Scene {
                 transform: transform.clone(),
             });
         }
-        let file = SceneFile { version: 1, scenes, lights };
+        let file = SceneFile {
+            version: 1,
+            scenes,
+            lights,
+        };
         let json = serde_json::to_string_pretty(&file)?;
         fs::write(&filename, json)?;
         let string_name = filename.as_ref().to_string_lossy().to_string();
@@ -142,7 +144,11 @@ impl Scene {
             println!("Loading scene: {}", scene.path);
         }
         for light in scene_file.lights {
-            bus.send_domain(DomainEvent::Scene(SceneEvent::AddLightComponent(light.light_component, light.tag, light.transform)));
+            bus.send_domain(DomainEvent::Scene(SceneEvent::AddLightComponent(
+                light.light_component,
+                light.tag,
+                light.transform,
+            )));
             // Add the light component to the world
         }
 

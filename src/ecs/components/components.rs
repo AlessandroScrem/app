@@ -17,7 +17,7 @@ pub struct LightComponent {
 impl Default for LightComponent {
     fn default() -> Self {
         const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
-        
+
         Self {
             color: WHITE,
             frustum: false,
@@ -26,8 +26,6 @@ impl Default for LightComponent {
         }
     }
 }
-
-
 
 #[derive(Default, Clone)]
 pub struct MeshComponent {

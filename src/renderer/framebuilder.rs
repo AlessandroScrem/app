@@ -238,7 +238,6 @@ impl FrameBuilder {
             .take(uniform::MAX_LIGHTS)
             .enumerate()
             .for_each(|(i, light_object)| {
-
                 lights_uniform.count = (i + 1) as u32;
                 lights_uniform.lights[i] = LightUniform::from(light_object);
             });

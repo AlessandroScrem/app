@@ -133,7 +133,7 @@ impl LineDrawable for LightRenderObject {
         sink.line(near[3], far[3], colors::GREEN_COLOR.into());
 
         let origin = Vec3::new(0.0, 0.0, 0.0);
-        let position= Vec3::new(self.position.x, self.position.y, self.position.z);
+        let position = Vec3::new(self.position.x, self.position.y, self.position.z);
         let direction = (origin - position).normalize();
         let target = position + direction * 20.0;
 

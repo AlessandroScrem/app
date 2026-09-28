@@ -1,7 +1,7 @@
 use crate::editor::{
-    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData,
-    Query, QueryId, QueryResponse, QueryResult, SceneSettingsData, TransformData,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
+    QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
 
@@ -247,7 +247,6 @@ impl UiCommands {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,23 +276,13 @@ mod tests {
         let (connection, service) = EditorConnection::new();
         let mut commands = UiCommands::new(connection);
 
-        commands.apply_event(EditorEvent::SelectionChanged {
-            entities: vec![1],
-        });
+        commands.apply_event(EditorEvent::SelectionChanged { entities: vec![1] });
         let first = service.query_rx.recv().expect("first inspector query");
-        assert!(matches!(
-            first.query,
-            Query::Inspector { entity: 1 }
-        ));
+        assert!(matches!(first.query, Query::Inspector { entity: 1 }));
 
-        commands.apply_event(EditorEvent::SelectionChanged {
-            entities: vec![2],
-        });
+        commands.apply_event(EditorEvent::SelectionChanged { entities: vec![2] });
         let second = service.query_rx.recv().expect("second inspector query");
-        assert!(matches!(
-            second.query,
-            Query::Inspector { entity: 2 }
-        ));
+        assert!(matches!(second.query, Query::Inspector { entity: 2 }));
 
         service
             .response_tx
@@ -335,9 +324,7 @@ mod tests {
         let (connection, service) = EditorConnection::new();
         let mut commands = UiCommands::new(connection);
 
-        commands.apply_event(EditorEvent::SelectionChanged {
-            entities: vec![7],
-        });
+        commands.apply_event(EditorEvent::SelectionChanged { entities: vec![7] });
         let request = service.query_rx.recv().expect("inspector query");
 
         service

@@ -1,6 +1,6 @@
 use super::ui_layer::{Layer, UiContext};
-use crate::editor::{EntityId, InspectorData, InspectorSection, LightData, TransformData};
 use crate::editor::EntityCommand;
+use crate::editor::{EntityId, InspectorData, InspectorSection, LightData, TransformData};
 use imgui::*;
 
 #[derive(Default)]
@@ -14,11 +14,11 @@ impl Layer for PropertyUi {
     fn update(&mut self, commands: &super::ui_commands::UiCommands) {
         let inspector = commands.inspector().cloned();
 
-        if self
-            .draft
-            .as_ref()
-            .is_none_or(|draft| inspector.as_ref().is_none_or(|data| data.entity != draft.entity))
-        {
+        if self.draft.as_ref().is_none_or(|draft| {
+            inspector
+                .as_ref()
+                .is_none_or(|data| data.entity != draft.entity)
+        }) {
             self.draft = inspector.clone();
         }
 
@@ -97,7 +97,12 @@ fn draw_inspector_name(ui: &Ui, ctx: &mut UiContext, inspector: &mut InspectorDa
     }
 }
 
-fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, transform: &mut TransformData) {
+fn draw_inspector_transform(
+    ui: &Ui,
+    ctx: &mut UiContext,
+    entity: EntityId,
+    transform: &mut TransformData,
+) {
     if !ui.collapsing_header(
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -132,7 +137,8 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, tran
     });
 
     if activated {
-        ctx.commands.send(EntityCommand::BeginTransformEdit { entity });
+        ctx.commands
+            .send(EntityCommand::BeginTransformEdit { entity });
     }
 
     if edited {
@@ -143,7 +149,8 @@ fn draw_inspector_transform(ui: &Ui, ctx: &mut UiContext, entity: EntityId, tran
     }
 
     if deactivated {
-        ctx.commands.send(EntityCommand::EndTransformEdit { entity });
+        ctx.commands
+            .send(EntityCommand::EndTransformEdit { entity });
     }
 
     ui.separator();
@@ -178,12 +185,7 @@ fn reset_transform(ctx: &mut UiContext, entity: EntityId, transform: TransformDa
         .send(EntityCommand::EndTransformEdit { entity });
 }
 
-fn draw_light(
-    ui: &Ui,
-    ctx: &mut UiContext,
-    entity: EntityId,
-    light: &mut LightData,
-) {
+fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: EntityId, light: &mut LightData) {
     if !ui.collapsing_header("Light", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }

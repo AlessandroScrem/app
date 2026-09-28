@@ -166,10 +166,10 @@ fn draw_light_node(
         } else {
             TreeNodeFlags::empty()
         };
-    
+
     let _disabled =
         (!node.visible).then(|| ui.push_style_color(StyleColor::Text, [1.0, 1.0, 1.0, 0.35]));
-    
+
     let _opened = ui
         .tree_node_config(format!("{ICON_LIGHTBULB} {}##{}", node.name, node.entity))
         .flags(flags)

@@ -13,7 +13,10 @@ pub fn create(world: &mut World) -> Entity {
         TagComponent {
             name: "Directional".to_string(),
         },
-        TransformComponent{position: [3.0, 20.0, 10.0], ..Default::default()},
+        TransformComponent {
+            position: [3.0, 20.0, 10.0],
+            ..Default::default()
+        },
         HierarchyComponent::default(),
         GlobalModelComponent::default(),
         LightComponent::default(),
@@ -21,7 +24,12 @@ pub fn create(world: &mut World) -> Entity {
 }
 
 /// A function to help create a light entity.
-pub fn add_light(world: &mut World, light: LightComponent, name: TagComponent, transform: TransformComponent) -> Entity {
+pub fn add_light(
+    world: &mut World,
+    light: LightComponent,
+    name: TagComponent,
+    transform: TransformComponent,
+) -> Entity {
     world.push((
         name,
         transform,

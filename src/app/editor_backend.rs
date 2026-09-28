@@ -12,9 +12,9 @@ use crate::ecs::components::{
     TransformComponent,
 };
 use crate::editor::{
-    BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand,
-    EntityData, EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MeshData, Query,
-    QueryResult, SceneSettingsData, TransformData,
+    BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
+    EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MeshData,
+    Query, QueryResult, SceneSettingsData, TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
@@ -129,7 +129,7 @@ impl App {
                 }
                 Some(EditorEvent::TransformChanged { entity, transform })
             }
-                       EntityCommand::SetName { entity, name } => {
+            EntityCommand::SetName { entity, name } => {
                 if let Ok(mut entry) = self
                     .current_scene
                     .world

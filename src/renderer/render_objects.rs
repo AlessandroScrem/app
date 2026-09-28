@@ -1,10 +1,14 @@
 use legion::{Entity, EntityStore, World};
 
 use crate::{
-    EntityRawU64, Globals, assets::MeshId, ecs::components::{
+    EntityRawU64, Globals,
+    assets::MeshId,
+    ecs::components::{
         BoundingBoxComponent, GlobalModelComponent, Hidden, HierarchyComponent, LightComponent,
         MeshComponent,
-    }, math::{Mat4, Point3f, Vec3, Vec4}, renderer::uniform::LightUniform,
+    },
+    math::{Mat4, Point3f, Vec3, Vec4},
+    renderer::uniform::LightUniform,
 };
 
 // ------------------------------------
@@ -26,7 +30,7 @@ impl LightRenderObject {
     const NEAR: f32 = 0.1;
     const FAR: f32 = 100.0;
 
-    fn  get_proj_matrix() ->Mat4 {
+    fn get_proj_matrix() -> Mat4 {
         crate::math::ortho(
             -Self::SIZE,
             Self::SIZE,
@@ -35,13 +39,11 @@ impl LightRenderObject {
             Self::NEAR,
             Self::FAR,
         )
-    } 
-
-    pub fn get_view_proj_matrix(&self)  -> Mat4
-    {
-        Self::get_proj_matrix() * Self::view_matrix(self.position)
     }
 
+    pub fn get_view_proj_matrix(&self) -> Mat4 {
+        Self::get_proj_matrix() * Self::view_matrix(self.position)
+    }
 
     pub fn view_matrix<P>(position: P) -> Mat4
     where
@@ -142,7 +144,9 @@ fn extract_lights(world: &World) -> Vec<LightRenderObject> {
             continue;
         }
 
-        let pos: [f32;3] = (transform.mat * Vec4::new(0.0, 0.0, 0.0, 1.0)).truncate().into();
+        let pos: [f32; 3] = (transform.mat * Vec4::new(0.0, 0.0, 0.0, 1.0))
+            .truncate()
+            .into();
 
         lights.push(LightRenderObject {
             entity_id: entity.as_raw_u64(),
