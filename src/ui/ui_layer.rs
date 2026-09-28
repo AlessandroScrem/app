@@ -1,6 +1,6 @@
 use super::ui_commands::UiCommands;
 use super::*;
-use crate::editor::{EditValue, EditorCommandClient, EditorEdit, EntityId};
+use crate::editor::EditorCommandClient;
 
 use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
@@ -9,7 +9,6 @@ use winit::window::Window;
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
-    pub edit: &'a mut Option<EditorEdit<EntityId, EditValue>>,
 }
 
 struct UiStack {
@@ -132,17 +131,12 @@ impl UiLayer {
         let ui = self.context.frame();
         ui.dockspace_over_main_viewport();
 
-        let mut edit = self.commands.take_edit();
-
         let command_client = self.commands.command_client();
-
         let mut ctx = UiContext {
             commands: command_client,
-            edit: &mut edit,
         };
 
         self.stack.build(ui, &mut ctx);
-        self.commands.set_edit(edit);
         self.platform.prepare_render(ui, window);
         self.end_frame();
     }
