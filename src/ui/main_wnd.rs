@@ -1,4 +1,4 @@
-use crate::editor::EditorCommand;
+use crate::editor::{EditorCommand, PickCommand};
 
 use super::ui_layer::{Layer, UiContext};
 
@@ -45,7 +45,7 @@ impl Layer for ViewportUi {
                     let height = (start[1] - current[1]).abs() as u32;
                     let size = (width, height);
 
-                    ctx.commands.send(EditorCommand::DragSelection(pos, size));
+                    ctx.commands.send(EditorCommand::Pick(PickCommand::Region { origin: pos, size }));
                     self.click_pos = None;
                 }
             }
