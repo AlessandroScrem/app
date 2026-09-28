@@ -20,7 +20,6 @@ pub struct EditorService {
     channels: EditorServiceChannels,
     last_scene_revision: u64,
     last_selection: Vec<EntityId>,
-    last_entities: Vec<EntityId>,
     statistics: EditorStatisticsData,
 }
 
@@ -30,7 +29,6 @@ impl EditorService {
             channels,
             last_scene_revision: 0,
             last_selection: Vec::new(),
-            last_entities: Vec::new(),
             statistics: EditorStatisticsData::default(),
         }
     }
@@ -74,27 +72,6 @@ impl EditorService {
     }
 
     fn publish_state_changes<B: EditorBackend>(&mut self, backend: &B) {
-        let entities = backend.editor_entities();
-        for entity in entities
-            .iter()
-            .filter(|id| !self.last_entities.contains(id))
-        {
-            let _ = self
-                .channels
-                .event_tx
-                .send(EditorEvent::EntityCreated { entity: *entity });
-        }
-        for entity in self
-            .last_entities
-            .iter()
-            .filter(|id| !entities.contains(id))
-        {
-            let _ = self
-                .channels
-                .event_tx
-                .send(EditorEvent::EntityDeleted { entity: *entity });
-        }
-        self.last_entities = entities;
         let scene_revision = backend.editor_scene_revision();
         if scene_revision != self.last_scene_revision {
             self.last_scene_revision = scene_revision;
