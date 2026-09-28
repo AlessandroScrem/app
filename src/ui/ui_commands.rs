@@ -438,6 +438,37 @@ mod tests {
     }
 
     #[test]
+    fn query_ids_are_unique_and_preserved() {
+        let (connection, service) = EditorConnection::new();
+        let first = connection.queries.request(Query::Hierarchy);
+        let second = connection.queries.request(Query::Selection);
+
+        assert_ne!(first, second);
+
+        let first_request = service.query_rx.recv().expect("first query");
+        let second_request = service.query_rx.recv().expect("second query");
+        assert_eq!(first_request.id, first);
+        assert_eq!(second_request.id, second);
+
+        let mut commands = UiCommands::new(connection);
+        commands.pending_queries.insert(first, QuerySlot::Hierarchy);
+        commands.pending_queries.insert(second, QuerySlot::Selection);
+
+        service
+            .response_tx
+            .send(QueryResponse {
+                id: second,
+                result: QueryResult::Selection(vec![42]),
+            })
+            .unwrap();
+        commands.process_responses();
+
+        assert_eq!(commands.selection(), &[42]);
+        assert!(commands.pending_queries.contains_key(&first));
+        assert!(!commands.pending_queries.contains_key(&second));
+    }
+
+    #[test]
     fn scene_changed_invalidates_cached_editor_data() {
         let (connection, service) = EditorConnection::new();
         let mut commands = UiCommands::new(connection);
