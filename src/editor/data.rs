@@ -104,12 +104,6 @@ pub struct EditorSettingsData {
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum EditorEvent {
-    EntityCreated {
-        entity: EntityId,
-    },
-    EntityDeleted {
-        entity: EntityId,
-    },
     TransformChanged {
         entity: EntityId,
         transform: TransformData,
