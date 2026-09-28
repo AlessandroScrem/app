@@ -1,25 +1,6 @@
 pub type EntityId = u64;
 
 #[derive(Clone, Debug)]
-pub struct EditorEdit<K, T> {
-    pub key: K,
-    pub value: T,
-}
-
-impl<K, T> EditorEdit<K, T> {
-    pub fn new(key: K, value: T) -> Self {
-        Self { key, value }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum EditValue {
-    Transform(TransformData),
-    Light(LightData),
-    Name(String),
-}
-
-#[derive(Clone, Debug)]
 pub struct EntityData {
     #[allow(dead_code)]
     pub id: EntityId,

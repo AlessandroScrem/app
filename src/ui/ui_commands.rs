@@ -1,7 +1,7 @@
 use crate::editor::{
-    EditValue, EditorCommandClient, EditorConnection, EditorEdit, EditorEvent, EditorSettingsData,
-    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
-    QueryResponse, QueryResult, SceneSettingsData, TransformData,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData,
+    EditorStatisticsData, EntityId, HierarchyData, InspectorData, InspectorSection, LightData,
+    Query, QueryId, QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
 
@@ -24,7 +24,6 @@ pub(crate) struct UiCommands {
     statistics: Option<EditorStatisticsData>,
     scene_settings: SceneSettingsData,
     pending_queries: HashMap<QueryId, QuerySlot>,
-    edit: Option<EditorEdit<EntityId, EditValue>>,
 }
 
 impl UiCommands {
@@ -38,7 +37,6 @@ impl UiCommands {
             statistics: None,
             scene_settings: SceneSettingsData::default(),
             pending_queries: HashMap::new(),
-            edit: None,
         }
     }
 
@@ -70,22 +68,10 @@ impl UiCommands {
         &self.scene_settings
     }
 
-    pub(crate) fn take_edit(&mut self) -> Option<EditorEdit<EntityId, EditValue>> {
-        self.edit.take()
-    }
-
-    pub(crate) fn set_edit(&mut self, edit: Option<EditorEdit<EntityId, EditValue>>) {
-        self.edit = edit;
-    }
-
     pub(crate) fn process(&mut self) {
         self.process_responses();
         self.process_events();
         self.ensure_queries();
-    }
-
-    fn is_editing_inspector(&self) -> bool {
-        self.edit.is_some()
     }
 
     fn request(&mut self, slot: QuerySlot, query: Query) {
@@ -112,19 +98,13 @@ impl UiCommands {
         self.statistics = None;
         self.pending_queries.clear();
 
-        if !self.is_editing_inspector() {
-            self.inspector = None;
-        }
+        self.inspector = None;
 
         self.request_initial_queries();
         self.request_inspector();
     }
 
     fn request_inspector(&mut self) {
-        if self.is_editing_inspector() {
-            return;
-        }
-
         if let [entity] = *self.selection.as_slice() {
             self.request(QuerySlot::Inspector, Query::Inspector { entity });
         } else {
@@ -143,8 +123,10 @@ impl UiCommands {
             (QuerySlot::Settings, QueryResult::Settings(data)) => {
                 self.settings = Some(data);
                 self.request_inspector();
-            },
-            (QuerySlot::Statistics, QueryResult::Statistics(data)) => self.statistics = Some(data),
+            }
+            (QuerySlot::Statistics, QueryResult::Statistics(data)) => {
+                self.statistics = Some(data);
+            }
             (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                 self.scene_settings = data;
             }
@@ -153,9 +135,7 @@ impl UiCommands {
                 self.request_inspector();
             }
             (QuerySlot::Inspector, QueryResult::Inspector(data)) => {
-                if !self.is_editing_inspector() {
-                    self.inspector = data;
-                }
+                self.inspector = data;
             }
             _ => {}
         }
@@ -172,16 +152,6 @@ impl UiCommands {
                 }
             }
         }
-
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Transform(current) = &mut edit.value {
-                    *current = transform;
-                }
-            }
-        } else {
-            self.request(QuerySlot::Inspector, Query::Inspector { entity });
-        }
     }
 
     fn apply_name_changed(&mut self, entity: EntityId, name: String) {
@@ -190,14 +160,6 @@ impl UiCommands {
         if let Some(inspector) = &mut self.inspector {
             if inspector.entity == entity {
                 inspector.name = name.clone();
-            }
-        }
-
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Name(current) = &mut edit.value {
-                    *current = name;
-                }
             }
         }
     }
@@ -210,14 +172,6 @@ impl UiCommands {
                         *current = light.clone();
                         break;
                     }
-                }
-            }
-        }
-
-        if let Some(edit) = &mut self.edit {
-            if edit.key == entity {
-                if let EditValue::Light(current) = &mut edit.value {
-                    *current = light;
                 }
             }
         }
