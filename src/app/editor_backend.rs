@@ -63,13 +63,6 @@ impl EditorBackend for App {
         self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
     }
 
-    fn editor_entities(&self) -> Vec<EntityId> {
-        let mut query = <Entity>::query();
-        query
-            .iter(&self.current_scene.world)
-            .map(|e| e.as_raw_u64())
-            .collect()
-    }
 }
 
 impl App {
