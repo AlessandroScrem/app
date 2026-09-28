@@ -7,7 +7,7 @@ use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, Select, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::editor::{EditorConnection, EditorStatisticsData};
+use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
 use crate::engine::editor::EditorService;
 use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
@@ -148,7 +148,10 @@ impl Runtime {
                     bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
                 }
                 QueryResult::Selection(ids) => {
-                    bus.send_domain(Selection(Select(ids)));
+                    self.editor_service
+                        .send_command(EditorCommand::Selection(SelectionCommand::Select {
+                            entities: ids,
+                        }));
                 }
             }
         }
