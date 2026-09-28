@@ -12,6 +12,7 @@ use crate::ecs::components::{
     TransformComponent,
 };
 use crate::editor::{
+    PickCommand,
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
     EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MeshData,
     Query, QueryResult, SceneSettingsData, TransformData,
@@ -40,10 +41,6 @@ impl EditorBackend for App {
         match command {
             EditorCommand::Exit => {
                 bus.send_runtime(crate::engine::RuntimeEvent::CloseRequested);
-                None
-            }
-            EditorCommand::DragSelection(pos, size) => {
-                bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(pos, size));
                 None
             }
             command => {
@@ -103,7 +100,11 @@ impl App {
                 self.global_command(command, bus);
                 None
             }
-            EditorCommand::DragSelection(..) | EditorCommand::Exit => None,
+            EditorCommand::Pick(PickCommand::Region { origin, size }) => {
+                bus.send_runtime(crate::engine::RuntimeEvent::ReadbackSelection(origin, size));
+                None
+            }
+            EditorCommand::Exit => None,
         }
     }
 
