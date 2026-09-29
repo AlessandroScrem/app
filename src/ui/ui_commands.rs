@@ -247,7 +247,11 @@ impl UiCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{QuerySlot, UiCommands};
+    use crate::editor::{
+        EditorConnection, EditorEvent, EditorSettingsData, EntityId, HierarchyData, InspectorData,
+        InspectorSection, LightData, Query, QueryResponse, QueryResult, TransformData,
+    };
 
     fn inspector(entity: EntityId, name: &str) -> InspectorData {
         InspectorData {
