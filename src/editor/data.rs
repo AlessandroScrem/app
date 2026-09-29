@@ -29,9 +29,16 @@ pub struct InspectorData {
 }
 
 #[derive(Clone, Debug)]
+pub struct MaterialData {
+    pub id: crate::assets::MaterialId,
+    pub desc: crate::assets::material_desc::MaterialDesc,
+}
+
+#[derive(Clone, Debug)]
 pub enum InspectorSection {
     Transform(TransformData),
     Mesh(MeshData),
+    Materials(Vec<MaterialData>),
     BoundingBox(BoundingBoxData),
     Light(LightData),
 }
