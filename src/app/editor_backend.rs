@@ -224,6 +224,9 @@ impl App {
             AssetCommand::AddIbl(path) => {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)))
             }
+            AssetCommand::UpdateMaterial { id, desc } => {
+                bus.send_domain(DomainEvent::Assets(AssetEvent::UpdateMaterial(id, desc)))
+            }
         }
     }
 
