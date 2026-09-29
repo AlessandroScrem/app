@@ -199,7 +199,7 @@ fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: EntityId, light: &mut LightD
 
     if light.cast_shadow {
         if let Some(texture) = ctx.textures.shadow_map() {
-            ui.image(imgui::TextureId::new(texture.raw()), [200.0, 200.0]);
+            Image::new(imgui::TextureId::new(texture.raw()), [200.0, 200.0]).build(ui);
         }
     }
 }
