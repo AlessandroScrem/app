@@ -350,7 +350,8 @@ impl Runtime {
             transmission_instances: frame.transmission.instances,
         });
         self.editor_service.process(app, bus);
-        self.uilayer.build(&self.window);
+        let textures = self.imgui_render.registry.ui_registry();
+        self.uilayer.build(&self.window, &textures);
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
