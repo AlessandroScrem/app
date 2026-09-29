@@ -190,6 +190,166 @@ fn reset_transform(ctx: &mut UiContext, entity: EntityId, transform: TransformDa
         .send(EntityCommand::EndTransformEdit { entity });
 }
 
+fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) {
+    if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {
+        return;
+    }
+
+    for material in materials {
+        ui.push_id(material.id.id.index as i32, || {
+            if ui.collapsing_header(&material.desc.name, TreeNodeFlags::DEFAULT_OPEN) {
+                draw_material(ui, ctx, material);
+            }
+        });
+    }
+}
+
+fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
+    use crate::assets::material_desc::MaterialTextureSlot;
+
+    let mut changed = false;
+
+    for slot in MaterialTextureSlot::ALL {
+        if !ui.collapsing_header(slot.as_str(), TreeNodeFlags::ALLOW_ITEM_OVERLAP) {
+            continue;
+        }
+
+        if let Some(texture) = material.desc.texture(slot) {
+            let mut enabled = material.desc.slot_get(slot);
+            if ui.checkbox("Enabled", &mut enabled) {
+                material.desc.slot_set(slot, enabled);
+                changed = true;
+            }
+
+            if enabled {
+                if let Some(texture_id) = ctx.textures.asset(texture) {
+                    Image::new(texture_id, [96.0, 96.0]).build(ui);
+                } else {
+                    ui.text("Texture not available");
+                }
+
+                changed |= draw_texture_transform(ui, &mut material.desc, slot);
+            }
+        } else {
+            ui.text("No texture");
+        }
+
+        changed |= draw_material_slot(ui, &mut material.desc, slot);
+    }
+
+    if changed {
+        ctx.commands.send(crate::editor::AssetCommand::UpdateMaterial {
+            id: material.id,
+            desc: material.desc.clone(),
+        });
+    }
+}
+
+fn draw_material_slot(
+    ui: &Ui,
+    material: &mut crate::assets::material_desc::MaterialDesc,
+    slot: crate::assets::material_desc::MaterialTextureSlot,
+) -> bool {
+    use crate::assets::material_desc::MaterialTextureSlot;
+
+    match slot {
+        MaterialTextureSlot::BaseColor => {
+            let mut color: [f32; 4] = material.base_color_factor.into();
+            let changed = ui
+                .color_edit4_config("Factor", &mut color)
+                .inputs(false)
+                .build();
+            if changed {
+                material.base_color_factor = color.into();
+            }
+            changed
+        }
+        MaterialTextureSlot::Emissive => {
+            let mut color: [f32; 4] = material.emissive_factor.into();
+            let changed = ui
+                .color_edit4_config("Factor", &mut color)
+                .inputs(false)
+                .build();
+            if changed {
+                material.emissive_factor = color.into();
+            }
+            changed
+        }
+        MaterialTextureSlot::Normal => Drag::new("Scale")
+            .speed(0.01)
+            .range(0.0, 1.0)
+            .build(ui, &mut material.normal_scale),
+        MaterialTextureSlot::MetallicRoughness => {
+            let mut changed = false;
+            changed |= Drag::new("Metallic")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut material.metallic_factor);
+            changed |= Drag::new("Roughness")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut material.roughness_factor);
+            changed
+        }
+        MaterialTextureSlot::Occlusion => Drag::new("Strength")
+            .speed(0.01)
+            .range(0.0, 1.0)
+            .build(ui, &mut material.occlusion_strength),
+        MaterialTextureSlot::Transmission => {
+            let Some(transmission) = material.transmission.as_mut() else {
+                return false;
+            };
+            let mut changed = Drag::new("Factor")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut transmission.factor);
+            changed |= Drag::new("IOR")
+                .speed(0.01)
+                .range(1.0, 2.5)
+                .build(ui, &mut material.ior);
+            changed
+        }
+        MaterialTextureSlot::Volume => {
+            let Some(volume) = material.volume.as_mut() else {
+                return false;
+            };
+            let mut changed = false;
+            changed |= Drag::new("Thickness")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut volume.thickness_factor);
+            changed |= Drag::new("Distance")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, &mut volume.attenuation_distance);
+            changed |= ui.color_edit3("Attenuation", &mut volume.attenuation_color);
+            changed
+        }
+    }
+}
+
+fn draw_texture_transform(
+    ui: &Ui,
+    material: &mut crate::assets::material_desc::MaterialDesc,
+    slot: crate::assets::material_desc::MaterialTextureSlot,
+) -> bool {
+    let Some(transform) = material.uvtransform_mut(slot) else {
+        return false;
+    };
+
+    let mut changed = false;
+    changed |= Drag::new("Offset")
+        .speed(0.01)
+        .build_array(ui, &mut transform.offset);
+    changed |= Drag::new("Rotation")
+        .speed(0.01)
+        .build(ui, &mut transform.rotation);
+    changed |= Drag::new("Scale")
+        .speed(0.01)
+        .build_array(ui, &mut transform.scale);
+    changed
+}
+
 fn draw_light(ui: &Ui, ctx: &mut UiContext, entity: EntityId, light: &mut LightData) {
     if !ui.collapsing_header("Light", TreeNodeFlags::DEFAULT_OPEN) {
         return;
