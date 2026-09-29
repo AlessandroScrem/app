@@ -1,6 +1,8 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::EntityCommand;
-use crate::editor::{EntityId, InspectorData, InspectorSection, LightData, TransformData};
+use crate::editor::{
+    EntityId, InspectorData, InspectorSection, LightData, MaterialData, TransformData,
+};
 use imgui::*;
 
 #[derive(Default)]
