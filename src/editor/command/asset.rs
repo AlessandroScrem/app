@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-// use crate::assets::{material_desc::MaterialDesc, MaterialId};
+use crate::assets::{MaterialId, material_desc::MaterialDesc};
 
 #[derive(Clone, Debug)]
 pub enum AssetCommand {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
-    // UpdateMaterial {
-    //     material: MaterialId,
-    //     desc: MaterialDesc,
-    // },
+    UpdateMaterial {
+        id: MaterialId,
+        desc: MaterialDesc,
+    },
 }
 
 impl AssetCommand {
