@@ -2,35 +2,22 @@ use crate::assets::TextureId;
 use crate::gpu::GpuInternalCounters;
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct UiTextureId(usize);
-
-impl UiTextureId {
-    pub const fn new(id: usize) -> Self {
-        Self(id)
-    }
-
-    pub const fn raw(self) -> usize {
-        self.0
-    }
-}
-
 #[derive(Clone, Default)]
 pub struct UiTextureRegistry {
-    assets: HashMap<TextureId, UiTextureId>,
-    shadow_map: Option<UiTextureId>,
+    assets: HashMap<TextureId, imgui::TextureId>,
+    shadow_map: Option<imgui::TextureId>,
 }
 
 impl UiTextureRegistry {
-    pub fn asset(&self, id: TextureId) -> Option<UiTextureId> {
+    pub fn asset(&self, id: TextureId) -> Option<imgui::TextureId> {
         self.assets.get(&id).copied()
     }
 
-    pub fn shadow_map(&self) -> Option<UiTextureId> {
+    pub fn shadow_map(&self) -> Option<imgui::TextureId> {
         self.shadow_map
     }
 
-    pub(crate) fn set_asset(&mut self, asset: TextureId, texture: UiTextureId) {
+    pub(crate) fn set_asset(&mut self, asset: TextureId, texture: imgui::TextureId) {
         self.assets.insert(asset, texture);
     }
 
@@ -38,7 +25,7 @@ impl UiTextureRegistry {
         self.assets.remove(asset);
     }
 
-    pub(crate) fn set_shadow_map(&mut self, texture: Option<UiTextureId>) {
+    pub(crate) fn set_shadow_map(&mut self, texture: Option<imgui::TextureId>) {
         self.shadow_map = texture;
     }
 }
