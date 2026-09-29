@@ -443,6 +443,10 @@ impl App {
             sections.push(InspectorSection::Mesh(mesh));
         }
 
+        if let Some(materials) = materials {
+            sections.push(InspectorSection::Materials(materials));
+        }
+
         if let Some(bounding_box) = bounding_box {
             sections.push(InspectorSection::BoundingBox(bounding_box));
         }

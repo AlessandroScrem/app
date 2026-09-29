@@ -196,7 +196,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
     }
 
     for material in materials {
-        let id = ui.push_id(material.id.id.index as i32);
+        let id = ui.push_id(material.id.id.index.to_string());
         if ui.collapsing_header(&material.desc.name, TreeNodeFlags::DEFAULT_OPEN) {
             draw_material(ui, ctx, material);
         }
