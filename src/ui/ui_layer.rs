@@ -3,6 +3,7 @@ use super::{
     EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi,
 };
 use crate::editor::EditorCommandClient;
+use crate::ui::tools;
 
 use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
