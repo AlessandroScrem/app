@@ -393,6 +393,31 @@ impl App {
             .map(|mesh| MeshData {
                 id: format!("{:?}", mesh.handle),
             });
+
+        let materials = entry
+            .get_component::<MeshComponent>()
+            .ok()
+            .and_then(|mesh| self.asset_mgr.get::<crate::assets::MeshAsset>(mesh.handle))
+            .map(|mesh| {
+                let mut ids = std::collections::HashSet::new();
+                mesh.desc
+                    .submeshes
+                    .iter()
+                    .filter_map(|submesh| {
+                        if ids.insert(submesh.material) {
+                            self.asset_mgr
+                                .get::<crate::assets::MaterialAsset>(submesh.material)
+                                .map(|material| MaterialData {
+                                    id: submesh.material,
+                                    desc: material.desc.clone(),
+                                })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|materials: &Vec<_>| !materials.is_empty());
         let bounding_box = entry
             .get_component::<BoundingBoxComponent>()
             .ok()
