@@ -1,5 +1,5 @@
 use super::ui_commands::UiCommands;
-use super::*;
+use super::{UiTextureRegistry, *};
 use crate::editor::EditorCommandClient;
 
 use imgui::Ui;
@@ -9,6 +9,7 @@ use winit::window::Window;
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
+    pub textures: &'a UiTextureRegistry,
 }
 
 struct UiStack {
@@ -123,7 +124,7 @@ impl UiLayer {
         }
     }
 
-    pub fn build(&mut self, window: &Window) {
+    pub fn build(&mut self, window: &Window, textures: &UiTextureRegistry) {
         self.commands.process();
         self.begin_frame(window);
         self.stack.update(&self.commands);
@@ -134,6 +135,7 @@ impl UiLayer {
         let command_client = self.commands.command_client();
         let mut ctx = UiContext {
             commands: command_client,
+            textures,
         };
 
         self.stack.build(ui, &mut ctx);
