@@ -66,6 +66,9 @@ fn draw_inspector(
                     ui.text(format!("Mesh: {}", mesh.id));
                 }
             }
+            InspectorSection::Materials(materials) => {
+                draw_materials(ui, ctx, materials);
+            }
             InspectorSection::BoundingBox(bbox) => {
                 if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
                     ui.text(format!("Local min: {:?}", bbox.min));
