@@ -409,6 +409,7 @@ impl App {
                                 .get::<crate::assets::MaterialAsset>(submesh.material)
                                 .map(|material| MaterialData {
                                     id: submesh.material,
+                                    name: material.desc.name.clone(),
                                     desc: material.desc.clone(),
                                 })
                         } else {
