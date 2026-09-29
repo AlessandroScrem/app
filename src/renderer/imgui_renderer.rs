@@ -2,7 +2,7 @@ use crate::asset_path;
 use crate::assets::TextureId;
 use crate::gpu::*;
 use crate::prelude::*;
-use crate::ui::{UiTextureId, UiTextureRegistry};
+use crate::ui::UiTextureRegistry;
 use imgui_wgpu::*;
 use std::collections::HashMap;
 use wgpu::*;
@@ -23,9 +23,9 @@ impl ImGuiTextureRegistry {
     pub fn ui_registry(&self) -> UiTextureRegistry {
         let mut registry = UiTextureRegistry::default();
         for (&asset, &id) in &self.ids {
-            registry.set_asset(asset, UiTextureId::new(id.id()));
+            registry.set_asset(asset, id);
         }
-        registry.set_shadow_map(self.shadowmap_id.map(|id| UiTextureId::new(id.id())));
+        registry.set_shadow_map(self.shadowmap_id);
         registry
     }
 }
