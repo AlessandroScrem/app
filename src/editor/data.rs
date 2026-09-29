@@ -31,6 +31,7 @@ pub struct InspectorData {
 #[derive(Clone, Debug)]
 pub struct MaterialData {
     pub id: crate::assets::MaterialId,
+    pub name: String,
     pub desc: crate::assets::material_desc::MaterialDesc,
 }
 
