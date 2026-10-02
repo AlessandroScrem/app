@@ -9,6 +9,6 @@ pub(crate) mod uniform;
 
 pub(crate) use framebuilder::FrameData;
 pub(crate) use imgui_renderer::ImguiRender;
-pub(crate) use scene_renderer::SceneRenderer;
+pub(crate) use scene_renderer::{MaterialPreviewRenderer, SceneRenderer};
 
 use renderpass::*;
