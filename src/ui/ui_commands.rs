@@ -1,6 +1,6 @@
 use crate::editor::{
-    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData, IblData,
-    EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    IblData,    EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
