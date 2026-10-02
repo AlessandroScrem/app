@@ -138,4 +138,5 @@ pub enum EditorEvent {
     SceneChanged,
     SettingsChanged,
     StatisticsChanged,
+    IblsChanged,
 }
