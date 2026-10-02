@@ -1,5 +1,5 @@
 use crate::editor::{
-    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData, IblData,
     EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
@@ -13,6 +13,7 @@ enum QuerySlot {
     Settings,
     Statistics,
     SceneSettings,
+    Ibls,
 }
 
 pub(crate) struct UiCommands {
@@ -23,6 +24,7 @@ pub(crate) struct UiCommands {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
     scene_settings: SceneSettingsData,
+    ibls: Vec<IblData>,
     pending_queries: HashMap<QueryId, QuerySlot>,
 }
 
@@ -36,6 +38,7 @@ impl UiCommands {
             settings: None,
             statistics: None,
             scene_settings: SceneSettingsData::default(),
+            ibls: Vec::new(),
             pending_queries: HashMap::new(),
         }
     }
@@ -68,6 +71,10 @@ impl UiCommands {
         &self.scene_settings
     }
 
+    pub(crate) fn ibls(&self) -> &[IblData] {
+        &self.ibls
+    }
+
     pub(crate) fn process(&mut self) {
         self.process_responses();
         self.process_events();
@@ -90,12 +97,14 @@ impl UiCommands {
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
         self.request(QuerySlot::SceneSettings, Query::SceneSettings);
+        self.request(QuerySlot::Ibls, Query::Ibls);
     }
 
     fn invalidate_all(&mut self) {
         self.hierarchy = None;
         self.settings = None;
         self.statistics = None;
+        self.ibls.clear();
         self.pending_queries.clear();
 
         self.inspector = None;
@@ -129,6 +138,9 @@ impl UiCommands {
             }
             (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                 self.scene_settings = data;
+            }
+            (QuerySlot::Ibls, QueryResult::Ibls(data)) => {
+                self.ibls = data;
             }
             (QuerySlot::Selection, QueryResult::Selection(selection)) => {
                 self.selection = selection;
@@ -218,6 +230,7 @@ impl UiCommands {
         self.ensure_hierarchy();
         self.ensure_settings();
         self.ensure_statistics();
+        self.ensure_ibls();
     }
 
     fn ensure_hierarchy(&mut self) {
@@ -235,6 +248,12 @@ impl UiCommands {
     fn ensure_statistics(&mut self) {
         if self.statistics.is_none() && !self.has_pending(QuerySlot::Statistics) {
             self.request(QuerySlot::Statistics, Query::Statistics);
+        }
+    }
+
+    fn ensure_ibls(&mut self) {
+        if self.ibls.is_empty() && !self.has_pending(QuerySlot::Ibls) {
+            self.request(QuerySlot::Ibls, Query::Ibls);
         }
     }
 
