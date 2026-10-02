@@ -48,10 +48,6 @@ impl Layer for UiStack {
             layer.update(commands);
         }
     }
-
-    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
-        self.material_preview
-    }
 }
 
 pub struct UiLayer {
