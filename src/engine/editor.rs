@@ -12,6 +12,7 @@ pub trait EditorBackend {
         bus: &mut EventBus,
     ) -> Option<EditorEvent>;
     fn editor_scene_revision(&self) -> u64;
+    fn editor_ibl_revision(&self) -> u64;
     fn editor_selection(&self) -> Vec<EntityId>;
 }
 
@@ -19,6 +20,7 @@ pub struct EditorService {
     channels: EditorServiceChannels,
     last_scene_revision: u64,
     last_selection: Vec<EntityId>,
+    last_ibl_revision: u64,
     statistics: EditorStatisticsData,
 }
 
@@ -28,6 +30,7 @@ impl EditorService {
             channels,
             last_scene_revision: 0,
             last_selection: Vec::new(),
+            last_ibl_revision: 0,
             statistics: EditorStatisticsData::default(),
         }
     }
@@ -76,6 +79,12 @@ impl EditorService {
             self.last_scene_revision = scene_revision;
             let _ = self.channels.event_tx.send(EditorEvent::SceneChanged);
         }
+        let ibl_revision = backend.editor_ibl_revision();
+        if ibl_revision != self.last_ibl_revision {
+            self.last_ibl_revision = ibl_revision;
+            let _ = self.channels.event_tx.send(EditorEvent::IblsChanged);
+        }
+
         let selection = backend.editor_selection();
         if selection != self.last_selection {
             self.last_selection = selection.clone();
