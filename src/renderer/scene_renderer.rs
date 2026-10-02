@@ -11,8 +11,7 @@ use crate::renderer::renderpass::*;
 use crate::assets::{MaterialId, MeshVertexData, VertexInstance};
 use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
 
-
-pub struct MaterialPreviewTarget {
+struct MaterialPreviewTarget {
     target: std::sync::Arc<wgpu::Texture>,
     target_view: std::sync::Arc<wgpu::TextureView>,
     entity_target: wgpu::Texture,
