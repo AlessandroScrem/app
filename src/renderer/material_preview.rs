@@ -1,12 +1,6 @@
-use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
-use crate::gpu::{BindgroupKind, BufferKind, GpuCache, GpuContext, GpuManager, ShadowManager};
-use crate::renderer::framebuilder::DrawStats;
-
-use wgpu::Device;
-
-use crate::prelude::{debug, info};
-use crate::renderer::renderpass::*;
 use crate::assets::{MaterialId, VertexInstance};
+use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
+use crate::gpu::{BindgroupKind, BufferKind, GpuCache, GpuContext, GpuManager, GpuMesh};
 use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
 use cgmath::SquareMatrix;
 
@@ -109,7 +103,7 @@ struct CachedMaterialPreview {
 
 pub struct MaterialPreviewRenderer {
     cache: std::collections::HashMap<MaterialId, CachedMaterialPreview>,
-    sphere: crate::gpu::GpuMesh,
+    sphere: GpuMesh,
     index_count: u32,
     environment_revision: u64,
     active_material: Option<MaterialId>,
