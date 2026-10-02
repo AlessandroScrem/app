@@ -1,6 +1,6 @@
 use crate::editor::{
     EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData,
-    IblData,    EntityId, HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryId,
+    EntityId, HierarchyData, IblData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
 use std::collections::HashMap;
@@ -104,6 +104,7 @@ impl UiCommands {
         self.hierarchy = None;
         self.settings = None;
         self.statistics = None;
+        self.scene_settings = SceneSettingsData::default();
         self.ibls.clear();
         self.pending_queries.clear();
 
@@ -272,7 +273,8 @@ mod tests {
     use super::{QuerySlot, UiCommands};
     use crate::editor::{
         EditorConnection, EditorEvent, EditorSettingsData, EntityId, HierarchyData, InspectorData,
-        InspectorSection, LightData, Query, QueryResponse, QueryResult, TransformData,
+        InspectorSection, LightData, Query, QueryResponse, QueryResult, SceneSettingsData,
+        TransformData,
     };
 
     fn inspector(entity: EntityId, name: &str) -> InspectorData {
@@ -404,6 +406,7 @@ mod tests {
         let hierarchy_query = service.query_rx.recv().expect("hierarchy refresh");
         assert!(matches!(hierarchy_query.query, Query::Hierarchy));
     }
+
     #[test]
     fn stale_inspector_response_is_ignored_when_no_current_response_arrives() {
         let (connection, service) = EditorConnection::new();
@@ -520,16 +523,19 @@ mod tests {
             camera_far: 100.0,
         });
         commands.inspector = Some(inspector(7, "entity"));
+        commands.scene_settings = SceneSettingsData {
+            recent: vec![("scene.json".into(), "/tmp/scene.json".into())],
+        };
 
         commands.apply_event(EditorEvent::SceneChanged);
 
         assert!(commands.hierarchy().is_none());
         assert!(commands.settings().is_none());
         assert!(commands.inspector().is_none());
+        assert!(commands.scene_settings().recent.is_empty());
 
         for _ in 0..6 {
             let _ = service.query_rx.recv().expect("refresh query");
         }
     }
-
 }
