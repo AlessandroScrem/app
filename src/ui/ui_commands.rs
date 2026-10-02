@@ -211,6 +211,9 @@ impl UiCommands {
             EditorEvent::StatisticsChanged => {
                 self.request(QuerySlot::Statistics, Query::Statistics);
             }
+            EditorEvent::IblsChanged => {
+                self.request(QuerySlot::Ibls, Query::Ibls);
+            }
         }
     }
 
