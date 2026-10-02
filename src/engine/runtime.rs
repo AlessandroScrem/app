@@ -371,21 +371,23 @@ impl Runtime {
             self.scene_renderer
                 .render(&context, &mut encoder, &target, &frame_data);
 
-            self.material_preview.render(
-                &mut encoder,
-                &self.gpu_context,
-                &self.gpu_manager,
-                &self.gpu_cache,
-                &self.pipeline_manager,
-                self.uilayer.material_preview(),
-            );
-            let (preview_texture, preview_view, preview_extent) = self.material_preview.texture();
-            self.imgui_render.sync_imgui_material_preview(
-                &self.gpu_context,
-                preview_texture,
-                preview_view,
-                preview_extent,
-            );
+            if let Some((preview_texture, preview_view, preview_extent)) =
+                self.material_preview.render(
+                    &mut encoder,
+                    &self.gpu_context,
+                    &self.gpu_manager,
+                    &self.gpu_cache,
+                    &self.pipeline_manager,
+                    self.uilayer.material_preview(),
+                )
+            {
+                self.imgui_render.sync_imgui_material_preview(
+                    &self.gpu_context,
+                    preview_texture,
+                    preview_view,
+                    preview_extent,
+                );
+            }
 
             self.imgui_render.render(
                 self.uilayer.get_draw_data(),
