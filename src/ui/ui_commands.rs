@@ -524,7 +524,7 @@ mod tests {
         assert!(commands.settings().is_none());
         assert!(commands.inspector().is_none());
 
-        for _ in 0..5 {
+        for _ in 0..6 {
             let _ = service.query_rx.recv().expect("refresh query");
         }
     }
