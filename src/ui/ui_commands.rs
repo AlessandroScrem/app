@@ -447,7 +447,7 @@ mod tests {
 
         commands.process_responses();
 
-        assert!(commands.inspector().is_none());
+        assert!(commands.selection().is_empty());
     }
 
     #[test]
