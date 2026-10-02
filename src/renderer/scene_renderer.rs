@@ -13,8 +13,8 @@ use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
 
 
 pub struct MaterialPreviewRenderer {
-    target: wgpu::Texture,
-    target_view: wgpu::TextureView,
+    target: std::sync::Arc<wgpu::Texture>,
+    target_view: std::sync::Arc<wgpu::TextureView>,
     entity_target: wgpu::Texture,
     entity_view: wgpu::TextureView,
     depth: wgpu::Texture,
@@ -27,7 +27,7 @@ impl MaterialPreviewRenderer {
     const SIZE: u32 = 256;
 
     pub fn new(device: &wgpu::Device) -> Self {
-        let target = device.create_texture(&wgpu::TextureDescriptor {
+        let target = std::sync::Arc::new(device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Material Preview HDR"),
             size: wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
             mip_level_count: 1,
@@ -36,8 +36,8 @@ impl MaterialPreviewRenderer {
             format: wgpu::TextureFormat::Rgba16Float,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
-        });
-        let target_view = target.create_view(&Default::default());
+        }));
+        let target_view = std::sync::Arc::new(target.create_view(&Default::default()));
 
         let entity_target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Material Preview Entity"),
@@ -172,10 +172,10 @@ impl MaterialPreviewRenderer {
         pass.draw_indexed(0..self.index_count, 0, 0..1);
     }
 
-    pub fn texture(&self) -> (&wgpu::Texture, &wgpu::TextureView, wgpu::Extent3d) {
+    pub fn texture(&self) -> (std::sync::Arc<wgpu::Texture>, std::sync::Arc<wgpu::TextureView>, wgpu::Extent3d) {
         (
-            &self.target,
-            &self.target_view,
+            self.target.clone(),
+            self.target_view.clone(),
             wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
         )
     }
