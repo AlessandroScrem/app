@@ -29,13 +29,6 @@ impl UiStack {
         self.layers.push(Box::new(layer));
     }
 
-    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
-        self.material_preview
-    }
-
-    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
-        self.material_preview
-    }
 }
 
 pub trait Layer {
@@ -54,6 +47,10 @@ impl Layer for UiStack {
         for layer in self.layers.iter_mut() {
             layer.update(commands);
         }
+    }
+
+    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
+        self.material_preview
     }
 }
 
