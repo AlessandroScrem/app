@@ -1,6 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
-    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand,
+    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand, IblData,
+    SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
@@ -194,6 +195,32 @@ impl SettingsUi {
                 ui.show_demo_window(&mut self.demo_open);
             }
         }
+        if ui.collapsing_header("IBL", TreeNodeFlags::DEFAULT_OPEN) {
+            if self.ibls.is_empty() {
+                ui.text("No IBL loaded");
+            } else {
+                for ibl in &self.ibls {
+                    if let Some(texture) = ctx.textures.asset(ibl.texture) {
+                        let label = format!("##ibl-{}", ibl.id.id.index);
+                        if ui.image_button(&label, texture, [64.0, 64.0]) {
+                            ctx.commands.send(SelectionCommand::SelectIbl { id: ibl.id });
+                        }
+                        ui.same_line();
+                    }
+                    ui.text(&ibl.name);
+                }
+            }
+
+            if ui.button("Add IBL") {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("hdr", &["hdr"])
+                    .pick_file()
+                {
+                    ctx.commands.send(AssetCommand::AddIbl(path));
+                }
+            }
+        }
+
         if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
             ui.text(format!("FOV: {:.1}", settings.camera_fov));
             if ui.button("Recenter") {
