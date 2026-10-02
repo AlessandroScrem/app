@@ -28,7 +28,6 @@ impl UiStack {
     fn push<L: Layer + 'static>(&mut self, layer: L) {
         self.layers.push(Box::new(layer));
     }
-
 }
 
 pub trait Layer {
