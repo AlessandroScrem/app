@@ -60,6 +60,10 @@ impl EditorBackend for App {
         self.editor_scene_revision
     }
 
+    fn editor_ibl_revision(&self) -> u64 {
+        self.editor_ibl_revision
+    }
+
     fn editor_selection(&self) -> Vec<EntityId> {
         self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
     }
