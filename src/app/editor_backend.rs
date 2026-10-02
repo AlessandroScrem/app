@@ -15,7 +15,7 @@ use crate::editor::{
     PickCommand,
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
     EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MaterialData,
-    MeshData, Query, QueryResult, SceneSettingsData, TransformData,
+    IblData, MeshData, Query, QueryResult, SceneSettingsData, TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
@@ -30,6 +30,7 @@ impl EditorBackend for App {
             Query::Settings => QueryResult::Settings(self.editor_settings()),
             Query::Statistics => QueryResult::Statistics(Default::default()),
             Query::SceneSettings => QueryResult::SceneSettings(self.scene_settings()),
+            Query::Ibls => QueryResult::Ibls(self.ibl_data()),
         }
     }
 
@@ -57,6 +58,10 @@ impl EditorBackend for App {
 
     fn editor_scene_revision(&self) -> u64 {
         self.editor_scene_revision
+    }
+
+    fn editor_ibl_revision(&self) -> u64 {
+        self.editor_ibl_revision
     }
 
     fn editor_selection(&self) -> Vec<EntityId> {
@@ -199,6 +204,9 @@ impl App {
         match command {
             SelectionCommand::Select { entities } => {
                 bus.send_domain(Selection(SelectionEvent::Select(entities)));
+            }
+            SelectionCommand::SelectIbl { id } => {
+                bus.send_domain(Selection(SelectionEvent::SelectIbl(id)));
             }
         }
     }
@@ -461,6 +469,26 @@ impl App {
             name,
             sections,
         })
+    }
+
+    fn ibl_data(&self) -> Vec<IblData> {
+        self.asset_mgr
+            .iter::<crate::assets::IblAsset>()
+            .filter_map(|(id, asset)| {
+                let name = asset
+                    .path
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("IBL")
+                    .to_owned();
+                Some(IblData {
+                    id,
+                    texture: asset.hrd_id,
+                    name,
+                    selected: self.selected_ibl == Some(id),
+                })
+            })
+            .collect()
     }
 
     fn editor_settings(&self) -> EditorSettingsData {

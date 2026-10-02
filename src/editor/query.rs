@@ -1,5 +1,5 @@
 use super::{
-    EditorSettingsData, EditorStatisticsData, EntityData, EntityId, HierarchyData, InspectorData,
+    EditorSettingsData, EditorStatisticsData, EntityData, EntityId, HierarchyData, IblData, InspectorData,
     SceneSettingsData,
 };
 
@@ -16,6 +16,7 @@ pub enum Query {
     Settings,
     Statistics,
     SceneSettings,
+    Ibls,
 }
 
 #[derive(Clone, Debug)]
@@ -41,4 +42,5 @@ pub enum QueryResult {
     Settings(EditorSettingsData),
     Statistics(EditorStatisticsData),
     SceneSettings(SceneSettingsData),
+    Ibls(Vec<IblData>),
 }

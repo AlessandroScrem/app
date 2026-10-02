@@ -1,6 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
     AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand,
+    IblData, SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
@@ -8,6 +9,7 @@ use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 pub struct SettingsUi {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
+    ibls: Vec<IblData>,
 
     demo_open: bool,
     adapter_string: String,
@@ -20,6 +22,7 @@ impl SettingsUi {
             adapter_string,
             settings: None,
             statistics: None,
+            ibls: Vec::new(),
         }
     }
 }
@@ -28,6 +31,7 @@ impl Layer for SettingsUi {
     fn update(&mut self, commands: &super::ui_commands::UiCommands) {
         self.settings = commands.settings().cloned();
         self.statistics = commands.statistics().cloned();
+        self.ibls = commands.ibls().to_vec();
     }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
@@ -63,27 +67,9 @@ impl SettingsUi {
             }
         }
         if ui.collapsing_header("Toggles", TreeNodeFlags::DEFAULT_OPEN) {
-            toggle(
-                ui,
-                "Mips with CS",
-                settings.mips_cp,
-                ctx,
-                GlobalCommand::SetMipsWithCompute,
-            );
-            toggle(
-                ui,
-                "Light",
-                settings.light_enable,
-                ctx,
-                GlobalCommand::SetLightEnable,
-            );
-            toggle(
-                ui,
-                "IBL",
-                settings.ibl_enable,
-                ctx,
-                GlobalCommand::SetIblEnable,
-            );
+            toggle(ui, "Mips with CS", settings.mips_cp, ctx, GlobalCommand::SetMipsWithCompute);
+            toggle(ui, "Light", settings.light_enable, ctx, GlobalCommand::SetLightEnable);
+            toggle(ui, "IBL", settings.ibl_enable, ctx, GlobalCommand::SetIblEnable);
             toggle(
                 ui,
                 "Skybox",
@@ -98,13 +84,7 @@ impl SettingsUi {
                 ctx,
                 GlobalCommand::SetSkyboxBlur,
             );
-            toggle(
-                ui,
-                "Axis",
-                settings.axis_enable,
-                ctx,
-                GlobalCommand::SetAxisEnable,
-            );
+            toggle(ui, "Axis", settings.axis_enable, ctx, GlobalCommand::SetAxisEnable);
             toggle(
                 ui,
                 "Bounding box",
@@ -121,6 +101,7 @@ impl SettingsUi {
                     GlobalCommand::SetBoundingBoxAxisAligned,
                 );
             }
+
             let mut exposure = settings.exposure;
             if ui
                 .slider_config("Scene Exposure", 0.001, 64.0)
@@ -129,6 +110,7 @@ impl SettingsUi {
             {
                 ctx.commands.send(GlobalCommand::SetExposure(exposure));
             }
+
             let mut ibl_intensity = settings.ibl_intensity;
             if ui
                 .slider_config("IBL Intensity", 0.01, 10_000.0)
@@ -138,6 +120,7 @@ impl SettingsUi {
                 ctx.commands
                     .send(GlobalCommand::SetIblIntensity(ibl_intensity));
             }
+
             let mut env_rotation = settings.env_rotation;
             if ui
                 .slider_config("Env rotation", 0.0, 360.0)
@@ -146,6 +129,7 @@ impl SettingsUi {
                 ctx.commands
                     .send(GlobalCommand::SetEnvironmentRotation(env_rotation));
             }
+
             const DEBUG: [&str; 18] = [
                 "None",
                 "TextureCoords0",
@@ -172,6 +156,7 @@ impl SettingsUi {
             }) {
                 ctx.commands.send(GlobalCommand::SetDebugCode(debug as u32));
             }
+
             const TONEMAP: [&str; 9] = [
                 "Khronos PBR Neutral",
                 "ACES",
@@ -189,6 +174,33 @@ impl SettingsUi {
             }) {
                 ctx.commands.send(GlobalCommand::SetTonemap(tonemap as u32));
             }
+
+            ui.checkbox("Show demo window", &mut self.demo_open);
+            if self.demo_open {
+                ui.show_demo_window(&mut self.demo_open);
+            }
+        }
+
+        if ui.collapsing_header("IBL", TreeNodeFlags::DEFAULT_OPEN) {
+            if self.ibls.is_empty() {
+                ui.text("No IBL loaded");
+            } else {
+                for ibl in &self.ibls {
+                    let Some(texture) = ctx.textures.asset(ibl.texture) else {
+                        continue;
+                    };
+
+                    ui.same_line();
+                    let _style = ibl.selected.then(|| push_selected_button_style(ui));
+                    let label = format!("##ibl_{:?}", ibl.id);
+
+                    if ui.image_button(&label, texture, [60.0, 60.0]) {
+                        ctx.commands
+                            .send(SelectionCommand::SelectIbl { id: ibl.id });
+                    }
+                }
+            }
+
             if ui.button("Add IBL") {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("hdr", &["hdr"])
@@ -197,16 +209,15 @@ impl SettingsUi {
                     ctx.commands.send(AssetCommand::AddIbl(path));
                 }
             }
-            ui.checkbox("Show demo window", &mut self.demo_open);
-            if self.demo_open {
-                ui.show_demo_window(&mut self.demo_open);
-            }
+            ui.separator();
         }
+
         if ui.collapsing_header("Camera", TreeNodeFlags::DEFAULT_OPEN) {
             ui.text(format!("FOV: {:.1}", settings.camera_fov));
             if ui.button("Recenter") {
                 ctx.commands.send(CameraCommand::Recenter);
             }
+
             let mut fov = settings.camera_fov;
             if Drag::new("FOV")
                 .range(1.0, 179.0)
@@ -215,6 +226,7 @@ impl SettingsUi {
             {
                 ctx.commands.send(CameraCommand::SetFov(fov));
             }
+
             let mut distance = settings.camera_distance;
             if Drag::new("Distance")
                 .range(0.0, f32::MAX)
@@ -223,6 +235,7 @@ impl SettingsUi {
             {
                 ctx.commands.send(CameraCommand::SetDistance(distance));
             }
+
             let mut near = settings.camera_near;
             let mut far = settings.camera_far;
             if Drag::new("Near")
@@ -241,6 +254,20 @@ impl SettingsUi {
             }
         }
     }
+}
+
+fn push_selected_button_style(
+    ui: &Ui,
+) -> (
+    imgui::ColorStackToken<'_>,
+    imgui::ColorStackToken<'_>,
+    imgui::ColorStackToken<'_>,
+) {
+    (
+        ui.push_style_color(imgui::StyleColor::Button, [0.2, 0.5, 1.0, 1.0]),
+        ui.push_style_color(imgui::StyleColor::ButtonHovered, [0.3, 0.6, 1.0, 1.0]),
+        ui.push_style_color(imgui::StyleColor::ButtonActive, [0.1, 0.4, 0.9, 1.0]),
+    )
 }
 
 fn toggle<F: FnOnce(bool) -> GlobalCommand>(

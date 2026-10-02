@@ -72,6 +72,14 @@ pub struct TransformData {
     pub scale: [f32; 3],
 }
 
+#[derive(Clone, Debug)]
+pub struct IblData {
+    pub id: crate::assets::IblId,
+    pub texture: crate::assets::TextureId,
+    pub name: String,
+    pub selected: bool,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EditorStatisticsData {
     pub fps: f32,
@@ -130,4 +138,5 @@ pub enum EditorEvent {
     SceneChanged,
     SettingsChanged,
     StatisticsChanged,
+    IblsChanged,
 }
