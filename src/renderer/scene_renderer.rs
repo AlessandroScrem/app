@@ -139,8 +139,8 @@ fn create_preview_sphere(segments: u32, rings: u32) -> (Vec<crate::assets::MeshV
             vertices.push(crate::assets::MeshVertexData {
                 position: position.into(),
                 normal: position.into(),
-                tangent: tangent.into(),
-                texcoord: [u, 1.0 - v],
+                tangent: [tangent.x, tangent.y, tangent.z, 1.0],
+                uv: [u, 1.0 - v, 0.0, 0.0],
             });
         }
     }
