@@ -21,6 +21,7 @@ impl UiTextureRegistry {
         self.assets.insert(asset, texture);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn remove_asset(&mut self, asset: &TextureId) {
         self.assets.remove(asset);
     }
