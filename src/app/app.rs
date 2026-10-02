@@ -19,5 +19,6 @@ pub struct App {
     pub selected_ibl: Option<IblId>,
     pub settings: Settings,
     pub(crate) editor_scene_revision: u64,
+    pub(crate) editor_ibl_revision: u64,
     pub(crate) transform_edit: Option<(Entity, crate::editor::TransformData)>,
 }
