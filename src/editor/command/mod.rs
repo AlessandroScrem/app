@@ -38,6 +38,12 @@ impl From<AssetCommand> for EditorCommand {
     }
 }
 
+impl From<SelectionCommand> for EditorCommand {
+    fn from(command: SelectionCommand) -> Self {
+        Self::Selection(command)
+    }
+}
+
 impl From<CameraCommand> for EditorCommand {
     fn from(command: CameraCommand) -> Self {
         Self::Camera(command)
