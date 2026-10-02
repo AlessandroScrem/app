@@ -213,6 +213,7 @@ impl Runtime {
                 }
 
                 RuntimeEvent::UpdateIblMaps(id) => {
+                    self.material_preview.invalidate_environment();
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                         self.ibl_manager.get(&id),
                         &self.shadow_manager,
