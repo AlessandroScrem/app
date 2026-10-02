@@ -240,6 +240,12 @@ impl AssetManager {
         gid
     }
 
+    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (GlobalAssetId, &T)> {
+        self.storage::<T>()
+            .iter()
+            .map(|(id, asset)| (GlobalAssetId::new::<T>(id), asset))
+    }
+
     pub fn get<T: Asset>(&self, id: GlobalAssetId) -> Option<&T> {
         if id.type_id != TypeId::of::<T>() {
             return None;
