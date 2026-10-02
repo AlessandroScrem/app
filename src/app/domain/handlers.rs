@@ -170,6 +170,7 @@ pub fn handle_selection_event(app: &mut App, event: SelectionEvent, bus: &mut Ev
         }
         SelectionEvent::SelectIbl(ibl_id) => {
             app.selected_ibl = Some(ibl_id);
+            app.editor_ibl_revision = app.editor_ibl_revision.wrapping_add(1);
             bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
         }
     }
