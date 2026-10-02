@@ -189,14 +189,6 @@ impl SettingsUi {
             }) {
                 ctx.commands.send(GlobalCommand::SetTonemap(tonemap as u32));
             }
-            if ui.button("Add IBL") {
-                if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("hdr", &["hdr"])
-                    .pick_file()
-                {
-                    ctx.commands.send(AssetCommand::AddIbl(path));
-                }
-            }
             ui.checkbox("Show demo window", &mut self.demo_open);
             if self.demo_open {
                 ui.show_demo_window(&mut self.demo_open);
