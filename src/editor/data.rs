@@ -76,6 +76,7 @@ pub struct TransformData {
 pub struct IblData {
     pub id: crate::assets::IblId,
     pub texture: crate::assets::TextureId,
+    #[allow(dead_code)]
     pub name: String,
     pub selected: bool,
 }
