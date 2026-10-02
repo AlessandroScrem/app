@@ -174,8 +174,8 @@ impl ImguiRender {
     pub fn sync_imgui_material_preview(
         &mut self,
         gpu_context: &GpuContext,
-        texture: &wgpu::Texture,
-        view: &wgpu::TextureView,
+        texture: std::sync::Arc<wgpu::Texture>,
+        view: std::sync::Arc<wgpu::TextureView>,
         extent: wgpu::Extent3d,
     ) {
         let renderer = &mut self.renderer;
@@ -198,8 +198,8 @@ impl ImguiRender {
         let updated_texture = imgui_wgpu::Texture::from_raw_parts(
             device,
             renderer,
-            std::sync::Arc::new(texture.clone()),
-            std::sync::Arc::new(view.clone()),
+            texture,
+            view,
             None,
             Some(&texture_config),
             extent,
