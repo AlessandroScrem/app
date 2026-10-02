@@ -8,8 +8,9 @@ use wgpu::Device;
 
 use crate::prelude::{debug, info};
 use crate::renderer::renderpass::*;
-use crate::assets::{MaterialId, MeshVertexData, VertexInstance};
-use crate::math::{perspective, Deg, Mat4, Point3f, SquareMatrix, Vec3};
+use crate::assets::{MaterialId, VertexInstance};
+use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
+use cgmath::SquareMatrix;
 
 struct MaterialPreviewTarget {
     target: std::sync::Arc<wgpu::Texture>,
@@ -114,6 +115,49 @@ pub struct MaterialPreviewRenderer {
     index_count: u32,
     environment_revision: u64,
     active_material: Option<MaterialId>,
+}
+
+fn create_preview_sphere(segments: u32, rings: u32) -> (Vec<crate::assets::MeshVertexData>, Vec<u32>) {
+    let mut vertices = Vec::with_capacity(((segments + 1) * (rings + 1)) as usize);
+    let mut indices = Vec::with_capacity((segments * rings * 6) as usize);
+
+    for y in 0..=rings {
+        let v = y as f32 / rings as f32;
+        let phi = std::f32::consts::PI * v;
+        let sin_phi = phi.sin();
+        let cos_phi = phi.cos();
+
+        for x in 0..=segments {
+            let u = x as f32 / segments as f32;
+            let theta = std::f32::consts::TAU * u;
+            let sin_theta = theta.sin();
+            let cos_theta = theta.cos();
+
+            let position = Vec3::new(sin_phi * cos_theta, cos_phi, sin_phi * sin_theta);
+            let tangent = Vec3::new(-sin_theta, 0.0, cos_theta);
+
+            vertices.push(crate::assets::MeshVertexData {
+                position: position.into(),
+                normal: position.into(),
+                tangent: tangent.into(),
+                texcoord: [u, 1.0 - v],
+            });
+        }
+    }
+
+    let stride = segments + 1;
+    for y in 0..rings {
+        for x in 0..segments {
+            let i0 = y * stride + x;
+            let i1 = i0 + 1;
+            let i2 = i0 + stride;
+            let i3 = i2 + 1;
+
+            indices.extend_from_slice(&[i0, i2, i1, i1, i2, i3]);
+        }
+    }
+
+    (vertices, indices)
 }
 
 impl MaterialPreviewRenderer {
