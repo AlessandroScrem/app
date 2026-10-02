@@ -32,6 +32,10 @@ impl UiStack {
     pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
         self.material_preview
     }
+
+    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
+        self.material_preview
+    }
 }
 
 pub trait Layer {
