@@ -40,7 +40,7 @@ impl Layer for PropertyUi {
 
 fn draw_inspector(
     ui: &Ui,
-    ctx: &UiContext,
+    ctx: &mut UiContext,
     inspector: Option<&mut InspectorData>,
     selection: &[EntityId],
 ) {
@@ -202,7 +202,7 @@ fn draw_bounding_box(ui: &Ui, bbox: &crate::editor::BoundingBoxData) {
     }
 }
 
-fn draw_materials(ui: &Ui, ctx: &UiContext, materials: &mut [MaterialData]) {
+fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) {
     if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }
@@ -210,13 +210,14 @@ fn draw_materials(ui: &Ui, ctx: &UiContext, materials: &mut [MaterialData]) {
     for material in materials {
         let id = ui.push_id(material.id.id.index.to_string());
         if ui.collapsing_header(&material.name, TreeNodeFlags::DEFAULT_OPEN) {
+            *ctx.material_preview = Some(material.id);
             draw_material(ui, ctx, material);
         }
         id.pop();
     }
 }
 
-fn draw_material(ui: &Ui, ctx: &UiContext, material: &mut MaterialData) {
+fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     ui.text(&material.name);
     ui.same_line();
     ui.text_disabled(format!("#{}", material.id.id.index));
@@ -263,7 +264,9 @@ fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
         .texture(MaterialTextureSlot::BaseColor)
         .and_then(|texture| ctx.textures.asset(texture));
 
-    if let Some(texture) = preview {
+    if let Some(texture) = ctx.textures.material_preview() {
+        Image::new(texture, [128.0, 128.0]).build(ui);
+    } else if let Some(texture) = preview {
         Image::new(texture, [96.0, 96.0]).build(ui);
     } else {
         ui.text_disabled("PBR preview render target not available");
