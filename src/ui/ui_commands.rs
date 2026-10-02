@@ -234,6 +234,7 @@ impl UiCommands {
         self.ensure_hierarchy();
         self.ensure_settings();
         self.ensure_statistics();
+        self.ensure_scene_settings();
         self.ensure_ibls();
     }
 
@@ -252,6 +253,12 @@ impl UiCommands {
     fn ensure_statistics(&mut self) {
         if self.statistics.is_none() && !self.has_pending(QuerySlot::Statistics) {
             self.request(QuerySlot::Statistics, Query::Statistics);
+        }
+    }
+
+    fn ensure_scene_settings(&mut self) {
+        if self.scene_settings.recent.is_empty() && !self.has_pending(QuerySlot::SceneSettings) {
+            self.request(QuerySlot::SceneSettings, Query::SceneSettings);
         }
     }
 
@@ -495,6 +502,23 @@ mod tests {
         assert_eq!(commands.selection(), &[42]);
         assert!(commands.pending_queries.contains_key(&first));
         assert!(!commands.pending_queries.contains_key(&second));
+    }
+
+    #[test]
+    fn initial_process_requests_scene_settings() {
+        let (connection, service) = EditorConnection::new();
+        let mut commands = UiCommands::new(connection);
+
+        commands.process();
+
+        let mut found = false;
+        while let Ok(request) = service.query_rx.try_recv() {
+            if matches!(request.query, Query::SceneSettings) {
+                found = true;
+                break;
+            }
+        }
+        assert!(found);
     }
 
     #[test]
