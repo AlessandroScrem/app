@@ -104,7 +104,8 @@ impl MaterialPreviewTarget {
 }
 
 struct CachedMaterialPreview {
-    revision: u64,
+    material_revision: u64,
+    environment_revision: u64,
     target: MaterialPreviewTarget,
 }
 
@@ -112,6 +113,7 @@ pub struct MaterialPreviewRenderer {
     cache: std::collections::HashMap<MaterialId, CachedMaterialPreview>,
     sphere: crate::gpu::GpuMesh,
     index_count: u32,
+    environment_revision: u64,
     active_material: Option<MaterialId>,
 }
 
@@ -125,8 +127,13 @@ impl MaterialPreviewRenderer {
             cache: std::collections::HashMap::new(),
             sphere,
             index_count,
+            environment_revision: 0,
             active_material: None,
         }
+    }
+
+    pub fn invalidate_environment(&mut self) {
+        self.environment_revision = self.environment_revision.wrapping_add(1);
     }
 
     pub fn render(
@@ -155,7 +162,10 @@ impl MaterialPreviewRenderer {
         let cached = self
             .cache
             .get(&material)
-            .filter(|preview| preview.revision == revision);
+            .filter(|preview| {
+                preview.material_revision == revision
+                    && preview.environment_revision == self.environment_revision
+            });
 
         if let Some(preview) = cached {
             if self.active_material != Some(material) {
@@ -278,7 +288,8 @@ impl MaterialPreviewRenderer {
         self.cache.insert(
             material,
             CachedMaterialPreview {
-                revision,
+                material_revision: revision,
+                environment_revision: self.environment_revision,
                 target,
             },
         );
