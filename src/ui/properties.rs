@@ -224,31 +224,35 @@ fn draw_material(ui: &Ui, ctx: &UiContext, material: &mut MaterialData) {
 
     draw_material_preview(ui, ctx, material);
 
+    let mut changed = false;
+
     if ui.collapsing_header("Surface", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_surface(ui, &mut material.desc);
+        changed |= draw_surface(ui, &mut material.desc);
     }
 
     if ui.collapsing_header("Textures", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_textures(ui, ctx, &mut material.desc);
+        changed |= draw_textures(ui, ctx, &mut material.desc);
     }
 
     if ui.collapsing_header("Transmission", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_transmission(ui, &mut material.desc);
+        changed |= draw_transmission(ui, &mut material.desc);
     }
 
     if ui.collapsing_header("Volume", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_volume(ui, &mut material.desc);
+        changed |= draw_volume(ui, &mut material.desc);
     }
 
     if ui.collapsing_header("Sheen", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_sheen(ui, &mut material.desc);
+        changed |= draw_sheen(ui, &mut material.desc);
     }
 
     if ui.collapsing_header("Alpha", TreeNodeFlags::DEFAULT_OPEN) {
-        draw_alpha(ui, &mut material.desc);
+        changed |= draw_alpha(ui, &mut material.desc);
     }
 
-    send_material_update(ctx, material);
+    if changed {
+        send_material_update(ctx, material);
+    }
 }
 
 fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
@@ -266,7 +270,9 @@ fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
     }
 }
 
-fn draw_surface(ui: &Ui, material: &mut MaterialDesc) {
+fn draw_surface(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
     let mut color: [f32; 4] = material.base_color_factor.into();
     if ui
         .color_edit4_config("Base Color", &mut color)
@@ -274,24 +280,22 @@ fn draw_surface(ui: &Ui, material: &mut MaterialDesc) {
         .build()
     {
         material.base_color_factor = color.into();
+        changed = true;
     }
 
-    Drag::new("Metallic")
+    changed |= Drag::new("Metallic")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut material.metallic_factor);
-
-    Drag::new("Roughness")
+    changed |= Drag::new("Roughness")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut material.roughness_factor);
-
-    Drag::new("Normal Scale")
+    changed |= Drag::new("Normal Scale")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut material.normal_scale);
-
-    Drag::new("Occlusion")
+    changed |= Drag::new("Occlusion")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut material.occlusion_strength);
@@ -303,13 +307,20 @@ fn draw_surface(ui: &Ui, material: &mut MaterialDesc) {
         .build()
     {
         material.emissive_factor = emissive.into();
+        changed = true;
     }
+
+    changed
 }
 
-fn draw_textures(ui: &Ui, ctx: &UiContext, material: &mut MaterialDesc) {
+fn draw_textures(ui: &Ui, ctx: &UiContext, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
     for slot in MaterialTextureSlot::ALL {
-        draw_texture_slot(ui, ctx, material, slot);
+        changed |= draw_texture_slot(ui, ctx, material, slot);
     }
+
+    changed
 }
 
 fn draw_texture_slot(
@@ -317,23 +328,28 @@ fn draw_texture_slot(
     ctx: &UiContext,
     material: &mut MaterialDesc,
     slot: MaterialTextureSlot,
-) {
+) -> bool {
     ui.separator();
     ui.text(slot.as_str());
 
-    if material.texture(slot).is_some() {
-        let mut enabled = material.slot_get(slot);
-        if ui.checkbox("Enabled", &mut enabled) {
-            material.slot_set(slot, enabled);
-        }
-
-        if enabled {
-            draw_texture_preview(ui, ctx, material, slot);
-            draw_texture_transform(ui, material, slot);
-        }
-    } else {
+    if material.texture(slot).is_none() {
         ui.text_disabled("No texture assigned");
+        return false;
     }
+
+    let mut changed = false;
+    let mut enabled = material.slot_get(slot);
+    if ui.checkbox("Enabled", &mut enabled) {
+        material.slot_set(slot, enabled);
+        changed = true;
+    }
+
+    if enabled {
+        draw_texture_preview(ui, ctx, material, slot);
+        changed |= draw_texture_transform(ui, material, slot);
+    }
+
+    changed
 }
 
 fn draw_texture_preview(
@@ -359,107 +375,112 @@ fn draw_texture_transform(
     ui: &Ui,
     material: &mut MaterialDesc,
     slot: MaterialTextureSlot,
-) {
+) -> bool {
     let Some(transform) = material.uvtransform_mut(slot) else {
-        return;
+        return false;
     };
 
-    if !ui.tree_node_config("UV Transform").flags(TreeNodeFlags::FRAMED).build(|| {
-        let mut changed = false;
-        changed |= Drag::new("Offset")
-            .speed(0.01)
-            .build_array(ui, &mut transform.offset);
-        changed |= Drag::new("Rotation")
-            .speed(0.01)
-            .build(ui, &mut transform.rotation);
-        changed |= Drag::new("Scale")
-            .speed(0.01)
-            .build_array(ui, &mut transform.scale);
-        changed
-    }).unwrap_or(false) {
-        // Changes are applied directly to the material draft.
+    if !ui.collapsing_header("UV Transform", TreeNodeFlags::empty()) {
+        return false;
     }
+
+    let mut changed = false;
+    changed |= Drag::new("Offset")
+        .speed(0.01)
+        .build_array(ui, &mut transform.offset);
+    changed |= Drag::new("Rotation")
+        .speed(0.01)
+        .build(ui, &mut transform.rotation);
+    changed |= Drag::new("Scale")
+        .speed(0.01)
+        .build_array(ui, &mut transform.scale);
+    changed
 }
 
-fn draw_transmission(ui: &Ui, material: &mut MaterialDesc) {
+fn draw_transmission(ui: &Ui, material: &mut MaterialDesc) -> bool {
     let Some(transmission) = material.transmission.as_mut() else {
         ui.text_disabled("Transmission not enabled");
-        return;
+        return false;
     };
 
-    Drag::new("Weight")
+    let mut changed = Drag::new("Weight")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut transmission.factor);
 
-    Drag::new("IOR")
+    changed |= Drag::new("IOR")
         .speed(0.01)
         .range(1.0, 2.5)
         .build(ui, &mut material.ior);
+
+    changed
 }
 
-fn draw_volume(ui: &Ui, material: &mut MaterialDesc) {
+fn draw_volume(ui: &Ui, material: &mut MaterialDesc) -> bool {
     let Some(volume) = material.volume.as_mut() else {
         ui.text_disabled("Volume not enabled");
-        return;
+        return false;
     };
 
-    Drag::new("Thickness")
+    let mut changed = false;
+    changed |= Drag::new("Thickness")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut volume.thickness_factor);
-
-    Drag::new("Distance")
+    changed |= Drag::new("Distance")
         .speed(0.01)
-        .range(0.0, 100.0)
+        .range(0.01, 100.0)
         .build(ui, &mut volume.attenuation_distance);
-
-    ui.color_edit3("Attenuation", &mut volume.attenuation_color);
+    changed |= ui.color_edit3("Attenuation", &mut volume.attenuation_color);
+    changed
 }
 
-fn draw_sheen(ui: &Ui, material: &mut MaterialDesc) {
+fn draw_sheen(ui: &Ui, material: &mut MaterialDesc) -> bool {
     let Some(sheen) = material.sheen.as_mut() else {
         ui.text_disabled("Sheen not enabled");
-        return;
+        return false;
     };
 
-    ui.color_edit3("Color", &mut sheen.color_factor);
-
-    Drag::new("Roughness")
+    let mut changed = ui.color_edit3("Color", &mut sheen.color_factor);
+    changed |= Drag::new("Roughness")
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut sheen.roughness_factor);
+    changed
 }
 
-fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) {
+fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
     match material.alpha_mode {
-        crate::assets::material_desc::AlphaMode::Opaque => {
-            ui.text("Mode: Opaque");
-        }
+        crate::assets::material_desc::AlphaMode::Opaque => ui.text("Mode: Opaque"),
         crate::assets::material_desc::AlphaMode::Mask { ref mut alpha_cutoff } => {
             ui.text("Mode: Mask");
-            Drag::new("Cutoff")
+            changed |= Drag::new("Cutoff")
                 .speed(0.01)
                 .range(0.0, 1.0)
                 .build(ui, alpha_cutoff);
         }
-        crate::assets::material_desc::AlphaMode::Blend => {
-            ui.text("Mode: Blend");
-        }
+        crate::assets::material_desc::AlphaMode::Blend => ui.text("Mode: Blend"),
     }
 
     ui.text("Select mode:");
     if ui.small_button("Opaque") {
         material.alpha_mode = crate::assets::material_desc::AlphaMode::Opaque;
+        changed = true;
     }
     ui.same_line();
     if ui.small_button("Mask") {
         material.alpha_mode = crate::assets::material_desc::AlphaMode::mask_default();
+        changed = true;
     }
     ui.same_line();
     if ui.small_button("Blend") {
         material.alpha_mode = crate::assets::material_desc::AlphaMode::Blend;
+        changed = true;
     }
+
+    changed
 }
 
 fn send_material_update(ctx: &UiContext, material: &MaterialData) {
