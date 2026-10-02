@@ -190,13 +190,12 @@ impl SettingsUi {
                         continue;
                     };
 
-                    ui.same_line();
                     let _style = ibl.selected.then(|| push_selected_button_style(ui));
                     let label = format!("##ibl_{:?}", ibl.id);
-
+                    
                     if ui.image_button(&label, texture, [60.0, 60.0]) {
                         ctx.commands
-                            .send(SelectionCommand::SelectIbl { id: ibl.id });
+                        .send(SelectionCommand::SelectIbl { id: ibl.id });
                     }
                 }
             }
