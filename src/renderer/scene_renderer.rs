@@ -12,36 +12,43 @@ use crate::assets::{MaterialId, MeshVertexData, VertexInstance};
 use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
 
 
-pub struct MaterialPreviewRenderer {
+pub struct MaterialPreviewTarget {
     target: std::sync::Arc<wgpu::Texture>,
     target_view: std::sync::Arc<wgpu::TextureView>,
     entity_target: wgpu::Texture,
     entity_view: wgpu::TextureView,
     depth: wgpu::Texture,
     depth_view: wgpu::TextureView,
-    sphere: crate::gpu::GpuMesh,
-    index_count: u32,
 }
 
-impl MaterialPreviewRenderer {
+impl MaterialPreviewTarget {
     const SIZE: u32 = 256;
 
-    pub fn new(device: &wgpu::Device) -> Self {
+    fn new(device: &wgpu::Device) -> Self {
         let target = std::sync::Arc::new(device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Material Preview HDR"),
-            size: wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: Self::SIZE,
+                height: Self::SIZE,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         }));
         let target_view = std::sync::Arc::new(target.create_view(&Default::default()));
 
         let entity_target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Material Preview Entity"),
-            size: wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: Self::SIZE,
+                height: Self::SIZE,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -53,7 +60,11 @@ impl MaterialPreviewRenderer {
 
         let depth = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Material Preview Depth"),
-            size: wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: Self::SIZE,
+                height: Self::SIZE,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -63,10 +74,6 @@ impl MaterialPreviewRenderer {
         });
         let depth_view = depth.create_view(&Default::default());
 
-        let (vertices, indices) = create_preview_sphere(64, 32);
-        let index_count = indices.len() as u32;
-        let sphere = crate::gpu::GpuMesh::new(device, &vertices, &indices);
-
         Self {
             target,
             target_view,
@@ -74,23 +81,92 @@ impl MaterialPreviewRenderer {
             entity_view,
             depth,
             depth_view,
+        }
+    }
+
+    fn texture(
+        &self,
+    ) -> (
+        std::sync::Arc<wgpu::Texture>,
+        std::sync::Arc<wgpu::TextureView>,
+        wgpu::Extent3d,
+    ) {
+        (
+            self.target.clone(),
+            self.target_view.clone(),
+            wgpu::Extent3d {
+                width: Self::SIZE,
+                height: Self::SIZE,
+                depth_or_array_layers: 1,
+            },
+        )
+    }
+}
+
+struct CachedMaterialPreview {
+    revision: u64,
+    target: MaterialPreviewTarget,
+}
+
+pub struct MaterialPreviewRenderer {
+    cache: std::collections::HashMap<MaterialId, CachedMaterialPreview>,
+    sphere: crate::gpu::GpuMesh,
+    index_count: u32,
+    active_material: Option<MaterialId>,
+}
+
+impl MaterialPreviewRenderer {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let (vertices, indices) = create_preview_sphere(64, 32);
+        let index_count = indices.len() as u32;
+        let sphere = crate::gpu::GpuMesh::new(device, &vertices, &indices);
+
+        Self {
+            cache: std::collections::HashMap::new(),
             sphere,
             index_count,
+            active_material: None,
         }
     }
 
     pub fn render(
-        &self,
+        &mut self,
         encoder: &mut wgpu::CommandEncoder,
         gpu_context: &GpuContext,
         gpu_manager: &GpuManager,
         gpu_cache: &GpuCache,
         pipeline_manager: &PipelineManager,
         material: Option<MaterialId>,
-    ) {
-        let Some(material) = material else { return };
-        let Some(gpu_material) = gpu_cache.material.get(&material) else { return };
-        let Some(material_bg) = gpu_material.bind_group.as_ref() else { return };
+    ) -> Option<(
+        std::sync::Arc<wgpu::Texture>,
+        std::sync::Arc<wgpu::TextureView>,
+        wgpu::Extent3d,
+    )> {
+        let Some(material) = material else {
+            self.active_material = None;
+            return None;
+        };
+        let Some(gpu_material) = gpu_cache.material.get(&material) else {
+            self.active_material = None;
+            return None;
+        };
+
+        let revision = gpu_material.revision();
+        let cached = self
+            .cache
+            .get(&material)
+            .filter(|preview| preview.revision == revision);
+
+        if let Some(preview) = cached {
+            if self.active_material != Some(material) {
+                self.active_material = Some(material);
+                return Some(preview.target.texture());
+            }
+            return None;
+        }
+
+        let target = MaterialPreviewTarget::new(&gpu_context.device);
+        let material_bg = gpu_material.bind_group.as_ref()?;
 
         let view = Mat4::look_at_rh(
             Point3f::new(0.0, 0.0, 3.0),
@@ -102,7 +178,7 @@ impl MaterialPreviewRenderer {
             view_position: [0.0, 0.0, 3.0, 1.0],
             view: view.into(),
             proj: proj.into(),
-            screen_size: [Self::SIZE as f32, Self::SIZE as f32],
+            screen_size: [256.0, 256.0],
             ..Default::default()
         };
 
@@ -124,25 +200,46 @@ impl MaterialPreviewRenderer {
         lights.lights[0].cast_shadow = 0;
 
         let instance = VertexInstance::new(Mat4::identity(), 0);
-        gpu_manager.update_buffer(&gpu_context.queue, BufferKind::Camera, std::slice::from_ref(&camera));
-        gpu_manager.update_buffer(&gpu_context.queue, BufferKind::Globals, std::slice::from_ref(&globals));
-        gpu_manager.update_buffer(&gpu_context.queue, BufferKind::Lights, std::slice::from_ref(&lights));
-        gpu_manager.update_buffer(&gpu_context.queue, BufferKind::Instances, std::slice::from_ref(&instance));
+        gpu_manager.update_buffer(
+            &gpu_context.queue,
+            BufferKind::Camera,
+            std::slice::from_ref(&camera),
+        );
+        gpu_manager.update_buffer(
+            &gpu_context.queue,
+            BufferKind::Globals,
+            std::slice::from_ref(&globals),
+        );
+        gpu_manager.update_buffer(
+            &gpu_context.queue,
+            BufferKind::Lights,
+            std::slice::from_ref(&lights),
+        );
+        gpu_manager.update_buffer(
+            &gpu_context.queue,
+            BufferKind::Instances,
+            std::slice::from_ref(&instance),
+        );
 
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Material Preview Pass"),
             color_attachments: &[
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &self.target_view,
+                    view: &target.target_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.035, g: 0.035, b: 0.035, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.035,
+                            g: 0.035,
+                            b: 0.035,
+                            a: 1.0,
+                        }),
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
                 }),
                 Some(wgpu::RenderPassColorAttachment {
-                    view: &self.entity_view,
+                    view: &target.entity_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -152,7 +249,7 @@ impl MaterialPreviewRenderer {
                 }),
             ],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_view,
+                view: &target.depth_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Discard,
@@ -163,59 +260,31 @@ impl MaterialPreviewRenderer {
         });
 
         pass.set_pipeline(pipeline_manager.get_render_pipeline(PipelineKind::Pbr));
-        pass.set_bind_group(0, gpu_manager.get_bindgroup(BindgroupKind::Perframe), &[]);
+        pass.set_bind_group(
+            0,
+            gpu_manager.get_bindgroup(BindgroupKind::Perframe),
+            &[],
+        );
         pass.set_bind_group(1, material_bg, &[]);
         pass.set_bind_group(3, gpu_manager.get_bindgroup(BindgroupKind::PbrMap), &[]);
         pass.set_vertex_buffer(0, self.sphere.vertexbuffer.slice(..));
         pass.set_vertex_buffer(1, gpu_manager.get_buffer(BufferKind::Instances).slice(..));
         pass.set_index_buffer(self.sphere.indexbuffer.slice(..), wgpu::IndexFormat::Uint32);
         pass.draw_indexed(0..self.index_count, 0, 0..1);
+
+        drop(pass);
+
+        let preview = target.texture();
+        self.cache.insert(
+            material,
+            CachedMaterialPreview {
+                revision,
+                target,
+            },
+        );
+        self.active_material = Some(material);
+        Some(preview)
     }
-
-    pub fn texture(&self) -> (std::sync::Arc<wgpu::Texture>, std::sync::Arc<wgpu::TextureView>, wgpu::Extent3d) {
-        (
-            self.target.clone(),
-            self.target_view.clone(),
-            wgpu::Extent3d { width: Self::SIZE, height: Self::SIZE, depth_or_array_layers: 1 },
-        )
-    }
-}
-
-fn create_preview_sphere(segments: u32, rings: u32) -> (Vec<MeshVertexData>, Vec<u32>) {
-    let mut vertices = Vec::with_capacity(((segments + 1) * (rings + 1)) as usize);
-    let mut indices = Vec::with_capacity((segments * rings * 6) as usize);
-
-    for y in 0..=rings {
-        let v = y as f32 / rings as f32;
-        let theta = v * std::f32::consts::PI;
-        let sin_theta = theta.sin();
-        let cos_theta = theta.cos();
-
-        for x in 0..=segments {
-            let u = x as f32 / segments as f32;
-            let phi = u * std::f32::consts::TAU;
-            let position = [sin_theta * phi.cos(), cos_theta, sin_theta * phi.sin()];
-            vertices.push(MeshVertexData {
-                position,
-                normal: position,
-                tangent: [-phi.sin(), 0.0, phi.cos(), 1.0],
-                uv: [u, 1.0 - v, 0.0, 0.0],
-            });
-        }
-    }
-
-    let row = segments + 1;
-    for y in 0..rings {
-        for x in 0..segments {
-            let a = y * row + x;
-            let b = a + 1;
-            let c = a + row;
-            let d = c + 1;
-            indices.extend_from_slice(&[a, c, b, b, c, d]);
-        }
-    }
-
-    (vertices, indices)
 }
 
 pub struct SceneRenderContext<'a> {
