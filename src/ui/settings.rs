@@ -1,7 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
-    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand, IblData,
-    SelectionCommand,
+    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand,
+    IblData, SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
@@ -9,6 +9,7 @@ use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 pub struct SettingsUi {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
+    ibls: Vec<IblData>,
 
     demo_open: bool,
     adapter_string: String,
@@ -21,6 +22,7 @@ impl SettingsUi {
             adapter_string,
             settings: None,
             statistics: None,
+            ibls: Vec::new(),
         }
     }
 }
@@ -29,6 +31,7 @@ impl Layer for SettingsUi {
     fn update(&mut self, commands: &super::ui_commands::UiCommands) {
         self.settings = commands.settings().cloned();
         self.statistics = commands.statistics().cloned();
+        self.ibls = commands.ibls().to_vec();
     }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
