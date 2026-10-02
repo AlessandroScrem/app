@@ -155,4 +155,8 @@ impl UiLayer {
         self.platform.prepare_render(ui, window);
         self.end_frame();
     }
+
+    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
+        self.material_preview
+    }
 }
