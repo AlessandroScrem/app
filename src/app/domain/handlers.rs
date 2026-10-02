@@ -48,10 +48,16 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         SceneEvent::SaveAs(path) => {
-            let _ = app.current_scene.save_scene_json(path);
+            if app.current_scene.save_scene_json(&path).is_ok() {
+                add_recent_file(app, path);
+            }
         }
         SceneEvent::Save => {
-            let _ = app.current_scene.save();
+            if app.current_scene.save().is_ok() {
+                if let Some(path) = app.current_scene.filename.clone() {
+                    add_recent_file(app, path.into());
+                }
+            }
         }
         SceneEvent::Open(path) => {
             app.current_scene.clear_scene(&mut app.asset_mgr);
@@ -61,8 +67,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
                 .open_scene(&path, &mut app.asset_mgr, bus)
                 .is_ok()
             {
-                app.settings.add_recent_file(path.into());
-                app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
+                add_recent_file(app, path);
             }
         }
         SceneEvent::AddComponent(loaded_scene, transform) => {
@@ -86,6 +91,12 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
     }
+}
+
+fn add_recent_file(app: &mut App, path: std::path::PathBuf) {
+    app.settings.add_recent_file(path.into());
+    let _ = app.settings.save();
+    app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
 }
 
 pub fn handle_global_event(app: &mut App, event: GlobalEvent, bus: &mut EventBus) {

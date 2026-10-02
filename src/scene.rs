@@ -67,8 +67,13 @@ impl Scene {
         self.render_objects = RenderObjects::build(&self.world, globals);
 
         if self.dirty {
-            let title = self.filename.clone().unwrap_or("Untitled scene *".into());
-            bus.send_runtime(RuntimeEvent::SetWindowTitle(title));
+            let title = self
+                .filename
+                .as_deref()
+                .and_then(|path| Path::new(path).file_name())
+                .and_then(|name| name.to_str())
+                .unwrap_or("Untitled scene *");
+            bus.send_runtime(RuntimeEvent::SetWindowTitle(title.into()));
             self.dirty = false;
         }
     }
@@ -152,13 +157,7 @@ impl Scene {
             // Add the light component to the world
         }
 
-        let string_name = filename
-            .as_ref()
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_owned();
-        self.filename = Some(string_name);
+        self.filename = Some(filename.as_ref().to_string_lossy().to_string());
         self.dirty = true;
         Ok(())
     }
