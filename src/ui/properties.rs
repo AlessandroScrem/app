@@ -227,6 +227,10 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
 
     let mut changed = false;
 
+    let Some(_tab_bar) = ui.tab_bar("MaterialTabs") else {
+        return;
+    };
+
     if let Some(_tab) = ui.tab_item("Surface") {
         changed |= draw_surface(ui, &mut material.desc);
     }
