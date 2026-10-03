@@ -12,10 +12,9 @@ use crate::ecs::components::{
     TransformComponent,
 };
 use crate::editor::{
-    PickCommand,
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
-    EntityId, HierarchyData, HierarchyNode, InspectorData, InspectorSection, LightData, MaterialData,
-    IblData, MeshData, Query, QueryResult, SceneSettingsData, TransformData,
+    EntityId, HierarchyData, HierarchyNode, IblData, InspectorData, InspectorSection, LightData,
+    MaterialData, MeshData, PickCommand, Query, QueryResult, SceneSettingsData, TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
@@ -67,7 +66,6 @@ impl EditorBackend for App {
     fn editor_selection(&self) -> Vec<EntityId> {
         self.selected.iter().map(EntityRawU64::as_raw_u64).collect()
     }
-
 }
 
 impl App {

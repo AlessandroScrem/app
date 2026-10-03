@@ -488,7 +488,9 @@ mod tests {
 
         let mut commands = UiCommands::new(connection);
         commands.pending_queries.insert(first, QuerySlot::Hierarchy);
-        commands.pending_queries.insert(second, QuerySlot::Selection);
+        commands
+            .pending_queries
+            .insert(second, QuerySlot::Selection);
 
         service
             .response_tx

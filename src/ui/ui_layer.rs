@@ -1,7 +1,5 @@
 use super::ui_commands::UiCommands;
-use super::{
-    EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi,
-};
+use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi};
 use crate::editor::EditorCommandClient;
 use crate::ui::tools;
 

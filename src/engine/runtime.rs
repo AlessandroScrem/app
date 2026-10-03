@@ -21,10 +21,10 @@ use crate::input::Input;
 use crate::prelude::info;
 use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
-use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
+use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::{InternalCounter, UiLayer};
 use legion::Entity;
 use std::sync::Arc;
@@ -150,10 +150,9 @@ impl Runtime {
                     bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
                 }
                 QueryResult::Selection(ids) => {
-                    self.editor_service
-                        .send_command(EditorCommand::Selection(SelectionCommand::Select {
-                            entities: ids,
-                        }));
+                    self.editor_service.send_command(EditorCommand::Selection(
+                        SelectionCommand::Select { entities: ids },
+                    ));
                 }
             }
         }

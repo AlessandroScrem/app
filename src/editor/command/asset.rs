@@ -6,10 +6,7 @@ use crate::assets::{MaterialId, material_desc::MaterialDesc};
 pub enum AssetCommand {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
-    UpdateMaterial {
-        id: MaterialId,
-        desc: MaterialDesc,
-    },
+    UpdateMaterial { id: MaterialId, desc: MaterialDesc },
 }
 
 impl AssetCommand {

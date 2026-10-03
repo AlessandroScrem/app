@@ -1,11 +1,9 @@
 use crate::assets::{MaterialId, VertexInstance};
 use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
-use crate::gpu::{
-    BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh,
-};
-use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
-use wgpu::util::DeviceExt;
+use crate::gpu::{BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh};
+use crate::math::{Deg, Mat4, Point3f, Vec3, perspective};
 use cgmath::SquareMatrix;
+use wgpu::util::DeviceExt;
 
 struct MaterialPreviewTarget {
     target: std::sync::Arc<wgpu::Texture>,
@@ -34,8 +32,7 @@ impl MaterialPreviewTarget {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         }));
         let target_view = std::sync::Arc::new(target.create_view(&Default::default()));
@@ -285,46 +282,40 @@ impl MaterialPreviewRenderer {
         lights.lights[0].cast_shadow = 0;
 
         let instance = VertexInstance::new(Mat4::identity(), 0);
-        gpu_context.queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::bytes_of(&camera),
-        );
-        gpu_context.queue.write_buffer(
-            &self.globals_buffer,
-            0,
-            bytemuck::bytes_of(&globals),
-        );
-        gpu_context.queue.write_buffer(
-            &self.lights_buffer,
-            0,
-            bytemuck::bytes_of(&lights),
-        );
-        gpu_context.queue.write_buffer(
-            &self.instance_buffer,
-            0,
-            bytemuck::bytes_of(&instance),
-        );
+        gpu_context
+            .queue
+            .write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&camera));
+        gpu_context
+            .queue
+            .write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
+        gpu_context
+            .queue
+            .write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(&lights));
+        gpu_context
+            .queue
+            .write_buffer(&self.instance_buffer, 0, bytemuck::bytes_of(&instance));
 
         if self.perframe_bind_group.is_none() {
-            let bind_group = gpu_context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame),
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: self.camera_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: self.globals_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.lights_buffer.as_entire_binding(),
-                    },
-                ],
-                label: Some("Material Preview PerFrame Bind Group"),
-            });
+            let bind_group = gpu_context
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: self.camera_buffer.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: self.globals_buffer.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: self.lights_buffer.as_entire_binding(),
+                        },
+                    ],
+                    label: Some("Material Preview PerFrame Bind Group"),
+                });
             self.perframe_bind_group = Some(bind_group);
         }
         let perframe_bind_group = self

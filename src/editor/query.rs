@@ -1,6 +1,6 @@
 use super::{
-    EditorSettingsData, EditorStatisticsData, EntityData, EntityId, HierarchyData, IblData, InspectorData,
-    SceneSettingsData,
+    EditorSettingsData, EditorStatisticsData, EntityData, EntityId, HierarchyData, IblData,
+    InspectorData, SceneSettingsData,
 };
 
 pub type QueryId = u64;

@@ -374,11 +374,7 @@ fn draw_texture_preview(
     }
 }
 
-fn draw_texture_transform(
-    ui: &Ui,
-    material: &mut MaterialDesc,
-    slot: MaterialTextureSlot,
-) -> bool {
+fn draw_texture_transform(ui: &Ui, material: &mut MaterialDesc, slot: MaterialTextureSlot) -> bool {
     let Some(transform) = material.uvtransform_mut(slot) else {
         return false;
     };
@@ -457,7 +453,9 @@ fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
 
     match material.alpha_mode {
         crate::assets::material_desc::AlphaMode::Opaque => ui.text("Mode: Opaque"),
-        crate::assets::material_desc::AlphaMode::Mask { ref mut alpha_cutoff } => {
+        crate::assets::material_desc::AlphaMode::Mask {
+            ref mut alpha_cutoff,
+        } => {
             ui.text("Mode: Mask");
             changed |= Drag::new("Cutoff")
                 .speed(0.01)

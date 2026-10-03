@@ -1,7 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
-    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand,
-    IblData, SelectionCommand,
+    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand, IblData,
+    SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 
@@ -67,9 +67,27 @@ impl SettingsUi {
             }
         }
         if ui.collapsing_header("Toggles", TreeNodeFlags::DEFAULT_OPEN) {
-            toggle(ui, "Mips with CS", settings.mips_cp, ctx, GlobalCommand::SetMipsWithCompute);
-            toggle(ui, "Light", settings.light_enable, ctx, GlobalCommand::SetLightEnable);
-            toggle(ui, "IBL", settings.ibl_enable, ctx, GlobalCommand::SetIblEnable);
+            toggle(
+                ui,
+                "Mips with CS",
+                settings.mips_cp,
+                ctx,
+                GlobalCommand::SetMipsWithCompute,
+            );
+            toggle(
+                ui,
+                "Light",
+                settings.light_enable,
+                ctx,
+                GlobalCommand::SetLightEnable,
+            );
+            toggle(
+                ui,
+                "IBL",
+                settings.ibl_enable,
+                ctx,
+                GlobalCommand::SetIblEnable,
+            );
             toggle(
                 ui,
                 "Skybox",
@@ -84,7 +102,13 @@ impl SettingsUi {
                 ctx,
                 GlobalCommand::SetSkyboxBlur,
             );
-            toggle(ui, "Axis", settings.axis_enable, ctx, GlobalCommand::SetAxisEnable);
+            toggle(
+                ui,
+                "Axis",
+                settings.axis_enable,
+                ctx,
+                GlobalCommand::SetAxisEnable,
+            );
             toggle(
                 ui,
                 "Bounding box",
@@ -192,10 +216,10 @@ impl SettingsUi {
 
                     let _style = ibl.selected.then(|| push_selected_button_style(ui));
                     let label = format!("##ibl_{:?}", ibl.id);
-                    
+
                     if ui.image_button(&label, texture, [60.0, 60.0]) {
                         ctx.commands
-                        .send(SelectionCommand::SelectIbl { id: ibl.id });
+                            .send(SelectionCommand::SelectIbl { id: ibl.id });
                     }
                 }
             }

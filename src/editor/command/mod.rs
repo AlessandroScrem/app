@@ -2,17 +2,17 @@ mod asset;
 mod camera;
 mod entity;
 mod global;
+mod pick;
 mod scene;
 mod selection;
-mod pick;
 
 pub use asset::AssetCommand;
 pub use camera::CameraCommand;
 pub use entity::EntityCommand;
 pub use global::GlobalCommand;
+pub use pick::PickCommand;
 pub use scene::SceneCommand;
 pub use selection::SelectionCommand;
-pub use pick::PickCommand;
 
 #[derive(Clone, Debug)]
 pub enum EditorCommand {

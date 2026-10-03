@@ -1,7 +1,7 @@
 pub(crate) mod framebuilder;
 pub(crate) mod imgui_renderer;
-pub(crate) mod material_preview;
 pub(crate) mod line_builder;
+pub(crate) mod material_preview;
 pub(crate) mod render_objects;
 pub(crate) mod rendergraph;
 pub(crate) mod renderpass;
