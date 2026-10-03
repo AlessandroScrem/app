@@ -1,34 +1,36 @@
 use crate::asset_path;
-use crate::assets::TextureId;
+use crate::ResourceId;
 use crate::gpu::*;
 use crate::prelude::*;
 use crate::ui::UiTextureRegistry;
 use imgui_wgpu::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wgpu::*;
 
 pub struct ImGuiTextureRegistry {
-    pub ids: HashMap<TextureId, imgui::TextureId>,
-    pub shadowmap_id: Option<imgui::TextureId>,
-    pub material_preview_id: Option<imgui::TextureId>,
+    textures: HashMap<ResourceId, imgui::TextureId>,
+    asset_ids: HashSet<ResourceId>,
+    shadowmap_id: ResourceId,
+    material_preview_id: ResourceId,
 }
 
 impl ImGuiTextureRegistry {
     pub fn new() -> Self {
         Self {
-            ids: HashMap::new(),
-            shadowmap_id: None,
-            material_preview_id: None,
+            textures: HashMap::new(),
+            asset_ids: HashSet::new(),
+            shadowmap_id: ResourceId::new(),
+            material_preview_id: ResourceId::new(),
         }
     }
 
     pub fn ui_registry(&self) -> UiTextureRegistry {
         let mut registry = UiTextureRegistry::default();
-        for (&asset, &id) in &self.ids {
-            registry.set_asset(asset, id);
+        for (&resource, &id) in &self.textures {
+            registry.set_texture(resource, id);
         }
-        registry.set_shadow_map(self.shadowmap_id);
-        registry.set_material_preview(self.material_preview_id);
+        registry.set_shadow_map(self.textures.get(&self.shadowmap_id).copied());
+        registry.set_material_preview(self.textures.get(&self.material_preview_id).copied());
         registry
     }
 }
@@ -134,7 +136,7 @@ impl ImguiRender {
 
         use imgui_wgpu::RawTextureConfig;
         for (gpu_id, tex) in texture_cache.iter() {
-            if !registry.ids.contains_key(&gpu_id) {
+            if !registry.textures.contains_key(gpu_id) {
                 let texture_config = RawTextureConfig {
                     label: None,
                     sampler_desc: wgpu::SamplerDescriptor {
@@ -155,18 +157,21 @@ impl ImguiRender {
                         Some(&texture_config),
                         tex.extent,
                     ));
-                registry.ids.insert(*gpu_id, id);
+                registry.textures.insert(*gpu_id, id);
+                registry.asset_ids.insert(*gpu_id);
                 debug!("add to registry texture with id {}", id.id());
             }
         }
 
-        registry.ids.retain(|gpu_id, id| {
-            if !texture_cache.contains_key(gpu_id) {
-                renderer.textures.remove(*id);
-                debug!("remove from registry texture with id {}", id.id());
-                false
-            } else {
+        registry.asset_ids.retain(|gpu_id| {
+            if texture_cache.contains_key(gpu_id) {
                 true
+            } else {
+                if let Some(id) = registry.textures.remove(gpu_id) {
+                    renderer.textures.remove(id);
+                    debug!("remove from registry texture with id {}", id.id());
+                }
+                false
             }
         });
     }
@@ -179,7 +184,8 @@ impl ImguiRender {
         extent: wgpu::Extent3d,
     ) {
         let renderer = &mut self.renderer;
-        let registry = &mut self.registry.material_preview_id;
+        let resource_id = self.registry.material_preview_id;
+        let registry = &mut self.registry.textures;
         let device = &gpu_context.device;
 
         let texture_config = RawTextureConfig {
@@ -205,17 +211,19 @@ impl ImguiRender {
             extent,
         );
 
-        if let Some(id) = registry {
-            renderer.textures.replace(*id, updated_texture);
-        } else {
-            let id = renderer.textures.insert(updated_texture);
-            *registry = Some(id);
+        let id = registry
+            .get(&resource_id)
+            .copied()
+            .unwrap_or_else(|| renderer.textures.insert(updated_texture));
+        if registry.insert(resource_id, id).is_some() {
+            renderer.textures.replace(id, updated_texture);
         }
     }
 
     pub fn sync_imgui_shadowmap(&mut self, gpu_context: &GpuContext, texture: &GpuTexture) {
         let renderer = &mut self.renderer;
-        let registry = &mut self.registry.shadowmap_id;
+        let resource_id = self.registry.shadowmap_id;
+        let registry = &mut self.registry.textures;
         let device = &gpu_context.device;
 
         let texture_config = RawTextureConfig {
@@ -237,11 +245,12 @@ impl ImguiRender {
             texture.extent,
         );
 
-        if let Some(id) = registry {
-            renderer.textures.replace(*id, updated_texture);
-        } else {
-            let id = renderer.textures.insert(updated_texture);
-            *registry = Some(id);
+        let id = registry
+            .get(&resource_id)
+            .copied()
+            .unwrap_or_else(|| renderer.textures.insert(updated_texture));
+        if registry.insert(resource_id, id).is_some() {
+            renderer.textures.replace(id, updated_texture);
         }
     }
 }
