@@ -14,7 +14,8 @@ use crate::ecs::components::{
 use crate::editor::{
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
     EntityId, HierarchyData, HierarchyNode, IblData, InspectorData, InspectorSection, LightData,
-    MaterialData, MeshData, PickCommand, Query, QueryResult, SceneSettingsData, TransformData,
+    MaterialCommand, MaterialDto, MeshData, PickCommand, Query, QueryResult, SceneSettingsData,
+    TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
@@ -86,6 +87,10 @@ impl App {
             }
             EditorCommand::Asset(command) => {
                 self.asset_command(command, bus);
+                None
+            }
+            EditorCommand::Material(command) => {
+                self.material_command(command, bus);
                 None
             }
             EditorCommand::Camera(command) => {
@@ -230,8 +235,13 @@ impl App {
             AssetCommand::AddIbl(path) => {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::AddIbl(path)))
             }
-            AssetCommand::UpdateMaterial { id, desc } => {
-                bus.send_domain(DomainEvent::Assets(AssetEvent::UpdateMaterial(id, desc)))
+        }
+    }
+
+    fn material_command(&mut self, command: MaterialCommand, bus: &mut EventBus) {
+        match command {
+            MaterialCommand::Update { id, desc } => {
+                bus.send_domain(DomainEvent::Assets(AssetEvent::UpdateMaterial(id, desc)));
             }
         }
     }
@@ -413,7 +423,7 @@ impl App {
                         if ids.insert(submesh.material) {
                             self.asset_mgr
                                 .get::<crate::assets::MaterialAsset>(submesh.material)
-                                .map(|material| MaterialData {
+                                .map(|material| MaterialDto {
                                     id: submesh.material,
                                     name: material.desc.name.clone(),
                                     desc: material.desc.clone(),

@@ -55,7 +55,7 @@ pub struct Runtime {
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
-    pub material_preview: MaterialPreviewRenderer,
+    pub material_preview_renderer: MaterialPreviewRenderer,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -115,7 +115,7 @@ impl Runtime {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
-            material_preview: MaterialPreviewRenderer::new(&gpu_context.device),
+            material_preview_renderer: MaterialPreviewRenderer::new(&gpu_context.device),
             imgui_render,
             uilayer,
             gpu_context,
@@ -217,7 +217,7 @@ impl Runtime {
                 }
 
                 RuntimeEvent::UpdateIblMaps(id) => {
-                    self.material_preview.invalidate_environment();
+                    self.material_preview_renderer.invalidate_environment();
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                         self.ibl_manager.get(&id),
                         &self.shadow_manager,
@@ -355,13 +355,12 @@ impl Runtime {
             transmission_instances: frame.transmission.instances,
         });
         self.editor_service.process(app, bus);
-        let textures = self.imgui_render.registry.ui_registry();
-        self.uilayer.build(
-            &self.window,
-            &textures,
+        let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
-            self.material_preview.resource_id(),
+            self.material_preview_renderer.resource_id(),
         );
+        let output = self.uilayer.build(&self.window, &textures);
+        self.material_preview_renderer.set_material(output.material_preview);
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
@@ -380,18 +379,17 @@ impl Runtime {
                 .render(&context, &mut encoder, &target, &frame_data);
 
             if let Some((preview_texture, preview_view, preview_extent)) =
-                self.material_preview.render(
+                self.material_preview_renderer.render(
                     &mut encoder,
                     &self.gpu_context,
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                    self.uilayer.material_preview(),
                 )
             {
                 self.imgui_render.sync_imgui_texture(
                     &self.gpu_context,
-                    self.material_preview.resource_id(),
+                    self.material_preview_renderer.resource_id(),
                     preview_texture,
                     preview_view,
                     preview_extent,
