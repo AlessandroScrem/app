@@ -97,7 +97,7 @@ Do not add a `create_runtime()` API to `ResourceId`. If a cache eventually needs
 
 ## ImGui textures
 
-The ImGui texture registry uses the same ResourceId identity as the rest of the engine. It maps an engine resource to the imgui::TextureId required by the UI, without taking ownership of the underlying GPU resource.
+The ImGui texture registry uses the same ResourceId identity as the rest of the engine. It is only a generic `ResourceId -> imgui::TextureId` mapping and does not know whether a resource is an asset, shadow map, IBL texture or material preview. It does not take ownership of the underlying GPU resource.
 
 This applies to both asset-backed and runtime-created textures:
 
@@ -113,9 +113,9 @@ A runtime texture does not need to be inserted into AssetManager just because th
 
 Only textures that the UI actually displays should be registered. In particular, an IblAsset currently exposes its source HDR texture in the IBL UI; the generated IBL cubemap, irradiance map, prefilter map and BRDF LUT are renderer resources used by rendering and are not registered unless a UI panel needs to display one of them.
 
-The shadow-map debug texture is a runtime GPU resource. Its ResourceId is owned by the ImGui registry and its ImGui binding is created once because ShadowManager keeps the underlying RGBA texture alive for the lifetime of the runtime. Rendering new shadow contents into that texture does not require replacing the ImGui binding.
+The shadow-map debug texture is a runtime GPU resource. Its ResourceId is owned by ShadowManager and registered in the generic ImGui texture registry. Its ImGui binding is created once because ShadowManager keeps the underlying RGBA texture alive for the lifetime of the runtime. Rendering new shadow contents into that texture does not require replacing the ImGui binding.
 
-The material-preview render target follows the same runtime-resource model, but its ImGui binding is replaced when the preview render target changes.
+The material-preview render target follows the same runtime-resource model. Its ResourceId is owned by MaterialPreviewRenderer and its ImGui binding is replaced when the preview render target changes.
 
 ## Converting to a number
 
