@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::hash::Hash;
 
 use super::asset_id::*;
@@ -20,84 +21,48 @@ pub trait Asset: Sized + 'static {
 #[derive(Debug)]
 struct Slot<T> {
     version: u32,
-    value: Option<T>,
+    value: T,
 }
 
-pub struct AssetStorage<T>
-where
-    T: Asset,
-{
-    slots: Vec<Slot<T>>,
-    free_list: Vec<usize>,
-}
-
-impl<T> Default for AssetStorage<T>
-where
-    T: Asset,
-{
-    fn default() -> Self {
-        Self {
-            slots: Vec::new(),
-            free_list: Vec::new(),
-        }
-    }
+#[derive(Default)]
+pub struct AssetStorage<T: Asset> {
+    slots: HashMap<ResourceId, Slot<T>>,
 }
 
 impl<T: Asset> AssetStorage<T> {
     pub fn insert(&mut self, id: ResourceId, asset: T) -> AssetHandle<T> {
-        let index = id.raw();
+        debug_assert!(!self.slots.contains_key(&id));
 
-        if index >= self.slots.len() {
-            self.slots.resize_with(index + 1, || Slot {
+        self.slots.insert(
+            id,
+            Slot {
                 version: 0,
-                value: None,
-            });
-        }
-
-        debug_assert!(self.slots[index].value.is_none());
-        self.slots[index] = Slot {
-            version: 0,
-            value: Some(asset),
-        };
+                value: asset,
+            },
+        );
 
         AssetHandle::new(id)
     }
 
     pub fn get_mut(&mut self, handle: AssetHandle<T>) -> Option<&mut T> {
-        let slot = self.slots.get_mut(handle.id().raw())?;
-
-        if slot.value.is_none() {
-            return None;
-        }
-
+        let slot = self.slots.get_mut(&handle.id())?;
         slot.version = slot.version.wrapping_add(1);
-        slot.value.as_mut()
+        Some(&mut slot.value)
     }
 
     pub fn remove_by_id(&mut self, id: ResourceId) -> usize {
-        let Some(slot) = self.slots.get_mut(id.raw()) else {
-            return 0;
-        };
-
-        let Some(asset) = slot.value.take() else {
-            return 0;
-        };
-
-        slot.version = 0;
-        self.free_list.push(id.raw());
-
-        asset.estimated_size()
+        self.slots
+            .remove(&id)
+            .map_or(0, |slot| slot.value.estimated_size())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (ResourceId, &T)> {
-        self.slots.iter().enumerate().filter_map(|(index, slot)| {
-            slot.value
-                .as_ref()
-                .map(|value| (ResourceId::from_raw(index), value))
-        })
+        self.slots
+            .iter()
+            .map(|(id, slot)| (*id, &slot.value))
     }
 
     pub fn get_by_id(&self, id: ResourceId) -> Option<&T> {
-        self.slots.get(id.raw())?.value.as_ref()
+        self.slots.get(&id).map(|slot| &slot.value)
     }
 }
