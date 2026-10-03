@@ -6,7 +6,7 @@ use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::{IblAsset, IblId, TextureId};
+use crate::assets::{IblAsset, IblId, MaterialId, TextureId};
 use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
 use crate::engine::editor::EditorService;
 use crate::engine::engine::EventBus;
@@ -53,6 +53,7 @@ pub struct Runtime {
     pub shadow_manager: ShadowManager,
     pub readback: ReadbackManager,
     pub uilayer: UiLayer,
+    material_preview_material: Option<MaterialId>,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
     pub material_preview: MaterialPreviewRenderer,
@@ -118,6 +119,7 @@ impl Runtime {
             material_preview: MaterialPreviewRenderer::new(&gpu_context.device),
             imgui_render,
             uilayer,
+            material_preview_material: None,
             gpu_context,
             gpu_surface,
             gpu_cache,
@@ -356,12 +358,13 @@ impl Runtime {
         });
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_registry();
-        self.uilayer.build(
+        let output = self.uilayer.build(
             &self.window,
             &textures,
             self.shadow_manager.get_rgba_id(),
             self.material_preview.resource_id(),
         );
+        self.material_preview_material = output.material_preview;
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
@@ -386,7 +389,7 @@ impl Runtime {
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                    self.uilayer.material_preview(),
+                    self.material_preview_material,
                 )
             {
                 self.imgui_render.sync_imgui_texture(
