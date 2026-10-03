@@ -1,5 +1,5 @@
 use crate::assets::asset_manager::Asset;
-use crate::assets::{GlobalAssetId, MeshVertexData};
+use crate::assets::{MeshVertexData};
 
 use std::path::PathBuf;
 
@@ -14,7 +14,7 @@ pub struct MeshDesc {
 }
 
 impl MeshDesc {
-    pub fn get_materials(&self) -> Vec<GlobalAssetId> {
+    pub fn get_materials(&self) -> Vec<ResourceId> {
         self.submeshes.iter().map(|sm| sm.material).collect()
     }
 
@@ -26,7 +26,7 @@ impl MeshDesc {
 
 pub struct SubMesh {
     pub index_range: std::ops::Range<u32>,
-    pub material: GlobalAssetId,
+    pub material: ResourceId,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -49,7 +49,7 @@ impl Asset for MeshAsset {
         &self.mesh_source
     }
 
-    fn dependencies(&self) -> Vec<GlobalAssetId> {
+    fn dependencies(&self) -> Vec<ResourceId> {
         self.desc.get_materials()
     }
 
