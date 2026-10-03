@@ -1,4 +1,5 @@
-use crate::assets::asset_manager::{Asset, ResourceId};
+use crate::assets::asset_manager::Asset;
+use crate::ResourceId;
 use crate::assets::material_desc::MaterialDesc;
 
 #[derive(Clone)]
