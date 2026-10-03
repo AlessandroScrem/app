@@ -219,7 +219,6 @@ impl Runtime {
                         &self.shadow_manager,
                         &self.gpu_context.device,
                     );
-
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
                     self.readback.request_selection(
