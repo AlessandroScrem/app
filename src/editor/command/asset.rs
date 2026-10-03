@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-
 #[derive(Clone, Debug)]
 pub enum AssetCommand {
     LoadGltf(PathBuf),
