@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use super::*;
 
+use crate::ResourceId;
 use crate::{
-    assets::MaterialId,
+    ResourceId,
     assets::material_desc::MaterialDesc,
     gpu::{GpuResourceStats, HasGpuStats},
     renderer::uniform::MaterialUniform,
@@ -61,7 +62,7 @@ impl GpuMaterial {
 
 #[derive(Default)]
 pub struct GpuMaterialCache {
-    map: HashMap<MaterialId, GpuMaterial>,
+    map: HashMap<ResourceId, GpuMaterial>,
     stats: GpuResourceStats,
 }
 
@@ -72,7 +73,7 @@ impl HasGpuStats for GpuMaterialCache {
 }
 
 impl GpuMaterialCache {
-    pub fn insert(&mut self, id: MaterialId, gpu_material: GpuMaterial) {
+    pub fn insert(&mut self, id: ResourceId, gpu_material: GpuMaterial) {
         if !self.map.contains_key(&id) {
             self.stats.add(GpuMaterial::estimated_size());
         }
