@@ -117,7 +117,7 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-    pub fn sync_imgui_texture(
+    pub fn sync_imgui_asset_textures(
         &mut self,
         gpu_context: &GpuContext,
         texture_cache: &GpuTextureCache,
