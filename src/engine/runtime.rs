@@ -6,7 +6,7 @@ use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::{IblAsset, IblId, MaterialId, TextureId};
+use crate::assets::{IblAsset, IblId, TextureId};
 use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
 use crate::engine::editor::EditorService;
 use crate::engine::engine::EventBus;
@@ -387,7 +387,6 @@ impl Runtime {
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                    self.material_preview,
                 )
             {
                 self.imgui_render.sync_imgui_texture(
