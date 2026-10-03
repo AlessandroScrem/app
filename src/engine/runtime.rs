@@ -355,13 +355,11 @@ impl Runtime {
             transmission_instances: frame.transmission.instances,
         });
         self.editor_service.process(app, bus);
-        let textures = self.imgui_render.registry.ui_registry();
-        let output = self.uilayer.build(
-            &self.window,
-            &textures,
+        let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
             self.material_preview_renderer.resource_id(),
         );
+        let output = self.uilayer.build(&self.window, &textures);
         self.material_preview_renderer.set_material(output.material_preview);
     }
 
