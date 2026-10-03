@@ -228,7 +228,7 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     let mut changed = false;
 
     ui.child_window("MaterialTabsContent")
-        .size([0.0, 0.0])
+        .size([0.0, 300.0])
         .build(|| {
             let Some(_tab_bar) = ui.tab_bar("MaterialTabs") else {
                 return;
