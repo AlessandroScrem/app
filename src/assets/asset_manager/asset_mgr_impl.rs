@@ -1,10 +1,11 @@
 use std::any::{Any, TypeId};
+use std::any::{Any, TypeId};
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
-use super::asset_id::*;
+use super::asset_id::AssetHandle;
+use super::asset_storage::{Asset, AssetStorage};
 use crate::ResourceId;
-use super::asset_storage::*;
 use super::dependency_graph::*;
 use super::resource_stats::ResourceStats;
 
