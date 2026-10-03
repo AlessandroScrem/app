@@ -1,4 +1,5 @@
 use crate::assets::{MaterialId, VertexInstance};
+use crate::ResourceId;
 use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
 use crate::gpu::{BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh};
 use crate::math::{Deg, Mat4, Point3f, Vec3, perspective};
@@ -105,6 +106,7 @@ struct CachedMaterialPreview {
 }
 
 pub struct MaterialPreviewRenderer {
+    resource_id: ResourceId,
     cache: std::collections::HashMap<MaterialId, CachedMaterialPreview>,
     sphere: GpuMesh,
     index_count: u32,
@@ -191,6 +193,7 @@ impl MaterialPreviewRenderer {
         });
 
         Self {
+            resource_id: ResourceId::new(),
             cache: std::collections::HashMap::new(),
             sphere,
             index_count,
@@ -202,6 +205,10 @@ impl MaterialPreviewRenderer {
             instance_buffer,
             perframe_bind_group: None,
         }
+    }
+
+    pub fn resource_id(&self) -> ResourceId {
+        self.resource_id
     }
 
     pub fn invalidate_environment(&mut self) {
