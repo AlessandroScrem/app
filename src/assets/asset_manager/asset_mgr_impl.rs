@@ -109,7 +109,7 @@ impl<T: Asset> ErasedStorage for TypedStorage<T> {
         self
     }
 
-    fn remove_by_id(&mut self, id: AssetId) -> usize {
+    fn remove_by_id(&mut self, id: ResourceId) -> usize {
         self.inner.remove_by_id(id)
     }
 }
@@ -209,7 +209,7 @@ impl AssetManager {
             kind: AssetEventKind::Created,
         });
 
-        gid
+        id
     }
 
     pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> {
@@ -225,7 +225,7 @@ impl AssetManager {
             return;
         }
 
-        let handle = AssetHandle::<T>::new(id.id);
+        let handle = AssetHandle::<T>::new(id);
 
         if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
             f(existing);
@@ -272,11 +272,13 @@ impl AssetManager {
     }
 
     fn remove_from_storage(&mut self, id: ResourceId) {
-        if let Some(storage) = self.storages.get_mut(&id.type_id) {
-            let size = storage.remove_by_id(id.id);
-            self.stats
-                .get_mut(&id.type_id)
-                .map(|stat| stat.remove(size));
+        let Some(type_id) = self.resource_types.get(&id).copied() else {
+            return;
+        };
+
+        if let Some(storage) = self.storages.get_mut(&type_id) {
+            let size = storage.remove_by_id(id);
+            self.stats.get_mut(&type_id).map(|stat| stat.remove(size));
         }
     }
 
