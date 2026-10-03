@@ -3,6 +3,7 @@ mod camera;
 mod entity;
 mod global;
 mod pick;
+mod material;
 mod scene;
 mod selection;
 
@@ -11,6 +12,7 @@ pub use camera::CameraCommand;
 pub use entity::EntityCommand;
 pub use global::GlobalCommand;
 pub use pick::PickCommand;
+pub use material::MaterialCommand;
 pub use scene::SceneCommand;
 pub use selection::SelectionCommand;
 
@@ -21,6 +23,7 @@ pub enum EditorCommand {
     Pick(PickCommand),
     Entity(EntityCommand),
     Asset(AssetCommand),
+    Material(MaterialCommand),
     Camera(CameraCommand),
     Global(GlobalCommand),
     Exit,
@@ -35,6 +38,12 @@ impl From<EntityCommand> for EditorCommand {
 impl From<AssetCommand> for EditorCommand {
     fn from(command: AssetCommand) -> Self {
         Self::Asset(command)
+    }
+}
+
+impl From<MaterialCommand> for EditorCommand {
+    fn from(command: MaterialCommand) -> Self {
+        Self::Material(command)
     }
 }
 
@@ -61,6 +70,7 @@ impl EditorCommand {
             Self::Global(command) => command.settings_changed(),
             Self::Camera(command) => command.settings_changed(),
             Self::Asset(command) => command.settings_changed(),
+            Self::Material(command) => command.settings_changed(),
             _ => false,
         }
     }
