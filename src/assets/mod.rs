@@ -17,11 +17,11 @@ pub(crate) use self::mesh_asset::MeshAsset;
 pub(crate) use self::texture_asset::TextureAsset;
 pub(crate) use vertexdata::*;
 
-pub(crate) use self::asset_manager::GlobalAssetId;
-pub(crate) type MeshId = crate::assets::asset_manager::GlobalAssetId;
-pub(crate) type MaterialId = crate::assets::asset_manager::GlobalAssetId;
-pub(crate) type TextureId = crate::assets::asset_manager::GlobalAssetId;
-pub(crate) type IblId = crate::assets::asset_manager::GlobalAssetId;
+pub(crate) use crate::ResourceId;
+pub(crate) type MeshId = ResourceId;
+pub(crate) type MaterialId = ResourceId;
+pub(crate) type TextureId = ResourceId;
+pub(crate) type IblId = ResourceId;
 
 // implementazione Display
 impl std::fmt::Display for MaterialId {
