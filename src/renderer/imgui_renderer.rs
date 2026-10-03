@@ -10,8 +10,6 @@ use wgpu::*;
 pub struct ImGuiTextureRegistry {
     textures: HashMap<ResourceId, imgui::TextureId>,
     asset_ids: HashSet<ResourceId>,
-    shadowmap_id: ResourceId,
-    material_preview_id: ResourceId,
 }
 
 impl ImGuiTextureRegistry {
@@ -19,8 +17,6 @@ impl ImGuiTextureRegistry {
         Self {
             textures: HashMap::new(),
             asset_ids: HashSet::new(),
-            shadowmap_id: ResourceId::new(),
-            material_preview_id: ResourceId::new(),
         }
     }
 
@@ -29,8 +25,6 @@ impl ImGuiTextureRegistry {
         for (&resource, &id) in &self.textures {
             registry.set_texture(resource, id);
         }
-        registry.set_shadow_map(self.textures.get(&self.shadowmap_id).copied());
-        registry.set_material_preview(self.textures.get(&self.material_preview_id).copied());
         registry
     }
 }
@@ -176,15 +170,15 @@ impl ImguiRender {
         });
     }
 
-    pub fn sync_imgui_material_preview(
+    pub fn sync_imgui_texture(
         &mut self,
         gpu_context: &GpuContext,
+        resource_id: ResourceId,
         texture: std::sync::Arc<wgpu::Texture>,
         view: std::sync::Arc<wgpu::TextureView>,
         extent: wgpu::Extent3d,
     ) {
         let renderer = &mut self.renderer;
-        let resource_id = self.registry.material_preview_id;
         let registry = &mut self.registry.textures;
         let device = &gpu_context.device;
 
@@ -219,9 +213,13 @@ impl ImguiRender {
         }
     }
 
-    pub fn sync_imgui_shadowmap(&mut self, gpu_context: &GpuContext, texture: &GpuTexture) {
+    pub fn sync_imgui_texture_from_gpu(
+        &mut self,
+        gpu_context: &GpuContext,
+        resource_id: ResourceId,
+        texture: &GpuTexture,
+    ) {
         let renderer = &mut self.renderer;
-        let resource_id = self.registry.shadowmap_id;
         let registry = &mut self.registry.textures;
         let device = &gpu_context.device;
 
