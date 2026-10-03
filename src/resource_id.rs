@@ -10,10 +10,6 @@ impl ResourceId {
         Self(NEXT_RESOURCE_ID.fetch_add(1, Ordering::Relaxed))
     }
 
-    pub const fn from_raw(id: usize) -> Self {
-        Self(id)
-    }
-
     pub const fn raw(self) -> usize {
         self.0
     }
