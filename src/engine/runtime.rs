@@ -91,7 +91,11 @@ impl Runtime {
         );
         let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
         let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
-        imgui_render.sync_imgui_shadowmap(&gpu_context, shadow_manager.get_rgba());
+        imgui_render.sync_imgui_texture_from_gpu(
+            &gpu_context,
+            shadow_manager.get_rgba_id(),
+            shadow_manager.get_rgba(),
+        );
         let ibl_manager = IblManager::new(&gpu_context.as_ref());
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
@@ -352,7 +356,12 @@ impl Runtime {
         });
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_registry();
-        self.uilayer.build(&self.window, &textures);
+        self.uilayer.build(
+            &self.window,
+            &textures,
+            self.shadow_manager.get_rgba_id(),
+            self.material_preview.resource_id(),
+        );
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
@@ -380,8 +389,9 @@ impl Runtime {
                     self.uilayer.material_preview(),
                 )
             {
-                self.imgui_render.sync_imgui_material_preview(
+                self.imgui_render.sync_imgui_texture(
                     &self.gpu_context,
+                    self.material_preview.resource_id(),
                     preview_texture,
                     preview_view,
                     preview_extent,
