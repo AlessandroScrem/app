@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use crate::ResourceId;
 use crate::{
-    assets::TextureId,
+    ResourceId,
     gpu::{
         GpuContextRef, GpuResourceStats, HasGpuStats, static_textures,
         texture::{GpuTexture, GpuTextureBuilder},
@@ -51,7 +52,7 @@ impl GpuBuiltinTextures {
 }
 
 pub struct GpuTextureCache {
-    map: HashMap<TextureId, GpuTexture>,
+    map: HashMap<ResourceId, GpuTexture>,
     builtin: GpuBuiltinTextures,
     stats: GpuResourceStats,
 }
@@ -77,7 +78,7 @@ impl GpuTextureCache {
         self.map.len()
     }
 
-    pub fn insert(&mut self, id: TextureId, texture: GpuTexture) {
+    pub fn insert(&mut self, id: ResourceId, texture: GpuTexture) {
         self.stats.add(texture.estimated_size);
         self.map.insert(id, texture);
     }
