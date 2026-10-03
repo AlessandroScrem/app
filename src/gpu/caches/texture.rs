@@ -99,6 +99,12 @@ impl GpuTextureCache {
         self.map.iter()
     }
 
+    pub fn create_runtime(&mut self, texture: GpuTexture) -> ResourceId {
+        let id = ResourceId::new();
+        self.insert(id, texture);
+        id
+    }
+
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_texture) = self.map.remove(&id) {
             self.stats.remove(gpu_texture.estimated_size);
