@@ -3,7 +3,7 @@ use super::ui_layer::{Layer, UiContext};
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use crate::editor::{
     EntityCommand, EntityId, InspectorData, InspectorSection, LightData, MaterialCommand,
-    MaterialData, TransformData,
+    MaterialDto, TransformData,
 };
 use imgui::{Condition, Drag, Image, TreeNodeFlags, Ui};
 
@@ -202,7 +202,7 @@ fn draw_bounding_box(ui: &Ui, bbox: &crate::editor::BoundingBoxData) {
     }
 }
 
-fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) {
+fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialDto]) {
     if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }
@@ -217,7 +217,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
     }
 }
 
-fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
+fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialDto) {
     ui.text(&material.name);
     ui.same_line();
     ui.text_disabled(format!("#{}", material.id.raw()));
@@ -269,7 +269,7 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
         send_material_update(ctx, material);
     }
 }
-fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
+fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialDto) {
     let preview = material
         .desc
         .texture(MaterialTextureSlot::BaseColor)
@@ -496,7 +496,7 @@ fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
     changed
 }
 
-fn send_material_update(ctx: &UiContext, material: &MaterialData) {
+fn send_material_update(ctx: &UiContext, material: &MaterialDto) {
     ctx.commands.send(MaterialCommand::Update {
         id: material.id,
         desc: material.desc.clone(),
