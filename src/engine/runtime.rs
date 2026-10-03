@@ -53,7 +53,6 @@ pub struct Runtime {
     pub shadow_manager: ShadowManager,
     pub readback: ReadbackManager,
     pub uilayer: UiLayer,
-    material_preview: Option<MaterialId>,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
     pub material_preview_renderer: MaterialPreviewRenderer,
@@ -119,7 +118,6 @@ impl Runtime {
             material_preview_renderer: MaterialPreviewRenderer::new(&gpu_context.device),
             imgui_render,
             uilayer,
-            material_preview: None,
             gpu_context,
             gpu_surface,
             gpu_cache,
@@ -364,7 +362,7 @@ impl Runtime {
             self.shadow_manager.get_rgba_id(),
             self.material_preview_renderer.resource_id(),
         );
-        self.material_preview = output.material_preview;
+        self.material_preview_renderer.set_material(output.material_preview);
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
