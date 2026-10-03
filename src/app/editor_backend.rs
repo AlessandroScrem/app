@@ -14,7 +14,8 @@ use crate::ecs::components::{
 use crate::editor::{
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
     EntityId, HierarchyData, HierarchyNode, IblData, InspectorData, InspectorSection, LightData,
-    MaterialCommand, MaterialDto, MeshData, PickCommand, Query, QueryResult, SceneSettingsData, TransformData,
+    MaterialCommand, MaterialDto, MeshData, PickCommand, Query, QueryResult, SceneSettingsData,
+    TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
