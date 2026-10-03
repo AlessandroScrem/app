@@ -1,5 +1,5 @@
 // use super::*;
-use crate::assets::GlobalAssetId;
+use crate::ResourceId;
 use crate::math::*;
 use crate::renderer::uniform::{Mat3Std140, MaterialUniform};
 use std::ops::{Index, IndexMut};
@@ -19,7 +19,7 @@ pub enum MaterialTextureSlot {
 
 #[derive(Default, Eq, PartialEq, Debug, Clone)]
 pub struct TextureSlot {
-    texture: Option<GlobalAssetId>,
+    texture: Option<ResourceId>,
     coord: u32,
     transform: Option<TextureTransform>,
     enabled: bool,
@@ -138,7 +138,7 @@ impl PartialEq for MaterialDesc {
 
 #[allow(dead_code)]
 impl MaterialDesc {
-    pub fn texture(&self, slot: MaterialTextureSlot) -> Option<GlobalAssetId> {
+    pub fn texture(&self, slot: MaterialTextureSlot) -> Option<ResourceId> {
         self.texture_set[slot].texture
     }
 
@@ -191,7 +191,7 @@ impl MaterialDesc {
 
     pub fn set_texture(
         &mut self,
-        id: Option<GlobalAssetId>,
+        id: Option<ResourceId>,
         slot: MaterialTextureSlot,
         coord: u32,
         transform: Option<TextureTransform>,
@@ -204,7 +204,7 @@ impl MaterialDesc {
         }
     }
 
-    pub fn get_textures(&self) -> Vec<GlobalAssetId> {
+    pub fn get_textures(&self) -> Vec<ResourceId> {
         self.texture_set
             .slot
             .iter()

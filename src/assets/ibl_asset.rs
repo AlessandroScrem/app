@@ -1,15 +1,16 @@
 use std::path::PathBuf;
 
-use crate::assets::asset_manager::*;
+use crate::assets::asset_manager::Asset;
+use crate::ResourceId;
 
 #[derive(Default)]
 pub struct IblAsset {
     pub path: PathBuf,
-    pub hrd_id: GlobalAssetId,
+    pub hrd_id: ResourceId,
 }
 
 impl IblAsset {
-    pub fn new(hdr_id: GlobalAssetId, path: impl Into<PathBuf>) -> Self {
+    pub fn new(hdr_id: ResourceId, path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
             hrd_id: hdr_id,
@@ -23,7 +24,7 @@ impl Asset for IblAsset {
         &self.path
     }
 
-    fn dependencies(&self) -> Vec<GlobalAssetId> {
+    fn dependencies(&self) -> Vec<ResourceId> {
         vec![self.hrd_id]
     }
 }

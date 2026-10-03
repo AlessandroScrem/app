@@ -1,5 +1,5 @@
 use super::components::*;
-use crate::assets::GlobalAssetId;
+use crate::ResourceId;
 use crate::assets::asset_manager::AssetManager;
 use crate::prelude::warn;
 
@@ -98,12 +98,12 @@ fn remove_meshes_from_all(asset_mgr: &mut AssetManager, entity: Entity, world: &
     }
 }
 
-type GlobalAssetIDCollection = Vec<GlobalAssetId>;
+type ResourceIdCollectionCollection = Vec<ResourceId>;
 
 fn collect_mesh_asset_ids_from_entity(
     world: &legion::World,
     entities: &Vec<Entity>,
-) -> GlobalAssetIDCollection {
+) -> ResourceIdCollectionCollection {
     let mut ids = vec![];
 
     for e in entities.clone() {

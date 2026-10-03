@@ -1,7 +1,7 @@
+use crate::ResourceId;
 use std::collections::HashMap;
 
 use crate::{
-    assets::TextureId,
     gpu::{
         GpuContextRef, GpuResourceStats, HasGpuStats, static_textures,
         texture::{GpuTexture, GpuTextureBuilder},
@@ -51,7 +51,7 @@ impl GpuBuiltinTextures {
 }
 
 pub struct GpuTextureCache {
-    map: HashMap<TextureId, GpuTexture>,
+    map: HashMap<ResourceId, GpuTexture>,
     builtin: GpuBuiltinTextures,
     stats: GpuResourceStats,
 }
@@ -72,34 +72,29 @@ impl GpuTextureCache {
         }
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn insert(&mut self, id: TextureId, texture: GpuTexture) {
+    pub fn insert(&mut self, id: ResourceId, texture: GpuTexture) {
         self.stats.add(texture.estimated_size);
         self.map.insert(id, texture);
     }
 
-    pub fn get(&self, id: TextureId) -> Option<&GpuTexture> {
+    pub fn get(&self, id: ResourceId) -> Option<&GpuTexture> {
         self.map.get(&id)
     }
 
-    pub fn get_or(&self, id: Option<TextureId>, slot: CacheTextureSlot) -> &GpuTexture {
+    pub fn get_or(&self, id: Option<ResourceId>, slot: CacheTextureSlot) -> &GpuTexture {
         id.and_then(|id| self.map.get(&id))
             .unwrap_or_else(|| self.builtin.get(slot))
     }
 
-    pub fn contains_key(&self, id: &TextureId) -> bool {
+    pub fn contains_key(&self, id: &ResourceId) -> bool {
         self.map.contains_key(id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&TextureId, &GpuTexture)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&ResourceId, &GpuTexture)> {
         self.map.iter()
     }
 
-    pub fn remove(&mut self, id: TextureId) {
+    pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_texture) = self.map.remove(&id) {
             self.stats.remove(gpu_texture.estimated_size);
         }

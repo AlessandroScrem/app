@@ -3,27 +3,23 @@ use std::{
     marker::PhantomData,
 };
 
-#[derive(Default, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct AssetId {
-    pub index: u32,
-    pub generation: u32,
-}
+use crate::ResourceId;
 
 #[derive(Debug)]
 pub struct AssetHandle<T> {
-    id: AssetId,
+    id: ResourceId,
     marker: PhantomData<T>,
 }
 
 impl<T> AssetHandle<T> {
-    pub fn new(id: AssetId) -> Self {
+    pub fn new(id: ResourceId) -> Self {
         Self {
             id,
             marker: PhantomData,
         }
     }
 
-    pub fn id(&self) -> AssetId {
+    pub fn id(&self) -> ResourceId {
         self.id
     }
 }

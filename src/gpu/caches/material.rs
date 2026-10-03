@@ -1,9 +1,9 @@
+use crate::ResourceId;
 use std::collections::HashMap;
 
 use super::*;
 
 use crate::{
-    assets::MaterialId,
     assets::material_desc::MaterialDesc,
     gpu::{GpuResourceStats, HasGpuStats},
     renderer::uniform::MaterialUniform,
@@ -61,7 +61,7 @@ impl GpuMaterial {
 
 #[derive(Default)]
 pub struct GpuMaterialCache {
-    map: HashMap<MaterialId, GpuMaterial>,
+    map: HashMap<ResourceId, GpuMaterial>,
     stats: GpuResourceStats,
 }
 
@@ -72,18 +72,18 @@ impl HasGpuStats for GpuMaterialCache {
 }
 
 impl GpuMaterialCache {
-    pub fn insert(&mut self, id: MaterialId, gpu_material: GpuMaterial) {
+    pub fn insert(&mut self, id: ResourceId, gpu_material: GpuMaterial) {
         if !self.map.contains_key(&id) {
             self.stats.add(GpuMaterial::estimated_size());
         }
         self.map.insert(id, gpu_material);
     }
 
-    pub fn get(&self, id: &MaterialId) -> Option<&GpuMaterial> {
+    pub fn get(&self, id: &ResourceId) -> Option<&GpuMaterial> {
         self.map.get(id)
     }
 
-    pub fn update(&mut self, id: &MaterialId, f: impl FnOnce(&mut GpuMaterial)) {
+    pub fn update(&mut self, id: &ResourceId, f: impl FnOnce(&mut GpuMaterial)) {
         if !self.map.contains_key(id) {
             return;
         }
@@ -91,12 +91,7 @@ impl GpuMaterialCache {
         self.map.entry(*id).and_modify(|v| f(v));
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn remove(&mut self, id: MaterialId) {
+    pub fn remove(&mut self, id: ResourceId) {
         if let Some(_) = self.map.remove(&id) {
             self.stats.remove(GpuMaterial::estimated_size());
         }

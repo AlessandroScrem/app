@@ -11,6 +11,7 @@ mod gpu;
 mod input;
 mod math;
 mod renderer;
+mod resource_id;
 mod scene;
 mod test_utils;
 mod timer;
@@ -22,6 +23,7 @@ pub use ecs::entity_id::EntityRawU64;
 pub(crate) use bounding_box::BoundingBox;
 pub(crate) use camera::Camera;
 pub(crate) use globals::Globals;
+pub(crate) use resource_id::ResourceId;
 
 pub(crate) mod prelude {
     pub use legion::{EntityStore, IntoQuery};

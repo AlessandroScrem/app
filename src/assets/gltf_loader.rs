@@ -10,7 +10,8 @@ use crate::math::*;
 use crate::prelude::*;
 use crate::{BoundingBox, ecs::components::TransformComponent};
 
-use crate::assets::asset_manager::{AssetManager, GlobalAssetId};
+use crate::assets::asset_manager::AssetManager;
+use crate::ResourceId;
 use crate::assets::material_asset::*;
 use crate::assets::material_desc;
 use crate::assets::mesh_asset::*;
@@ -18,7 +19,7 @@ use crate::assets::texture_asset::*;
 use crate::assets::vertexdata::MeshVertexData;
 
 pub struct GltfGroup {
-    pub meshes: Vec<GlobalAssetId>,
+    pub meshes: Vec<ResourceId>,
     pub nodes: Vec<NodeData>,
     pub name: String,
 }
@@ -491,7 +492,7 @@ fn create_texture(
     path: Option<std::path::PathBuf>,
     usage: TextureUsage,
     asset_mgr: &mut AssetManager,
-) -> Option<GlobalAssetId> {
+) -> Option<ResourceId> {
     let path = path?;
 
     let desc = TextureDesc::File {
@@ -512,7 +513,7 @@ fn create_material<P: AsRef<Path>>(
     gltf_material: &gltf::Material,
     asset_mgr: &mut AssetManager,
     path: P,
-) -> GlobalAssetId {
+) -> ResourceId {
     use material_desc::MaterialTextureSlot::*;
     use material_desc::*;
 
@@ -667,7 +668,7 @@ fn create_materials<P: AsRef<Path>>(
     gltf: &Document,
     path: P,
     asset_mgr: &mut AssetManager,
-) -> HashMap<usize, GlobalAssetId> {
+) -> HashMap<usize, ResourceId> {
     let mut materials = HashMap::new();
     for material in gltf.materials().into_iter() {
         let mat_id = material.index().unwrap_or_default();

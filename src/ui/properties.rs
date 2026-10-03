@@ -208,7 +208,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
     }
 
     for material in materials {
-        let id = ui.push_id(material.id.id.index.to_string());
+        let id = ui.push_id(material.id.raw().to_string());
         if ui.collapsing_header(&material.name, TreeNodeFlags::DEFAULT_OPEN) {
             *ctx.material_preview = Some(material.id);
             draw_material(ui, ctx, material);
@@ -220,7 +220,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
 fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     ui.text(&material.name);
     ui.same_line();
-    ui.text_disabled(format!("#{}", material.id.id.index));
+    ui.text_disabled(format!("#{}", material.id.raw()));
     ui.separator();
 
     draw_material_preview(ui, ctx, material);
@@ -380,9 +380,9 @@ fn draw_texture_preview(
     if let Some(texture_id) = ctx.textures.asset(texture) {
         Image::new(texture_id, [64.0, 64.0]).build(ui);
         ui.same_line();
-        ui.text(format!("Texture #{}", texture.id.index));
+        ui.text(format!("Texture #{}", texture.raw()));
     } else {
-        ui.text_disabled(format!("Texture #{} not available", texture.id.index));
+        ui.text_disabled(format!("Texture #{} not available", texture.raw()));
     }
 }
 

@@ -1,4 +1,5 @@
-use crate::assets::asset_manager::{Asset, GlobalAssetId};
+use crate::assets::asset_manager::Asset;
+use crate::ResourceId;
 use crate::assets::material_desc::MaterialDesc;
 
 #[derive(Clone)]
@@ -13,7 +14,7 @@ impl Asset for MaterialAsset {
     fn key(&self) -> &Self::Key {
         &self.key
     }
-    fn dependencies(&self) -> Vec<GlobalAssetId> {
+    fn dependencies(&self) -> Vec<ResourceId> {
         self.desc.get_textures()
     }
     fn estimated_size(&self) -> usize {

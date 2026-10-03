@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use crate::ResourceId;
 use crate::{
-    assets::{MeshId, MeshVertexData},
+    assets::MeshVertexData,
     gpu::{GpuResourceStats, HasGpuStats},
 };
 
@@ -9,7 +10,7 @@ use wgpu::util::DeviceExt;
 
 #[derive(Default)]
 pub struct GpuMeshCache {
-    map: HashMap<MeshId, GpuMesh>,
+    map: HashMap<ResourceId, GpuMesh>,
     stats: GpuResourceStats,
 }
 
@@ -20,21 +21,16 @@ impl HasGpuStats for GpuMeshCache {
 }
 
 impl GpuMeshCache {
-    pub fn insert(&mut self, id: MeshId, gpu_mesh: GpuMesh) {
+    pub fn insert(&mut self, id: ResourceId, gpu_mesh: GpuMesh) {
         self.stats.add(gpu_mesh.estimated_size);
         self.map.insert(id, gpu_mesh);
     }
 
-    pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
+    pub fn get(&self, id: &ResourceId) -> Option<&GpuMesh> {
         self.map.get(id)
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn remove(&mut self, id: MeshId) {
+    pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_mesh) = self.map.remove(&id) {
             self.stats.remove(gpu_mesh.estimated_size);
         }
