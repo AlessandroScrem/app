@@ -56,7 +56,7 @@ pub struct Runtime {
     material_preview: Option<MaterialId>,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
-    pub material_preview: MaterialPreviewRenderer,
+    pub material_preview_renderer: MaterialPreviewRenderer,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -116,7 +116,7 @@ impl Runtime {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
-            material_preview: MaterialPreviewRenderer::new(&gpu_context.device),
+            material_preview_renderer: MaterialPreviewRenderer::new(&gpu_context.device),
             imgui_render,
             uilayer,
             material_preview: None,
@@ -219,7 +219,7 @@ impl Runtime {
                 }
 
                 RuntimeEvent::UpdateIblMaps(id) => {
-                    self.material_preview.invalidate_environment();
+                    self.material_preview_renderer.invalidate_environment();
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                         self.ibl_manager.get(&id),
                         &self.shadow_manager,
@@ -362,7 +362,7 @@ impl Runtime {
             &self.window,
             &textures,
             self.shadow_manager.get_rgba_id(),
-            self.material_preview.resource_id(),
+            self.material_preview_renderer.resource_id(),
         );
         self.material_preview = output.material_preview;
     }
@@ -383,7 +383,7 @@ impl Runtime {
                 .render(&context, &mut encoder, &target, &frame_data);
 
             if let Some((preview_texture, preview_view, preview_extent)) =
-                self.material_preview.render(
+                self.material_preview_renderer.render(
                     &mut encoder,
                     &self.gpu_context,
                     &self.gpu_manager,
