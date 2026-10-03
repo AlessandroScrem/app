@@ -1,5 +1,6 @@
 use crate::assets::asset_manager::Asset;
-use crate::assets::{MeshVertexData};
+use crate::assets::MeshVertexData;
+use crate::ResourceId;
 
 use std::path::PathBuf;
 
