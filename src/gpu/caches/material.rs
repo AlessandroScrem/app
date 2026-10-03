@@ -1,3 +1,4 @@
+use crate::ResourceId;
 use std::collections::HashMap;
 
 use super::*;
