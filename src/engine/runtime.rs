@@ -391,7 +391,7 @@ impl Runtime {
             {
                 self.imgui_render.sync_imgui_texture(
                     &self.gpu_context,
-                    self.material_preview.resource_id(),
+                    self.material_preview_renderer.resource_id(),
                     preview_texture,
                     preview_view,
                     preview_extent,
