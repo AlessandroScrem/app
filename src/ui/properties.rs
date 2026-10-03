@@ -377,7 +377,7 @@ fn draw_texture_preview(
         return;
     };
 
-    if let Some(texture_id) = ctx.textures.asset(texture) {
+    if let Some(texture_id) = ctx.textures.texture(texture) {
         Image::new(texture_id, [64.0, 64.0]).build(ui);
         ui.same_line();
         ui.text(format!("Texture #{}", texture.raw()));
