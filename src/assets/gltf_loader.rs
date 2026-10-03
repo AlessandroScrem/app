@@ -10,8 +10,8 @@ use crate::math::*;
 use crate::prelude::*;
 use crate::{BoundingBox, ecs::components::TransformComponent};
 
-use crate::assets::asset_manager::AssetManager;
 use crate::ResourceId;
+use crate::assets::asset_manager::AssetManager;
 use crate::assets::material_asset::*;
 use crate::assets::material_desc;
 use crate::assets::mesh_asset::*;

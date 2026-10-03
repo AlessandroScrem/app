@@ -64,9 +64,7 @@ impl<T: Asset> AssetStorage<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (ResourceId, &T)> {
-        self.slots
-            .iter()
-            .map(|(id, slot)| (*id, &slot.value))
+        self.slots.iter().map(|(id, slot)| (*id, &slot.value))
     }
 
     pub fn get_by_id(&self, id: ResourceId) -> Option<&T> {

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use crate::assets::asset_manager::Asset;
 use crate::ResourceId;
+use crate::assets::asset_manager::Asset;
 
 #[derive(Default)]
 pub struct IblAsset {

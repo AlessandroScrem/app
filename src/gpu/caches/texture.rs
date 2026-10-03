@@ -1,11 +1,9 @@
 use crate::ResourceId;
 use std::collections::HashMap;
 
-use crate::{
-    gpu::{
-        GpuContextRef, GpuResourceStats, HasGpuStats, static_textures,
-        texture::{GpuTexture, GpuTextureBuilder},
-    },
+use crate::gpu::{
+    GpuContextRef, GpuResourceStats, HasGpuStats, static_textures,
+    texture::{GpuTexture, GpuTextureBuilder},
 };
 
 use strum::IntoEnumIterator;

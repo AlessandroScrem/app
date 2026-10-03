@@ -4,9 +4,9 @@ use std::hash::Hash;
 
 use super::asset_id::AssetHandle;
 use super::asset_storage::{Asset, AssetStorage};
-use crate::ResourceId;
 use super::dependency_graph::*;
 use super::resource_stats::ResourceStats;
+use crate::ResourceId;
 
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub enum AssetEventKind {
