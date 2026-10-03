@@ -33,7 +33,7 @@ impl Layer for PropertyUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let window = ui
             .window("Properties")
-            .size([420.0, 560.0], Condition::FirstUseEver);
+            .size([620.0, 560.0], Condition::FirstUseEver);
         window.build(|| draw_inspector(ui, ctx, self.draft.as_mut(), &self.selection));
     }
 }
@@ -227,27 +227,31 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
 
     let mut changed = false;
 
-    if ui.collapsing_header("Surface", TreeNodeFlags::DEFAULT_OPEN) {
+    let Some(_tab_bar) = ui.tab_bar("MaterialTabs") else {
+        return;
+    };
+
+    if let Some(_tab) = ui.tab_item("Surface") {
         changed |= draw_surface(ui, &mut material.desc);
     }
 
-    if ui.collapsing_header("Textures", TreeNodeFlags::DEFAULT_OPEN) {
+    if let Some(_tab) = ui.tab_item("Textures") {
         changed |= draw_textures(ui, ctx, &mut material.desc);
     }
 
-    if ui.collapsing_header("Transmission", TreeNodeFlags::DEFAULT_OPEN) {
+    if let Some(_tab) = ui.tab_item("Transmission") {
         changed |= draw_transmission(ui, &mut material.desc);
     }
 
-    if ui.collapsing_header("Volume", TreeNodeFlags::DEFAULT_OPEN) {
+    if let Some(_tab) = ui.tab_item("Volume") {
         changed |= draw_volume(ui, &mut material.desc);
     }
 
-    if ui.collapsing_header("Sheen", TreeNodeFlags::DEFAULT_OPEN) {
+    if let Some(_tab) = ui.tab_item("Sheen") {
         changed |= draw_sheen(ui, &mut material.desc);
     }
 
-    if ui.collapsing_header("Alpha", TreeNodeFlags::DEFAULT_OPEN) {
+    if let Some(_tab) = ui.tab_item("Alpha") {
         changed |= draw_alpha(ui, &mut material.desc);
     }
 
@@ -257,17 +261,16 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
 }
 
 fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
-    ui.text("Preview");
-
     let preview = material
         .desc
         .texture(MaterialTextureSlot::BaseColor)
         .and_then(|texture| ctx.textures.asset(texture));
 
+    ui.text("Preview");
     if let Some(texture) = ctx.textures.material_preview() {
-        Image::new(texture, [128.0, 128.0]).build(ui);
+        Image::new(texture, [180.0, 180.0]).build(ui);
     } else if let Some(texture) = preview {
-        Image::new(texture, [96.0, 96.0]).build(ui);
+        Image::new(texture, [180.0, 180.0]).build(ui);
     } else {
         ui.text_disabled("PBR preview render target not available");
     }
