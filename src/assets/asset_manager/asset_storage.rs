@@ -24,9 +24,16 @@ struct Slot<T> {
     value: T,
 }
 
-#[derive(Default)]
 pub struct AssetStorage<T: Asset> {
     slots: HashMap<ResourceId, Slot<T>>,
+}
+
+impl<T: Asset> Default for AssetStorage<T> {
+    fn default() -> Self {
+        Self {
+            slots: HashMap::new(),
+        }
+    }
 }
 
 impl<T: Asset> AssetStorage<T> {
