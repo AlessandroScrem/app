@@ -58,6 +58,10 @@ cgmath = "0.18.0"
  - [ ] Linux
  - [ ] MacOs
 
+## Documentation
+
+- [Resource IDs](docs/resource-id.md) — identity model, asset handles, GPU caches, runtime resources, and usage rules.
+
 ## Compiling and running
 
 ```bash
