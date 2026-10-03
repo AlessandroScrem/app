@@ -210,7 +210,7 @@ impl SettingsUi {
                 ui.text("No IBL loaded");
             } else {
                 for ibl in &self.ibls {
-                    let Some(texture) = ctx.textures.texture(ibl.texture) else {
+                    let Some(texture) = ctx.textures.asset(ibl.texture) else {
                         continue;
                     };
 
