@@ -220,7 +220,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
 fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     ui.text(&material.name);
     ui.same_line();
-    ui.text_disabled(format!("#{}", material.id.id.index));
+    ui.text_disabled(format!("#{}", material.id.raw()));
     ui.separator();
 
     draw_material_preview(ui, ctx, material);
