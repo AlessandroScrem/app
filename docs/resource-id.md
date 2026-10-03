@@ -46,28 +46,54 @@ The important distinction is:
 
 For example, GPU caches can use the `ResourceId` without knowing how the asset was stored by the `AssetManager`.
 
-## GPU caches
+## Asset resources and runtime resources
 
-GPU caches use `ResourceId` as the key for resources associated with assets.
+`ResourceId` is **not limited to assets**.
 
-For example, the material/mesh/texture cache can associate a GPU resource with:
+There are two valid ways to obtain an ID:
+
+1. An asset receives its ID from `AssetManager` through `AssetHandle<T>`.
+2. A resource created directly by the runtime/GPU layer allocates its own ID with `ResourceId::new()`.
+
+For example, a texture loaded as an application asset follows the asset path:
 
 ```rust
-let id = material_handle.id();
-
-// Conceptually:
-// gpu_material_cache[id] -> GPU material
+let handle: AssetHandle<TextureAsset> = assets.add(texture);
+let id: ResourceId = handle.id();
 ```
 
-This keeps the GPU layer independent from the internal representation of asset storage.
-
-A GPU resource that is not backed by an asset can also receive its own ID:
+A texture created only for the renderer does **not** need to become an asset:
 
 ```rust
 let id = ResourceId::new();
+
+gpu_texture_cache.insert(id, texture);
 ```
 
-Only introduce such an ID when the runtime resource actually needs to be identified across systems. Do not create runtime-specific wrapper functions merely to hide `ResourceId::new()`.
+This is useful for resources such as renderer-generated textures, material-preview textures, shadow maps, render targets, or other GPU resources that need a stable identity while they are shared or referenced by multiple subsystems.
+
+The important point is that `ResourceId` identifies the **resource**, while `AssetManager` determines whether that resource is managed as an **asset**.
+
+Therefore:
+
+- a resource can have a `ResourceId` without being an asset;
+- a runtime resource does not need an `AssetHandle<T>`;
+- creating a runtime resource must not require registering it in `AssetManager`;
+- both asset-backed and runtime-created resources can use the same `ResourceId` space and can therefore be handled by the same GPU cache infrastructure.
+
+GPU caches use `ResourceId` as the key regardless of where the resource came from:
+
+```rust
+// Asset-backed resource
+let id = material_handle.id();
+
+// Runtime-created resource
+let id = ResourceId::new();
+
+// Both are ordinary ResourceId values from the cache's point of view.
+```
+
+Do not add a `create_runtime()` API to `ResourceId`. If a cache eventually needs a higher-level operation that creates and registers a runtime resource, that operation belongs to the cache or resource manager, where its ownership and lifetime rules can be defined.
 
 ## Converting to a number
 
