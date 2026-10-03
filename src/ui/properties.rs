@@ -2,7 +2,7 @@ use super::ui_commands::UiCommands;
 use super::ui_layer::{Layer, UiContext};
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use crate::editor::{
-    AssetCommand, EntityCommand, EntityId, InspectorData, InspectorSection, LightData,
+    EntityCommand, EntityId, InspectorData, InspectorSection, LightData, MaterialCommand,
     MaterialData, TransformData,
 };
 use imgui::{Condition, Drag, Image, TreeNodeFlags, Ui};
@@ -497,7 +497,7 @@ fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
 }
 
 fn send_material_update(ctx: &UiContext, material: &MaterialData) {
-    ctx.commands.send(AssetCommand::UpdateMaterial {
+    ctx.commands.send(MaterialCommand::Update {
         id: material.id,
         desc: material.desc.clone(),
     });
