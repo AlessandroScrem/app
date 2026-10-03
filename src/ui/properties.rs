@@ -370,7 +370,7 @@ fn draw_texture_preview(
         ui.same_line();
         ui.text(format!("Texture #{}", texture.id.raw()));
     } else {
-        ui.text_disabled(format!("Texture #{} not available", texture.id.index));
+        ui.text_disabled(format!("Texture #{} not available", texture.id.raw()));
     }
 }
 
