@@ -389,7 +389,7 @@ impl Runtime {
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                    self.material_preview_material,
+                    self.material_preview,
                 )
             {
                 self.imgui_render.sync_imgui_texture(
