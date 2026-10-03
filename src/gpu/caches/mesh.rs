@@ -26,7 +26,7 @@ impl GpuMeshCache {
         self.map.insert(id, gpu_mesh);
     }
 
-    pub fn get(&self, id: &MeshId) -> Option<&GpuMesh> {
+    pub fn get(&self, id: &ResourceId) -> Option<&GpuMesh> {
         self.map.get(id)
     }
 
@@ -35,7 +35,7 @@ impl GpuMeshCache {
         self.map.len()
     }
 
-    pub fn remove(&mut self, id: MeshId) {
+    pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_mesh) = self.map.remove(&id) {
             self.stats.remove(gpu_mesh.estimated_size);
         }
