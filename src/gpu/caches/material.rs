@@ -91,17 +91,6 @@ impl GpuMaterialCache {
         self.map.entry(*id).and_modify(|v| f(v));
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn create_runtime(&mut self, gpu_material: GpuMaterial) -> ResourceId {
-        let id = ResourceId::new();
-        self.insert(id, gpu_material);
-        id
-    }
-
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(_) = self.map.remove(&id) {
             self.stats.remove(GpuMaterial::estimated_size());
