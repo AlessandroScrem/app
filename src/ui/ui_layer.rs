@@ -14,6 +14,7 @@ pub struct UiContext<'a> {
     pub textures: &'a UiTextureRegistry,
     pub shadow_map: ResourceId,
     pub material_preview_texture: ResourceId,
+    pub material_preview: &'a mut Option<crate::assets::MaterialId>,
 }
 
 pub struct UiOutput {
@@ -147,12 +148,15 @@ impl UiLayer {
         ui.dockspace_over_main_viewport();
 
         let command_client = self.commands.command_client();
-        let mut material_preview = None;
+        let mut output = UiOutput {
+            material_preview: None,
+        };
         let mut ctx = UiContext {
             commands: command_client,
             textures,
             shadow_map,
             material_preview_texture,
+            material_preview: &mut output.material_preview,
         };
 
         self.stack.build(ui, &mut ctx);
