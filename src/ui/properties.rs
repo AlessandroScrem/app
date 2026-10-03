@@ -232,27 +232,39 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     };
 
     if let Some(_tab) = ui.tab_item("Surface") {
-        changed |= draw_surface(ui, &mut material.desc);
+        ui.child_window("SurfaceContent").build(|| {
+            changed |= draw_surface(ui, &mut material.desc);
+        });
     }
 
     if let Some(_tab) = ui.tab_item("Textures") {
-        changed |= draw_textures(ui, ctx, &mut material.desc);
+        ui.child_window("TexturesContent").build(|| {
+            changed |= draw_textures(ui, ctx, &mut material.desc);
+        });
     }
 
     if let Some(_tab) = ui.tab_item("Transmission") {
-        changed |= draw_transmission(ui, &mut material.desc);
+        ui.child_window("TransmissionContent").build(|| {
+            changed |= draw_transmission(ui, &mut material.desc);
+        });
     }
 
     if let Some(_tab) = ui.tab_item("Volume") {
-        changed |= draw_volume(ui, &mut material.desc);
+        ui.child_window("VolumeContent").build(|| {
+            changed |= draw_volume(ui, &mut material.desc);
+        });
     }
 
     if let Some(_tab) = ui.tab_item("Sheen") {
-        changed |= draw_sheen(ui, &mut material.desc);
+        ui.child_window("SheenContent").build(|| {
+            changed |= draw_sheen(ui, &mut material.desc);
+        });
     }
 
     if let Some(_tab) = ui.tab_item("Alpha") {
-        changed |= draw_alpha(ui, &mut material.desc);
+        ui.child_window("AlphaContent").build(|| {
+            changed |= draw_alpha(ui, &mut material.desc);
+        });
     }
 
     if changed {
