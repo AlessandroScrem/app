@@ -227,63 +227,42 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
 
     let mut changed = false;
 
-    let Some(_tab_bar) = ui.tab_bar("MaterialTabs") else {
-        return;
-    };
+    ui.child_window("MaterialTabsContent")
+        .size([0.0, 0.0])
+        .build(|| {
+            let Some(_tab_bar) = ui.tab_bar("MaterialTabs") else {
+                return;
+            };
 
-    if let Some(_tab) = ui.tab_item("Surface") {
-        ui.child_window("SurfaceContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_surface(ui, &mut material.desc);
-        });
-    }
+            if let Some(_tab) = ui.tab_item("Surface") {
+                changed |= draw_surface(ui, &mut material.desc);
+            }
 
-    if let Some(_tab) = ui.tab_item("Textures") {
-        ui.child_window("TexturesContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_textures(ui, ctx, &mut material.desc);
-        });
-    }
+            if let Some(_tab) = ui.tab_item("Textures") {
+                changed |= draw_textures(ui, ctx, &mut material.desc);
+            }
 
-    if let Some(_tab) = ui.tab_item("Transmission") {
-        ui.child_window("TransmissionContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_transmission(ui, &mut material.desc);
-        });
-    }
+            if let Some(_tab) = ui.tab_item("Transmission") {
+                changed |= draw_transmission(ui, &mut material.desc);
+            }
 
-    if let Some(_tab) = ui.tab_item("Volume") {
-        ui.child_window("VolumeContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_volume(ui, &mut material.desc);
-        });
-    }
+            if let Some(_tab) = ui.tab_item("Volume") {
+                changed |= draw_volume(ui, &mut material.desc);
+            }
 
-    if let Some(_tab) = ui.tab_item("Sheen") {
-        ui.child_window("SheenContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_sheen(ui, &mut material.desc);
-        });
-    }
+            if let Some(_tab) = ui.tab_item("Sheen") {
+                changed |= draw_sheen(ui, &mut material.desc);
+            }
 
-    if let Some(_tab) = ui.tab_item("Alpha") {
-        ui.child_window("AlphaContent")
-            .size(ui.content_region_avail())
-            .build(|| {
-            changed |= draw_alpha(ui, &mut material.desc);
+            if let Some(_tab) = ui.tab_item("Alpha") {
+                changed |= draw_alpha(ui, &mut material.desc);
+            }
         });
-    }
 
     if changed {
         send_material_update(ctx, material);
     }
 }
-
 fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
     let preview = material
         .desc
