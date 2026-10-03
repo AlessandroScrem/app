@@ -368,7 +368,7 @@ fn draw_texture_preview(
     if let Some(texture_id) = ctx.textures.asset(texture) {
         Image::new(texture_id, [64.0, 64.0]).build(ui);
         ui.same_line();
-        ui.text(format!("Texture #{}", texture.id.index));
+        ui.text(format!("Texture #{}", texture.id.raw()));
     } else {
         ui.text_disabled(format!("Texture #{} not available", texture.id.index));
     }
