@@ -14,7 +14,7 @@ use crate::ecs::components::{
 use crate::editor::{
     BoundingBoxData, EditorCommand, EditorEvent, EditorSettingsData, EntityCommand, EntityData,
     EntityId, HierarchyData, HierarchyNode, IblData, InspectorData, InspectorSection, LightData,
-    MaterialCommand, MaterialData, MeshData, PickCommand, Query, QueryResult, SceneSettingsData, TransformData,
+    MaterialCommand, MaterialDto, MeshData, PickCommand, Query, QueryResult, SceneSettingsData, TransformData,
 };
 use crate::engine::{editor::EditorBackend, engine::EventBus};
 
@@ -422,7 +422,7 @@ impl App {
                         if ids.insert(submesh.material) {
                             self.asset_mgr
                                 .get::<crate::assets::MaterialAsset>(submesh.material)
-                                .map(|material| MaterialData {
+                                .map(|material| MaterialDto {
                                     id: submesh.material,
                                     name: material.desc.name.clone(),
                                     desc: material.desc.clone(),
