@@ -232,37 +232,49 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
     };
 
     if let Some(_tab) = ui.tab_item("Surface") {
-        ui.child_window("SurfaceContent").build(|| {
+        ui.child_window("SurfaceContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_surface(ui, &mut material.desc);
         });
     }
 
     if let Some(_tab) = ui.tab_item("Textures") {
-        ui.child_window("TexturesContent").build(|| {
+        ui.child_window("TexturesContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_textures(ui, ctx, &mut material.desc);
         });
     }
 
     if let Some(_tab) = ui.tab_item("Transmission") {
-        ui.child_window("TransmissionContent").build(|| {
+        ui.child_window("TransmissionContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_transmission(ui, &mut material.desc);
         });
     }
 
     if let Some(_tab) = ui.tab_item("Volume") {
-        ui.child_window("VolumeContent").build(|| {
+        ui.child_window("VolumeContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_volume(ui, &mut material.desc);
         });
     }
 
     if let Some(_tab) = ui.tab_item("Sheen") {
-        ui.child_window("SheenContent").build(|| {
+        ui.child_window("SheenContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_sheen(ui, &mut material.desc);
         });
     }
 
     if let Some(_tab) = ui.tab_item("Alpha") {
-        ui.child_window("AlphaContent").build(|| {
+        ui.child_window("AlphaContent")
+            .size(ui.content_region_avail())
+            .build(|| {
             changed |= draw_alpha(ui, &mut material.desc);
         });
     }
