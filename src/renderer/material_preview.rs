@@ -3,8 +3,8 @@ use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
 use crate::gpu::{
     BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh,
 };
-use wgpu::util::DeviceExt;
 use crate::math::{perspective, Deg, Mat4, Point3f, Vec3};
+use wgpu::util::DeviceExt;
 use cgmath::SquareMatrix;
 
 struct MaterialPreviewTarget {
@@ -117,7 +117,10 @@ pub struct MaterialPreviewRenderer {
     perframe_bind_group: Option<wgpu::BindGroup>,
 }
 
-fn create_preview_sphere(segments: u32, rings: u32) -> (Vec<crate::assets::MeshVertexData>, Vec<u32>) {
+fn create_preview_sphere(
+    segments: u32,
+    rings: u32,
+) -> (Vec<crate::assets::MeshVertexData>, Vec<u32>) {
     let mut vertices = Vec::with_capacity(((segments + 1) * (rings + 1)) as usize);
     let mut indices = Vec::with_capacity((segments * rings * 6) as usize);
 
@@ -166,9 +169,21 @@ impl MaterialPreviewRenderer {
         let index_count = indices.len() as u32;
         let sphere = crate::gpu::GpuMesh::new(device, &vertices, &indices);
 
-        let camera_buffer = create_preview_buffer(device, size_of::<crate::renderer::uniform::CameraUniform>(), "Material Preview Camera");
-        let globals_buffer = create_preview_buffer(device, size_of::<crate::renderer::uniform::GlobalUniform>(), "Material Preview Globals");
-        let lights_buffer = create_preview_buffer(device, size_of::<crate::renderer::uniform::LightsUniform>(), "Material Preview Lights");
+        let camera_buffer = create_preview_buffer(
+            device,
+            size_of::<crate::renderer::uniform::CameraUniform>(),
+            "Material Preview Camera",
+        );
+        let globals_buffer = create_preview_buffer(
+            device,
+            size_of::<crate::renderer::uniform::GlobalUniform>(),
+            "Material Preview Globals",
+        );
+        let lights_buffer = create_preview_buffer(
+            device,
+            size_of::<crate::renderer::uniform::LightsUniform>(),
+            "Material Preview Lights",
+        );
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Material Preview Instance"),
             contents: bytemuck::bytes_of(&VertexInstance::new(Mat4::identity(), 0)),
@@ -288,8 +303,8 @@ impl MaterialPreviewRenderer {
             bytemuck::bytes_of(&instance),
         );
 
-        let perframe_bind_group = self.perframe_bind_group.get_or_insert_with(|| {
-            gpu_context.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        if self.perframe_bind_group.is_none() {
+            let bind_group = gpu_context.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::PerFrame),
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -306,8 +321,13 @@ impl MaterialPreviewRenderer {
                     },
                 ],
                 label: Some("Material Preview PerFrame Bind Group"),
-            })
-        });
+            });
+            self.perframe_bind_group = Some(bind_group);
+        }
+        let perframe_bind_group = self
+            .perframe_bind_group
+            .as_ref()
+            .expect("preview PerFrame bind group must exist");
 
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Material Preview Pass"),
@@ -371,7 +391,6 @@ impl MaterialPreviewRenderer {
         Some(preview)
     }
 }
-
 
 fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
