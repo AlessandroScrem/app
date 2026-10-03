@@ -296,10 +296,12 @@ impl AssetManager {
         // 4. rimuovi key + ref
         self.key_index.remove(id);
         self.ref_count.remove(&id);
+        self.resource_types.remove(&id);
 
         // 5. evento
         self.events.push_back(AssetEvent {
             id,
+            type_id: type_id.unwrap_or(TypeId::of::<()>()),
             kind: AssetEventKind::Removed,
         });
 
@@ -341,7 +343,7 @@ impl AssetManager {
 
         for event in self.events.drain(..) {
             grouped
-                .entry((event.id.type_id, event.kind))
+                .entry((event.type_id, event.kind))
                 .or_default()
                 .push(event);
         }
