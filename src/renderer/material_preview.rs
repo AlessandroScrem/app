@@ -194,33 +194,33 @@ impl MaterialPreviewRenderer {
         };
 
         let revision = gpu_material.revision();
-        let cached = self
-            .cache
-            .get(&material)
-            .filter(|preview| {
-                preview.material_revision == revision
-                    && preview.environment_revision == self.environment_revision
-            });
-
-        if let Some(preview) = cached {
-            if self.active_material != Some(material) {
-                self.active_material = Some(material);
-                return Some(preview.target.texture());
+        if let Some(preview) = self.cache.get(&material) {
+            if preview.material_revision == revision
+                && preview.environment_revision == self.environment_revision
+            {
+                if self.active_material != Some(material) {
+                    self.active_material = Some(material);
+                    return Some(preview.target.texture());
+                }
+                return None;
             }
-            return None;
         }
 
-        let target = MaterialPreviewTarget::new(&gpu_context.device);
+        let target = self
+            .cache
+            .remove(&material)
+            .map(|preview| preview.target)
+            .unwrap_or_else(|| MaterialPreviewTarget::new(&gpu_context.device));
         let material_bg = gpu_material.bind_group.as_ref()?;
 
         let view = Mat4::look_at_rh(
-            Point3f::new(0.0, 0.0, 3.0),
+            Point3f::new(0.0, 0.0, 3.4),
             Point3f::new(0.0, 0.0, 0.0),
             Vec3::unit_y(),
         );
         let proj = perspective(Deg(35.0), 1.0, 0.1, 10.0);
         let camera = crate::renderer::uniform::CameraUniform {
-            view_position: [0.0, 0.0, 3.0, 1.0],
+            view_position: [0.0, 0.0, 3.4, 1.0],
             view: view.into(),
             proj: proj.into(),
             screen_size: [256.0, 256.0],
