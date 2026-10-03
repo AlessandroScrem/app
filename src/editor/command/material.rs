@@ -8,8 +8,3 @@ pub enum MaterialCommand {
     },
 }
 
-impl MaterialCommand {
-    pub fn settings_changed(&self) -> bool {
-        false
-    }
-}
