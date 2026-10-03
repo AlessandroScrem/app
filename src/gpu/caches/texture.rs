@@ -72,11 +72,6 @@ impl GpuTextureCache {
         }
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
     pub fn insert(&mut self, id: ResourceId, texture: GpuTexture) {
         self.stats.add(texture.estimated_size);
         self.map.insert(id, texture);
@@ -97,12 +92,6 @@ impl GpuTextureCache {
 
     pub fn iter(&self) -> impl Iterator<Item = (&ResourceId, &GpuTexture)> {
         self.map.iter()
-    }
-
-    pub fn create_runtime(&mut self, texture: GpuTexture) -> ResourceId {
-        let id = ResourceId::new();
-        self.insert(id, texture);
-        id
     }
 
     pub fn remove(&mut self, id: ResourceId) {
