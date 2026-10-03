@@ -73,7 +73,7 @@ impl Runtime {
             gpu_context.instance(),
             window.clone(),
         );
-        let imgui_render = ImguiRender::new(
+        let mut imgui_render = ImguiRender::new(
             &gpu_context.device,
             &gpu_context.queue,
             &window,
@@ -91,6 +91,7 @@ impl Runtime {
         );
         let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
         let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
+        imgui_render.sync_imgui_shadowmap(&gpu_context, shadow_manager.get_rgba());
         let ibl_manager = IblManager::new(&gpu_context.as_ref());
         let pipeline_manager = PipelineManager::new(
             &gpu_context.device,
@@ -218,8 +219,7 @@ impl Runtime {
                         &self.shadow_manager,
                         &self.gpu_context.device,
                     );
-                    self.imgui_render
-                        .sync_imgui_shadowmap(&self.gpu_context, self.shadow_manager.get_rgba());
+
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
                     self.readback.request_selection(
