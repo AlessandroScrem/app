@@ -227,30 +227,28 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
 
     let mut changed = false;
 
-    if let Some(_tab_bar) = ui.tab_bar("MaterialTabs") {
-        if let Some(_tab) = _tab_bar.begin_tab_item("Surface") {
-            changed |= draw_surface(ui, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Surface") {
+        changed |= draw_surface(ui, &mut material.desc);
+    }
 
-        if let Some(_tab) = _tab_bar.begin_tab_item("Textures") {
-            changed |= draw_textures(ui, ctx, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Textures") {
+        changed |= draw_textures(ui, ctx, &mut material.desc);
+    }
 
-        if let Some(_tab) = _tab_bar.begin_tab_item("Transmission") {
-            changed |= draw_transmission(ui, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Transmission") {
+        changed |= draw_transmission(ui, &mut material.desc);
+    }
 
-        if let Some(_tab) = _tab_bar.begin_tab_item("Volume") {
-            changed |= draw_volume(ui, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Volume") {
+        changed |= draw_volume(ui, &mut material.desc);
+    }
 
-        if let Some(_tab) = _tab_bar.begin_tab_item("Sheen") {
-            changed |= draw_sheen(ui, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Sheen") {
+        changed |= draw_sheen(ui, &mut material.desc);
+    }
 
-        if let Some(_tab) = _tab_bar.begin_tab_item("Alpha") {
-            changed |= draw_alpha(ui, &mut material.desc);
-        }
+    if let Some(_tab) = ui.tab_item("Alpha") {
+        changed |= draw_alpha(ui, &mut material.desc);
     }
 
     if changed {
