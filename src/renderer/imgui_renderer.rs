@@ -244,12 +244,11 @@ impl ImguiRender {
             texture.extent,
         );
 
-        let id = registry
-            .get(&resource_id)
-            .copied()
-            .unwrap_or_else(|| renderer.textures.insert(updated_texture));
-        if registry.insert(resource_id, id).is_some() {
+        if let Some(id) = registry.get(&resource_id).copied() {
             renderer.textures.replace(id, updated_texture);
+        } else {
+            let id = renderer.textures.insert(updated_texture);
+            registry.insert(resource_id, id);
         }
     }
 }
