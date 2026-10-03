@@ -242,16 +242,22 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
                 changed |= draw_textures(ui, ctx, &mut material.desc);
             }
 
-            if let Some(_tab) = ui.tab_item("Transmission") {
-                changed |= draw_transmission(ui, &mut material.desc);
+            if material.desc.transmission.is_some() {
+                if let Some(_tab) = ui.tab_item("Transmission") {
+                    changed |= draw_transmission(ui, &mut material.desc);
+                }
             }
 
-            if let Some(_tab) = ui.tab_item("Volume") {
-                changed |= draw_volume(ui, &mut material.desc);
+            if material.desc.volume.is_some() {
+                if let Some(_tab) = ui.tab_item("Volume") {
+                    changed |= draw_volume(ui, &mut material.desc);
+                }
             }
 
-            if let Some(_tab) = ui.tab_item("Sheen") {
-                changed |= draw_sheen(ui, &mut material.desc);
+            if material.desc.sheen.is_some() {
+                if let Some(_tab) = ui.tab_item("Sheen") {
+                    changed |= draw_sheen(ui, &mut material.desc);
+                }
             }
 
             if let Some(_tab) = ui.tab_item("Alpha") {
