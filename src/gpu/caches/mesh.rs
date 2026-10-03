@@ -30,17 +30,6 @@ impl GpuMeshCache {
         self.map.get(id)
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.map.len()
-    }
-
-    pub fn create_runtime(&mut self, gpu_mesh: GpuMesh) -> ResourceId {
-        let id = ResourceId::new();
-        self.insert(id, gpu_mesh);
-        id
-    }
-
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_mesh) = self.map.remove(&id) {
             self.stats.remove(gpu_mesh.estimated_size);
