@@ -70,7 +70,6 @@ impl EditorCommand {
             Self::Global(command) => command.settings_changed(),
             Self::Camera(command) => command.settings_changed(),
             Self::Asset(command) => command.settings_changed(),
-            Self::Material(command) => command.settings_changed(),
             _ => false,
         }
     }
