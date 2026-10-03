@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct GpuInternalCounters {
     pub textures: GpuResourceStats,
@@ -7,6 +8,7 @@ pub struct GpuInternalCounters {
     pub ibl: GpuResourceStats,
 }
 
+#[allow(dead_code)]
 pub trait HasGpuStats {
     fn get_stats(&self) -> GpuResourceStats;
 }
@@ -18,12 +20,12 @@ pub struct GpuResourceStats {
 }
 
 impl GpuResourceStats {
-    pub fn add(&mut self, size: usize)->&mut Self {
+    pub fn add(&mut self, size: usize) -> &mut Self {
         self.estimated_bytes += size;
         self.count += 1;
         self
     }
-    pub fn remove(&mut self, size: usize)->&mut Self {
+    pub fn remove(&mut self, size: usize) -> &mut Self {
         if self.count > 0 {
             let result = self.estimated_bytes.checked_sub(size).unwrap_or(0);
             self.estimated_bytes = result;
@@ -32,4 +34,3 @@ impl GpuResourceStats {
         self
     }
 }
-

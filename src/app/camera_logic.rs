@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::BoundingBox;
 use crate::Camera;
 use crate::app::App;
@@ -5,28 +7,37 @@ use crate::ecs::components::BoundingBoxComponent;
 use crate::prelude::*;
 use legion::Entity;
 use legion::EntityStore;
+
 impl App {
     pub fn recenter_camera(&mut self) {
         let camera = &mut self.camera;
         let world = &self.current_scene.world;
-        let selected = self.selected;
 
-        let bbox = {
-            if let Some(selected) = selected {
-                get_bbox_from_entity(world, selected)
-            } else {
-                get_bounding_box_from_world(world)
-            }
+        let bbox = if !self.selected.is_empty() {
+            get_bbox_from_entities(world, &self.selected)
+        } else {
+            get_bounding_box_from_world(world)
         };
 
-        center_camera_to_bounding_box(camera, bbox.clone());
+        center_camera_to_bounding_box(camera, bbox);
 
-        fn get_bbox_from_entity(world: &legion::World, entity: Entity) -> Option<BoundingBox> {
-            let entry = world.entry_ref(entity).ok()?;
-            entry
-                .get_component::<BoundingBoxComponent>()
-                .ok()
-                .map(|b| b.global_bounding_box.clone())
+        fn get_bbox_from_entities(
+            world: &legion::World,
+            entities: &HashSet<Entity>,
+        ) -> Option<BoundingBox> {
+            entities
+                .iter()
+                .filter_map(|entity| {
+                    let entry = world.entry_ref(*entity).ok()?;
+                    entry
+                        .get_component::<BoundingBoxComponent>()
+                        .ok()
+                        .map(|b| b.global_bounding_box.clone())
+                })
+                .reduce(|mut bbox, other| {
+                    bbox.merge(&other);
+                    bbox
+                })
         }
 
         fn get_bounding_box_from_world(world: &legion::World) -> Option<BoundingBox> {
@@ -50,7 +61,7 @@ impl App {
                 let size = max - min;
                 let fit_offset = 1.1f32;
 
-                let fov = camera.get_fov();
+                let fov = Rad(camera.get_fov().to_radians());
                 let aspect = camera.get_aspect();
                 let max_size = size.magnitude();
                 let fit_height_distance = max_size / Angle::tan(fov);

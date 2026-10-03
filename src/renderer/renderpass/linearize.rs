@@ -2,7 +2,6 @@ use super::*;
 
 pub struct LinearizePass {}
 
-
 impl RenderPass for LinearizePass {
     fn name(&self) -> &'static str {
         "LinearizePass"

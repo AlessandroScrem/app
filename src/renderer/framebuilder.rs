@@ -150,7 +150,7 @@ impl FrameBuilder {
             .iter()
             .filter(|l| l.light.frustum)
             .take(uniform::MAX_LIGHTS)
-            .for_each(|l| l.light.emit(lines));
+            .for_each(|l| l.emit(lines));
     }
 
     fn prepare_meshes(
@@ -235,19 +235,11 @@ impl FrameBuilder {
 
         lights_objects
             .iter()
-            .filter(|l| l.light.enabled)
             .take(uniform::MAX_LIGHTS)
             .enumerate()
-            .for_each(|(i, l_obj)| {
-                let light = &l_obj.light;
-                let entity_id = l_obj.entity_id;
-
-                let uniform = LightUniform {
-                    entity_id,
-                    ..light.into()
-                };
+            .for_each(|(i, light_object)| {
                 lights_uniform.count = (i + 1) as u32;
-                lights_uniform.lights[i] = uniform;
+                lights_uniform.lights[i] = LightUniform::from(light_object);
             });
     }
 }

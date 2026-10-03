@@ -7,7 +7,8 @@ use crate::{
         BoundingBoxComponent, GlobalModelComponent, Hidden, HierarchyComponent, LightComponent,
         MeshComponent,
     },
-    math::Mat4,
+    math::{Mat4, Point3f, Vec3, Vec4},
+    renderer::uniform::LightUniform,
 };
 
 // ------------------------------------
@@ -21,6 +22,49 @@ pub struct MeshRenderObject {
 pub struct LightRenderObject {
     pub entity_id: u64,
     pub light: LightComponent,
+    pub position: Point3f,
+}
+
+impl LightRenderObject {
+    const SIZE: f32 = 20.0;
+    const NEAR: f32 = 0.1;
+    const FAR: f32 = 100.0;
+
+    fn get_proj_matrix() -> Mat4 {
+        crate::math::ortho(
+            -Self::SIZE,
+            Self::SIZE,
+            -Self::SIZE,
+            Self::SIZE,
+            Self::NEAR,
+            Self::FAR,
+        )
+    }
+
+    pub fn get_view_proj_matrix(&self) -> Mat4 {
+        Self::get_proj_matrix() * Self::view_matrix(self.position)
+    }
+
+    pub fn view_matrix<P>(position: P) -> Mat4
+    where
+        P: Into<Point3f>,
+    {
+        Mat4::look_at_rh(position.into(), Point3f::new(0.0, 0.0, 0.0), Vec3::unit_y())
+    }
+}
+
+impl From<&LightRenderObject> for LightUniform {
+    fn from(value: &LightRenderObject) -> Self {
+        Self {
+            color: value.light.color,
+            directional: value.light.directional.into(),
+            position: value.position.into(),
+            cast_shadow: value.light.cast_shadow.into(),
+            entity_id: value.entity_id,
+            view_proj: value.get_view_proj_matrix().into(),
+            ..Default::default()
+        }
+    }
 }
 
 pub struct BboxRenderObject {
@@ -92,17 +136,22 @@ fn extract_meshes(world: &World) -> Vec<MeshRenderObject> {
 
 fn extract_lights(world: &World) -> Vec<LightRenderObject> {
     use legion::IntoQuery;
-    let mut query = <(Entity, &LightComponent)>::query();
+    let mut query = <(Entity, &LightComponent, &GlobalModelComponent)>::query();
 
     let mut lights = Vec::new();
-    for (entity, light) in query.iter(world) {
-        if !light.enabled {
+    for (entity, light, transform) in query.iter(world) {
+        if is_hidden(world, *entity) {
             continue;
         }
+
+        let pos: [f32; 3] = (transform.mat * Vec4::new(0.0, 0.0, 0.0, 1.0))
+            .truncate()
+            .into();
 
         lights.push(LightRenderObject {
             entity_id: entity.as_raw_u64(),
             light: light.clone(),
+            position: pos.into(),
         });
     }
     lights

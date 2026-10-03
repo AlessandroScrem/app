@@ -15,12 +15,8 @@ impl GpuManager {
         let layout_cache = BindgroupLayoutCache::new(gpu.device);
         let buffer_cache = BufferCache::new(gpu.device);
         let framebuffer_cache = FramebufferCache::new(gpu, &layout_cache, width, height);
-        let bindgroup_cache = BindgroupCache::new(
-            gpu,
-            &buffer_cache,
-            &framebuffer_cache,
-            &layout_cache,
-        );
+        let bindgroup_cache =
+            BindgroupCache::new(gpu, &buffer_cache, &framebuffer_cache, &layout_cache);
 
         Self {
             layout_cache,
@@ -81,7 +77,6 @@ impl GpuManager {
             &self.bindgroup_cache.get(BindgroupKind::Skybox)
         }
     }
-
 
     pub fn replace_pbrmap_skybox_bindgroup(
         &mut self,

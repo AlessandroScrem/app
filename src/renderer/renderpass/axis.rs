@@ -2,7 +2,6 @@ use super::*;
 
 pub struct AxisPass {}
 
-
 impl RenderPass for AxisPass {
     fn name(&self) -> &'static str {
         "AxisPass"

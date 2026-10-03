@@ -1,25 +1,18 @@
-mod debug;
 mod entity_list;
+mod main_wnd;
 mod menu_bar;
 mod properties;
 mod settings;
-mod snapshot;
 mod tools;
 mod traits;
+mod ui_commands;
 mod ui_layer;
-mod main_wnd;
 
-pub(crate) use snapshot::{
-    HierarchyNode, LightNode, LightNodes, RenderStats, RootNodes, RootSnapshot, UiComponentState,
-    UiSnapshot,
-};
-pub(crate) use traits::{InternalCounter, UiTexture, UiTextureResolver};
-pub(crate) use ui_layer::{Layer,UiLayer, EditorInteraction};
+pub(crate) use traits::{InternalCounter, UiTextureRegistry};
+pub(crate) use ui_layer::{UiContext, UiLayer};
 
-use crate::prelude::trace;
-use debug::DebugUi;
 use entity_list::EntityListUi;
-use menu_bar::{FileFilter, MenuBarUi};
+use main_wnd::ViewportUi;
+use menu_bar::MenuBarUi;
 use properties::PropertyUi;
-use settings::SettimgsUi;
-use ui_layer::UiContext;
+use settings::SettingsUi;

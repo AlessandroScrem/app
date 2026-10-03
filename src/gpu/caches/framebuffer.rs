@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{assets::texture_asset::{ColorSpace, SamplerDesc}, gpu::GpuContextRef};
+use crate::{
+    assets::texture_asset::{ColorSpace, SamplerDesc},
+    gpu::GpuContextRef,
+};
 
 use super::*;
 

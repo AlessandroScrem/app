@@ -33,7 +33,6 @@ pub fn load_cpu_textures_par<'a>(
 pub fn load_and_decode(desc: TextureDesc) -> Option<TextureData> {
     let (path, color_space) = match desc {
         TextureDesc::File { path, usage, .. } => (path, usage.color_space()),
-
     };
 
     trace!("read texture {:?}", path.as_path());

@@ -1,9 +1,8 @@
-use std::path::PathBuf;
 use crate::assets::gltf_loader::GltfGroup;
 use crate::assets::material_desc::MaterialDesc;
 use crate::assets::{IblId, MaterialId};
 use crate::ecs::components::*;
-use crate::math::*;
+use std::path::PathBuf;
 
 use legion::Entity;
 
@@ -22,29 +21,25 @@ pub enum SceneEvent {
     SaveAs(PathBuf),
     Open(PathBuf),
     AddComponent(GltfGroup, TransformComponent),
+    AddLightComponent(LightComponent, TagComponent, TransformComponent),
     ClearScene,
 }
 
 pub enum SelectionEvent {
     Hovered(Option<Entity>),
-    Select(Option<Entity>),
-    #[allow(unused)]
-    SelectMulti(Vec<u64>),
-    SelectHovered,
+    Select(Vec<u64>),
     SelectIbl(IblId),
 }
 pub enum AssetEvent {
     LoadGltf(PathBuf),
     AddIbl(PathBuf),
+    #[allow(dead_code)]
     UpdateMaterial(MaterialId, MaterialDesc),
 }
 pub enum EntityEvent {
     AddLight,
     RemoveEntity(Entity),
     AddParent(Entity),
-    UpdateTag(Entity, TagComponent),
-    UpdateTransform(Entity, TransformComponent),
-    UpdateLight(Entity, LightComponent),
     EnableAllLight(bool),
     DisableEntity(Entity, bool),
 }
@@ -69,7 +64,7 @@ pub enum CameraEvent {
     CameraPan(f64, f64),
     CameraZoom(f32),
     RecenterCamera,
-    CameraFov(Rad<f32>),
+    CameraFov(f32),
     CameraDistance(f32),
     CameraNearFar((f32, f32)),
 }

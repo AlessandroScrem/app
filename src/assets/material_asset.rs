@@ -1,6 +1,5 @@
-use crate::assets::material_desc::{MaterialDesc};
-use crate::assets::asset_manager::{GlobalAssetId, Asset};
-
+use crate::assets::asset_manager::{Asset, GlobalAssetId};
+use crate::assets::material_desc::MaterialDesc;
 
 #[derive(Clone)]
 pub struct MaterialAsset {

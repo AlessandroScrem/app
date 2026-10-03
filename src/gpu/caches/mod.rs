@@ -7,7 +7,6 @@ mod material;
 mod mesh;
 mod texture;
 
-
 pub(crate) use super::static_textures;
 pub(crate) use super::texture::{Dimension, GpuTexture, GpuTextureBuilder, GpuTextureUsage};
 pub(crate) use bindgroup::*;

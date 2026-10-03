@@ -125,6 +125,17 @@ impl<T: Asset> AssetStorage<T> {
 }
 
 impl<T: Asset> AssetStorage<T> {
+    pub fn iter(&self) -> impl Iterator<Item = (AssetId, &T)> {
+        self.slots.iter().enumerate().filter_map(|(index, slot)| {
+            slot.value.as_ref().map(|value| {
+                (AssetId {
+                    index: index as u32,
+                    generation: slot.generation,
+                }, value)
+            })
+        })
+    }
+
     pub fn get_by_id(&self, id: AssetId) -> Option<&T> {
         let slot = self.slots.get(id.index as usize)?;
 

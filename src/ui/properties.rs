@@ -1,507 +1,524 @@
-use super::*;
-use imgui::*;
-
-use crate::assets::MaterialId;
+use super::ui_commands::UiCommands;
+use super::ui_layer::{Layer, UiContext};
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
-use imgui::{Drag, TreeNodeFlags};
-
-use crate::app::domain::events::{AssetEvent, DomainEvent, EntityEvent};
-use crate::ecs::components::{
-    BoundingBoxComponent, LightComponent, MeshComponent, TagComponent, TransformComponent,
+use crate::editor::{
+    AssetCommand, EntityCommand, EntityId, InspectorData, InspectorSection, LightData,
+    MaterialData, TransformData,
 };
+use imgui::{Condition, Drag, Image, TreeNodeFlags, Ui};
 
-pub struct PropertyUi {}
+#[derive(Default)]
+pub struct PropertyUi {
+    inspector: Option<InspectorData>,
+    draft: Option<InspectorData>,
+    selection: Vec<EntityId>,
+}
 
 impl Layer for PropertyUi {
+    fn update(&mut self, commands: &UiCommands) {
+        let inspector = commands.inspector().cloned();
+
+        if self.draft.as_ref().is_none_or(|draft| {
+            inspector
+                .as_ref()
+                .is_none_or(|data| data.entity != draft.entity)
+        }) {
+            self.draft = inspector.clone();
+        }
+
+        self.inspector = inspector;
+        self.selection = commands.selection().to_vec();
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        ui.window("Properties")
-            .size([300.0, 300.0], Condition::FirstUseEver)
-            .build(|| {
-                draw_entity_inspector(ui, ctx);
-            });
+        let window = ui
+            .window("Properties")
+            .size([420.0, 560.0], Condition::FirstUseEver);
+        window.build(|| draw_inspector(ui, ctx, self.draft.as_mut(), &self.selection));
     }
 }
 
-pub fn draw_entity_inspector(ui: &imgui::Ui, ctx: &mut UiContext) {
-    let Some(selected) = ctx.snapshot.selected else {
+fn draw_inspector(
+    ui: &Ui,
+    ctx: &mut UiContext,
+    inspector: Option<&mut InspectorData>,
+    selection: &[EntityId],
+) {
+    let Some(inspector) = inspector else {
+        ui.text(format!("{} entities selected", selection.len()));
+        for entity in selection {
+            ui.text(format!("Entity: {}", entity));
+        }
         return;
     };
 
-    let texture_resolver = ctx.snapshot.texture_resolver;
-    let cv = &ctx.snapshot.comp_state;
+    ui.text(format!("{}  [#{}]", inspector.name, inspector.entity));
+    ui.separator();
 
-    if let Some(f) = &mut cv.tag.clone() {
-        if f.draw_ui(ui) {
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTag(
-                selected.clone(),
-                f.clone(),
-            )));
-        }
-    }
+    draw_inspector_name(ui, ctx, inspector);
 
-    if let Some(f) = &mut cv.transform.clone() {
-        if f.draw_ui(ui) {
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateTransform(
-                    selected.clone(),
-                    f.clone(),
-                )));
-        }
-    }
-
-    if let Some(f) = &cv.bounding_box {
-        f.draw_ui(ui);
-    }
-
-    if let Some(f) = &mut cv.mesh.clone() {
-        f.draw_ui(ui);
-    }
-
-    if let Some(materials) = &cv.materials {
-        if let Some((mat_updated, mat_id)) = draw_materials(ui, materials, texture_resolver) {
-            trace!("Add AssetEvent::UpdateMaterial for id{}", mat_id);
-            ctx.bus.send_domain(DomainEvent::Assets(AssetEvent::UpdateMaterial(
-                    mat_id,
-                    mat_updated,
-                )));
-        }
-    }
-
-    if let Some(f) = &mut cv.light.clone() {
-        if f.draw_ui(ui, texture_resolver) {
-            ctx.bus.send_domain(DomainEvent::Entity(EntityEvent::UpdateLight(
-                selected.clone(),
-                f.clone(),
-            )));
+    let entity = inspector.entity;
+    for section in &mut inspector.sections {
+        match section {
+            InspectorSection::Transform(transform) => {
+                draw_inspector_transform(ui, ctx, entity, transform);
+            }
+            InspectorSection::Mesh(mesh) => draw_mesh(ui, mesh),
+            InspectorSection::Materials(materials) => draw_materials(ui, ctx, materials),
+            InspectorSection::BoundingBox(bbox) => draw_bounding_box(ui, bbox),
+            InspectorSection::Light(light) => draw_light(ui, ctx, entity, light),
         }
     }
 }
 
-impl TagComponent {
-    fn draw_ui(&mut self, ui: &Ui) -> bool {
-        let tag = self;
-        let mut dirty = false;
-        if ui.collapsing_header(
-            "TagComponent",
-            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-        ) {
-            dirty |= ui.input_text("Name: ", &mut tag.name).build();
-        }
-        dirty
-    }
-}
-
-use std::cell::RefCell;
-use std::collections::HashMap;
-
-thread_local! {
-    static SELECTED_INDEX: RefCell<MaterialId> = RefCell::new(MaterialId::default());
-}
-
-impl MaterialDesc {
-    fn draw_ui_slot(
-        &mut self,
-        ui: &imgui::Ui,
-        slot: MaterialTextureSlot,
-        resolver: &dyn UiTextureResolver,
-    ) -> bool {
-        let mut dirty = false;
-        let label = slot.as_str();
-        let iconsize = [ui.text_line_height(), ui.text_line_height()];
-        let material = self;
-
-        if let Some(id) = material.texture(slot) {
-            ui.text(label);
-
-            let mut use_texture = material.slot_get(slot);
-
-            if ui.checkbox(&format!("Use##{}", label), &mut use_texture) {
-                material.slot_set(slot, use_texture);
-                dirty = true;
-            }
-
-            if use_texture {
-                ui.same_line();
-                draw_ui_texture_icon(ui, resolver.resolve(UiTexture::Engine(id)), iconsize);
-                dirty |= draw_texture_transform(ui, material, slot);
-            } else {
-                dirty |= slot.draw_ui(ui, material);
-            }
-        } else {
-            ui.disabled(true, || {
-                ui.text(label);
-            });
-            dirty |= slot.draw_ui(ui, material);
-        }
-        dirty
-    }
-}
-
-impl MaterialTextureSlot {
-    fn draw_ui(self, ui: &Ui, material: &mut MaterialDesc) -> bool {
-        match self {
-            MaterialTextureSlot::BaseColor => {
-                let mut color: [f32; 4] = material.base_color_factor.into();
-                ui.same_line();
-
-                let changed = ui
-                    .color_edit4_config("##BaseColor", &mut color)
-                    .inputs(false)
-                    .build();
-
-                if changed {
-                    material.base_color_factor = color.into();
-                }
-
-                changed
-            }
-            MaterialTextureSlot::Emissive => {
-                let mut color: [f32; 4] = material.emissive_factor.into();
-                ui.same_line();
-
-                let changed = ui
-                    .color_edit4_config("##Emissive", &mut color)
-                    .inputs(false)
-                    .build();
-
-                if changed {
-                    material.emissive_factor = color.into();
-                }
-
-                changed
-            }
-            MaterialTextureSlot::Normal => {
-                let changed = Drag::new("##Normal")
-                    .speed(0.01)
-                    .range(0.0, 1.0)
-                    .build(ui, &mut material.normal_scale);
-                changed
-            }
-            MaterialTextureSlot::MetallicRoughness => {
-                let mut changed = false;
-
-                changed |= Drag::new("MetFactor")
-                    .speed(0.01)
-                    .range(0.01, 1.0)
-                    .build(ui, &mut material.metallic_factor);
-
-                changed |= Drag::new("RoughFactor")
-                    .speed(0.01)
-                    .range(0.01, 1.0)
-                    .build(ui, &mut material.roughness_factor);
-
-                changed
-            }
-            MaterialTextureSlot::Occlusion => {
-                let changed = Drag::new("##Occlusion")
-                    .speed(0.01)
-                    .range(0.0, 1.0)
-                    .build(ui, &mut material.occlusion_strength);
-                changed
-            }
-            MaterialTextureSlot::Transmission => {
-                if let Some(transmission) = material.transmission.as_mut() {
-                    let mut changed = false;
-                    changed |= Drag::new("Transmission")
-                        .speed(0.01)
-                        .range(0.0, 1.0)
-                        .build(ui, &mut transmission.factor);
-
-                    changed |= Drag::new("Ior")
-                        .speed(0.01)
-                        .range(1.0, 2.5)
-                        .build(ui, &mut material.ior);
-                    changed
-                } else {
-                    false
-                }
-            }
-            MaterialTextureSlot::Volume => {
-                if let Some(volume) = material.volume.as_mut() {
-                    let mut changed = false;
-                    ui.same_line();
-                    changed |= ui
-                        .color_edit3_config("##AttColor", &mut volume.attenuation_color)
-                        .inputs(false)
-                        .build();
-                    changed |= Drag::new("Tick-Factor")
-                        .speed(0.01)
-                        .range(0.0, 1.0)
-                        .build(ui, &mut volume.thickness_factor);
-                    changed |= Drag::new("Att-Dist")
-                        .speed(0.01)
-                        .range(0.0, 1.0)
-                        .build(ui, &mut volume.attenuation_distance);
-                    changed
-                } else {
-                    false
-                }
-            }
-        }
-    }
-}
-
-fn draw_sheen_ui(ui: &Ui, material: &mut MaterialDesc) -> bool {
-    if let Some(sheen) = material.sheen.as_mut() {
-        let mut changed = false;
-
-        ui.text("Sheen");
-        ui.same_line();
-        changed |= ui
-            .color_edit3_config("##SheenColor", &mut sheen.color_factor)
-            .inputs(false)
-            .build();
-
-        changed |= Drag::new("SheenRoughness")
-            .speed(0.01)
-            .range(0.01, 1.0)
-            .build(ui, &mut sheen.roughness_factor);
-
-        changed
-    } else {
-        false
-    }
-}
-
-fn draw_materials(
-    ui: &Ui,
-    materials: &HashMap<MaterialId, MaterialDesc>,
-    resolver: &dyn UiTextureResolver,
-) -> Option<(MaterialDesc, MaterialId)> {
-    let mut dirty = false;
-    let mut result: Option<(MaterialDesc, MaterialId)> = None;
-
-    if ui.collapsing_header(
-        "Material",
+fn draw_inspector_name(ui: &Ui, ctx: &UiContext, inspector: &mut InspectorData) {
+    if !ui.collapsing_header(
+        "Tag",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
     ) {
-        if materials.is_empty() {
-            trace!("materials empty");
-            return None;
-        }
+        return;
+    }
 
-        if let Some(_t) = ui.begin_table("", 2) {
-            // -- Left column: Material list  ---
-            ui.table_next_column();
-
-            SELECTED_INDEX.with(|id_cell| {
-                let mut selected_id = *id_cell.borrow();
-
-                let mut keys: Vec<MaterialId> = materials.keys().cloned().collect();
-                keys.sort_by_key(|id| id.id.index);
-
-                // select first id if not exist
-                if !materials.contains_key(&selected_id) {
-                    selected_id = keys[0];
-                }
-
-                let listbox_height = materials.len() as f32 * ui.text_line_height_with_spacing();
-                ui.child_window("##Material list")
-                    .size([0.0, listbox_height])
-                    .build(|| {
-                        for id in keys {
-                            let label = id.to_string();
-                            let is_selected = id == selected_id;
-
-                            // highlight selection if selected
-                            if ui.selectable_config(label).selected(is_selected).build() {
-                                selected_id = id;
-                            }
-
-                            // initial focus
-                            if is_selected {
-                                ui.set_item_default_focus();
-                            }
-                        }
-                    });
-
-                *id_cell.borrow_mut() = selected_id;
-            });
-
-            // --- Right column: material controls ---
-            ui.table_next_column();
-            SELECTED_INDEX.with(|idx_cell| {
-                let selected_id = *idx_cell.borrow();
-
-                use crate::assets::material_desc::MaterialTextureSlot::*;
-
-                if let Some(mut material) = materials.get(&selected_id).cloned() {
-                    let name = material.get_name();
-
-                    if ui.collapsing_header(name, TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::LEAF)
-                    {
-                        dirty |= material.draw_ui_slot(ui, BaseColor, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, Emissive, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, Occlusion, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, MetallicRoughness, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, Normal, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, Transmission, resolver);
-                        ui.separator();
-                        dirty |= material.draw_ui_slot(ui, Volume, resolver);
-                        ui.separator();
-                        dirty |= draw_sheen_ui(ui, &mut material);
-                    }
-
-                    if dirty {
-                        result = Some((material.clone(), selected_id.clone()));
-                    }
-                }
-            });
-        } // columns
-    } // collapsing header
-    result
-}
-
-impl TransformComponent {
-    fn draw_ui(&mut self, ui: &Ui) -> bool {
-        let transform = self;
-        let mut dirty = false;
-
-        if ui.collapsing_header(
-            "TransformComponent",
-            TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
-        ) {
-            ui.text(format!("Position: {:?}", transform.position));
-            ui.text(format!("Rotation[Deg]: {:?}", transform.rotation));
-            ui.text(format!("Scale: {:?}", transform.scale));
-            ui.separator();
-
-            let id = ui.push_id_ptr(transform);
-            let mut pos = transform.position;
-            let mut rot = transform.rotation;
-            let mut scale = transform.scale;
-            if Drag::new("Move").speed(0.1).build_array(ui, &mut pos) {
-                transform.position = pos;
-                dirty = true;
-            };
-            if Drag::new("Rot[rad]").speed(0.01).build_array(ui, &mut rot) {
-                transform.rotation = rot;
-                dirty = true;
-            };
-            if Drag::new("Scale").speed(0.1).build_array(ui, &mut scale) {
-                transform.scale = scale;
-                dirty = true;
-            };
-            id.pop();
-        }
-        dirty
+    if ui.input_text("Name", &mut inspector.name).build() {
+        ctx.commands.send(EntityCommand::SetName {
+            entity: inspector.entity,
+            name: inspector.name.clone(),
+        });
     }
 }
 
-impl BoundingBoxComponent {
-    fn draw_ui(&self, ui: &Ui) -> bool {
-        let bbox = &self.bounding_box;
-        let gbbox = &self.global_bounding_box;
+fn draw_inspector_transform(
+    ui: &Ui,
+    ctx: &UiContext,
+    entity: EntityId,
+    transform: &mut TransformData,
+) {
+    if !ui.collapsing_header(
+        "Transform",
+        TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
+    ) {
+        return;
+    }
 
-        if ui.collapsing_header("BoundingBoxComponent", TreeNodeFlags::ALLOW_ITEM_OVERLAP) {
-            ui.text("Local");
-            ui.text(format!("Min: {:?}", bbox.min));
-            ui.text(format!("Max: {:?}", bbox.max));
-            ui.separator();
-            ui.text("Global");
-            ui.text(format!("Min: {:?}", gbbox.min));
-            ui.text(format!("Max: {:?}", gbbox.max));
-        }
-        false
+    let edit = draw_transform_fields(ui, transform);
+
+    if edit.activated {
+        ctx.commands
+            .send(EntityCommand::BeginTransformEdit { entity });
+    }
+
+    if edit.changed {
+        ctx.commands.send(EntityCommand::SetTransform {
+            entity,
+            transform: transform.clone(),
+        });
+    }
+
+    if edit.deactivated {
+        ctx.commands
+            .send(EntityCommand::EndTransformEdit { entity });
+    }
+
+    ui.separator();
+    if ui.small_button("Reset Transform") {
+        *transform = TransformData {
+            translation: [0.0; 3],
+            rotation: [0.0; 3],
+            scale: [1.0; 3],
+        };
+        reset_transform(ctx, entity, transform.clone());
+    }
+
+    ui.same_line();
+    if ui.small_button("Reset Position") {
+        transform.translation = [0.0; 3];
+        reset_transform(ctx, entity, transform.clone());
+    }
+
+    ui.same_line();
+    if ui.small_button("Reset Rotation") {
+        transform.rotation = [0.0; 3];
+        reset_transform(ctx, entity, transform.clone());
     }
 }
 
-impl MeshComponent {
-    fn draw_ui(&mut self, ui: &Ui) -> bool {
-        if ui.collapsing_header("MeshComponent", TreeNodeFlags::ALLOW_ITEM_OVERLAP) {}
-        false
+#[derive(Default)]
+struct TransformEdit {
+    changed: bool,
+    activated: bool,
+    deactivated: bool,
+}
+
+fn draw_transform_fields(ui: &Ui, transform: &mut TransformData) -> TransformEdit {
+    ui.group(|| {
+        let translation_edited = Drag::new("Translation")
+            .speed(0.1)
+            .build_array(ui, &mut transform.translation);
+        let translation_activated = ui.is_item_activated();
+        let translation_deactivated = ui.is_item_deactivated_after_edit();
+
+        let rotation_edited = Drag::new("Rotation")
+            .speed(0.01)
+            .build_array(ui, &mut transform.rotation);
+        let rotation_activated = ui.is_item_activated();
+        let rotation_deactivated = ui.is_item_deactivated_after_edit();
+
+        let scale_edited = Drag::new("Scale")
+            .speed(0.1)
+            .build_array(ui, &mut transform.scale);
+        let scale_activated = ui.is_item_activated();
+        let scale_deactivated = ui.is_item_deactivated_after_edit();
+
+        TransformEdit {
+            changed: translation_edited || rotation_edited || scale_edited,
+            activated: translation_activated || rotation_activated || scale_activated,
+            deactivated: translation_deactivated || rotation_deactivated || scale_deactivated,
+        }
+    })
+}
+
+fn reset_transform(ctx: &UiContext, entity: EntityId, transform: TransformData) {
+    ctx.commands
+        .send(EntityCommand::BeginTransformEdit { entity });
+    ctx.commands
+        .send(EntityCommand::SetTransform { entity, transform });
+    ctx.commands
+        .send(EntityCommand::EndTransformEdit { entity });
+}
+
+fn draw_mesh(ui: &Ui, mesh: &crate::editor::MeshData) {
+    if ui.collapsing_header("Mesh", TreeNodeFlags::DEFAULT_OPEN) {
+        ui.text(format!("Mesh: {}", mesh.id));
     }
 }
 
-impl LightComponent {
-    fn draw_ui(&mut self, ui: &Ui, resolver: &dyn UiTextureResolver) -> bool {
-        let mut dirty = false;
-
-        let light = self;
-        if ui.collapsing_header("Light Properties", TreeNodeFlags::DEFAULT_OPEN) {
-            let mut position = light.get_position();
-            if Drag::new("Position")
-                .speed(0.1)
-                .build_array(ui, &mut position)
-            {
-                dirty = true;
-                light.update_position(position);
-            };
-
-            dirty |= ui.color_edit3("Color", &mut light.color);
-            {
-                let mut enabled = light.enabled;
-                if ui.checkbox("Enabled", &mut enabled) {
-                    light.enabled = enabled;
-                    dirty = true;
-                }
-            }
-            {
-                let mut directional = light.directional;
-                if ui.checkbox("Directional", &mut directional) {
-                    light.directional = directional;
-                    dirty = true;
-                }
-            }
-
-            {
-                let mut cast_shadow = light.cast_shadow;
-                if ui.checkbox("Cast Shadow", &mut cast_shadow) {
-                    light.cast_shadow = cast_shadow;
-                    dirty = true;
-                }
-            }
-            light.cast_shadow.then(|| {
-                let mut frustum = light.frustum;
-                ui.same_line();
-                if ui.checkbox("Frustum", &mut frustum) {
-                    light.frustum = frustum;
-                    dirty = true;
-                }
-            });
-        }
-        if light.enabled & light.cast_shadow {
-            let iconsize = [200.0, 200.0];
-            draw_ui_texture_icon(ui, resolver.resolve(UiTexture::ShadowMap), iconsize);
-        }
-
-        dirty
+fn draw_bounding_box(ui: &Ui, bbox: &crate::editor::BoundingBoxData) {
+    if ui.collapsing_header("Bounding Box", TreeNodeFlags::DEFAULT_OPEN) {
+        ui.text(format!("Local min: {:?}", bbox.min));
+        ui.text(format!("Local max: {:?}", bbox.max));
+        ui.separator();
+        ui.text(format!("Global min: {:?}", bbox.global_min));
+        ui.text(format!("Global max: {:?}", bbox.global_max));
     }
 }
 
-fn draw_ui_texture_icon(ui: &imgui::Ui, id: Option<TextureId>, size: [f32; 2]) {
-    if let Some(id) = id {
-        ui.image_button("no name", id, size);
+fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) {
+    if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {
+        return;
+    }
+
+    for material in materials {
+        let id = ui.push_id(material.id.id.index.to_string());
+        if ui.collapsing_header(&material.name, TreeNodeFlags::DEFAULT_OPEN) {
+            *ctx.material_preview = Some(material.id);
+            draw_material(ui, ctx, material);
+        }
+        id.pop();
+    }
+}
+
+fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
+    ui.text(&material.name);
+    ui.same_line();
+    ui.text_disabled(format!("#{}", material.id.id.index));
+    ui.separator();
+
+    draw_material_preview(ui, ctx, material);
+
+    let mut changed = false;
+
+    if ui.collapsing_header("Surface", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_surface(ui, &mut material.desc);
+    }
+
+    if ui.collapsing_header("Textures", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_textures(ui, ctx, &mut material.desc);
+    }
+
+    if ui.collapsing_header("Transmission", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_transmission(ui, &mut material.desc);
+    }
+
+    if ui.collapsing_header("Volume", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_volume(ui, &mut material.desc);
+    }
+
+    if ui.collapsing_header("Sheen", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_sheen(ui, &mut material.desc);
+    }
+
+    if ui.collapsing_header("Alpha", TreeNodeFlags::DEFAULT_OPEN) {
+        changed |= draw_alpha(ui, &mut material.desc);
+    }
+
+    if changed {
+        send_material_update(ctx, material);
+    }
+}
+
+fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
+    ui.text("Preview");
+
+    let preview = material
+        .desc
+        .texture(MaterialTextureSlot::BaseColor)
+        .and_then(|texture| ctx.textures.asset(texture));
+
+    if let Some(texture) = ctx.textures.material_preview() {
+        Image::new(texture, [128.0, 128.0]).build(ui);
+    } else if let Some(texture) = preview {
+        Image::new(texture, [96.0, 96.0]).build(ui);
+    } else {
+        ui.text_disabled("PBR preview render target not available");
+    }
+}
+
+fn draw_surface(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
+    let mut color: [f32; 4] = material.base_color_factor.into();
+    if ui
+        .color_edit4_config("Base Color", &mut color)
+        .inputs(false)
+        .build()
+    {
+        material.base_color_factor = color.into();
+        changed = true;
+    }
+
+    changed |= Drag::new("Metallic")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut material.metallic_factor);
+    changed |= Drag::new("Roughness")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut material.roughness_factor);
+    changed |= Drag::new("Normal Scale")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut material.normal_scale);
+    changed |= Drag::new("Occlusion")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut material.occlusion_strength);
+
+    let mut emissive: [f32; 4] = material.emissive_factor.into();
+    if ui
+        .color_edit4_config("Emission", &mut emissive)
+        .inputs(false)
+        .build()
+    {
+        material.emissive_factor = emissive.into();
+        changed = true;
+    }
+
+    changed
+}
+
+fn draw_textures(ui: &Ui, ctx: &UiContext, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
+    for slot in MaterialTextureSlot::ALL {
+        changed |= draw_texture_slot(ui, ctx, material, slot);
+    }
+
+    changed
+}
+
+fn draw_texture_slot(
+    ui: &Ui,
+    ctx: &UiContext,
+    material: &mut MaterialDesc,
+    slot: MaterialTextureSlot,
+) -> bool {
+    ui.separator();
+    ui.text(slot.as_str());
+
+    if material.texture(slot).is_none() {
+        ui.text_disabled("No texture assigned");
+        return false;
+    }
+
+    let mut changed = false;
+    let mut enabled = material.slot_get(slot);
+    if ui.checkbox("Enabled", &mut enabled) {
+        material.slot_set(slot, enabled);
+        changed = true;
+    }
+
+    if enabled {
+        draw_texture_preview(ui, ctx, material, slot);
+        changed |= draw_texture_transform(ui, material, slot);
+    }
+
+    changed
+}
+
+fn draw_texture_preview(
+    ui: &Ui,
+    ctx: &UiContext,
+    material: &MaterialDesc,
+    slot: MaterialTextureSlot,
+) {
+    let Some(texture) = material.texture(slot) else {
+        return;
+    };
+
+    if let Some(texture_id) = ctx.textures.asset(texture) {
+        Image::new(texture_id, [64.0, 64.0]).build(ui);
+        ui.same_line();
+        ui.text(format!("Texture #{}", texture.id.index));
+    } else {
+        ui.text_disabled(format!("Texture #{} not available", texture.id.index));
     }
 }
 
 fn draw_texture_transform(
-    ui: &imgui::Ui,
+    ui: &Ui,
     material: &mut MaterialDesc,
     slot: MaterialTextureSlot,
 ) -> bool {
-    let mut dirty = false;
+    let Some(transform) = material.uvtransform_mut(slot) else {
+        return false;
+    };
 
-    if let Some(transform) = material.uvtransform_mut(slot) {
-        let id = ui.push_id(slot.as_str());
-
-        let offset = &mut transform.offset;
-        let rotation = &mut transform.rotation;
-        let scale = &mut transform.scale;
-
-        dirty |= Drag::new("Offset")
-            .range(-1.0, 1.0)
-            .speed(0.01)
-            .build_array(ui, offset);
-        dirty |= Drag::new("Rotation").speed(0.01).build(ui, rotation);
-        dirty |= Drag::new("Scale").speed(0.5).build_array(ui, scale);
-
-        id.pop();
+    if !ui.collapsing_header("UV Transform", TreeNodeFlags::empty()) {
+        return false;
     }
 
-    return dirty;
+    let mut changed = false;
+    changed |= Drag::new("Offset")
+        .speed(0.01)
+        .build_array(ui, &mut transform.offset);
+    changed |= Drag::new("Rotation")
+        .speed(0.01)
+        .build(ui, &mut transform.rotation);
+    changed |= Drag::new("Scale")
+        .speed(0.01)
+        .build_array(ui, &mut transform.scale);
+    changed
+}
+
+fn draw_transmission(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let Some(transmission) = material.transmission.as_mut() else {
+        ui.text_disabled("Transmission not enabled");
+        return false;
+    };
+
+    let mut changed = Drag::new("Weight")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut transmission.factor);
+
+    changed |= Drag::new("IOR")
+        .speed(0.01)
+        .range(1.0, 2.5)
+        .build(ui, &mut material.ior);
+
+    changed
+}
+
+fn draw_volume(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let Some(volume) = material.volume.as_mut() else {
+        ui.text_disabled("Volume not enabled");
+        return false;
+    };
+
+    let mut changed = false;
+    changed |= Drag::new("Thickness")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut volume.thickness_factor);
+    changed |= Drag::new("Distance")
+        .speed(0.01)
+        .range(0.01, 100.0)
+        .build(ui, &mut volume.attenuation_distance);
+    changed |= ui.color_edit3("Attenuation", &mut volume.attenuation_color);
+    changed
+}
+
+fn draw_sheen(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let Some(sheen) = material.sheen.as_mut() else {
+        ui.text_disabled("Sheen not enabled");
+        return false;
+    };
+
+    let mut changed = ui.color_edit3("Color", &mut sheen.color_factor);
+    changed |= Drag::new("Roughness")
+        .speed(0.01)
+        .range(0.0, 1.0)
+        .build(ui, &mut sheen.roughness_factor);
+    changed
+}
+
+fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
+    let mut changed = false;
+
+    match material.alpha_mode {
+        crate::assets::material_desc::AlphaMode::Opaque => ui.text("Mode: Opaque"),
+        crate::assets::material_desc::AlphaMode::Mask { ref mut alpha_cutoff } => {
+            ui.text("Mode: Mask");
+            changed |= Drag::new("Cutoff")
+                .speed(0.01)
+                .range(0.0, 1.0)
+                .build(ui, alpha_cutoff);
+        }
+        crate::assets::material_desc::AlphaMode::Blend => ui.text("Mode: Blend"),
+    }
+
+    ui.text("Select mode:");
+    if ui.small_button("Opaque") {
+        material.alpha_mode = crate::assets::material_desc::AlphaMode::Opaque;
+        changed = true;
+    }
+    ui.same_line();
+    if ui.small_button("Mask") {
+        material.alpha_mode = crate::assets::material_desc::AlphaMode::mask_default();
+        changed = true;
+    }
+    ui.same_line();
+    if ui.small_button("Blend") {
+        material.alpha_mode = crate::assets::material_desc::AlphaMode::Blend;
+        changed = true;
+    }
+
+    changed
+}
+
+fn send_material_update(ctx: &UiContext, material: &MaterialData) {
+    ctx.commands.send(AssetCommand::UpdateMaterial {
+        id: material.id,
+        desc: material.desc.clone(),
+    });
+}
+
+fn draw_light(ui: &Ui, ctx: &UiContext, entity: EntityId, light: &mut LightData) {
+    if !ui.collapsing_header("Light", TreeNodeFlags::DEFAULT_OPEN) {
+        return;
+    }
+
+    if draw_light_properties(ui, light) {
+        ctx.commands.send(EntityCommand::SetLight {
+            entity,
+            light: light.clone(),
+        });
+    }
+
+    if light.cast_shadow {
+        if let Some(texture) = ctx.textures.shadow_map() {
+            Image::new(texture, [200.0, 200.0]).build(ui);
+        }
+    }
+}
+
+fn draw_light_properties(ui: &Ui, light: &mut LightData) -> bool {
+    let mut edited = false;
+    edited |= ui.color_edit3("Color", &mut light.color);
+    edited |= ui.checkbox("Directional", &mut light.directional);
+    edited |= ui.checkbox("Cast Shadow", &mut light.cast_shadow);
+    if light.cast_shadow {
+        edited |= ui.checkbox("Frustum", &mut light.frustum);
+    }
+    edited
 }

@@ -41,5 +41,39 @@
         ]
       }
     }
+  ],
+  "lights": [
+    {
+      "light_component": {
+        "color": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "directional": true,
+        "cast_shadow": false,
+        "frustum": false
+      },
+      "tag": {
+        "name": "Directional one"
+      },
+      "transform": {
+        "position": [
+          -4.9,
+          30.2,
+          -2.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
   ]
 }

@@ -1,6 +1,6 @@
 use crate::ecs::entity_id::EntityId;
 use crate::math::*;
-use crate::renderer::uniform::{LightUniform};
+use crate::renderer::uniform::LightUniform;
 
 use super::*;
 
@@ -37,17 +37,11 @@ impl RenderPass for ShadowPass {
             .take(lights.count as usize)
         {
             if let Some(shadow_view) = ctx.shadow_mgr.get_shadowmap_view(slot) {
-                let size =  size_of::<LightUniform>() as u64;
+                let size = size_of::<LightUniform>() as u64;
                 let offset = slot as u64 * size;
                 let source = ctx.gpu_mgr.get_buffer(BufferKind::Lights);
                 let dest = ctx.shadow_mgr.get_buffer();
-                encoder.copy_buffer_to_buffer(
-                    source,
-                    offset,
-                    dest,
-                    0,
-                    size,
-                );
+                encoder.copy_buffer_to_buffer(source, offset, dest, 0, size);
 
                 build_shadowmap(encoder, ctx, frame, &shadow_view);
                 if let Some(entity) = frame.tasks.entity_selected {

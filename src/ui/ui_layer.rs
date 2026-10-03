@@ -1,73 +1,75 @@
-use super::*;
-use imgui::*;
+use super::ui_commands::UiCommands;
+use super::{
+    EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi,
+};
+use crate::editor::EditorCommandClient;
+use crate::ui::tools;
 
+use imgui::Ui;
 use imgui_winit_support::WinitPlatform;
 use winit::event::Event;
 use winit::window::Window;
 
-use crate::engine::engine::EventBus;
-use crate::math::Vec2;
-use crate::timestep::Timestep;
-use crate::ui::main_wnd::ViewportUi;
-
-pub enum EditorInteraction {
-    None,
-    Selecting { start: Vec2, current: Vec2 },
-    // DraggingGizmo {
-    //     id: GizmoId,
-    // },
+pub struct UiContext<'a> {
+    pub commands: &'a EditorCommandClient,
+    pub textures: &'a UiTextureRegistry,
+    pub material_preview: &'a mut Option<crate::assets::MaterialId>,
 }
 
-pub struct UiContext<'a> {
-    pub snapshot: &'a UiSnapshot<'a>,
-    pub bus: &'a mut EventBus,
-    pub timestep: Timestep,
-    pub adapter_string: String,
-    pub editor_interaction: &'a EditorInteraction,
+struct UiStack {
+    layers: Vec<Box<dyn Layer>>,
+}
+
+impl UiStack {
+    fn new() -> Self {
+        Self { layers: Vec::new() }
+    }
+
+    fn push<L: Layer + 'static>(&mut self, layer: L) {
+        self.layers.push(Box::new(layer));
+    }
+}
+
+pub trait Layer {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext);
+    fn update(&mut self, commands: &UiCommands);
+}
+
+impl Layer for UiStack {
+    fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
+        for layer in self.layers.iter_mut() {
+            layer.build(ui, ctx);
+        }
+    }
+
+    fn update(&mut self, commands: &UiCommands) {
+        for layer in self.layers.iter_mut() {
+            layer.update(commands);
+        }
+    }
 }
 
 pub struct UiLayer {
     context: imgui::Context,
     pub platform: WinitPlatform,
     ini_loaded: bool,
-    timestep: Timestep,
+    timestep: crate::timestep::Timestep,
     stack: UiStack,
-    adapter_string: String,
-}
-
-struct UiStack {
-    layers: Vec<Box<dyn Layer>>,
-}
-impl UiStack {
-    pub fn new() -> Self {
-        Self { layers: Vec::new() }
-    }
-
-    pub fn push<L: Layer + 'static>(&mut self, layer: L) {
-        self.layers.push(Box::new(layer));
-    }
-}
-
-pub trait Layer {
-    fn build(&mut self, ui: &Ui, ui_context: &mut UiContext);
-}
-
-impl Layer for UiStack {
-    fn build(&mut self, ui: &Ui, ui_context: &mut UiContext) {
-        for layer in self.layers.iter_mut() {
-            layer.build(ui, ui_context);
-        }
-    }
+    commands: UiCommands,
+    material_preview: Option<crate::assets::MaterialId>,
 }
 
 impl UiLayer {
-    pub fn new(window: &Window, mut context: imgui::Context, adapter_string: String) -> Self {
+    pub fn new(
+        window: &Window,
+        mut context: imgui::Context,
+        adapter_string: String,
+        connection: crate::editor::EditorConnection,
+    ) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
-
         let io = context.io_mut();
         io.config_flags.insert(imgui::ConfigFlags::DOCKING_ENABLE);
         io.config_flags.insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
-
         context.set_ini_filename(None);
 
         let mut platform = WinitPlatform::new(&mut context);
@@ -77,40 +79,22 @@ impl UiLayer {
             imgui_winit_support::HiDpiMode::Default,
         );
 
-        let timestep = Timestep::new();
-
         let mut ui = UiStack::new();
-        ui.push(ViewportUi {});
-        ui.push(MenuBarUi {});
-        ui.push(SettimgsUi::default());
-        ui.push(EntityListUi {});
-        ui.push(PropertyUi {});
-        ui.push(DebugUi {});
+        ui.push(ViewportUi::default());
+        ui.push(MenuBarUi::default());
+        ui.push(EntityListUi::default());
+        ui.push(PropertyUi::default());
+        ui.push(SettingsUi::new(adapter_string));
 
         Self {
             context,
             platform,
             ini_loaded: false,
-            timestep,
+            timestep: crate::timestep::Timestep::new(),
             stack: ui,
-            adapter_string,
+            commands: UiCommands::new(connection),
+            material_preview: None,
         }
-    }
-
-    // wokaround to avoid crash:
-    // load ini after creating 1st frame.
-    fn load_ini_if_needed(&mut self) {
-        if self.ini_loaded {
-            return;
-        }
-
-        self.context.set_ini_filename(Some("imgui.ini".into()));
-
-        if let Ok(ini_content) = std::fs::read_to_string("imgui.ini") {
-            self.context.load_ini_settings(&ini_content);
-        }
-
-        self.ini_loaded = true;
     }
 
     pub fn want_capture_mouse(&self) -> bool {
@@ -128,73 +112,46 @@ impl UiLayer {
 
     fn begin_frame(&mut self, window: &Window) {
         self.timestep.update();
-        let delta_s = self.timestep.delta();
-
-        let io = self.context.io_mut();
-        io.update_delta_time(delta_s);
-
+        self.context
+            .io_mut()
+            .update_delta_time(self.timestep.delta());
         self.platform
-            .prepare_frame(self.context.io_mut(), &window)
-            .expect("failed_to prepare frame");
+            .prepare_frame(self.context.io_mut(), window)
+            .expect("failed to prepare frame");
     }
 
     fn end_frame(&mut self) {
-        self.load_ini_if_needed();
+        if !self.ini_loaded {
+            self.context.set_ini_filename(Some("imgui.ini".into()));
+            if let Ok(content) = std::fs::read_to_string("imgui.ini") {
+                self.context.load_ini_settings(&content);
+            }
+            self.ini_loaded = true;
+        }
     }
 
-    pub fn build(
-        &mut self,
-        window: &Window,
-        snapshot: UiSnapshot,
-        bus: &mut EventBus,
-        editor_interaction: &EditorInteraction,
-    ) {
-        let mut ctx = UiContext {
-            snapshot: &snapshot,
-            bus,
-            timestep: self.timestep.clone(),
-            adapter_string: self.adapter_string.clone(),
-            editor_interaction,
-        };
-
+    pub fn build(&mut self, window: &Window, textures: &UiTextureRegistry) {
+        self.commands.process();
         self.begin_frame(window);
+        self.stack.update(&self.commands);
 
-        {
-            let ui = self.context.frame();
+        let ui = self.context.frame();
+        ui.dockspace_over_main_viewport();
 
-            ui.dockspace_over_main_viewport();
-
-            self.stack.build(ui, &mut ctx);
-
-            self.platform.prepare_render(ui, window);
+        let command_client = self.commands.command_client();
+        self.material_preview = None;
+        let mut ctx = UiContext {
+            commands: command_client,
+            textures,
+            material_preview: &mut self.material_preview,
         };
 
+        self.stack.build(ui, &mut ctx);
+        self.platform.prepare_render(ui, window);
         self.end_frame();
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use imgui::{ConfigFlags, Context};
-    use std::fs;
-    use std::path::PathBuf;
-
-    #[test]
-    fn should_imgui_load_ini() {
-        let mut imgui = Context::create();
-        imgui
-            .io_mut()
-            .config_flags
-            .insert(ConfigFlags::DOCKING_ENABLE);
-
-        // --- caricamento manuale ---
-        let path = PathBuf::from("imgui.ini");
-        if let Ok(s) = fs::read_to_string(&path) {
-            imgui.load_ini_settings(&s);
-        }
-
-        let mut ini_data = String::new();
-        imgui.save_ini_settings(&mut ini_data);
-        fs::write(path, ini_data).unwrap();
+    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
+        self.material_preview
     }
 }

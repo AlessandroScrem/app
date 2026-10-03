@@ -503,7 +503,7 @@ fn render_cubemap_with_resources<R: CubemapBuilderResources>(
         });
     }
 }
-/* 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -136,6 +136,7 @@ impl PartialEq for MaterialDesc {
     }
 }
 
+#[allow(dead_code)]
 impl MaterialDesc {
     pub fn texture(&self, slot: MaterialTextureSlot) -> Option<GlobalAssetId> {
         self.texture_set[slot].texture

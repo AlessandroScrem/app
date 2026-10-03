@@ -1,94 +1,78 @@
+use super::ui_layer::{Layer, UiContext};
+use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
+use imgui::Ui;
 use std::path::PathBuf;
 
-use super::*;
-use crate::{
-    app::domain::events::{AssetEvent, DomainEvent, SceneEvent},
-    asset_path,
-};
-use imgui::*;
-
+#[derive(Default)]
 pub struct MenuBarUi {
+    scene_settings: SceneSettingsData,
 }
 
-const LANTERN: &str = asset_path!("Lantern/Lantern.gltf");
-const SPONZA: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf";
-const TRANSMISSION_TEST: &str = "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/TransmissionTest/glTF/TransmissionTest.gltf";
-const DAMAGED_HELMET: &str =
-    "c:/Users/aless/Downloads/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf";
-
 impl Layer for MenuBarUi {
+    fn update(&mut self, commands: &super::ui_commands::UiCommands) {
+        self.scene_settings = commands.scene_settings().clone();
+    }
+
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        use AssetEvent::*;
-        use DomainEvent::*;
-        use SceneEvent::*;
-
-        let recent_files = &ctx.snapshot.settings.recent_files;
-
-        if let Some(_menu_bar) = ui.begin_main_menu_bar() {
-            if let Some(_file_menu) = ui.begin_menu("File") {
-                if ui.menu_item("New") {}
+        if let Some(_bar) = ui.begin_main_menu_bar() {
+            if let Some(_menu) = ui.begin_menu("File") {
+                if ui.menu_item("New") {
+                    ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear));
+                }
                 if ui.menu_item("Open Scene") {
-                    menu_bar::file_open(FileFilter::Json)
-                        .map(|f| ctx.bus.send_domain(Scene(Open(f))));
+                    if let Some(path) = file_open(FileFilter::Json) {
+                        ctx.commands
+                            .send(EditorCommand::Scene(SceneCommand::Open(path)));
+                    }
                 }
                 if ui.menu_item("Save As..") {
-                    menu_bar::file_save(FileFilter::Json)
-                        .map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
+                    if let Some(path) = file_save(FileFilter::Json) {
+                        ctx.commands
+                            .send(EditorCommand::Scene(SceneCommand::SaveAs(path)));
+                    }
                 }
                 if ui.menu_item("Save") {
-                    if ctx.snapshot.scene_name.is_some() {
-                        ctx.bus.send_domain(Scene(Save));
-                    } else {
-                        menu_bar::file_save(FileFilter::Json)
-                            .map(|f| ctx.bus.send_domain(Scene(SaveAs(f))));
-                    }
+                    ctx.commands.send(EditorCommand::Scene(SceneCommand::Save));
                 }
                 ui.separator();
                 if ui.menu_item("Load Gltf") {
-                    menu_bar::file_open(FileFilter::Gltf)
-                        .map(|f| ctx.bus.send_domain(Assets(LoadGltf(f))));
+                    if let Some(path) = file_open(FileFilter::Gltf) {
+                        ctx.commands
+                            .send(EditorCommand::Asset(AssetCommand::LoadGltf(path)));
+                    }
+                }
+                if ui.menu_item("Add Ibl") {
+                    if let Some(path) = file_open(FileFilter::Hdr) {
+                        ctx.commands
+                            .send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
+                    }
                 }
                 if ui.menu_item("Clear Scene") {
-                    ctx.bus.send_domain(Scene(ClearScene));
+                    ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear));
                 }
                 ui.separator();
-                if ui.menu_item("Sponza") {
-                    ctx.bus.send_domain(Assets(LoadGltf(SPONZA.into())));
-                }
-                if ui.menu_item("lantern") {
-                    ctx.bus.send_domain(Assets(LoadGltf(LANTERN.into())));
-                }
-                if ui.menu_item("Transmission_Test") {
-                    ctx.bus
-                        .send_domain(Assets(LoadGltf(TRANSMISSION_TEST.into())));
-                }
-                if ui.menu_item("Damaged Helmet") {
-                    ctx.bus.send_domain(Assets(LoadGltf(DAMAGED_HELMET.into())));
-                }
                 if ui.menu_item("Exit") {
-                    ctx.bus
-                        .send_runtime(crate::engine::RuntimeEvent::CloseRequested);
+                    ctx.commands.send(EditorCommand::Exit);
                 }
                 ui.separator();
                 ui.menu("Recent Files", || {
-                    for item in recent_files.iter() {
-                        if ui.menu_item(&item.name) {
-                            ctx.bus.send_domain(Scene(Open(item.path.clone())));
+                    for (name, path) in self.scene_settings.recent.iter() {
+                        if ui.menu_item(&name) {
+                            ctx.commands
+                                .send(EditorCommand::Scene(SceneCommand::Open(path.into())));
                         }
                     }
-                    if recent_files.is_empty() {
+                    if self.scene_settings.recent.is_empty() {
                         ui.text_disabled("No recent files");
                     }
                 });
             }
-
-            if let Some(_edit_menu) = ui.begin_menu("Edit") {
-                if ui.menu_item("Undo") {}
-                if ui.menu_item("Redo") {}
+            if let Some(_menu) = ui.begin_menu("Edit") {
+                ui.menu_item("Undo");
+                ui.menu_item("Redo");
             }
-
-            if let Some(_view_menu) = ui.begin_menu("View") {
-                if ui.menu_item("Show Stats") {}
+            if let Some(_menu) = ui.begin_menu("View") {
+                ui.menu_item("Show Stats");
             }
         }
     }
@@ -97,22 +81,21 @@ impl Layer for MenuBarUi {
 pub enum FileFilter {
     Gltf,
     Json,
+    Hdr,
 }
-
 impl FileFilter {
     fn as_args(&self) -> (&str, &[&str]) {
         match self {
-            FileFilter::Gltf => ("glTF", &["gltf", "glb"]),
-            FileFilter::Json => ("json", &["json"]),
+            Self::Gltf => ("glTF", &["gltf", "glb"]),
+            Self::Json => ("json", &["json"]),
+            Self::Hdr => ("hdr", &["hdr"]),
         }
     }
 }
-
 pub fn file_save(filter: FileFilter) -> Option<PathBuf> {
     let (name, ext) = filter.as_args();
     rfd::FileDialog::new().add_filter(name, ext).save_file()
 }
-
 pub fn file_open(filter: FileFilter) -> Option<PathBuf> {
     let (name, ext) = filter.as_args();
     rfd::FileDialog::new().add_filter(name, ext).pick_file()

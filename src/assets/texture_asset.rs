@@ -35,7 +35,7 @@ pub enum SamplerDesc {
     LinearRepeat,
     LinearClampMipmap,
     NearestClamp,
-    DepthComparison
+    DepthComparison,
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
@@ -45,7 +45,7 @@ pub enum TextureDesc {
         usage: TextureUsage,
         sampler: SamplerDesc,
         mipmaps: bool,
-    }
+    },
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
@@ -69,8 +69,6 @@ impl ColorSpace {
     }
 }
 
-
-
 #[derive(Clone)]
 pub struct TextureAsset {
     // pub state: TextureState,
@@ -93,21 +91,17 @@ pub fn create_texture(path: std::path::PathBuf, usage: TextureUsage) -> TextureA
         mipmaps: true,
     };
 
-    TextureAsset {
-        desc: desc,
-    }
+    TextureAsset { desc: desc }
 }
 
 impl TextureAsset {
     pub fn from_file(path: impl Into<PathBuf>, usage: TextureUsage) -> Self {
-        let desc =  TextureDesc::File {
+        let desc = TextureDesc::File {
             path: path.into(),
             usage,
             mipmaps: false,
             sampler: SamplerDesc::default(),
         };
-        Self {
-            desc,
-        }
+        Self { desc }
     }
 }

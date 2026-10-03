@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    assets::TextureId, gpu::{GpuContextRef, GpuResourceStats, HasGpuStats, static_textures, texture::{GpuTexture, GpuTextureBuilder}},
+    assets::TextureId,
+    gpu::{
+        GpuContextRef, GpuResourceStats, HasGpuStats, static_textures,
+        texture::{GpuTexture, GpuTextureBuilder},
+    },
 };
 
 use strum::IntoEnumIterator;
@@ -34,16 +38,13 @@ impl GpuBuiltinTextures {
     fn create(gpu: &GpuContextRef, slot: CacheTextureSlot) -> GpuTexture {
         match slot {
             CacheTextureSlot::White => {
-                GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE)
-                    .build(gpu)
+                GpuTextureBuilder::from_static(&static_textures::WHITE_STATIC_TEXTURE).build(gpu)
             }
             CacheTextureSlot::Black => {
-                GpuTextureBuilder::from_static(&static_textures::BLACK_STATIC_TEXTURE)
-                    .build(gpu)
+                GpuTextureBuilder::from_static(&static_textures::BLACK_STATIC_TEXTURE).build(gpu)
             }
             CacheTextureSlot::Normal => {
-                GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE)
-                    .build(gpu)
+                GpuTextureBuilder::from_static(&static_textures::NORMAL_STATIC_TEXTURE).build(gpu)
             }
         }
     }

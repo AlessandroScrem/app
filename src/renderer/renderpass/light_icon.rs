@@ -2,7 +2,6 @@ use super::*;
 
 pub struct LightsIconPass {}
 
-
 impl RenderPass for LightsIconPass {
     fn name(&self) -> &'static str {
         "LightPass"
@@ -32,25 +31,26 @@ impl RenderPass for LightsIconPass {
             // Render pass
             let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("LightIcon Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    },
-                    depth_slice: None,
-                }),
-                // 1: entity ID
-                Some(wgpu::RenderPassColorAttachment {
-                    view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    },
-                    resolve_target: None,
-                    depth_slice: None,
-                }),
+                color_attachments: &[
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                        depth_slice: None,
+                    }),
+                    // 1: entity ID
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                        resolve_target: None,
+                        depth_slice: None,
+                    }),
                 ],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),

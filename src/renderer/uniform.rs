@@ -1,6 +1,6 @@
-use crate::math::*;
-use crate::globals::Globals;
 use crate::camera::Camera;
+use crate::globals::Globals;
+use crate::math::*;
 
 ///shader: [pbr, blinnphong, equirectangular_to_cubemap, irradiance_convolution, light, lines, prefilter_map, skybox]
 #[repr(C, align(16))]
@@ -117,13 +117,13 @@ pub struct GlobalUniform {
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
     pub view_proj: [[f32; 4]; 4],
-    
+
     pub color: [f32; 3],
     pub directional: u32,
 
     pub position: [f32; 3],
     pub cast_shadow: u32,
-    
+
     pub entity_id: u64,
     pub pad: [i32; 2],
 }
