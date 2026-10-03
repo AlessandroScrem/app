@@ -1,6 +1,7 @@
 use wgpu::{BindGroup, BindGroupLayout, Buffer, Device, RenderPipeline, util::DeviceExt};
 
 use crate::{
+    ResourceId,
     assets::{
         self,
         texture_asset::{ColorSpace, SamplerDesc},
@@ -22,6 +23,7 @@ impl HasGpuStats for ShadowManager {
 }
 
 pub struct ShadowManager {
+    texture_rgba_id: ResourceId,
     texture_rgba: GpuTexture,
     buffer: wgpu::Buffer,
     pipeline: RenderPipeline,
@@ -75,6 +77,7 @@ impl ShadowManager {
         };
 
         Self {
+            texture_rgba_id: ResourceId::new(),
             shadow_map,
             layer_views,
             stats,
@@ -101,6 +104,10 @@ impl ShadowManager {
 
     pub fn get_rgba(&self) -> &GpuTexture {
         &self.texture_rgba
+    }
+
+    pub fn get_rgba_id(&self) -> ResourceId {
+        self.texture_rgba_id
     }
 
     pub fn get_bg(&self) -> &BindGroup {
