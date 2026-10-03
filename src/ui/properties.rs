@@ -273,10 +273,10 @@ fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
     let preview = material
         .desc
         .texture(MaterialTextureSlot::BaseColor)
-        .and_then(|texture| ctx.textures.asset(texture));
+        .and_then(|texture| ctx.textures.texture(texture));
 
     ui.text("Preview");
-    if let Some(texture) = ctx.textures.material_preview() {
+    if let Some(texture) = ctx.textures.texture(ctx.material_preview_texture) {
         Image::new(texture, [180.0, 180.0]).build(ui);
     } else if let Some(texture) = preview {
         Image::new(texture, [180.0, 180.0]).build(ui);
@@ -377,7 +377,7 @@ fn draw_texture_preview(
         return;
     };
 
-    if let Some(texture_id) = ctx.textures.asset(texture) {
+    if let Some(texture_id) = ctx.textures.texture(texture) {
         Image::new(texture_id, [64.0, 64.0]).build(ui);
         ui.same_line();
         ui.text(format!("Texture #{}", texture.raw()));
@@ -516,7 +516,7 @@ fn draw_light(ui: &Ui, ctx: &UiContext, entity: EntityId, light: &mut LightData)
     }
 
     if light.cast_shadow {
-        if let Some(texture) = ctx.textures.shadow_map() {
+        if let Some(texture) = ctx.textures.texture(ctx.shadow_map) {
             Image::new(texture, [200.0, 200.0]).build(ui);
         }
     }
