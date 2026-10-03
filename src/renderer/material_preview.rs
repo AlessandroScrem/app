@@ -215,6 +215,10 @@ impl MaterialPreviewRenderer {
         self.environment_revision = self.environment_revision.wrapping_add(1);
     }
 
+    pub fn set_material(&mut self, material: Option<MaterialId>) {
+        self.active_material = material;
+    }
+
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -222,13 +226,12 @@ impl MaterialPreviewRenderer {
         gpu_manager: &GpuManager,
         gpu_cache: &GpuCache,
         pipeline_manager: &PipelineManager,
-        material: Option<MaterialId>,
     ) -> Option<(
         std::sync::Arc<wgpu::Texture>,
         std::sync::Arc<wgpu::TextureView>,
         wgpu::Extent3d,
     )> {
-        let Some(material) = material else {
+        let Some(material) = self.active_material else {
             self.active_material = None;
             return None;
         };
