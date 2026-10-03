@@ -13,6 +13,7 @@ use winit::window::Window;
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
     pub textures: &'a UiTextureRegistry,
+    pub material_preview: &'a mut Option<crate::assets::MaterialId>,
 }
 
 struct UiStack {
@@ -55,6 +56,7 @@ pub struct UiLayer {
     timestep: crate::timestep::Timestep,
     stack: UiStack,
     commands: UiCommands,
+    material_preview: Option<crate::assets::MaterialId>,
 }
 
 impl UiLayer {
@@ -91,6 +93,7 @@ impl UiLayer {
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
             commands: UiCommands::new(connection),
+            material_preview: None,
         }
     }
 
@@ -136,13 +139,19 @@ impl UiLayer {
         ui.dockspace_over_main_viewport();
 
         let command_client = self.commands.command_client();
+        self.material_preview = None;
         let mut ctx = UiContext {
             commands: command_client,
             textures,
+            material_preview: &mut self.material_preview,
         };
 
         self.stack.build(ui, &mut ctx);
         self.platform.prepare_render(ui, window);
         self.end_frame();
+    }
+
+    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
+        self.material_preview
     }
 }

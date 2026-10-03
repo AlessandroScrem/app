@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub struct UiTextureRegistry {
     assets: HashMap<TextureId, imgui::TextureId>,
     shadow_map: Option<imgui::TextureId>,
+    material_preview: Option<imgui::TextureId>,
 }
 
 impl UiTextureRegistry {
@@ -15,6 +16,10 @@ impl UiTextureRegistry {
 
     pub fn shadow_map(&self) -> Option<imgui::TextureId> {
         self.shadow_map
+    }
+
+    pub fn material_preview(&self) -> Option<imgui::TextureId> {
+        self.material_preview
     }
 
     pub(crate) fn set_asset(&mut self, asset: TextureId, texture: imgui::TextureId) {
@@ -28,6 +33,10 @@ impl UiTextureRegistry {
 
     pub(crate) fn set_shadow_map(&mut self, texture: Option<imgui::TextureId>) {
         self.shadow_map = texture;
+    }
+
+    pub(crate) fn set_material_preview(&mut self, texture: Option<imgui::TextureId>) {
+        self.material_preview = texture;
     }
 }
 

@@ -10,6 +10,7 @@ use wgpu::*;
 pub struct ImGuiTextureRegistry {
     pub ids: HashMap<TextureId, imgui::TextureId>,
     pub shadowmap_id: Option<imgui::TextureId>,
+    pub material_preview_id: Option<imgui::TextureId>,
 }
 
 impl ImGuiTextureRegistry {
@@ -17,6 +18,7 @@ impl ImGuiTextureRegistry {
         Self {
             ids: HashMap::new(),
             shadowmap_id: None,
+            material_preview_id: None,
         }
     }
 
@@ -26,6 +28,7 @@ impl ImGuiTextureRegistry {
             registry.set_asset(asset, id);
         }
         registry.set_shadow_map(self.shadowmap_id);
+        registry.set_material_preview(self.material_preview_id);
         registry
     }
 }
@@ -166,6 +169,48 @@ impl ImguiRender {
                 true
             }
         });
+    }
+
+    pub fn sync_imgui_material_preview(
+        &mut self,
+        gpu_context: &GpuContext,
+        texture: std::sync::Arc<wgpu::Texture>,
+        view: std::sync::Arc<wgpu::TextureView>,
+        extent: wgpu::Extent3d,
+    ) {
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry.material_preview_id;
+        let device = &gpu_context.device;
+
+        let texture_config = RawTextureConfig {
+            label: Some("Material Preview"),
+            sampler_desc: wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::MipmapFilterMode::Linear,
+                ..Default::default()
+            },
+        };
+
+        let updated_texture = imgui_wgpu::Texture::from_raw_parts(
+            device,
+            renderer,
+            texture,
+            view,
+            None,
+            Some(&texture_config),
+            extent,
+        );
+
+        if let Some(id) = registry {
+            renderer.textures.replace(*id, updated_texture);
+        } else {
+            let id = renderer.textures.insert(updated_texture);
+            *registry = Some(id);
+        }
     }
 
     pub fn sync_imgui_shadowmap(&mut self, gpu_context: &GpuContext, texture: &GpuTexture) {

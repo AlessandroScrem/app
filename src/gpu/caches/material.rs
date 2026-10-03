@@ -14,6 +14,7 @@ use wgpu::util::DeviceExt;
 pub struct GpuMaterial {
     pub bind_group: Option<wgpu::BindGroup>,
     uniform_buffer: Option<wgpu::Buffer>,
+    revision: u64,
 }
 
 impl GpuMaterial {
@@ -41,14 +42,20 @@ impl GpuMaterial {
         GpuMaterial {
             bind_group: Some(bindgroup),
             uniform_buffer: Some(uniform_buffer),
+            revision: 0,
         }
     }
 
-    pub fn update_uniform(&self, queue: &wgpu::Queue, material_desc: &MaterialDesc) {
+    pub fn update_uniform(&mut self, queue: &wgpu::Queue, material_desc: &MaterialDesc) {
         let uniform = &MaterialUniform::from(material_desc);
         if let Some(buffer) = &self.uniform_buffer {
             queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
         }
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 }
 

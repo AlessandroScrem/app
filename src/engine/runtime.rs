@@ -21,7 +21,7 @@ use crate::input::Input;
 use crate::prelude::info;
 use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
-use crate::renderer::SceneRenderer;
+use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
@@ -55,6 +55,7 @@ pub struct Runtime {
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
+    pub material_preview: MaterialPreviewRenderer,
     pub imgui_render: ImguiRender,
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
@@ -109,6 +110,7 @@ impl Runtime {
             window: window.clone(),
             input: Input::new(),
             scene_renderer,
+            material_preview: MaterialPreviewRenderer::new(&gpu_context.device),
             imgui_render,
             uilayer,
             gpu_context,
@@ -211,6 +213,7 @@ impl Runtime {
                 }
 
                 RuntimeEvent::UpdateIblMaps(id) => {
+                    self.material_preview.invalidate_environment();
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
                         self.ibl_manager.get(&id),
                         &self.shadow_manager,
@@ -368,6 +371,25 @@ impl Runtime {
             };
             self.scene_renderer
                 .render(&context, &mut encoder, &target, &frame_data);
+
+            if let Some((preview_texture, preview_view, preview_extent)) =
+                self.material_preview.render(
+                    &mut encoder,
+                    &self.gpu_context,
+                    &self.gpu_manager,
+                    &self.gpu_cache,
+                    &self.pipeline_manager,
+                    self.uilayer.material_preview(),
+                )
+            {
+                self.imgui_render.sync_imgui_material_preview(
+                    &self.gpu_context,
+                    preview_texture,
+                    preview_view,
+                    preview_extent,
+                );
+            }
+
             self.imgui_render.render(
                 self.uilayer.get_draw_data(),
                 &mut encoder,

@@ -1,13 +1,9 @@
-use super::*;
-
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{GpuCache, GpuContext, GpuManager, ShadowManager};
-use crate::renderer::framebuilder::DrawStats;
-
-use wgpu::Device;
-
 use crate::prelude::{debug, info};
+use crate::renderer::framebuilder::{DrawStats, FrameData};
 use crate::renderer::renderpass::*;
+use wgpu::Device;
 
 pub struct SceneRenderContext<'a> {
     pub gpu_context: &'a GpuContext,
