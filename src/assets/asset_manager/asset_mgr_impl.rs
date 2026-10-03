@@ -3,42 +3,10 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
 use super::asset_id::*;
+use crate::ResourceId;
 use super::asset_storage::*;
 use super::dependency_graph::*;
 use super::resource_stats::ResourceStats;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GlobalAssetId {
-    pub type_id: TypeId,
-    pub id: AssetId,
-}
-
-impl Default for GlobalAssetId {
-    fn default() -> Self {
-        Self {
-            type_id: TypeId::of::<()>(), // sentinella
-            id: AssetId::default(),      // oppure INVALID
-        }
-    }
-}
-
-impl GlobalAssetId {
-    pub fn new<T: Asset>(id: AssetId) -> Self {
-        Self {
-            type_id: TypeId::of::<T>(),
-            id,
-        }
-    }
-}
-
-impl<T: 'static> From<&AssetHandle<T>> for GlobalAssetId {
-    fn from(value: &AssetHandle<T>) -> Self {
-        GlobalAssetId {
-            type_id: TypeId::of::<T>(),
-            id: value.id(),
-        }
-    }
-}
 
 #[derive(Debug, Hash, Clone, Copy, PartialEq, Eq)]
 pub enum AssetEventKind {
@@ -53,32 +21,33 @@ pub enum AssetEventKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AssetEvent {
-    pub id: GlobalAssetId,
+    pub id: ResourceId,
+    pub type_id: TypeId,
     pub kind: AssetEventKind,
 }
 
 trait KeyMap {
-    fn insert(&mut self, key: &dyn Any, id: GlobalAssetId);
-    fn get(&self, key: &dyn Any) -> Option<GlobalAssetId>;
-    fn remove(&mut self, id: GlobalAssetId);
+    fn insert(&mut self, key: &dyn Any, id: ResourceId);
+    fn get(&self, key: &dyn Any) -> Option<ResourceId>;
+    fn remove(&mut self, id: ResourceId);
 }
 
 struct TypedKeyMap<K: Eq + Hash + Clone> {
-    map: HashMap<K, GlobalAssetId>,
+    map: HashMap<K, ResourceId>,
 }
 
 impl<K: Eq + Hash + Clone + 'static> KeyMap for TypedKeyMap<K> {
-    fn insert(&mut self, key: &dyn Any, id: GlobalAssetId) {
+    fn insert(&mut self, key: &dyn Any, id: ResourceId) {
         let key = key.downcast_ref::<K>().unwrap();
         self.map.insert(key.clone(), id);
     }
 
-    fn get(&self, key: &dyn Any) -> Option<GlobalAssetId> {
+    fn get(&self, key: &dyn Any) -> Option<ResourceId> {
         let key = key.downcast_ref::<K>()?;
         self.map.get(key).copied()
     }
 
-    fn remove(&mut self, id: GlobalAssetId) {
+    fn remove(&mut self, id: ResourceId) {
         self.map.retain(|_, v| *v != id);
     }
 }
@@ -87,13 +56,13 @@ pub struct KeyRegistry {
     inner: HashMap<TypeId, Box<dyn KeyMap>>,
 }
 impl KeyRegistry {
-    pub fn get<T: Asset>(&self, key: &T::Key) -> Option<GlobalAssetId> {
+    pub fn get<T: Asset>(&self, key: &T::Key) -> Option<ResourceId> {
         let type_id = TypeId::of::<T>();
 
         self.inner.get(&type_id)?.get(key)
     }
 
-    pub fn insert<T: Asset>(&mut self, key: T::Key, id: GlobalAssetId) {
+    pub fn insert<T: Asset>(&mut self, key: T::Key, id: ResourceId) {
         let type_id = TypeId::of::<T>();
 
         let entry = self.inner.entry(type_id).or_insert_with(|| {
@@ -105,7 +74,7 @@ impl KeyRegistry {
         entry.insert(&key, id);
     }
 
-    pub fn remove(&mut self, id: GlobalAssetId) {
+    pub fn remove(&mut self, id: ResourceId) {
         for map in self.inner.values_mut() {
             map.remove(id);
         }
@@ -124,7 +93,7 @@ trait ErasedStorage {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
-    fn remove_by_id(&mut self, id: AssetId) -> usize;
+    fn remove_by_id(&mut self, id: ResourceId) -> usize;
 }
 
 struct TypedStorage<T: Asset> {
@@ -151,7 +120,8 @@ pub struct AssetManager {
 
     key_index: KeyRegistry,
 
-    ref_count: HashMap<GlobalAssetId, u32>,
+    ref_count: HashMap<ResourceId, u32>,
+    resource_types: HashMap<ResourceId, TypeId>,
 
     graph: DependencyGraph,
 
@@ -203,7 +173,7 @@ impl AssetManager {
 }
 
 impl AssetManager {
-    pub fn add<T: Asset>(&mut self, asset: T) -> GlobalAssetId {
+    pub fn add<T: Asset>(&mut self, asset: T) -> ResourceId {
         let key = asset.key().clone();
 
         let deps = asset.dependencies();
@@ -217,48 +187,41 @@ impl AssetManager {
         let size = asset.estimated_size();
         self.stats_mut::<T>().add(size);
 
-        // create Assetid
-        let handle = self.storage_mut::<T>().insert(asset);
+        let id = ResourceId::new();
+        let handle = self.storage_mut::<T>().insert(id, asset);
 
-        let gid = GlobalAssetId::new::<T>(handle.id());
+        let id = handle.id();
 
-        self.ref_count.insert(gid, 0);
+        self.ref_count.insert(id, 0);
+        self.resource_types.insert(id, TypeId::of::<T>());
 
-        self.key_index.insert::<T>(key, gid);
+        self.key_index.insert::<T>(key, id);
 
         for dep in deps {
-            self.graph.add(gid, dep);
+            self.graph.add(id, dep);
 
             self.retain(dep);
         }
 
         self.events.push_back(AssetEvent {
-            id: gid,
+            id,
+            type_id: TypeId::of::<T>(),
             kind: AssetEventKind::Created,
         });
 
         gid
     }
 
-    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (GlobalAssetId, &T)> {
-        self.storage::<T>()
-            .iter()
-            .map(|(id, asset)| (GlobalAssetId::new::<T>(id), asset))
+    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> {
+        self.storage::<T>().iter()
     }
 
-    pub fn get<T: Asset>(&self, id: GlobalAssetId) -> Option<&T> {
-        if id.type_id != TypeId::of::<T>() {
-            return None;
-        }
-
-        self.storage::<T>().get_by_id(id.id)
+    pub fn get<T: Asset>(&self, id: ResourceId) -> Option<&T> {
+        self.storage::<T>().get_by_id(id)
     }
 
-    pub fn update<T: Asset>(&mut self, id: GlobalAssetId, f: impl FnOnce(&mut T)) {
-        if id.type_id != TypeId::of::<T>() {
-            return;
-        }
-        if self.storage::<T>().get_by_id(id.id).is_none() {
+    pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
+        if self.storage::<T>().get_by_id(id).is_none() {
             return;
         }
 
@@ -269,6 +232,7 @@ impl AssetManager {
 
             self.events.push_back(AssetEvent {
                 id,
+                type_id: TypeId::of::<T>(),
                 kind: AssetEventKind::Updated,
             });
         }
@@ -283,11 +247,11 @@ impl AssetManager {
 }
 
 impl AssetManager {
-    pub fn retain(&mut self, id: GlobalAssetId) {
+    pub fn retain(&mut self, id: ResourceId) {
         *self.ref_count.entry(id).or_insert(0) += 1;
     }
 
-    pub fn release(&mut self, id: GlobalAssetId) {
+    pub fn release(&mut self, id: ResourceId) {
         let should_destroy = match self.ref_count.get_mut(&id) {
             Some(count) => {
                 *count = count.saturating_sub(1);
@@ -303,11 +267,11 @@ impl AssetManager {
 }
 
 impl AssetManager {
-    pub fn remove(&mut self, id: GlobalAssetId) {
+    pub fn remove(&mut self, id: ResourceId) {
         self.release(id);
     }
 
-    fn remove_from_storage(&mut self, id: GlobalAssetId) {
+    fn remove_from_storage(&mut self, id: ResourceId) {
         if let Some(storage) = self.storages.get_mut(&id.type_id) {
             let size = storage.remove_by_id(id.id);
             self.stats
@@ -316,9 +280,10 @@ impl AssetManager {
         }
     }
 
-    fn remove_recursive(&mut self, id: GlobalAssetId) {
+    fn remove_recursive(&mut self, id: ResourceId) {
         // 1. prendi dipendenze PRIMA di rimuovere
         let dependencies = self.graph.dependencies_of(id);
+        let type_id = self.resource_types.get(&id).copied();
 
         // 2. rimuovi dal grafo
         self.graph.remove_asset(id);
@@ -567,7 +532,7 @@ mod tests {
 
         let grouped = mgr.drain_grouped_events();
 
-        let mut gpu_materials: HashMap<GlobalAssetId, GpuMaterial> = Default::default();
+        let mut gpu_materials: HashMap<ResourceId, GpuMaterial> = Default::default();
 
         grouped.process_type::<MaterialAsset, _>(|_kind, events| {
             for ev in events {
@@ -612,7 +577,7 @@ mod tests {
 
         let grouped = mgr.drain_grouped_events();
 
-        let mut gpu_meshes: HashMap<GlobalAssetId, GpuMesh> = Default::default();
+        let mut gpu_meshes: HashMap<ResourceId, GpuMesh> = Default::default();
 
         grouped.process_type::<MeshAsset, _>(|_kind, events| {
             for ev in events {
@@ -644,14 +609,14 @@ mod test_api {
     #[derive(Clone)]
     struct Material {
         name: String,
-        albedo: Option<GlobalAssetId>,
-        normal: Option<GlobalAssetId>,
+        albedo: Option<ResourceId>,
+        normal: Option<ResourceId>,
     }
 
     #[derive(Clone)]
     struct Mesh {
         name: String,
-        material: Option<GlobalAssetId>,
+        material: Option<ResourceId>,
     }
 
     /// -----------------------------
@@ -673,7 +638,7 @@ mod test_api {
             &self.name
         }
 
-        fn dependencies(&self) -> Vec<GlobalAssetId> {
+        fn dependencies(&self) -> Vec<ResourceId> {
             let mut deps = Vec::new();
 
             if let Some(a) = self.albedo {
@@ -695,7 +660,7 @@ mod test_api {
             &self.name
         }
 
-        fn dependencies(&self) -> Vec<GlobalAssetId> {
+        fn dependencies(&self) -> Vec<ResourceId> {
             let mut deps = Vec::new();
 
             if let Some(m) = self.material {
