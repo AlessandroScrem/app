@@ -163,8 +163,6 @@ impl UiLayer {
         self.platform.prepare_render(ui, window);
         self.end_frame();
 
-        UiOutput {
-            material_preview,
-        }
+        output
     }
 }
