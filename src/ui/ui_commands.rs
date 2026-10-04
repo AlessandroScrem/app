@@ -23,6 +23,7 @@ pub(crate) struct UiCommands {
     inspector: Option<InspectorData>,
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
+    resource_stats: Option<EditorResourceStatsData>,
     scene_settings: SceneSettingsData,
     ibls: Vec<IblData>,
     pending_queries: HashMap<QueryId, QuerySlot>,
@@ -37,6 +38,7 @@ impl UiCommands {
             inspector: None,
             settings: None,
             statistics: None,
+            resource_stats: None,
             scene_settings: SceneSettingsData::default(),
             ibls: Vec::new(),
             pending_queries: HashMap::new(),
@@ -65,6 +67,10 @@ impl UiCommands {
 
     pub(crate) fn statistics(&self) -> Option<&EditorStatisticsData> {
         self.statistics.as_ref()
+    }
+
+    pub(crate) fn resource_stats(&self) -> Option<&EditorResourceStatsData> {
+        self.resource_stats.as_ref()
     }
 
     pub(crate) fn scene_settings(&self) -> &SceneSettingsData {
@@ -96,6 +102,7 @@ impl UiCommands {
         self.request(QuerySlot::Selection, Query::Selection);
         self.request(QuerySlot::Settings, Query::Settings);
         self.request(QuerySlot::Statistics, Query::Statistics);
+        self.request(QuerySlot::ResourceStats, Query::ResourceStats);
         self.request(QuerySlot::SceneSettings, Query::SceneSettings);
         self.request(QuerySlot::Ibls, Query::Ibls);
     }
@@ -104,6 +111,7 @@ impl UiCommands {
         self.hierarchy = None;
         self.settings = None;
         self.statistics = None;
+        self.resource_stats = None;
         self.scene_settings = SceneSettingsData::default();
         self.ibls.clear();
         self.pending_queries.clear();
@@ -136,6 +144,9 @@ impl UiCommands {
             }
             (QuerySlot::Statistics, QueryResult::Statistics(data)) => {
                 self.statistics = Some(data);
+            }
+            (QuerySlot::ResourceStats, QueryResult::ResourceStats(data)) => {
+                self.resource_stats = Some(data);
             }
             (QuerySlot::SceneSettings, QueryResult::SceneSettings(data)) => {
                 self.scene_settings = data;
@@ -212,6 +223,9 @@ impl UiCommands {
             EditorEvent::StatisticsChanged => {
                 self.request(QuerySlot::Statistics, Query::Statistics);
             }
+            EditorEvent::ResourceStatsChanged => {
+                self.request(QuerySlot::ResourceStats, Query::ResourceStats);
+            }
             EditorEvent::IblsChanged => {
                 self.request(QuerySlot::Ibls, Query::Ibls);
             }
@@ -234,6 +248,7 @@ impl UiCommands {
         self.ensure_hierarchy();
         self.ensure_settings();
         self.ensure_statistics();
+        self.ensure_resource_stats();
         self.ensure_scene_settings();
         self.ensure_ibls();
     }
@@ -253,6 +268,12 @@ impl UiCommands {
     fn ensure_statistics(&mut self) {
         if self.statistics.is_none() && !self.has_pending(QuerySlot::Statistics) {
             self.request(QuerySlot::Statistics, Query::Statistics);
+        }
+    }
+
+    fn ensure_resource_stats(&mut self) {
+        if self.resource_stats.is_none() && !self.has_pending(QuerySlot::ResourceStats) {
+            self.request(QuerySlot::ResourceStats, Query::ResourceStats);
         }
     }
 
@@ -279,7 +300,8 @@ impl UiCommands {
 mod tests {
     use super::{QuerySlot, UiCommands};
     use crate::editor::{
-        EditorConnection, EditorEvent, EditorSettingsData, EntityId, HierarchyData, InspectorData,
+        EditorConnection, EditorEvent, EditorResourceStatsData, EditorSettingsData, EntityId,
+    HierarchyData, InspectorData,
         InspectorSection, LightData, Query, QueryResponse, QueryResult, SceneSettingsData,
         TransformData,
     };
