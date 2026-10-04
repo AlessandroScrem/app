@@ -12,6 +12,7 @@ pub struct UiContext<'a> {
     pub textures: &'a UiTextures,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
     pub window_action: &'a mut Option<WindowAction>,
+    pub codicon_font: imgui::FontId,
 }
 
 pub struct UiOutput {
@@ -61,6 +62,7 @@ impl Layer for UiStack {
 pub struct UiLayer {
     context: imgui::Context,
     platform: WinitUiPlatform,
+    codicon_font: imgui::FontId,
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
@@ -73,6 +75,7 @@ impl UiLayer {
         mut context: imgui::Context,
         adapter_string: String,
         connection: crate::editor::EditorConnection,
+        codicon_font: imgui::FontId,
     ) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
         let io = context.io_mut();
@@ -93,6 +96,7 @@ impl UiLayer {
         Self {
             context,
             platform,
+            codicon_font,
             ini_loaded: false,
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
@@ -123,6 +127,11 @@ impl UiLayer {
             .io_mut()
             .update_delta_time(self.timestep.delta());
         self.platform.prepare_frame(&mut self.context, window);
+
+        const CHROME_HEIGHT: f32 = 60.0;
+        let viewport = self.context.main_viewport_mut();
+        viewport.work_pos[1] = viewport.pos[1] + CHROME_HEIGHT;
+        viewport.work_size[1] = (viewport.size[1] - CHROME_HEIGHT).max(0.0);
     }
 
     fn end_frame(&mut self) {
@@ -153,6 +162,7 @@ impl UiLayer {
             textures,
             material_preview: &mut output.material_preview,
             window_action: &mut output.window_action,
+            codicon_font: self.codicon_font,
         };
 
         self.stack.build(ui, &mut ctx);
