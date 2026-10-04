@@ -247,7 +247,11 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 button: MouseButton::Left,
                 ..
             } => {
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(not(any(
+                    target_os = "macos",
+                    target_os = "ios",
+                    target_os = "android",
+                )))]
                 if let Some(position) = self.cursor_position {
                     if let Some(direction) = resize_direction(&runtime.window, position) {
                         let _ = runtime.window.drag_resize_window(direction);
@@ -262,6 +266,9 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             runtime.input.update_events(&evt);
         }
 
+        let redraw_requested = matches!(event, WindowEvent::RedrawRequested);
+        drop(runtime);
+
         match event {
             WindowEvent::CloseRequested => {
                 self.engine.bus.send_runtime(RuntimeEvent::CloseRequested)
@@ -270,8 +277,13 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 width: size.width,
                 height: size.height,
             }),
-            WindowEvent::RedrawRequested => {
-                if !is_minimized(&runtime.window) {
+            WindowEvent::RedrawRequested if redraw_requested => {
+                let minimized = self
+                    .engine
+                    .runtime
+                    .as_ref()
+                    .is_some_and(|runtime| is_minimized(&runtime.window));
+                if !minimized {
                     self.engine.tick(false);
                 }
             }
@@ -279,7 +291,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 .engine
                 .bus
                 .send_runtime(RuntimeEvent::DroppedFile(path)),
-            _ => (),
+            _ => {}
         }
     }
 }
