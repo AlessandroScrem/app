@@ -1,9 +1,8 @@
-use super::title_bar::TitleBarUi;
+use super::title_bar::TopBarUi;
 use super::ui_commands::UiCommands;
-use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextures, ViewportUi};
+use super::{EntityListUi, PropertyUi, SettingsUi, UiTextures, ViewportUi};
 use crate::editor::EditorCommandClient;
 use crate::ui::tools;
-
 use crate::winit_bridge::{WindowHandle, WinitUiPlatform};
 use imgui::Ui;
 
@@ -13,6 +12,7 @@ pub struct UiContext<'a> {
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
     pub window_action: &'a mut Option<WindowAction>,
     pub maximize_hovered: bool,
+    pub window_title: &'a str,
 }
 
 pub struct UiOutput {
@@ -66,6 +66,7 @@ pub struct UiLayer {
     timestep: crate::timestep::Timestep,
     stack: UiStack,
     commands: UiCommands,
+    window_title: String,
 }
 
 impl UiLayer {
@@ -78,18 +79,18 @@ impl UiLayer {
         tools::set_dark_theme_colors(context.style_mut());
         let io = context.io_mut();
         io.config_flags.insert(imgui::ConfigFlags::DOCKING_ENABLE);
-        io.config_flags.insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
+        io.config_flags
+            .insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
         context.set_ini_filename(None);
 
         let platform = WinitUiPlatform::new(&mut context, window);
 
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
-        ui.push(MenuBarUi::default());
         ui.push(EntityListUi::default());
         ui.push(PropertyUi::default());
         ui.push(SettingsUi::new(adapter_string));
-        ui.push(TitleBarUi);
+        ui.push(TopBarUi::default());
 
         Self {
             context,
@@ -98,7 +99,13 @@ impl UiLayer {
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
             commands: UiCommands::new(connection),
+            window_title: "App".to_owned(),
         }
+    }
+
+    pub fn set_window_title(&mut self, title: &str) {
+        self.window_title.clear();
+        self.window_title.push_str(title);
     }
 
     pub fn want_capture_mouse(&self) -> bool {
@@ -124,19 +131,17 @@ impl UiLayer {
             .io_mut()
             .update_delta_time(self.timestep.delta());
         self.platform.prepare_frame(&mut self.context, window);
-
-
     }
 
     fn set_main_viewport_work_area() {
-    const CHROME_HEIGHT: f32 = 60.0;
+        const TOP_BAR_HEIGHT: f32 = 36.0;
 
-    unsafe {
-        let viewport = imgui::sys::igGetMainViewport();
-        (*viewport).WorkPos.y = (*viewport).Pos.y + CHROME_HEIGHT;
-        (*viewport).WorkSize.y = ((*viewport).Size.y - CHROME_HEIGHT).max(0.0);
+        unsafe {
+            let viewport = imgui::sys::igGetMainViewport();
+            (*viewport).WorkPos.y = (*viewport).Pos.y + TOP_BAR_HEIGHT;
+            (*viewport).WorkSize.y = ((*viewport).Size.y - TOP_BAR_HEIGHT).max(0.0);
+        }
     }
-}
 
     fn end_frame(&mut self) {
         if !self.ini_loaded {
@@ -169,6 +174,7 @@ impl UiLayer {
             material_preview: &mut output.material_preview,
             window_action: &mut output.window_action,
             maximize_hovered: crate::winit_bridge::maximize_button_hovered(window),
+            window_title: &self.window_title,
         };
 
         self.stack.build(ui, &mut ctx);
