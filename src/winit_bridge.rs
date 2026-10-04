@@ -8,9 +8,12 @@ use winit::{
     event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{
-        CursorIcon, ResizeDirection, Window, WindowAttributes, WindowId,
+        CursorIcon, Window, WindowAttributes, WindowId,
     },
 };
+
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+use winit::window::ResizeDirection;
 
 use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
@@ -112,6 +115,7 @@ fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) 
     window.set_cursor(resize_cursor(resize_direction(window, position)));
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 fn resize_direction(
     window: &WindowHandle,
     position: PhysicalPosition<f64>,
@@ -140,6 +144,7 @@ fn resize_direction(
     }
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
     match direction {
         Some(ResizeDirection::North) => CursorIcon::NResize,
