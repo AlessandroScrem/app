@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use imgui::{Condition, MouseButton, MouseCursor, StyleColor, StyleVar, Ui, WindowFlags};
 
 use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
