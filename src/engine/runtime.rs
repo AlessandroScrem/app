@@ -238,7 +238,7 @@ impl Runtime {
             match event {
                 RuntimeEvent::Resize { width, height } => {
                     if width == 0 || height == 0 {
-                        return;
+                        continue;
                     }
                     self.gpu_manager
                         .resize_frame(&self.gpu_context.as_ref(), width, height);
