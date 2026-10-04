@@ -1,5 +1,6 @@
 mod entity_list;
 mod main_wnd;
+mod menu_bar;
 mod properties;
 mod properties_material;
 mod properties_transform;
