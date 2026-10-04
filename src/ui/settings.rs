@@ -1,6 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
-    AssetCommand, CameraCommand, EditorSettingsData, EditorStatisticsData, GlobalCommand, IblData,
+    AssetCommand, CameraCommand, EditorResourceStatsData, EditorSettingsData, EditorStatisticsData,
+    GlobalCommand, IblData,
     SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
@@ -9,6 +10,7 @@ use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 pub struct SettingsUi {
     settings: Option<EditorSettingsData>,
     statistics: Option<EditorStatisticsData>,
+    resource_stats: Option<EditorResourceStatsData>,
     ibls: Vec<IblData>,
 
     demo_open: bool,
@@ -22,6 +24,7 @@ impl SettingsUi {
             adapter_string,
             settings: None,
             statistics: None,
+            resource_stats: None,
             ibls: Vec::new(),
         }
     }
@@ -31,6 +34,7 @@ impl Layer for SettingsUi {
     fn update(&mut self, commands: &super::ui_commands::UiCommands) {
         self.settings = commands.settings().cloned();
         self.statistics = commands.statistics().cloned();
+        self.resource_stats = commands.resource_stats().cloned();
         self.ibls = commands.ibls().to_vec();
     }
 
@@ -48,7 +52,30 @@ impl Layer for SettingsUi {
 }
 
 impl SettingsUi {
+    fn draw_resource_stats(&self, ui: &Ui, stats: &EditorResourceStatsData) {
+        if ui.collapsing_header("Assets", TreeNodeFlags::DEFAULT_OPEN) {
+            resource_stat_row(ui, "Textures", &stats.textures);
+            resource_stat_row(ui, "Materials", &stats.materials);
+            resource_stat_row(ui, "Meshes", &stats.meshes);
+            resource_stat_row(ui, "IBL", &stats.ibl);
+        }
+
+        if ui.collapsing_header("GPU Resources", TreeNodeFlags::DEFAULT_OPEN) {
+            resource_stat_row(ui, "Textures", &stats.gpu_textures);
+            resource_stat_row(ui, "Materials", &stats.gpu_materials);
+            resource_stat_row(ui, "Meshes", &stats.gpu_meshes);
+            resource_stat_row(ui, "Shadows", &stats.gpu_shadows);
+            resource_stat_row(ui, "IBL", &stats.gpu_ibl);
+        }
+    }
+
     fn draw(&mut self, ui: &Ui, ctx: &mut UiContext, settings: &EditorSettingsData) {
+        if let Some(stats) = self.resource_stats.as_ref() {
+            if ui.collapsing_header("Resource Stats", TreeNodeFlags::DEFAULT_OPEN) {
+                self.draw_resource_stats(ui, stats);
+            }
+        }
+
         if ui.collapsing_header("Statistics", TreeNodeFlags::DEFAULT_OPEN) {
             if let Some(stats) = self.statistics.as_ref() {
                 ui.text(format!("FPS: {:.1}", stats.fps));
@@ -303,5 +330,30 @@ fn toggle<F: FnOnce(bool) -> GlobalCommand>(
     let mut value = value;
     if ui.checkbox(label, &mut value) {
         ctx.commands.send(make(value));
+    }
+}
+
+fn resource_stat_row(ui: &Ui, label: &str, stats: &crate::editor::ResourceStatsData) {
+    ui.text(format!(
+        "{label}: {} ({})",
+        stats.count,
+        format_bytes(stats.estimated_bytes)
+    ));
+}
+
+fn format_bytes(bytes: usize) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = KB * 1024.0;
+    const GB: f64 = MB * 1024.0;
+
+    let value = bytes as f64;
+    if value >= GB {
+        format!("{:.2} GiB", value / GB)
+    } else if value >= MB {
+        format!("{:.2} MiB", value / MB)
+    } else if value >= KB {
+        format!("{:.2} KiB", value / KB)
+    } else {
+        format!("{bytes} B")
     }
 }

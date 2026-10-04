@@ -6,14 +6,18 @@ use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
+use crate::assets::asset_manager::ResourceStats;
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
+use crate::editor::{
+    EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData, ResourceStatsData,
+    SelectionCommand,
+};
 use crate::engine::editor::EditorService;
 use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager,
+    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuManager,
     GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager,
     ShadowManager,
 };
@@ -25,22 +29,10 @@ use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
-use crate::ui::{InternalCounter, UiLayer};
+use crate::ui::UiLayer;
 use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
-
-impl InternalCounter for Runtime {
-    fn internal_counter(&self) -> GpuInternalCounters {
-        GpuInternalCounters {
-            textures: self.gpu_cache.textures.get_stats(),
-            meshes: self.gpu_cache.mesh.get_stats(),
-            materials: self.gpu_cache.material.get_stats(),
-            shadows: self.shadow_manager.get_stats(),
-            ibl: self.ibl_manager.get_stats(),
-        }
-    }
-}
 
 pub struct Runtime {
     pub window: Arc<Window>,
@@ -65,6 +57,20 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    fn asset_stats(stats: ResourceStats) -> ResourceStatsData {
+        ResourceStatsData {
+            count: stats.count,
+            estimated_bytes: stats.estimated_bytes,
+        }
+    }
+
+    fn gpu_stats(stats: crate::gpu::GpuResourceStats) -> ResourceStatsData {
+        ResourceStatsData {
+            count: stats.count,
+            estimated_bytes: stats.estimated_bytes,
+        }
+    }
+
     pub fn new(window: Arc<Window>) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
@@ -359,6 +365,19 @@ impl Runtime {
             transmission_draw_calls: frame.transmission.draw_calls,
             transmission_instances: frame.transmission.instances,
         });
+
+        let asset_mgr = app.render_data().asset_mgr;
+        self.editor_service.set_resource_stats(EditorResourceStatsData {
+            textures: Self::asset_stats(asset_mgr.get_stats::<crate::assets::TextureAsset>()),
+            materials: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MaterialAsset>()),
+            meshes: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MeshAsset>()),
+            ibl: Self::asset_stats(asset_mgr.get_stats::<crate::assets::IblAsset>()),
+            gpu_textures: Self::gpu_stats(self.gpu_cache.textures.get_stats()),
+            gpu_materials: Self::gpu_stats(self.gpu_cache.material.get_stats()),
+            gpu_meshes: Self::gpu_stats(self.gpu_cache.mesh.get_stats()),
+            gpu_shadows: Self::gpu_stats(self.shadow_manager.get_stats()),
+            gpu_ibl: Self::gpu_stats(self.ibl_manager.get_stats()),
+        });
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
@@ -472,3 +491,4 @@ impl Runtime {
         }
     }
 }
+
