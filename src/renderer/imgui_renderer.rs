@@ -167,43 +167,5 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-    pub fn sync_imgui_texture_cache(
-        &mut self,
-        gpu_context: &GpuContext,
-        texture_cache: &mut GpuTextureCache,
-    ) {
-        let events: Vec<_> = texture_cache.drain_events().collect();
-        for event in events {
-            match event {
-                GpuTextureEvent::Added(resource_id) => {
-                    if let Some(texture) = texture_cache.get(resource_id) {
-                        self.registry.add(
-                            &mut self.renderer,
-                            &gpu_context.device,
-                            resource_id,
-                            texture,
-                        );
-                    }
-                }
-                GpuTextureEvent::Removed(resource_id) => {
-                    self.registry.remove(&mut self.renderer, resource_id);
-                }
-            }
-        }
-    }
-
-    pub fn sync_imgui_texture(
-        &mut self,
-        gpu_context: &GpuContext,
-        resource_id: ResourceId,
-        texture: &GpuTexture,
-    ) {
-        self.registry.add(
-            &mut self.renderer,
-            &gpu_context.device,
-            resource_id,
-            texture,
-        );
-    }
 }
 }
