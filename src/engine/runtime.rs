@@ -91,7 +91,7 @@ impl Runtime {
         );
         let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
         let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
-        imgui_render.sync_imgui_texture_from_gpu(
+        imgui_render.sync_imgui_texture(
             &gpu_context,
             shadow_manager.get_rgba_id(),
             shadow_manager.get_rgba(),
@@ -355,10 +355,7 @@ impl Runtime {
             transmission_instances: frame.transmission.instances,
         });
         self.editor_service.process(app, bus);
-        let textures = self.imgui_render.registry.ui_textures(
-            self.shadow_manager.get_rgba_id(),
-            self.material_preview_renderer.resource_id(),
-        );
+        let textures = self.imgui_render.registry.ui_textures();
         let output = self.uilayer.build(&self.window, &textures);
         self.material_preview_renderer
             .set_material(output.material_preview);
@@ -379,21 +376,17 @@ impl Runtime {
             self.scene_renderer
                 .render(&context, &mut encoder, &target, &frame_data);
 
-            if let Some((preview_texture, preview_view, preview_extent)) =
-                self.material_preview_renderer.render(
+            if let Some(preview_texture) = self.material_preview_renderer.render(
                     &mut encoder,
                     &self.gpu_context,
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                )
-            {
+                ) {
                 self.imgui_render.sync_imgui_texture(
                     &self.gpu_context,
                     self.material_preview_renderer.resource_id(),
-                    preview_texture,
-                    preview_view,
-                    preview_extent,
+                    &preview_texture,
                 );
             }
 
