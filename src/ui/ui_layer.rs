@@ -60,7 +60,7 @@ impl Layer for UiStack {
 
 pub struct UiLayer {
     context: imgui::Context,
-    pub platform: WinitUiPlatform,
+    platform: WinitUiPlatform,
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
