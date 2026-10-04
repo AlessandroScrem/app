@@ -1,7 +1,6 @@
 use crate::ResourceId;
 use crate::asset_path;
 use crate::gpu::*;
-use crate::assets::texture_asset::ColorSpace;
 use crate::prelude::*;
 use crate::ui::UiTextures;
 use imgui_wgpu::*;
