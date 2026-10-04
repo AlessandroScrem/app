@@ -93,7 +93,6 @@ impl UiLayer {
         Self {
             context,
             platform,
-            codicon_font,
             ini_loaded: false,
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
