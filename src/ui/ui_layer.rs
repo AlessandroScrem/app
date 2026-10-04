@@ -1,6 +1,7 @@
 use super::ui_commands::UiCommands;
 use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi};
 use crate::editor::EditorCommandClient;
+use crate::ResourceId;
 use crate::ui::tools;
 
 use imgui::Ui;
@@ -11,6 +12,8 @@ use winit::window::Window;
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
     pub textures: &'a UiTextureRegistry,
+    pub shadow_map: ResourceId,
+    pub material_preview_texture: ResourceId,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
 }
 
@@ -128,7 +131,13 @@ impl UiLayer {
         }
     }
 
-    pub fn build(&mut self, window: &Window, textures: &UiTextureRegistry) {
+    pub fn build(
+        &mut self,
+        window: &Window,
+        textures: &UiTextureRegistry,
+        shadow_map: ResourceId,
+        material_preview_texture: ResourceId,
+    ) {
         self.commands.process();
         self.begin_frame(window);
         self.stack.update(&self.commands);
@@ -141,6 +150,8 @@ impl UiLayer {
         let mut ctx = UiContext {
             commands: command_client,
             textures,
+            shadow_map,
+            material_preview_texture,
             material_preview: &mut self.material_preview,
         };
 
