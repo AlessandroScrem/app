@@ -7,7 +7,10 @@ use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::editor::{EditorCommand, EditorConnection, EditorStatisticsData, SelectionCommand};
+use crate::editor::{
+    EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData, ResourceStatsData,
+    SelectionCommand,
+};
 use crate::engine::editor::EditorService;
 use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
@@ -359,6 +362,19 @@ impl Runtime {
             transmission_draw_calls: frame.transmission.draw_calls,
             transmission_instances: frame.transmission.instances,
         });
+
+        let asset_mgr = app.render_data().asset_mgr;
+        self.editor_service.set_resource_stats(EditorResourceStatsData {
+            textures: asset_mgr.get_stats::<crate::assets::TextureAsset>().into(),
+            materials: asset_mgr.get_stats::<crate::assets::MaterialAsset>().into(),
+            meshes: asset_mgr.get_stats::<crate::assets::MeshAsset>().into(),
+            ibl: asset_mgr.get_stats::<crate::assets::IblAsset>().into(),
+            gpu_textures: self.gpu_cache.textures.get_stats().into(),
+            gpu_materials: self.gpu_cache.material.get_stats().into(),
+            gpu_meshes: self.gpu_cache.mesh.get_stats().into(),
+            gpu_shadows: self.shadow_manager.get_stats().into(),
+            gpu_ibl: self.ibl_manager.get_stats().into(),
+        });
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
@@ -469,6 +485,15 @@ impl Runtime {
             lines: frame.lines,
             opaque_stats: frame.opaque_stats,
             tasks,
+        }
+    }
+}
+
+impl From<crate::assets::asset_manager::ResourceStats> for ResourceStatsData {
+    fn from(stats: crate::assets::asset_manager::ResourceStats) -> Self {
+        Self {
+            count: stats.count,
+            estimated_bytes: stats.estimated_bytes,
         }
     }
 }
