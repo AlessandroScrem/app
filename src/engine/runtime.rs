@@ -29,6 +29,7 @@ use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
+use crate::ui::ui_layer::WindowAction;
 use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
@@ -386,6 +387,20 @@ impl Runtime {
         let output = self.uilayer.build(&self.window, &textures);
         self.material_preview_renderer
             .set_material(output.material_preview);
+
+        if let Some(action) = output.window_action {
+            match action {
+                WindowAction::Drag => {
+                    let _ = self.window.drag_window();
+                }
+                WindowAction::Minimize => {
+                    self.window.set_minimized(true);
+                }
+                WindowAction::ToggleMaximize => {
+                    self.window.set_maximized(!self.window.is_maximized());
+                }
+            }
+        }
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
