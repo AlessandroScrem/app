@@ -25,9 +25,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
     - uses: dtolnay/rust-toolchain@stable
-    - name: Check
-      run: cargo check --workspace --all-targets
     - name: Build (Debug)
-      run: cargo build --workspace --verbose
+      run: cargo build --workspace --all-targets --verbose
     - name: Run tests
       run: cargo test --workspace --verbose
