@@ -128,7 +128,7 @@ impl UiLayer {
 
     }
 
-fn build_dockspace(ui: &Ui) {
+    fn build_dockspace(ui: &Ui) {
     const CHROME_HEIGHT: f32 = 60.0;
     const DOCKSPACE_ID: imgui::sys::ImGuiID = 0xA11C_E001;
 
@@ -182,7 +182,7 @@ fn build_dockspace(ui: &Ui) {
         self.stack.update(&self.commands);
 
         let ui = self.context.frame();
-        build_dockspace(ui);
+        Self::build_dockspace(ui);
 
         let command_client = self.commands.command_client();
         let mut output = UiOutput {
