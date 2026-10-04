@@ -276,7 +276,7 @@ fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialDto) {
         .and_then(|texture| ctx.textures.asset(texture));
 
     ui.text("Preview");
-    if let Some(texture) = ctx.textures.material_preview {
+    if let Some(texture) = ctx.textures.asset(ctx.material_preview_resource_id) {
         Image::new(texture, [180.0, 180.0]).build(ui);
     } else if let Some(texture) = preview {
         Image::new(texture, [180.0, 180.0]).build(ui);
@@ -516,7 +516,7 @@ fn draw_light(ui: &Ui, ctx: &UiContext, entity: EntityId, light: &mut LightData)
     }
 
     if light.cast_shadow {
-        if let Some(texture) = ctx.textures.shadow_map {
+        if let Some(texture) = ctx.textures.asset(ctx.shadow_map_resource_id) {
             Image::new(texture, [200.0, 200.0]).build(ui);
         }
     }
