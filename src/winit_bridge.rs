@@ -359,7 +359,7 @@ fn update_macos_resize_cursor(
 mod windows_snap_layout {
     use std::ffi::c_void;
 
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
     use super::WindowHandle;
 
