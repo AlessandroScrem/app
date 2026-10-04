@@ -1,5 +1,5 @@
-use super::ui_commands::UiCommands;
 use super::title_bar::TitleBarUi;
+use super::ui_commands::UiCommands;
 use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextures, ViewportUi};
 use crate::editor::EditorCommandClient;
 use crate::ui::tools;
@@ -25,7 +25,6 @@ pub enum WindowAction {
     Drag,
     Minimize,
     ToggleMaximize,
-    Resize(winit::window::ResizeDirection),
 }
 
 struct UiStack {
