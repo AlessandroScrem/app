@@ -31,7 +31,7 @@ pub(crate) mod prelude {
 }
 
 pub struct Engine {
-    inner: engine::MyApplication<app::App>,
+    inner: winit_bridge::MyApplication<app::App>,
 }
 
 impl Engine {
