@@ -506,7 +506,7 @@ mod tests {
         }
 
         assert!(mgr.events.is_empty());
-        assert!(texture_cache.contains_key(&id))
+        assert!(texture_cache.get(id).is_some())
     }
 
     #[test]
