@@ -1,7 +1,7 @@
 # Orbis
-[![Rust Linux](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml)
-[![Rust Windows](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml)
-[![Rust macOS](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml)
+[![Rust Linux](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-linux.yml)
+[![Rust Windows](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-windows.yml)
+[![Rust macOS](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-macos.yml)
 
 # Simple Renderer Wgpu 
 
@@ -66,15 +66,15 @@ cgmath = "0.18.0"
 
 ```bash
 git clone https://github.com/AlessandroScrem/orbis.git
-cd app
+cd orbis
 
 cargo build
 cargo test --lib
-cargo run --release -- -v
+cargo run -p orbis --release -- -v
 
 // run with options 
-cargo run --release -- --help
-cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
+cargo run -p orbis --release -- --help
+cargo run -p orbis --release -- -w<WIDTH> -h<HEIGHT> --verbose
 ```
 
 
