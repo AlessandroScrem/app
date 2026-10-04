@@ -1,6 +1,6 @@
 use super::{
     EditorSettingsData, EditorStatisticsData, EntityData, EntityId, HierarchyData, IblData,
-    InspectorData, SceneSettingsData,
+    InspectorData, SceneSettingsData, EditorResourceStatsData,
 };
 
 pub type QueryId = u64;
@@ -15,6 +15,7 @@ pub enum Query {
     Selection,
     Settings,
     Statistics,
+    ResourceStats,
     SceneSettings,
     Ibls,
 }
@@ -41,6 +42,7 @@ pub enum QueryResult {
     Selection(Vec<EntityId>),
     Settings(EditorSettingsData),
     Statistics(EditorStatisticsData),
+    ResourceStats(EditorResourceStatsData),
     SceneSettings(SceneSettingsData),
     Ibls(Vec<IblData>),
 }
