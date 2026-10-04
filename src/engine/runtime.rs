@@ -182,12 +182,17 @@ impl Runtime {
         self.input.clear();
     }
 
-    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn handle_runtime_events<A: Application>(
+        &mut self,
+        app: &mut A,
+        bus: &mut EventBus,
+    ) -> Option<String> {
+        let mut window_title = None;
         for event in bus.drain_runtime() {
             match event {
                 RuntimeEvent::Resize { width, height } => {
                     if width == 0 || height == 0 {
-                        return;
+                        return window_title;
                     }
                     self.gpu_manager
                         .resize_frame(&self.gpu_context.as_ref(), width, height);
@@ -201,8 +206,7 @@ impl Runtime {
                 }
                 RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus),
                 RuntimeEvent::SetWindowTitle(title) => {
-                    self.uilayer.set_window_title(&title);
-                    crate::winit_bridge::set_window_title(&self.window, &title);
+                    window_title = Some(title);
                     info!("Set window title");
                 }
                 RuntimeEvent::UpdateIblMaps(id) => {
@@ -225,6 +229,7 @@ impl Runtime {
                 }
             }
         }
+        window_title
     }
 
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
