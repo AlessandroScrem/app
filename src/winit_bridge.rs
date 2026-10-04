@@ -53,12 +53,14 @@ impl WinitUiPlatform {
 pub struct MyApplication<A: RuntimeApp + Default> {
     engine: Engine<A>,
     size: PhysicalSize<u32>,
+    cursor_position: Option<PhysicalPosition<f64>>,
 }
 
 impl<A: RuntimeApp + Default> MyApplication<A> {
     pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: PhysicalSize::new(width, height),
+            cursor_position: None,
             ..Default::default()
         }
     }
@@ -109,46 +111,6 @@ fn is_minimized(window: &WindowHandle) -> bool {
     window.is_minimized().unwrap_or(false)
 }
 
-fn handle_window_event(engine: &mut Engine<A>, event: &WindowEvent)
-where
-    A: RuntimeApp + Default,
-{
-    let Some(runtime) = &mut engine.runtime else {
-        return;
-    };
-
-    match event {
-        WindowEvent::CursorMoved { position, .. } => {
-            update_resize_cursor(&runtime.window, *position);
-        }
-        WindowEvent::CursorLeft { .. } => {
-            runtime.window.set_cursor(CursorIcon::Default);
-        }
-        WindowEvent::MouseInput {
-            state: ElementState::Pressed,
-            button: MouseButton::Left,
-            ..
-        } => {
-            #[cfg(not(target_os = "macos"))]
-            {
-                if let Some(direction) = resize_direction(&runtime.window, runtime_cursor_position(&runtime.window)) {
-                    let _ = runtime.window.drag_resize_window(direction);
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-fn runtime_cursor_position(window: &WindowHandle) -> PhysicalPosition<f64> {
-    // The current cursor position is supplied by the CursorMoved event before MouseInput.
-    // winit does not expose a portable query for it, so this helper is replaced by the
-    // bridge's cached position in ApplicationHandler.
-    window.inner_position()
-        .map(|position| PhysicalPosition::new(position.x as f64, position.y as f64))
-        .unwrap_or(PhysicalPosition::new(-1.0, -1.0))
-}
-
 fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) {
     #[cfg(not(target_os = "macos"))]
     window.set_cursor(resize_cursor(resize_direction(window, position)));
@@ -196,7 +158,11 @@ fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
     }
 }
 
-fn apply_window_action(window: &WindowHandle, action: crate::ui::WindowAction) {
+pub(crate) fn set_window_title(window: &WindowHandle, title: &str) {
+    window.set_title(title);
+}
+
+pub(crate) fn apply_window_action(window: &WindowHandle, action: crate::ui::WindowAction) {
     match action {
         crate::ui::WindowAction::Drag => {
             let _ = window.drag_window();
@@ -218,8 +184,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
 
         // Window creation is deliberately kept in this bridge. The engine only receives
         // the opaque window handle it needs to initialize its GPU resources.
-        let event_loop = _event_loop;
-        let window = create_window(event_loop, self.size);
+        let window = create_window(_event_loop, self.size);
         self.engine.resume(window);
     }
 
@@ -273,9 +238,11 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
 
         match &event {
             WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_position = Some(*position);
                 update_resize_cursor(&runtime.window, *position);
             }
             WindowEvent::CursorLeft { .. } => {
+                self.cursor_position = None;
                 runtime.window.set_cursor(CursorIcon::Default);
             }
             WindowEvent::MouseInput {
@@ -283,7 +250,12 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 button: MouseButton::Left,
                 ..
             } => {
-                // Resize state is handled from the cached cursor position below.
+                #[cfg(not(target_os = "macos"))]
+                if let Some(position) = self.cursor_position {
+                    if let Some(direction) = resize_direction(&runtime.window, position) {
+                        let _ = runtime.window.drag_resize_window(direction);
+                    }
+                }
             }
             _ => {}
         }
