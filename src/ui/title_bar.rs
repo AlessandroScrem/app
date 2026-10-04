@@ -1,20 +1,28 @@
+use std::path::PathBuf;
+
 use imgui::{Condition, MouseButton, MouseCursor, StyleColor, StyleVar, Ui, WindowFlags};
 
-use crate::editor::EditorCommand;
+use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
 use crate::ui::ui_layer::{Layer, UiContext, WindowAction};
 
-const TITLE_BAR_HEIGHT: f32 = 36.0;
+const TOP_BAR_HEIGHT: f32 = 36.0;
 const WINDOW_BUTTON_SIZE: [f32; 2] = [36.0, 28.0];
+const WINDOW_BUTTONS_WIDTH: f32 = WINDOW_BUTTON_SIZE[0] * 3.0;
+const DRAG_START: f32 = 180.0;
 
 const ICON_MINIMIZE: &str = "\u{EABA}";
 const ICON_MAXIMIZE: &str = "\u{EAB9}";
 const ICON_CLOSE: &str = "\u{EAB8}";
 
 #[derive(Default)]
-pub struct TitleBarUi;
+pub struct TopBarUi {
+    scene_settings: SceneSettingsData,
+}
 
-impl Layer for TitleBarUi {
-    fn update(&mut self, _commands: &super::ui_commands::UiCommands) {}
+impl Layer for TopBarUi {
+    fn update(&mut self, commands: &super::ui_commands::UiCommands) {
+        self.scene_settings = commands.scene_settings().clone();
+    }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let [width, height] = ui.io().display_size;
@@ -22,56 +30,128 @@ impl Layer for TitleBarUi {
             return;
         }
 
-        ui.window("##TitleBar")
+        ui.window("##TopBar")
             .position([0.0, 0.0], Condition::Always)
-            .size([width, TITLE_BAR_HEIGHT], Condition::Always)
+            .size([width, TOP_BAR_HEIGHT], Condition::Always)
             .flags(
                 WindowFlags::NO_DECORATION
                     | WindowFlags::NO_SAVED_SETTINGS
                     | WindowFlags::NO_SCROLLBAR
                     | WindowFlags::NO_MOVE
-                    | WindowFlags::NO_RESIZE,
+                    | WindowFlags::NO_RESIZE
+                    | WindowFlags::MENU_BAR,
             )
             .build(|| {
-                ui.set_cursor_pos([12.0, 7.0]);
-                ui.text_colored([0.82, 0.84, 0.88, 1.0], "App");
-                const BUTTONS_WIDTH: f32 = WINDOW_BUTTON_SIZE[0] * 3.0;
-                const DRAG_START: f32 = 64.0;
-                const BUTTONS_START: f32 = 108.0;
+                if let Some(_bar) = ui.begin_menu_bar() {
+                    if let Some(_menu) = ui.begin_menu("File") {
+                        if ui.menu_item("New") {
+                            ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear));
+                        }
+                        if ui.menu_item("Open Scene") {
+                            if let Some(path) = file_open(FileFilter::Json) {
+                                ctx.commands
+                                    .send(EditorCommand::Scene(SceneCommand::Open(path)));
+                            }
+                        }
+                        if ui.menu_item("Save As..") {
+                            if let Some(path) = file_save(FileFilter::Json) {
+                                ctx.commands
+                                    .send(EditorCommand::Scene(SceneCommand::SaveAs(path)));
+                            }
+                        }
+                        if ui.menu_item("Save") {
+                            ctx.commands.send(EditorCommand::Scene(SceneCommand::Save));
+                        }
+                        ui.separator();
+                        if ui.menu_item("Load Gltf") {
+                            if let Some(path) = file_open(FileFilter::Gltf) {
+                                ctx.commands
+                                    .send(EditorCommand::Asset(AssetCommand::LoadGltf(path)));
+                            }
+                        }
+                        if ui.menu_item("Add Ibl") {
+                            if let Some(path) = file_open(FileFilter::Hdr) {
+                                ctx.commands
+                                    .send(EditorCommand::Asset(AssetCommand::AddIbl(path)));
+                            }
+                        }
+                        if ui.menu_item("Clear Scene") {
+                            ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear));
+                        }
+                        ui.separator();
+                        if ui.menu_item("Exit") {
+                            ctx.commands.send(EditorCommand::Exit);
+                        }
+                        ui.separator();
+                        ui.menu("Recent Files", || {
+                            for (name, path) in &self.scene_settings.recent {
+                                if ui.menu_item(name) {
+                                    ctx.commands
+                                        .send(EditorCommand::Scene(SceneCommand::Open(path.into())));
+                                }
+                            }
+                            if self.scene_settings.recent.is_empty() {
+                                ui.text_disabled("No recent files");
+                            }
+                        });
+                    }
 
-                ui.set_cursor_pos([DRAG_START, 4.0]);
-                ui.invisible_button(
-                    "##WindowDrag",
-                    [(width - DRAG_START - BUTTONS_WIDTH).max(0.0), 28.0],
-                );
+                    if let Some(_menu) = ui.begin_menu("Edit") {
+                        ui.menu_item("Undo");
+                        ui.menu_item("Redo");
+                    }
 
-                if ui.is_item_hovered() {
-                    ui.set_mouse_cursor(Some(MouseCursor::Arrow));
+                    if let Some(_menu) = ui.begin_menu("View") {
+                        ui.menu_item("Show Stats");
+                    }
                 }
 
-                if ui.is_item_hovered()
-                    && ui.is_mouse_double_clicked(MouseButton::Left)
-                {
-                    *ctx.window_action = Some(WindowAction::ToggleMaximize);
-                } else if ui.is_item_active()
-                    && ui.is_mouse_dragging(MouseButton::Left)
-                {
-                    *ctx.window_action = Some(WindowAction::Drag);
+                let title_size = ui.calc_text_size(ctx.window_title);
+                let title_x = ((width - title_size[0]) * 0.5).max(0.0);
+                ui.set_cursor_pos([title_x, (TOP_BAR_HEIGHT - title_size[1]) * 0.5]);
+                ui.text_colored([0.82, 0.84, 0.88, 1.0], ctx.window_title);
+
+                let drag_width = (width - DRAG_START - WINDOW_BUTTONS_WIDTH).max(0.0);
+                if drag_width > 0.0 {
+                    ui.set_cursor_pos([DRAG_START, 4.0]);
+                    ui.invisible_button("##WindowDrag", [drag_width, 28.0]);
+
+                    if ui.is_item_hovered() {
+                        ui.set_mouse_cursor(Some(MouseCursor::Arrow));
+                    }
+
+                    if ui.is_item_hovered()
+                        && ui.is_mouse_double_clicked(MouseButton::Left)
+                    {
+                        *ctx.window_action = Some(WindowAction::ToggleMaximize);
+                    } else if ui.is_item_active()
+                        && ui.is_mouse_dragging(MouseButton::Left)
+                    {
+                        *ctx.window_action = Some(WindowAction::Drag);
+                    }
                 }
 
                 let _spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
-
-                ui.set_cursor_pos([(width - BUTTONS_WIDTH).max(BUTTONS_START), 4.0]);
+                let buttons_start = (width - WINDOW_BUTTONS_WIDTH).max(0.0);
+                ui.set_cursor_pos([buttons_start, 4.0]);
                 window_button(ui, ICON_MINIMIZE, false, false, || {
                     *ctx.window_action = Some(WindowAction::Minimize);
                 });
 
-                ui.set_cursor_pos([(width - BUTTONS_WIDTH + WINDOW_BUTTON_SIZE[0]).max(BUTTONS_START + WINDOW_BUTTON_SIZE[0]), 4.0]);
-                window_button(ui, ICON_MAXIMIZE, false, ctx.maximize_hovered, || {
-                    *ctx.window_action = Some(WindowAction::ToggleMaximize);
-                });
+                ui.set_cursor_pos([buttons_start + WINDOW_BUTTON_SIZE[0], 4.0]);
+                window_button(
+                    ui,
+                    ICON_MAXIMIZE,
+                    false,
+                    ctx.maximize_hovered,
+                    || {
+                        *ctx.window_action = Some(WindowAction::ToggleMaximize);
+                    },
+                );
 
-                ui.set_cursor_pos([(width - WINDOW_BUTTON_SIZE[0]).max(BUTTONS_START + WINDOW_BUTTON_SIZE[0] * 2.0), 4.0]);
+                ui.set_cursor_pos(
+                    [buttons_start + WINDOW_BUTTON_SIZE[0] * 2.0, 4.0],
+                );
                 window_button(ui, ICON_CLOSE, true, false, || {
                     ctx.commands.send(EditorCommand::Exit);
                 });
@@ -86,7 +166,6 @@ fn window_button(
     native_hovered: bool,
     action: impl FnOnce(),
 ) {
-
     let hovered = if close {
         [0.78, 0.17, 0.17, 1.0]
     } else {
@@ -108,4 +187,30 @@ fn window_button(
     active.pop();
     hover.pop();
     button.pop();
+}
+
+enum FileFilter {
+    Gltf,
+    Json,
+    Hdr,
+}
+
+impl FileFilter {
+    fn as_args(&self) -> (&str, &[&str]) {
+        match self {
+            Self::Gltf => ("glTF", &["gltf", "glb"]),
+            Self::Json => ("json", &["json"]),
+            Self::Hdr => ("hdr", &["hdr"]),
+        }
+    }
+}
+
+fn file_save(filter: FileFilter) -> Option<PathBuf> {
+    let (name, ext) = filter.as_args();
+    rfd::FileDialog::new().add_filter(name, ext).save_file()
+}
+
+fn file_open(filter: FileFilter) -> Option<PathBuf> {
+    let (name, ext) = filter.as_args();
+    rfd::FileDialog::new().add_filter(name, ext).pick_file()
 }
