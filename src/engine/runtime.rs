@@ -33,42 +33,6 @@ use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
 
-fn asset_stats(stats: impl ResourceStatsView) -> ResourceStatsData {
-    ResourceStatsData {
-        count: stats.count(),
-        estimated_bytes: stats.estimated_bytes(),
-    }
-}
-
-fn gpu_stats(stats: impl ResourceStatsView) -> ResourceStatsData {
-    ResourceStatsData {
-        count: stats.count(),
-        estimated_bytes: stats.estimated_bytes(),
-    }
-}
-
-trait ResourceStatsView {
-    fn count(&self) -> usize;
-    fn estimated_bytes(&self) -> usize;
-}
-
-impl ResourceStatsView for crate::gpu::GpuResourceStats {
-    fn count(&self) -> usize { self.count }
-    fn estimated_bytes(&self) -> usize { self.estimated_bytes }
-}
-
-impl InternalCounter for Runtime {
-    fn internal_counter(&self) -> GpuInternalCounters {
-        GpuInternalCounters {
-            textures: self.gpu_cache.textures.get_stats(),
-            meshes: self.gpu_cache.mesh.get_stats(),
-            materials: self.gpu_cache.material.get_stats(),
-            shadows: self.shadow_manager.get_stats(),
-            ibl: self.ibl_manager.get_stats(),
-        }
-    }
-}
-
 pub struct Runtime {
     pub window: Arc<Window>,
     pub gpu_context: GpuContext,
@@ -388,6 +352,14 @@ impl Runtime {
         });
 
         let asset_mgr = app.render_data().asset_mgr;
+        let asset_stats = |stats| ResourceStatsData {
+            count: stats.count,
+            estimated_bytes: stats.estimated_bytes,
+        };
+        let gpu_stats = |stats: crate::gpu::GpuResourceStats| ResourceStatsData {
+            count: stats.count,
+            estimated_bytes: stats.estimated_bytes,
+        };
         self.editor_service.set_resource_stats(EditorResourceStatsData {
             textures: asset_stats(asset_mgr.get_stats::<crate::assets::TextureAsset>()),
             materials: asset_stats(asset_mgr.get_stats::<crate::assets::MaterialAsset>()),
