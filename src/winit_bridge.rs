@@ -15,15 +15,15 @@ use winit::{
 use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
 
-pub type WindowHandle = Arc<Window>;
-pub type WinitEvent<T> = Event<T>;
+pub(crate) type WindowHandle = Arc<Window>;
+pub(crate) type WinitEvent<T> = Event<T>;
 
-pub struct WinitUiPlatform {
+pub(crate) struct WinitUiPlatform {
     platform: WinitPlatform,
 }
 
 impl WinitUiPlatform {
-    pub fn new(context: &mut Context, window: &WindowHandle) -> Self {
+    fn new(context: &mut Context, window: &WindowHandle) -> Self {
         let mut platform = WinitPlatform::new(context);
         platform.attach_window(
             context.io_mut(),
@@ -33,24 +33,24 @@ impl WinitUiPlatform {
         Self { platform }
     }
 
-    pub fn handle_event<T>(&mut self, context: &mut Context, window: &WindowHandle, event: &Event<T>) {
+    fn handle_event<T>(&mut self, context: &mut Context, window: &WindowHandle, event: &Event<T>) {
         self.platform
             .handle_event::<T>(context.io_mut(), window, event);
     }
 
-    pub fn prepare_frame(&mut self, context: &mut Context, window: &WindowHandle) {
+    fn prepare_frame(&mut self, context: &mut Context, window: &WindowHandle) {
         self.platform
             .prepare_frame(context.io_mut(), window)
             .expect("failed to prepare frame");
     }
 
-    pub fn prepare_render(&mut self, ui: &Ui, window: &WindowHandle) {
+    fn prepare_render(&mut self, ui: &Ui, window: &WindowHandle) {
         self.platform.prepare_render(ui, window);
     }
 }
 
 #[derive(Default)]
-pub struct MyApplication<A: RuntimeApp + Default> {
+pub(crate) struct MyApplication<A: RuntimeApp + Default> {
     engine: Engine<A>,
     size: PhysicalSize<u32>,
     cursor_position: Option<PhysicalPosition<f64>>,
