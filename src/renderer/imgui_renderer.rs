@@ -58,12 +58,10 @@ impl ImGuiTextureRegistry {
         &mut self,
         renderer: &mut imgui_wgpu::Renderer,
         resource_id: ResourceId,
-    ) -> bool {
-        let Some(id) = self.textures.remove(&resource_id) else {
-            return false;
-        };
+    ) -> Option<imgui::TextureId> {
+        let id = self.textures.remove(&resource_id)?;
         renderer.textures.remove(id);
-        true
+        Some(id)
     }
 
     pub fn get(&self, resource_id: ResourceId) -> Option<imgui::TextureId> {
@@ -76,6 +74,47 @@ impl ImGuiTextureRegistry {
             self.textures.get(&shadow_map).copied(),
             self.textures.get(&material_preview).copied(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gpu::{GpuTextureBuilder, GpuTextureUsage};
+    use crate::test_utils;
+
+    fn create_renderer(
+        context: &mut imgui::Context,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> imgui_wgpu::Renderer {
+        imgui_wgpu::Renderer::new(
+            context,
+            device,
+            queue,
+            imgui_wgpu::RendererConfig {
+                texture_format: wgpu::TextureFormat::Rgba8Unorm,
+                ..Default::default()
+            },
+        )
+    }
+
+    #[test]
+    fn remove_returns_registered_texture_id() {
+        let gpu = test_utils::get_gpu_context_test();
+        let mut context = imgui::Context::create();
+        let mut renderer = create_renderer(&mut context, gpu.device, gpu.queue);
+        let mut registry = ImGuiTextureRegistry::new();
+        let texture = GpuTextureBuilder::from_empty(1, 1)
+            .usage(GpuTextureUsage::RenderTarget)
+            .build(&gpu);
+        let resource_id = ResourceId::new();
+
+        let texture_id = registry.add(&mut renderer, gpu.device, resource_id, &texture);
+
+        assert_eq!(registry.remove(&mut renderer, resource_id), Some(texture_id));
+        assert_eq!(registry.get(resource_id), None);
+        assert_eq!(registry.remove(&mut renderer, resource_id), None);
     }
 }
 
