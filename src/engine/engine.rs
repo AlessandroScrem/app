@@ -56,7 +56,8 @@ impl<A: RuntimeApp + Default> Engine<A> {
         let attrs = WindowAttributes::default()
             .with_inner_size(size)
             .with_title("App")
-            .with_decorations(false);
+            .with_decorations(false)
+            .with_resizable(true);
         let window = Arc::new(
             event_loop
                 .create_window(attrs)
