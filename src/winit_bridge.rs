@@ -279,24 +279,25 @@ mod macos_resize {
         session: &ResizeSession,
         window: &WindowHandle,
         position: PhysicalPosition<f64>,
-    ) -> super::CursorIcon {
-        match session.edge(window, position) {
-            Some(Edge::North) => super::CursorIcon::NResize,
-            Some(Edge::South) => super::CursorIcon::SResize,
-            Some(Edge::West) => super::CursorIcon::WResize,
-            Some(Edge::East) => super::CursorIcon::EResize,
-            Some(Edge::NorthWest) => super::CursorIcon::NwseResize,
-            Some(Edge::NorthEast) => super::CursorIcon::NeswResize,
-            Some(Edge::SouthWest) => super::CursorIcon::NeswResize,
-            Some(Edge::SouthEast) => super::CursorIcon::NwseResize,
-            None => super::CursorIcon::Default,
-        }
+    ) -> Option<super::CursorIcon> {
+        Some(match session.edge(window, position)? {
+            Edge::North => super::CursorIcon::NResize,
+            Edge::South => super::CursorIcon::SResize,
+            Edge::West => super::CursorIcon::WResize,
+            Edge::East => super::CursorIcon::EResize,
+            Edge::NorthWest => super::CursorIcon::NwseResize,
+            Edge::NorthEast => super::CursorIcon::NeswResize,
+            Edge::SouthWest => super::CursorIcon::NeswResize,
+            Edge::SouthEast => super::CursorIcon::NwseResize,
+        })
     }
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) {
-    window.set_cursor(resize_cursor(resize_direction(window, position)));
+    if let Some(direction) = resize_direction(window, position) {
+        window.set_cursor(resize_cursor(Some(direction)));
+    }
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -348,7 +349,143 @@ fn update_macos_resize_cursor(
     window: &WindowHandle,
     position: PhysicalPosition<f64>,
 ) {
-    window.set_cursor(macos_resize::cursor_icon(session, window, position));
+    if let Some(cursor) = macos_resize::cursor_icon(session, window, position) {
+        window.set_cursor(cursor);
+    }
+}
+
+
+#[cfg(target_os = "windows")]
+mod windows_snap_layout {
+    use std::ffi::c_void;
+
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    use super::WindowHandle;
+
+    type Hwnd = *mut c_void;
+    type LResult = isize;
+
+    const WM_NCHITTEST: u32 = 0x0084;
+    const WM_NCDESTROY: u32 = 0x0082;
+    const HTMAXBUTTON: LResult = 9;
+    const SUBCLASS_ID: usize = 1;
+    const TITLE_BAR_HEIGHT: f64 = 36.0;
+    const BUTTON_WIDTH: f64 = 36.0;
+
+    #[repr(C)]
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    #[repr(C)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    type SubclassProc = unsafe extern "system" fn(
+        hwnd: Hwnd,
+        msg: u32,
+        wparam: usize,
+        lparam: isize,
+        id: usize,
+        ref_data: usize,
+    ) -> LResult;
+
+    #[link(name = "comctl32")]
+    unsafe extern "system" {
+        fn SetWindowSubclass(
+            hwnd: Hwnd,
+            proc: SubclassProc,
+            id: usize,
+            ref_data: usize,
+        ) -> i32;
+        fn RemoveWindowSubclass(hwnd: Hwnd, proc: SubclassProc, id: usize) -> i32;
+        fn DefSubclassProc(
+            hwnd: Hwnd,
+            msg: u32,
+            wparam: usize,
+            lparam: isize,
+        ) -> LResult;
+    }
+
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn ScreenToClient(hwnd: Hwnd, point: *mut Point) -> i32;
+        fn GetClientRect(hwnd: Hwnd, rect: *mut Rect) -> i32;
+        fn GetDpiForWindow(hwnd: Hwnd) -> u32;
+    }
+
+    pub(crate) fn install(window: &WindowHandle) {
+        let Ok(handle) = window.window_handle() else {
+            return;
+        };
+        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+            return;
+        };
+
+        let hwnd = handle.hwnd.get() as Hwnd;
+        unsafe {
+            let _ = SetWindowSubclass(hwnd, wnd_proc, SUBCLASS_ID, 0);
+        }
+    }
+
+    unsafe extern "system" fn wnd_proc(
+        hwnd: Hwnd,
+        msg: u32,
+        wparam: usize,
+        lparam: isize,
+        _id: usize,
+        _ref_data: usize,
+    ) -> LResult {
+        if msg == WM_NCHITTEST && in_maximize_button(hwnd, lparam) {
+            return HTMAXBUTTON;
+        }
+
+        let result = unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) };
+
+        if msg == WM_NCDESTROY {
+            unsafe {
+                let _ = RemoveWindowSubclass(hwnd, wnd_proc, SUBCLASS_ID);
+            }
+        }
+
+        result
+    }
+
+    fn in_maximize_button(hwnd: Hwnd, lparam: isize) -> bool {
+        let mut point = Point {
+            x: (lparam as i32 & 0xFFFF) as i16 as i32,
+            y: ((lparam as i32 >> 16) & 0xFFFF) as i16 as i32,
+        };
+        if unsafe { ScreenToClient(hwnd, &mut point) } == 0 {
+            return false;
+        }
+
+        let mut rect = Rect {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        if unsafe { GetClientRect(hwnd, &mut rect) } == 0 {
+            return false;
+        }
+
+        let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96) as f64;
+        let scale = dpi / 96.0;
+        let button = BUTTON_WIDTH * scale;
+        let titlebar = TITLE_BAR_HEIGHT * scale;
+
+        point.x as f64 >= rect.right as f64 - button * 2.0
+            && point.x as f64 < rect.right as f64 - button
+            && point.y as f64 >= 0.0
+            && point.y as f64 < titlebar
+    }
 }
 
 pub(crate) fn set_window_title(window: &WindowHandle, title: &str) {
@@ -378,6 +515,10 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         // Window creation is deliberately kept in this bridge. The engine only receives
         // the opaque window handle it needs to initialize its GPU resources.
         let window = create_window(_event_loop, self.size);
+
+        #[cfg(target_os = "windows")]
+        windows_snap_layout::install(&window);
+
         self.engine.resume(window.clone());
         window.request_redraw();
     }
