@@ -1,6 +1,6 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
-use imgui::Ui;
+use imgui::{Condition, Ui, WindowFlags};
 use std::path::PathBuf;
 
 #[derive(Default)]
@@ -14,7 +14,20 @@ impl Layer for MenuBarUi {
     }
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        if let Some(_bar) = ui.begin_main_menu_bar() {
+        let width = ui.io().display_size[0];
+        ui.window("##MenuBar")
+            .position([0.0, 32.0], Condition::Always)
+            .size([width, 24.0], Condition::Always)
+            .flags(
+                WindowFlags::NO_DECORATION
+                    | WindowFlags::NO_SAVED_SETTINGS
+                    | WindowFlags::NO_SCROLLBAR
+                    | WindowFlags::NO_MOVE
+                    | WindowFlags::NO_RESIZE
+                    | WindowFlags::MENU_BAR,
+            )
+            .build(|| {
+                if let Some(_bar) = ui.begin_menu_bar() {
             if let Some(_menu) = ui.begin_menu("File") {
                 if ui.menu_item("New") {
                     ctx.commands.send(EditorCommand::Scene(SceneCommand::Clear));
@@ -74,7 +87,8 @@ impl Layer for MenuBarUi {
             if let Some(_menu) = ui.begin_menu("View") {
                 ui.menu_item("Show Stats");
             }
-        }
+                }
+            });
     }
 }
 
