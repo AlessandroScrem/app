@@ -17,6 +17,7 @@ mod test_utils;
 mod timer;
 mod timestep;
 mod ui;
+mod winit_bridge;
 
 pub use ecs::entity_id::EntityRawU64;
 
@@ -36,7 +37,7 @@ pub struct Engine {
 impl Engine {
     pub fn new_with_size(width: u32, height: u32) -> Self {
         Self {
-            inner: engine::winit_bridge::MyApplication::<app::App>::new_with_size(width, height),
+            inner: winit_bridge::MyApplication::<app::App>::new_with_size(width, height),
         }
     }
     pub fn run(self) -> Result<(), Box<dyn std::error::Error>> {
