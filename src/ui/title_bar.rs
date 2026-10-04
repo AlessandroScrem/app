@@ -59,7 +59,7 @@ impl Layer for TitleBarUi {
                     *ctx.window_action = Some(WindowAction::Drag);
                 }
 
-                let _spacing = ui.push_style_var(StyleVar::ItemSpacing, [0.0, 0.0]);
+                let _spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
 
                 ui.set_cursor_pos([(width - BUTTONS_WIDTH).max(BUTTONS_START), 4.0]);
                 window_button(ui, ICON_MINIMIZE, false, || {
