@@ -107,10 +107,10 @@ impl UiLayer {
     pub fn handle_event<T>(
         &mut self,
         window: &WindowHandle,
-        event: &winit::event::Event<T>,
+        event: &crate::winit_bridge::WinitEvent<T>,
     ) {
         self.platform
-            .handle_event(self.context, window, event);
+            .handle_event(&mut self.context, window, event);
     }
 
     pub fn get_draw_data(&mut self) -> &imgui::DrawData {
