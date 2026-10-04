@@ -32,7 +32,7 @@ impl Layer for TopBarUi {
         }
 
         build_menu_bar(ui, ctx, &self.scene_settings, width);
-        build_window_chrome(ui, ctx, width, height);
+        build_window_chrome(ui, ctx, width);
     }
 }
 
@@ -122,7 +122,7 @@ fn build_menu_bar(
         });
 }
 
-fn build_window_chrome(ui: &Ui, ctx: &mut UiContext, width: f32, height: f32) {
+fn build_window_chrome(ui: &Ui, ctx: &mut UiContext, width: f32) {
     let menu_width = MENU_BAR_WIDTH.min(width);
     let chrome_width = (width - menu_width).max(0.0);
 
@@ -183,7 +183,6 @@ fn build_window_chrome(ui: &Ui, ctx: &mut UiContext, width: f32, height: f32) {
             });
         });
 
-    let _ = height;
 }
 
 fn handle_drag(ui: &Ui, ctx: &mut UiContext) {
