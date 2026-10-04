@@ -33,6 +33,30 @@ use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
 
+fn asset_stats(stats: impl ResourceStatsView) -> ResourceStatsData {
+    ResourceStatsData {
+        count: stats.count(),
+        estimated_bytes: stats.estimated_bytes(),
+    }
+}
+
+fn gpu_stats(stats: impl ResourceStatsView) -> ResourceStatsData {
+    ResourceStatsData {
+        count: stats.count(),
+        estimated_bytes: stats.estimated_bytes(),
+    }
+}
+
+trait ResourceStatsView {
+    fn count(&self) -> usize;
+    fn estimated_bytes(&self) -> usize;
+}
+
+impl ResourceStatsView for crate::gpu::GpuResourceStats {
+    fn count(&self) -> usize { self.count }
+    fn estimated_bytes(&self) -> usize { self.estimated_bytes }
+}
+
 impl InternalCounter for Runtime {
     fn internal_counter(&self) -> GpuInternalCounters {
         GpuInternalCounters {
@@ -365,15 +389,15 @@ impl Runtime {
 
         let asset_mgr = app.render_data().asset_mgr;
         self.editor_service.set_resource_stats(EditorResourceStatsData {
-            textures: asset_mgr.get_stats::<crate::assets::TextureAsset>().into(),
-            materials: asset_mgr.get_stats::<crate::assets::MaterialAsset>().into(),
-            meshes: asset_mgr.get_stats::<crate::assets::MeshAsset>().into(),
-            ibl: asset_mgr.get_stats::<crate::assets::IblAsset>().into(),
-            gpu_textures: self.gpu_cache.textures.get_stats().into(),
-            gpu_materials: self.gpu_cache.material.get_stats().into(),
-            gpu_meshes: self.gpu_cache.mesh.get_stats().into(),
-            gpu_shadows: self.shadow_manager.get_stats().into(),
-            gpu_ibl: self.ibl_manager.get_stats().into(),
+            textures: asset_stats(asset_mgr.get_stats::<crate::assets::TextureAsset>()),
+            materials: asset_stats(asset_mgr.get_stats::<crate::assets::MaterialAsset>()),
+            meshes: asset_stats(asset_mgr.get_stats::<crate::assets::MeshAsset>()),
+            ibl: asset_stats(asset_mgr.get_stats::<crate::assets::IblAsset>()),
+            gpu_textures: gpu_stats(self.gpu_cache.textures.get_stats()),
+            gpu_materials: gpu_stats(self.gpu_cache.material.get_stats()),
+            gpu_meshes: gpu_stats(self.gpu_cache.mesh.get_stats()),
+            gpu_shadows: gpu_stats(self.shadow_manager.get_stats()),
+            gpu_ibl: gpu_stats(self.ibl_manager.get_stats()),
         });
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_textures(
@@ -489,11 +513,3 @@ impl Runtime {
     }
 }
 
-impl From<crate::assets::asset_manager::ResourceStats> for ResourceStatsData {
-    fn from(stats: crate::assets::asset_manager::ResourceStats) -> Self {
-        Self {
-            count: stats.count,
-            estimated_bytes: stats.estimated_bytes,
-        }
-    }
-}
