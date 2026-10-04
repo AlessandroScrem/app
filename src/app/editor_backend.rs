@@ -31,6 +31,7 @@ impl EditorBackend for App {
             Query::Statistics => QueryResult::Statistics(Default::default()),
             Query::SceneSettings => QueryResult::SceneSettings(self.scene_settings()),
             Query::Ibls => QueryResult::Ibls(self.ibl_data()),
+            Query::ResourceStats => QueryResult::ResourceStats(Default::default()),
         }
     }
 
