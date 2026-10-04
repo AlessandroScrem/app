@@ -302,9 +302,9 @@ impl UiCommands {
 mod tests {
     use super::{QuerySlot, UiCommands};
     use crate::editor::{
-        EditorConnection, EditorEvent, EditorSettingsData, EntityId,
-        HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryResponse,
-        QueryResult, SceneSettingsData, TransformData,
+        EditorConnection, EditorEvent, EditorSettingsData, EntityId, HierarchyData, InspectorData,
+        InspectorSection, LightData, Query, QueryResponse, QueryResult, SceneSettingsData,
+        TransformData,
     };
 
     fn inspector(entity: EntityId, name: &str) -> InspectorData {

@@ -172,3 +172,30 @@ fn collect_mesh_entities_from_root(entity: Entity, world: &mut legion::World) ->
 
     entities
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_hidden;
+    use crate::ecs::components::{Hidden, HierarchyComponent};
+    use legion::World;
+
+    #[test]
+    fn hidden_entity_is_hidden() {
+        let mut world = World::default();
+        let entity = world.push((HierarchyComponent::default(), Hidden));
+
+        assert!(is_hidden(&world, entity));
+    }
+
+    #[test]
+    fn child_of_hidden_entity_is_hidden() {
+        let mut world = World::default();
+        let parent = world.push((HierarchyComponent::default(), Hidden));
+        let child = world.push((HierarchyComponent {
+            parent: Some(parent),
+            children: Vec::new(),
+        },));
+
+        assert!(is_hidden(&world, child));
+    }
+}

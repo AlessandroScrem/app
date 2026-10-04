@@ -12,7 +12,7 @@ const DEFAULT_LIGHT_NAME: &str = "Light";
 fn unique_light_name(world: &World) -> String {
     let mut names = std::collections::HashSet::new();
 
-    for (_, tag) in <(&LightComponent, &TagComponent,)>::query().iter(world) {
+    for (_, tag) in <(&LightComponent, &TagComponent)>::query().iter(world) {
         names.insert(tag.name.as_str());
     }
 
