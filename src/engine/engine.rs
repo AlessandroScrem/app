@@ -50,7 +50,7 @@ pub struct Engine<A: RuntimeApp + Default> {
 }
 
 impl<A: RuntimeApp + Default> Engine<A> {
-    pub fn resume(&mut self, window: crate::winit_bridge::WindowHandle) {
+    pub(crate) fn resume(&mut self, window: crate::winit_bridge::WindowHandle) {
         if self.runtime.is_some() {
             return;
         }
@@ -61,7 +61,7 @@ impl<A: RuntimeApp + Default> Engine<A> {
         self.runtime = Some(Runtime::new(window));
     }
 
-    pub fn tick(&mut self, minimized: bool) {
+    pub(crate) fn tick(&mut self, minimized: bool) {
         let Self { app, bus, runtime } = self;
         let Some(runtime) = runtime else {
             return;
