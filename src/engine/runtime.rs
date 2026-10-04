@@ -31,7 +31,7 @@ use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::{UiLayer, WindowAction};
 use legion::Entity;
 use std::sync::Arc;
-use winit::{event::Event, window::{ResizeDirection, Window}};
+use winit::{event::Event, window::Window};
 
 pub struct Runtime {
     pub window: Arc<Window>,
