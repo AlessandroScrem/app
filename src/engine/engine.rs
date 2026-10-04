@@ -61,22 +61,23 @@ impl<A: RuntimeApp + Default> Engine<A> {
         self.runtime = Some(Runtime::new(window));
     }
 
-    pub(crate) fn tick(&mut self, minimized: bool) {
+    pub(crate) fn tick(&mut self, minimized: bool) -> Option<String> {
         let Self { app, bus, runtime } = self;
         let Some(runtime) = runtime else {
-            return;
+            return None;
         };
 
         runtime.handle_input(bus);
-        runtime.handle_runtime_events(app, bus);
+        let window_title = runtime.handle_runtime_events(app, bus);
 
         if minimized {
-            return;
+            return window_title;
         }
 
         app.on_update(bus);
         runtime.sync_gpu_assets(app.asset_mgr_mut(), bus);
         runtime.update_ui(app, bus);
         runtime.render(app);
+        window_title
     }
 }
