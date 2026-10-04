@@ -344,6 +344,7 @@ fn draw_texture_slot(
     material: &mut MaterialDesc,
     slot: MaterialTextureSlot,
 ) -> bool {
+    let _id = ui.push_id(slot.as_str());
     ui.separator();
     ui.text(slot.as_str());
 
