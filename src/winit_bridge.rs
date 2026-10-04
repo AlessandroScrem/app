@@ -132,17 +132,28 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let Some(runtime) = &mut self.engine.runtime else {
+        let Some(window) = self
+            .engine
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.window.clone())
+        else {
             return;
         };
 
-        let evt: Event<()> = Event::WindowEvent {
-            window_id,
-            event: event.clone(),
-        };
-        runtime.uilayer.handle_event(&runtime.window, &evt);
-        if !runtime.uilayer.want_capture_mouse() {
-            runtime.input.update_events(&evt);
+        {
+            let Some(runtime) = &mut self.engine.runtime else {
+                return;
+            };
+
+            let evt: Event<()> = Event::WindowEvent {
+                window_id,
+                event: event.clone(),
+            };
+            runtime.uilayer.handle_event(&runtime.window, &evt);
+            if !runtime.uilayer.want_capture_mouse() {
+                runtime.input.update_events(&evt);
+            }
         }
 
         match event {
@@ -156,14 +167,9 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 });
             }
             WindowEvent::RedrawRequested => {
-                let minimized = self
-                    .engine
-                    .runtime
-                    .as_ref()
-                    .is_some_and(|runtime| is_minimized(&runtime.window));
-                if !minimized {
+                if !is_minimized(&window) {
                     if let Some(title) = self.engine.tick(false) {
-                        set_window_title(&runtime.window, &title);
+                        set_window_title(&window, &title);
                     }
                 }
             }
