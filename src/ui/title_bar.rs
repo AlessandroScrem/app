@@ -71,8 +71,6 @@ impl Layer for TitleBarUi {
                     ctx.commands.send(EditorCommand::Exit);
                 });
             });
-            // Keep the icon font scoped to the window controls only.
-        }
     }
 }
 
