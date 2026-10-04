@@ -1,17 +1,18 @@
 mod entity_list;
 mod main_wnd;
 mod menu_bar;
+mod properties;
+mod properties_material;
+mod properties_transform;
 mod settings;
+mod title_bar;
 mod tools;
 mod traits;
 mod ui_commands;
 mod ui_layer;
-mod properties;
-mod properties_transform;
-mod properties_material;
 
 pub(crate) use traits::UiTextures;
-pub(crate) use ui_layer::{UiContext, UiLayer};
+pub(crate) use ui_layer::{UiContext, UiLayer, WindowAction};
 
 use entity_list::EntityListUi;
 use main_wnd::ViewportUi;
