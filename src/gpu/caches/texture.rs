@@ -71,8 +71,10 @@ impl GpuTextureCache {
     }
 
     pub fn insert(&mut self, id: ResourceId, texture: GpuTexture) {
-        self.stats.add(texture.estimated_size);
-        self.map.insert(id, texture);
+        if let Some(previous) = self.map.insert(id, texture) {
+            self.stats.remove(previous.estimated_size);
+        }
+        self.stats.add(self.map[&id].estimated_size);
     }
 
     pub fn get(&self, id: ResourceId) -> Option<&GpuTexture> {
@@ -84,19 +86,12 @@ impl GpuTextureCache {
             .unwrap_or_else(|| self.builtin.get(slot))
     }
 
-    pub fn contains_key(&self, id: &ResourceId) -> bool {
-        self.map.contains_key(id)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&ResourceId, &GpuTexture)> {
-        self.map.iter()
-    }
-
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_texture) = self.map.remove(&id) {
             self.stats.remove(gpu_texture.estimated_size);
         }
     }
+
 }
 
 #[cfg(test)]

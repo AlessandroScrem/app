@@ -91,8 +91,9 @@ impl Runtime {
         );
         let gpu_manager = GpuManager::new(&gpu_context.as_ref(), width, height);
         let shadow_manager = ShadowManager::new(&gpu_context.as_ref());
-        imgui_render.sync_imgui_texture_from_gpu(
-            &gpu_context,
+        imgui_render.registry.add(
+            &mut imgui_render.renderer,
+            &gpu_context.device,
             shadow_manager.get_rgba_id(),
             shadow_manager.get_rgba(),
         );
@@ -211,11 +212,6 @@ impl Runtime {
                     self.window.set_title(&title);
                     info!("Set window title");
                 }
-                RuntimeEvent::SyncImguiTextures => {
-                    self.imgui_render
-                        .sync_imgui_asset_textures(&self.gpu_context, &mut self.gpu_cache.textures);
-                }
-
                 RuntimeEvent::UpdateIblMaps(id) => {
                     self.material_preview_renderer.invalidate_environment();
                     self.gpu_manager.replace_pbrmap_skybox_bindgroup(
@@ -267,13 +263,26 @@ impl Runtime {
                     })
                     .collect();
                 for (id, data) in load_cpu_textures_par(jobs) {
-                    texture_cache.insert(
+                    let texture = GpuTextureBuilder::from_cpu(data)
+                        .build(&gpu_context.as_ref());
+                    texture_cache.insert(id, texture);
+                    let texture = texture_cache
+                        .get(id)
+                        .expect("inserted GPU texture must be available");
+                    self.imgui_render.registry.add(
+                        &mut self.imgui_render.renderer,
+                        &gpu_context.device,
                         id,
-                        GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref()),
+                        texture,
                     );
                 }
             }
-            AssetEventKind::Removed => events.iter().for_each(|ev| texture_cache.remove(ev.id)),
+            AssetEventKind::Removed => events.iter().for_each(|ev| {
+                texture_cache.remove(ev.id);
+                self.imgui_render
+                    .registry
+                    .remove(&mut self.imgui_render.renderer, ev.id);
+            }),
             _ => {}
         });
         grouped.process_type::<IblAsset, _>(|kind, events| {
@@ -332,9 +341,6 @@ impl Runtime {
             AssetEventKind::Removed => events.iter().for_each(|ev| mesh_cache.remove(ev.id)),
             _ => {}
         });
-        grouped.process_type::<TextureAsset, _>(|_, _| {
-            bus.send_runtime(RuntimeEvent::SyncImguiTextures)
-        });
     }
 
     pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
@@ -379,21 +385,18 @@ impl Runtime {
             self.scene_renderer
                 .render(&context, &mut encoder, &target, &frame_data);
 
-            if let Some((preview_texture, preview_view, preview_extent)) =
-                self.material_preview_renderer.render(
+            if let Some(preview_texture) = self.material_preview_renderer.render(
                     &mut encoder,
                     &self.gpu_context,
                     &self.gpu_manager,
                     &self.gpu_cache,
                     &self.pipeline_manager,
-                )
-            {
-                self.imgui_render.sync_imgui_texture(
-                    &self.gpu_context,
+                ) {
+                self.imgui_render.registry.add(
+                    &mut self.imgui_render.renderer,
+                    &self.gpu_context.device,
                     self.material_preview_renderer.resource_id(),
-                    preview_texture,
-                    preview_view,
-                    preview_extent,
+                    &preview_texture,
                 );
             }
 

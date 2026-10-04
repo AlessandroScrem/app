@@ -1,4 +1,5 @@
 use crate::ResourceId;
+use crate::assets::texture_asset::ColorSpace;
 use crate::assets::{MaterialId, VertexInstance};
 use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
 use crate::gpu::{BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh};
@@ -80,22 +81,29 @@ impl MaterialPreviewTarget {
         }
     }
 
-    fn texture(
-        &self,
-    ) -> (
-        std::sync::Arc<wgpu::Texture>,
-        std::sync::Arc<wgpu::TextureView>,
-        wgpu::Extent3d,
-    ) {
-        (
-            self.target.clone(),
-            self.target_view.clone(),
-            wgpu::Extent3d {
+    fn texture(&self, device: &wgpu::Device) -> crate::gpu::GpuTexture {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+        crate::gpu::GpuTexture {
+            inner: self.target.clone(),
+            view: self.target_view.clone(),
+            view_mips: self.target_view.clone(),
+            extent: wgpu::Extent3d {
                 width: Self::SIZE,
                 height: Self::SIZE,
                 depth_or_array_layers: 1,
             },
-        )
+            sampler,
+            estimated_size: (Self::SIZE * Self::SIZE * 8) as usize,
+            format: ColorSpace::Rgbaf16,
+        }
     }
 }
 
@@ -226,11 +234,7 @@ impl MaterialPreviewRenderer {
         gpu_manager: &GpuManager,
         gpu_cache: &GpuCache,
         pipeline_manager: &PipelineManager,
-    ) -> Option<(
-        std::sync::Arc<wgpu::Texture>,
-        std::sync::Arc<wgpu::TextureView>,
-        wgpu::Extent3d,
-    )> {
+    ) -> Option<crate::gpu::GpuTexture> {
         let Some(material) = self.active_material else {
             self.active_material = None;
             return None;
@@ -247,7 +251,7 @@ impl MaterialPreviewRenderer {
             {
                 if self.active_material != Some(material) {
                     self.active_material = Some(material);
-                    return Some(preview.target.texture());
+                    return Some(preview.target.texture(&gpu_context.device));
                 }
                 return None;
             }
@@ -382,7 +386,7 @@ impl MaterialPreviewRenderer {
 
         drop(pass);
 
-        let preview = target.texture();
+        let preview = target.texture(&gpu_context.device);
         self.cache.insert(
             material,
             CachedMaterialPreview {
