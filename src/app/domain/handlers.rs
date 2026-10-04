@@ -82,7 +82,7 @@ pub fn handle_scene_event(app: &mut App, event: SceneEvent, bus: &mut EventBus) 
         }
 
         SceneEvent::AddLightComponent(light_component, tag, transform) => {
-            light::add_light(
+            light::add(
                 &mut app.current_scene.world,
                 light_component,
                 tag,
@@ -135,7 +135,7 @@ pub fn handle_entity_event(app: &mut App, event: EntityEvent) {
         }
         EntityEvent::EnableAllLight(enable) => light::enable_all_lights(enable, world),
         EntityEvent::AddLight => {
-            light::create(world);
+            light::new(world);
             app.editor_scene_revision = app.editor_scene_revision.wrapping_add(1);
         }
         EntityEvent::DisableEntity(entity, disable) => {

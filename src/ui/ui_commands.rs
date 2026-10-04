@@ -302,7 +302,7 @@ impl UiCommands {
 mod tests {
     use super::{QuerySlot, UiCommands};
     use crate::editor::{
-        EditorConnection, EditorEvent, EditorResourceStatsData, EditorSettingsData, EntityId,
+        EditorConnection, EditorEvent, EditorSettingsData, EntityId,
         HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryResponse,
         QueryResult, SceneSettingsData, TransformData,
     };

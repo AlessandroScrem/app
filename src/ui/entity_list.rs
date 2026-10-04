@@ -213,14 +213,20 @@ fn row_icons(
         }
         ui.same_line();
         if ui.small_button(format!("{ICON_ADD}##add{}", node.entity)) {
-            if let Some(path) =
+            if node.is_light {
+                *action = Some(EditorCommand::Entity(EntityCommand::AddLight));
+            } else if  let Some(path) =
                 crate::ui::menu_bar::file_open(crate::ui::menu_bar::FileFilter::Gltf)
             {
                 *action = Some(EditorCommand::Asset(AssetCommand::LoadGltf(path)));
             }
         }
         if ui.is_item_hovered() {
-            ui.tooltip_text("Add glTF / GLB");
+            ui.tooltip_text(if node.is_light{
+                "Add Light"
+            } else {
+                "Add glTF / GLB"
+            });
         }
         ui.same_line();
         if ui.small_button(format!("{ICON_TRASH}##delete{}", node.entity)) {

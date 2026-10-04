@@ -19,7 +19,7 @@ impl Application for App {
     fn init(&mut self, bus: &mut EventBus) {
         let timer = std::time::Instant::now();
         self.settings = Settings::load();
-        crate::ecs::components::light::create(&mut self.current_scene.world);
+        crate::ecs::components::light::new(&mut self.current_scene.world);
         const HDRPATH: &str = crate::asset_path!("core/Cannon_Exterior.hdr");
         let hdr_texture_asset =
             TextureAsset::from_file(HDRPATH, crate::assets::texture_asset::TextureUsage::HDR16);

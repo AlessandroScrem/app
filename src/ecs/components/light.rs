@@ -7,11 +7,34 @@ use crate::ecs::components::{
 use super::components::{LightComponent, TagComponent};
 use legion::world::World;
 
+const DEFAULT_LIGHT_NAME: &str = "Light";
+
+fn unique_light_name(world: &World) -> String {
+    let mut names = std::collections::HashSet::new();
+
+    for (_, tag) in <(&LightComponent, &TagComponent,)>::query().iter(world) {
+        names.insert(tag.name.as_str());
+    }
+
+    if !names.contains(DEFAULT_LIGHT_NAME) {
+        return DEFAULT_LIGHT_NAME.to_owned();
+    }
+
+    for index in 1.. {
+        let name = format!("{DEFAULT_LIGHT_NAME} #{index:02}");
+        if !names.contains(name.as_str()) {
+            return name;
+        }
+    }
+
+    unreachable!()
+}
+
 /// A function to help create a light entity.
-pub fn create(world: &mut World) -> Entity {
+pub fn new(world: &mut World) -> Entity {
     world.push((
         TagComponent {
-            name: "Directional".to_string(),
+            name: unique_light_name(world),
         },
         TransformComponent {
             position: [3.0, 20.0, 10.0],
@@ -24,7 +47,7 @@ pub fn create(world: &mut World) -> Entity {
 }
 
 /// A function to help create a light entity.
-pub fn add_light(
+pub fn add(
     world: &mut World,
     light: LightComponent,
     name: TagComponent,
