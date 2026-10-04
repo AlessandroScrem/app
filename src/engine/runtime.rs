@@ -201,6 +201,7 @@ impl Runtime {
                 }
                 RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus),
                 RuntimeEvent::SetWindowTitle(title) => {
+                    self.uilayer.set_window_title(&title);
                     crate::winit_bridge::set_window_title(&self.window, &title);
                     info!("Set window title");
                 }
