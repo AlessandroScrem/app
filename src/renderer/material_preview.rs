@@ -233,11 +233,7 @@ impl MaterialPreviewRenderer {
         gpu_manager: &GpuManager,
         gpu_cache: &GpuCache,
         pipeline_manager: &PipelineManager,
-    ) -> Option<(
-        std::sync::Arc<wgpu::Texture>,
-        std::sync::Arc<wgpu::TextureView>,
-        wgpu::Extent3d,
-    )> {
+    ) -> Option<crate::gpu::GpuTexture> {
         let Some(material) = self.active_material else {
             self.active_material = None;
             return None;
