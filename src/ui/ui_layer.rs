@@ -1,7 +1,6 @@
 use super::ui_commands::UiCommands;
-use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextureRegistry, ViewportUi};
+use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextures, ViewportUi};
 use crate::editor::EditorCommandClient;
-use crate::ResourceId;
 use crate::ui::tools;
 
 use imgui::Ui;
@@ -11,10 +10,12 @@ use winit::window::Window;
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
-    pub textures: &'a UiTextureRegistry,
-    pub shadow_map: ResourceId,
-    pub material_preview_texture: ResourceId,
+    pub textures: &'a UiTextures,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
+}
+
+pub struct UiOutput {
+    pub material_preview: Option<crate::assets::MaterialId>,
 }
 
 struct UiStack {
@@ -57,7 +58,6 @@ pub struct UiLayer {
     timestep: crate::timestep::Timestep,
     stack: UiStack,
     commands: UiCommands,
-    material_preview: Option<crate::assets::MaterialId>,
 }
 
 impl UiLayer {
@@ -94,7 +94,6 @@ impl UiLayer {
             timestep: crate::timestep::Timestep::new(),
             stack: ui,
             commands: UiCommands::new(connection),
-            material_preview: None,
         }
     }
 
@@ -134,10 +133,8 @@ impl UiLayer {
     pub fn build(
         &mut self,
         window: &Window,
-        textures: &UiTextureRegistry,
-        shadow_map: ResourceId,
-        material_preview_texture: ResourceId,
-    ) {
+        textures: &UiTextures,
+    ) -> UiOutput {
         self.commands.process();
         self.begin_frame(window);
         self.stack.update(&self.commands);
@@ -146,21 +143,19 @@ impl UiLayer {
         ui.dockspace_over_main_viewport();
 
         let command_client = self.commands.command_client();
-        self.material_preview = None;
+        let mut output = UiOutput {
+            material_preview: None,
+        };
         let mut ctx = UiContext {
             commands: command_client,
             textures,
-            shadow_map,
-            material_preview_texture,
-            material_preview: &mut self.material_preview,
+            material_preview: &mut output.material_preview,
         };
 
         self.stack.build(ui, &mut ctx);
         self.platform.prepare_render(ui, window);
         self.end_frame();
-    }
 
-    pub fn material_preview(&self) -> Option<crate::assets::MaterialId> {
-        self.material_preview
+        output
     }
 }

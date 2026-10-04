@@ -2,8 +2,8 @@ use super::ui_commands::UiCommands;
 use super::ui_layer::{Layer, UiContext};
 use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
 use crate::editor::{
-    AssetCommand, EntityCommand, EntityId, InspectorData, InspectorSection, LightData,
-    MaterialData, TransformData,
+    EntityCommand, EntityId, InspectorData, InspectorSection, LightData, MaterialCommand,
+    MaterialDto, TransformData,
 };
 use imgui::{Condition, Drag, Image, TreeNodeFlags, Ui};
 
@@ -202,7 +202,7 @@ fn draw_bounding_box(ui: &Ui, bbox: &crate::editor::BoundingBoxData) {
     }
 }
 
-fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) {
+fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialDto]) {
     if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {
         return;
     }
@@ -217,7 +217,7 @@ fn draw_materials(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialData]) 
     }
 }
 
-fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
+fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialDto) {
     ui.text(&material.name);
     ui.same_line();
     ui.text_disabled(format!("#{}", material.id.raw()));
@@ -269,14 +269,14 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialData) {
         send_material_update(ctx, material);
     }
 }
-fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialData) {
+fn draw_material_preview(ui: &Ui, ctx: &UiContext, material: &MaterialDto) {
     let preview = material
         .desc
         .texture(MaterialTextureSlot::BaseColor)
-        .and_then(|texture| ctx.textures.texture(texture));
+        .and_then(|texture| ctx.textures.asset(texture));
 
     ui.text("Preview");
-    if let Some(texture) = ctx.textures.texture(ctx.material_preview_texture) {
+    if let Some(texture) = ctx.textures.material_preview {
         Image::new(texture, [180.0, 180.0]).build(ui);
     } else if let Some(texture) = preview {
         Image::new(texture, [180.0, 180.0]).build(ui);
@@ -377,7 +377,7 @@ fn draw_texture_preview(
         return;
     };
 
-    if let Some(texture_id) = ctx.textures.texture(texture) {
+    if let Some(texture_id) = ctx.textures.asset(texture) {
         Image::new(texture_id, [64.0, 64.0]).build(ui);
         ui.same_line();
         ui.text(format!("Texture #{}", texture.raw()));
@@ -496,8 +496,8 @@ fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
     changed
 }
 
-fn send_material_update(ctx: &UiContext, material: &MaterialData) {
-    ctx.commands.send(AssetCommand::UpdateMaterial {
+fn send_material_update(ctx: &UiContext, material: &MaterialDto) {
+    ctx.commands.send(MaterialCommand::Update {
         id: material.id,
         desc: material.desc.clone(),
     });
@@ -516,7 +516,7 @@ fn draw_light(ui: &Ui, ctx: &UiContext, entity: EntityId, light: &mut LightData)
     }
 
     if light.cast_shadow {
-        if let Some(texture) = ctx.textures.texture(ctx.shadow_map) {
+        if let Some(texture) = ctx.textures.shadow_map {
             Image::new(texture, [200.0, 200.0]).build(ui);
         }
     }

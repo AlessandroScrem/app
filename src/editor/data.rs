@@ -29,7 +29,7 @@ pub struct InspectorData {
 }
 
 #[derive(Clone, Debug)]
-pub struct MaterialData {
+pub struct MaterialDto {
     pub id: crate::assets::MaterialId,
     pub name: String,
     pub desc: crate::assets::material_desc::MaterialDesc,
@@ -39,7 +39,7 @@ pub struct MaterialData {
 pub enum InspectorSection {
     Transform(TransformData),
     Mesh(MeshData),
-    Materials(Vec<MaterialData>),
+    Materials(Vec<MaterialDto>),
     BoundingBox(BoundingBoxData),
     Light(LightData),
 }
