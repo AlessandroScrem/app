@@ -26,7 +26,6 @@ pub(crate) use globals::Globals;
 pub(crate) use resource_id::ResourceId;
 
 pub(crate) mod prelude {
-    pub use legion::{EntityStore, IntoQuery};
     pub use log::{debug, error, info, trace, warn};
 }
 

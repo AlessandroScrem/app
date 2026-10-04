@@ -64,6 +64,7 @@ impl ImGuiTextureRegistry {
         Some(id)
     }
 
+    #[allow(unused)]
     pub fn get(&self, resource_id: ResourceId) -> Option<imgui::TextureId> {
         self.textures.get(&resource_id).copied()
     }
@@ -112,7 +113,10 @@ mod tests {
 
         let texture_id = registry.add(&mut renderer, gpu.device, resource_id, &texture);
 
-        assert_eq!(registry.remove(&mut renderer, resource_id), Some(texture_id));
+        assert_eq!(
+            registry.remove(&mut renderer, resource_id),
+            Some(texture_id)
+        );
         assert_eq!(registry.get(resource_id), None);
         assert_eq!(registry.remove(&mut renderer, resource_id), None);
     }
@@ -204,4 +208,3 @@ impl ImguiRender {
         }
     }
 }
-

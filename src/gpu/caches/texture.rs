@@ -91,7 +91,6 @@ impl GpuTextureCache {
             self.stats.remove(gpu_texture.estimated_size);
         }
     }
-
 }
 
 #[cfg(test)]

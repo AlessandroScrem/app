@@ -263,8 +263,7 @@ impl Runtime {
                     })
                     .collect();
                 for (id, data) in load_cpu_textures_par(jobs) {
-                    let texture = GpuTextureBuilder::from_cpu(data)
-                        .build(&gpu_context.as_ref());
+                    let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
                     texture_cache.insert(id, texture);
                     let texture = texture_cache
                         .get(id)
@@ -386,12 +385,12 @@ impl Runtime {
                 .render(&context, &mut encoder, &target, &frame_data);
 
             if let Some(preview_texture) = self.material_preview_renderer.render(
-                    &mut encoder,
-                    &self.gpu_context,
-                    &self.gpu_manager,
-                    &self.gpu_cache,
-                    &self.pipeline_manager,
-                ) {
+                &mut encoder,
+                &self.gpu_context,
+                &self.gpu_manager,
+                &self.gpu_cache,
+                &self.pipeline_manager,
+            ) {
                 self.imgui_render.registry.add(
                     &mut self.imgui_render.renderer,
                     &self.gpu_context.device,
