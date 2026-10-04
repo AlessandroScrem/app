@@ -94,14 +94,6 @@ impl GpuTextureCache {
             .unwrap_or_else(|| self.builtin.get(slot))
     }
 
-    pub fn contains_key(&self, id: &ResourceId) -> bool {
-        self.map.contains_key(id)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&ResourceId, &GpuTexture)> {
-        self.map.iter()
-    }
-
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_texture) = self.map.remove(&id) {
             self.stats.remove(gpu_texture.estimated_size);
