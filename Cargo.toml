@@ -1,8 +1,11 @@
+[workspace]
+members = ["crates/orbis-app"]
+resolver = "2"
+
 [package]
-name = "orbis"
+name = "orbis-engine"
 version = "0.1.0"
 edition = "2024"
-default-run = "orbis"
 
 [dev-dependencies]
 criterion = "0.7.0"
@@ -56,9 +59,6 @@ strum_macros = "0.27.2"
 log = "0.4.28"
 # bitflags = "2.11.0"
 
-clap = "2.33.0"
-env_logger = "0.11.8"
-colored = "3.0.0"
 # nofmt = "1.0.0"
 
 #
