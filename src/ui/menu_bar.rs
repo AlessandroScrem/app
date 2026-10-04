@@ -16,7 +16,7 @@ impl Layer for MenuBarUi {
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let width = ui.io().display_size[0];
         ui.window("##MenuBar")
-            .position([0.0, 32.0], Condition::Always)
+            .position([0.0, 36.0], Condition::Always)
             .size([width, 24.0], Condition::Always)
             .flags(
                 WindowFlags::NO_DECORATION
