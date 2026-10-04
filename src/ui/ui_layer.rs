@@ -104,10 +104,10 @@ impl UiLayer {
         self.context.io().want_capture_mouse
     }
 
-    pub fn handle_event<T>(
+    pub fn handle_event(
         &mut self,
         window: &WindowHandle,
-        event: &crate::winit_bridge::WinitEvent<T>,
+        event: &crate::winit_bridge::WinitEvent,
     ) {
         self.platform
             .handle_event(&mut self.context, window, event);
