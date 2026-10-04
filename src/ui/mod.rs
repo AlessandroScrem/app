@@ -8,7 +8,7 @@ mod traits;
 mod ui_commands;
 mod ui_layer;
 
-pub(crate) use traits::{InternalCounter, UiTextures};
+pub(crate) use traits::UiTextures;
 pub(crate) use ui_layer::{UiContext, UiLayer};
 
 use entity_list::EntityListUi;
