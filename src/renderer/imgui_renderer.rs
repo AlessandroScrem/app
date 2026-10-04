@@ -1,5 +1,5 @@
-use crate::asset_path;
 use crate::ResourceId;
+use crate::asset_path;
 use crate::gpu::*;
 use crate::prelude::*;
 use crate::ui::UiTextures;
@@ -20,11 +20,7 @@ impl ImGuiTextureRegistry {
         }
     }
 
-    pub fn ui_textures(
-        &self,
-        shadow_map: ResourceId,
-        material_preview: ResourceId,
-    ) -> UiTextures {
+    pub fn ui_textures(&self, shadow_map: ResourceId, material_preview: ResourceId) -> UiTextures {
         UiTextures::new(
             self.textures.clone(),
             self.textures.get(&shadow_map).copied(),

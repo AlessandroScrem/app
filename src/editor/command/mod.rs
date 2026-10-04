@@ -2,8 +2,8 @@ mod asset;
 mod camera;
 mod entity;
 mod global;
-mod pick;
 mod material;
+mod pick;
 mod scene;
 mod selection;
 
@@ -11,8 +11,8 @@ pub use asset::AssetCommand;
 pub use camera::CameraCommand;
 pub use entity::EntityCommand;
 pub use global::GlobalCommand;
-pub use pick::PickCommand;
 pub use material::MaterialCommand;
+pub use pick::PickCommand;
 pub use scene::SceneCommand;
 pub use selection::SelectionCommand;
 

@@ -130,11 +130,7 @@ impl UiLayer {
         }
     }
 
-    pub fn build(
-        &mut self,
-        window: &Window,
-        textures: &UiTextures,
-    ) -> UiOutput {
+    pub fn build(&mut self, window: &Window, textures: &UiTextures) -> UiOutput {
         self.commands.process();
         self.begin_frame(window);
         self.stack.update(&self.commands);

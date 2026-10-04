@@ -1,5 +1,5 @@
-use crate::assets::{MaterialId, VertexInstance};
 use crate::ResourceId;
+use crate::assets::{MaterialId, VertexInstance};
 use crate::gpu::pipeline_manager::{PipelineKind, PipelineManager};
 use crate::gpu::{BindgroupKind, BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMesh};
 use crate::math::{Deg, Mat4, Point3f, Vec3, perspective};

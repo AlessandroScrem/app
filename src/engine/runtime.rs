@@ -360,7 +360,8 @@ impl Runtime {
             self.material_preview_renderer.resource_id(),
         );
         let output = self.uilayer.build(&self.window, &textures);
-        self.material_preview_renderer.set_material(output.material_preview);
+        self.material_preview_renderer
+            .set_material(output.material_preview);
     }
 
     pub fn render<A: Application>(&mut self, app: &A) {
