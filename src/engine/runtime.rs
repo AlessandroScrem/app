@@ -69,7 +69,7 @@ impl Runtime {
         }
     }
 
-    pub fn new(window: WindowHandle) -> Self {
+    pub(crate) fn new(window: WindowHandle) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
         let gpu_surface = GpuSurface::new(
