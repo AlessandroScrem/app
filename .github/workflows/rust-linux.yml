@@ -24,11 +24,16 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
+    - uses: dtolnay/rust-toolchain@stable
     - name: Install wgpu dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    - name: Check
+      run: cargo check --workspace --all-targets
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --workspace --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --workspace --verbose
