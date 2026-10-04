@@ -5,7 +5,7 @@ use crate::editor::EditorCommandClient;
 use crate::ui::tools;
 
 use crate::winit_bridge::{WindowHandle, WinitUiPlatform};
-use imgui::{StyleVar, Ui, WindowFlags};
+use imgui::Ui;
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
@@ -128,41 +128,14 @@ impl UiLayer {
 
     }
 
-    fn build_dockspace(ui: &Ui) {
+    fn set_main_viewport_work_area() {
     const CHROME_HEIGHT: f32 = 60.0;
-    const DOCKSPACE_ID: imgui::sys::ImGuiID = 0xA11C_E001;
 
-    let [width, height] = ui.io().display_size;
-    let dock_height = (height - CHROME_HEIGHT).max(0.0);
-    if width <= 0.0 || dock_height <= 0.0 {
-        return;
+    unsafe {
+        let viewport = imgui::sys::igGetMainViewport();
+        (*viewport).WorkPos.y = (*viewport).Pos.y + CHROME_HEIGHT;
+        (*viewport).WorkSize.y = ((*viewport).Size.y - CHROME_HEIGHT).max(0.0);
     }
-
-    let _padding = ui.push_style_var(StyleVar::WindowPadding([0.0, 0.0]));
-
-    ui.window("##MainDockSpace")
-        .position([0.0, CHROME_HEIGHT], imgui::Condition::Always)
-        .size([width, dock_height], imgui::Condition::Always)
-        .flags(
-            WindowFlags::NO_DECORATION
-                | WindowFlags::NO_SAVED_SETTINGS
-                | WindowFlags::NO_SCROLLBAR
-                | WindowFlags::NO_MOVE
-                | WindowFlags::NO_RESIZE
-                | WindowFlags::NO_BACKGROUND
-                | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS,
-        )
-        .build(|| unsafe {
-            imgui::sys::igDockSpace(
-                DOCKSPACE_ID,
-                imgui::sys::ImVec2 {
-                    x: width,
-                    y: dock_height,
-                },
-                imgui::sys::ImGuiDockNodeFlags_PassthruCentralNode as i32,
-                std::ptr::null(),
-            );
-        });
 }
 
     fn end_frame(&mut self) {
