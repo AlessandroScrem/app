@@ -482,9 +482,9 @@ mod windows_snap_layout {
         let titlebar = TITLE_BAR_HEIGHT * scale;
 
         point.x as f64 >= rect.right as f64 - button * 2.0
-            && point.x as f64 < rect.right as f64 - button
+            && (point.x as f64) < rect.right as f64 - button
             && point.y as f64 >= 0.0
-            && point.y as f64 < titlebar
+            && (point.y as f64) < titlebar
     }
 }
 
