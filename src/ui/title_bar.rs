@@ -62,17 +62,17 @@ impl Layer for TitleBarUi {
                 let _spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
 
                 ui.set_cursor_pos([(width - BUTTONS_WIDTH).max(BUTTONS_START), 4.0]);
-                window_button(ui, ICON_MINIMIZE, false, || {
+                window_button(ui, ICON_MINIMIZE, false, false, || {
                     *ctx.window_action = Some(WindowAction::Minimize);
                 });
 
                 ui.set_cursor_pos([(width - BUTTONS_WIDTH + WINDOW_BUTTON_SIZE[0]).max(BUTTONS_START + WINDOW_BUTTON_SIZE[0]), 4.0]);
-                window_button(ui, ICON_MAXIMIZE, false, || {
+                window_button(ui, ICON_MAXIMIZE, false, ctx.maximize_hovered, || {
                     *ctx.window_action = Some(WindowAction::ToggleMaximize);
                 });
 
                 ui.set_cursor_pos([(width - WINDOW_BUTTON_SIZE[0]).max(BUTTONS_START + WINDOW_BUTTON_SIZE[0] * 2.0), 4.0]);
-                window_button(ui, ICON_CLOSE, true, || {
+                window_button(ui, ICON_CLOSE, true, false, || {
                     ctx.commands.send(EditorCommand::Exit);
                 });
             });
@@ -83,14 +83,21 @@ fn window_button(
     ui: &Ui,
     label: &str,
     close: bool,
+    native_hovered: bool,
     action: impl FnOnce(),
 ) {
-    let button = ui.push_style_color(StyleColor::Button, [0.0, 0.0, 0.0, 0.0]);
+
     let hovered = if close {
         [0.78, 0.17, 0.17, 1.0]
     } else {
         [0.20, 0.22, 0.25, 1.0]
     };
+    let button_color = if native_hovered {
+        hovered
+    } else {
+        [0.0, 0.0, 0.0, 0.0]
+    };
+    let button = ui.push_style_color(StyleColor::Button, button_color);
     let hover = ui.push_style_color(StyleColor::ButtonHovered, hovered);
     let active = ui.push_style_color(StyleColor::ButtonActive, hovered);
 
