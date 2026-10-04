@@ -1,7 +1,11 @@
 use imgui::{Condition, MouseButton, Ui, WindowFlags};
+use winit::window::ResizeDirection;
 
 use crate::editor::EditorCommand;
 use crate::ui::ui_layer::{Layer, UiContext, WindowAction};
+
+const TITLE_BAR_HEIGHT: f32 = 32.0;
+const RESIZE_BORDER: f32 = 6.0;
 
 #[derive(Default)]
 pub struct TitleBarUi;
@@ -10,11 +14,11 @@ impl Layer for TitleBarUi {
     fn update(&mut self, _commands: &super::ui_commands::UiCommands) {}
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
-        let width = ui.io().display_size[0];
+        let [width, height] = ui.io().display_size;
 
         ui.window("##TitleBar")
             .position([0.0, 0.0], Condition::Always)
-            .size([width, 32.0], Condition::Always)
+            .size([width, TITLE_BAR_HEIGHT], Condition::Always)
             .flags(
                 WindowFlags::NO_DECORATION
                     | WindowFlags::NO_SAVED_SETTINGS
@@ -45,5 +49,93 @@ impl Layer for TitleBarUi {
                     ctx.commands.send(EditorCommand::Exit);
                 }
             });
+
+        ui.window("##WindowResizeHandles")
+            .position([0.0, 0.0], Condition::Always)
+            .size([width, height], Condition::Always)
+            .flags(
+                WindowFlags::NO_DECORATION
+                    | WindowFlags::NO_SAVED_SETTINGS
+                    | WindowFlags::NO_SCROLLBAR
+                    | WindowFlags::NO_MOVE
+                    | WindowFlags::NO_RESIZE
+                    | WindowFlags::NO_BACKGROUND,
+            )
+            .build(|| {
+                let edge = RESIZE_BORDER;
+                let horizontal = (width - 2.0 * edge).max(0.0);
+                let vertical = (height - 2.0 * edge).max(0.0);
+
+                resize_handle(
+                    ui,
+                    [0.0, 0.0],
+                    [edge, edge],
+                    ResizeDirection::NorthWest,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [edge, 0.0],
+                    [horizontal, edge],
+                    ResizeDirection::North,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [width - edge, 0.0],
+                    [edge, edge],
+                    ResizeDirection::NorthEast,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [0.0, edge],
+                    [edge, vertical],
+                    ResizeDirection::West,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [width - edge, edge],
+                    [edge, vertical],
+                    ResizeDirection::East,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [0.0, height - edge],
+                    [edge, edge],
+                    ResizeDirection::SouthWest,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [edge, height - edge],
+                    [horizontal, edge],
+                    ResizeDirection::South,
+                    ctx,
+                );
+                resize_handle(
+                    ui,
+                    [width - edge, height - edge],
+                    [edge, edge],
+                    ResizeDirection::SouthEast,
+                    ctx,
+                );
+            });
+    }
+}
+
+fn resize_handle(
+    ui: &Ui,
+    position: [f32; 2],
+    size: [f32; 2],
+    direction: ResizeDirection,
+    ctx: &mut UiContext,
+) {
+    ui.set_cursor_pos(position);
+    ui.invisible_button("##ResizeHandle", size);
+    if ui.is_item_active() && ui.is_mouse_clicked(MouseButton::Left) {
+        *ctx.window_action = Some(WindowAction::Resize(direction));
     }
 }
