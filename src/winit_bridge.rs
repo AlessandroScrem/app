@@ -266,7 +266,6 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             runtime.input.update_events(&evt);
         }
 
-        let redraw_requested = matches!(&event, WindowEvent::RedrawRequested);
         drop(runtime);
 
         match event {
