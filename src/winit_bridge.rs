@@ -7,9 +7,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    window::{
-        CursorIcon, Window, WindowAttributes, WindowId,
-    },
+    window::{CursorIcon, Window, WindowAttributes, WindowId},
 };
 
 #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
@@ -28,15 +26,16 @@ pub(crate) struct WinitUiPlatform {
 impl WinitUiPlatform {
     pub(crate) fn new(context: &mut Context, window: &WindowHandle) -> Self {
         let mut platform = WinitPlatform::new(context);
-        platform.attach_window(
-            context.io_mut(),
-            window,
-            HiDpiMode::Default,
-        );
+        platform.attach_window(context.io_mut(), window, HiDpiMode::Default);
         Self { platform }
     }
 
-    pub(crate) fn handle_event<T>(&mut self, context: &mut Context, window: &WindowHandle, event: &Event<T>) {
+    pub(crate) fn handle_event<T>(
+        &mut self,
+        context: &mut Context,
+        window: &WindowHandle,
+        event: &Event<T>,
+    ) {
         self.platform
             .handle_event::<T>(context.io_mut(), window, event);
     }
@@ -60,7 +59,7 @@ pub(crate) struct MyApplication<A: RuntimeApp + Default> {
 }
 
 impl<A: RuntimeApp + Default> MyApplication<A> {
-    pub fn new_with_size(width: u32, height: u32) -> Self {
+    pub(crate) fn new_with_size(width: u32, height: u32) -> Self {
         Self {
             size: PhysicalSize::new(width, height),
             cursor_position: None,
@@ -68,7 +67,7 @@ impl<A: RuntimeApp + Default> MyApplication<A> {
         }
     }
 
-    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
         let event_loop = EventLoop::new()?;
         event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(&mut self)?;
@@ -110,8 +109,8 @@ fn is_minimized(window: &WindowHandle) -> bool {
     window.is_minimized().unwrap_or(false)
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
 fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) {
-    #[cfg(not(target_os = "macos"))]
     window.set_cursor(resize_cursor(resize_direction(window, position)));
 }
 
