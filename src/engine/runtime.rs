@@ -31,7 +31,10 @@ use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::{UiLayer, WindowAction};
 use legion::Entity;
 use std::sync::Arc;
-use winit::{\n    event::{ElementState, Event, MouseButton, WindowEvent},\n    window::{CursorIcon, ResizeDirection, Window},\n};
+use winit::{
+    event::{ElementState, Event, MouseButton, WindowEvent},
+    window::{CursorIcon, ResizeDirection, Window},
+};
 
 pub struct Runtime {
     pub window: Arc<Window>,
