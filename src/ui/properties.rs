@@ -259,10 +259,6 @@ fn draw_material(ui: &Ui, ctx: &mut UiContext, material: &mut MaterialDto) {
                     changed |= draw_sheen(ui, &mut material.desc);
                 }
             }
-
-            if let Some(_tab) = ui.tab_item("Alpha") {
-                changed |= draw_alpha(ui, &mut material.desc);
-            }
         });
 
     if changed {
@@ -325,7 +321,26 @@ fn draw_surface(ui: &Ui, material: &mut MaterialDesc) -> bool {
         changed = true;
     }
 
+    draw_alpha(ui, material);
+
     changed
+}
+
+fn draw_alpha(ui: &Ui, material: &MaterialDesc) {
+    use crate::assets::material_desc::AlphaMode;
+
+    ui.text("Material Mode:");
+    ui.same_line();
+
+    let mut opaque = matches!(material.alpha_mode, AlphaMode::Opaque);
+    let mut mask = matches!(material.alpha_mode, AlphaMode::Mask { .. });
+    let mut blend = matches!(material.alpha_mode, AlphaMode::Blend);
+
+    ui.checkbox("Opaque", &mut opaque);
+    ui.same_line();
+    ui.checkbox("Mask", &mut mask);
+    ui.same_line();
+    ui.checkbox("Blend", &mut blend);
 }
 
 fn draw_textures(ui: &Ui, ctx: &UiContext, material: &mut MaterialDesc) -> bool {
@@ -458,42 +473,6 @@ fn draw_sheen(ui: &Ui, material: &mut MaterialDesc) -> bool {
         .speed(0.01)
         .range(0.0, 1.0)
         .build(ui, &mut sheen.roughness_factor);
-    changed
-}
-
-fn draw_alpha(ui: &Ui, material: &mut MaterialDesc) -> bool {
-    let mut changed = false;
-
-    match material.alpha_mode {
-        crate::assets::material_desc::AlphaMode::Opaque => ui.text("Mode: Opaque"),
-        crate::assets::material_desc::AlphaMode::Mask {
-            ref mut alpha_cutoff,
-        } => {
-            ui.text("Mode: Mask");
-            changed |= Drag::new("Cutoff")
-                .speed(0.01)
-                .range(0.0, 1.0)
-                .build(ui, alpha_cutoff);
-        }
-        crate::assets::material_desc::AlphaMode::Blend => ui.text("Mode: Blend"),
-    }
-
-    ui.text("Select mode:");
-    if ui.small_button("Opaque") {
-        material.alpha_mode = crate::assets::material_desc::AlphaMode::Opaque;
-        changed = true;
-    }
-    ui.same_line();
-    if ui.small_button("Mask") {
-        material.alpha_mode = crate::assets::material_desc::AlphaMode::mask_default();
-        changed = true;
-    }
-    ui.same_line();
-    if ui.small_button("Blend") {
-        material.alpha_mode = crate::assets::material_desc::AlphaMode::Blend;
-        changed = true;
-    }
-
     changed
 }
 
