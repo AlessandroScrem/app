@@ -102,7 +102,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             return;
         };
 
-        let event = Event::DeviceEvent { device_id, event };
+        let event: Event<()> = Event::DeviceEvent { device_id, event };
         runtime.uilayer.handle_event(&runtime.window, &event);
         if !runtime.uilayer.want_capture_mouse() {
             runtime.input.update_events(&event);
@@ -136,7 +136,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             return;
         };
 
-        let evt = Event::WindowEvent {
+        let evt: Event<()> = Event::WindowEvent {
             window_id,
             event: event.clone(),
         };
@@ -162,7 +162,9 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                     .as_ref()
                     .is_some_and(|runtime| is_minimized(&runtime.window));
                 if !minimized {
-                    self.engine.tick(false);
+                    if let Some(title) = self.engine.tick(false) {
+                        set_window_title(&runtime.window, &title);
+                    }
                 }
             }
             WindowEvent::DroppedFile(path) => {
