@@ -7,8 +7,8 @@ use crate::app::domain::events::DomainEvent::Selection;
 use crate::app::domain::events::SelectionEvent;
 use crate::ecs::components::{LightComponent, TagComponent, TransformComponent};
 use crate::editor::{
-    AssetCommand, CameraCommand, EntityCommand, GlobalCommand, MaterialCommand, SelectionCommand,
-    SceneCommand, TransformData,
+    AssetCommand, CameraCommand, EditorCommand, EditorEvent, EntityCommand, GlobalCommand,
+    MaterialCommand, PickCommand, SelectionCommand, SceneCommand, TransformData,
 };
 use crate::engine::engine::EventBus;
 
