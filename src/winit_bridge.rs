@@ -181,7 +181,8 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         // Window creation is deliberately kept in this bridge. The engine only receives
         // the opaque window handle it needs to initialize its GPU resources.
         let window = create_window(_event_loop, self.size);
-        self.engine.resume(window);
+        self.engine.resume(window.clone());
+        window.request_redraw();
     }
 
     fn device_event(
