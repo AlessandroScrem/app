@@ -31,7 +31,7 @@ use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::{UiLayer, WindowAction};
 use legion::Entity;
 use std::sync::Arc;
-use winit::{event::Event, window::Window};
+use winit::{event::Event, window::{ResizeDirection, Window}};
 
 pub struct Runtime {
     pub window: Arc<Window>,
@@ -397,6 +397,9 @@ impl Runtime {
                 }
                 WindowAction::ToggleMaximize => {
                     self.window.set_maximized(!self.window.is_maximized());
+                }
+                WindowAction::Resize(direction) => {
+                    let _ = self.window.drag_resize_window(direction);
                 }
             }
         }
