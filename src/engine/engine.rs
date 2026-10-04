@@ -77,6 +77,9 @@ impl<A: RuntimeApp + Default> Engine<A> {
         };
         runtime.handle_input(bus);
         runtime.handle_runtime_events(app, bus);
+        if runtime.window.is_minimized() {
+            return;
+        }
         app.on_update(bus);
         runtime.sync_gpu_assets(app.asset_mgr_mut(), bus);
         runtime.update_ui(app, bus);
