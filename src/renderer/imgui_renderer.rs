@@ -166,6 +166,3 @@ impl ImguiRender {
     }
 }
 
-impl ImguiRender {
-}
-}
