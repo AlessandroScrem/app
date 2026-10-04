@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use imgui::{Condition, MouseButton, MouseCursor, StyleColor, StyleVar, Ui, WindowFlags};
 
 use crate::editor::{AssetCommand, EditorCommand, SceneCommand, SceneSettingsData};
+use crate::ui::menu_bar::{file_open, file_save, FileFilter};
 use crate::ui::ui_layer::{Layer, UiContext, WindowAction};
 
 const TOP_BAR_HEIGHT: f32 = 36.0;
@@ -189,28 +190,3 @@ fn window_button(
     button.pop();
 }
 
-enum FileFilter {
-    Gltf,
-    Json,
-    Hdr,
-}
-
-impl FileFilter {
-    fn as_args(&self) -> (&str, &[&str]) {
-        match self {
-            Self::Gltf => ("glTF", &["gltf", "glb"]),
-            Self::Json => ("json", &["json"]),
-            Self::Hdr => ("hdr", &["hdr"]),
-        }
-    }
-}
-
-fn file_save(filter: FileFilter) -> Option<PathBuf> {
-    let (name, ext) = filter.as_args();
-    rfd::FileDialog::new().add_filter(name, ext).save_file()
-}
-
-fn file_open(filter: FileFilter) -> Option<PathBuf> {
-    let (name, ext) = filter.as_args();
-    rfd::FileDialog::new().add_filter(name, ext).pick_file()
-}
