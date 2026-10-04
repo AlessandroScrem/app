@@ -28,16 +28,12 @@ use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
-use crate::ui::{UiLayer, WindowAction};
+use crate::ui::UiLayer;
 use legion::Entity;
-use std::sync::Arc;
-use winit::{
-    event::{ElementState, Event, MouseButton, WindowEvent},
-    window::{CursorIcon, ResizeDirection, Window},
-};
+use crate::winit_bridge::WindowHandle;
 
 pub struct Runtime {
-    pub window: Arc<Window>,
+    pub window: WindowHandle,
     pub gpu_context: GpuContext,
     pub gpu_surface: GpuSurface,
     pub gpu_cache: GpuCache,
@@ -56,7 +52,6 @@ pub struct Runtime {
     pub editor_service: EditorService,
     last_ui_update: std::time::Instant,
     statistics_dt: f32,
-    cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
 }
 
 impl Runtime {
@@ -74,7 +69,7 @@ impl Runtime {
         }
     }
 
-    pub fn new(window: Arc<Window>) -> Self {
+    pub fn new(window: WindowHandle) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
         let gpu_surface = GpuSurface::new(
@@ -141,52 +136,6 @@ impl Runtime {
             editor_service,
             last_ui_update: std::time::Instant::now(),
             statistics_dt: 1.0 / 60.0,
-            cursor_position: None,
-        }
-    }
-
-    pub fn handle_winit_event(&mut self, event: &Event<()>) {
-        self.handle_window_resize(event);
-        self.uilayer.handle_event(&self.window, event);
-        match event {
-            Event::WindowEvent { .. } | Event::DeviceEvent { .. }
-                if !self.uilayer.want_capture_mouse() =>
-            {
-                self.input.update_events(&event)
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_window_resize(&mut self, event: &Event<()>) {
-        let Event::WindowEvent { event, .. } = event else {
-            return;
-        };
-
-        match event {
-            WindowEvent::CursorMoved { position, .. } => {
-                self.cursor_position = Some(*position);
-                self.window.set_cursor(resize_cursor(
-                    resize_direction(&self.window, *position),
-                ));
-            }
-            WindowEvent::CursorLeft { .. } => {
-                self.cursor_position = None;
-                self.window.set_cursor(CursorIcon::Default);
-            }
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                button: MouseButton::Left,
-                ..
-            } => {
-                if let Some(direction) = self
-                    .cursor_position
-                    .and_then(|position| resize_direction(&self.window, position))
-                {
-                    let _ = self.window.drag_resize_window(direction);
-                }
-            }
-            _ => {}
         }
     }
 
@@ -252,7 +201,7 @@ impl Runtime {
                 }
                 RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus),
                 RuntimeEvent::SetWindowTitle(title) => {
-                    self.window.set_title(&title);
+                    crate::winit_bridge::set_window_title(&self.window, &title);
                     info!("Set window title");
                 }
                 RuntimeEvent::UpdateIblMaps(id) => {
@@ -425,23 +374,8 @@ impl Runtime {
         self.material_preview_renderer
             .set_material(output.material_preview);
 
-        if let Some(position) = self.cursor_position {
-            self.window
-                .set_cursor(resize_cursor(resize_direction(&self.window, position)));
-        }
-
         if let Some(action) = output.window_action {
-            match action {
-                WindowAction::Drag => {
-                    let _ = self.window.drag_window();
-                }
-                WindowAction::Minimize => {
-                    self.window.set_minimized(true);
-                }
-                WindowAction::ToggleMaximize => {
-                    self.window.set_maximized(!self.window.is_maximized());
-                }
-            }
+            crate::winit_bridge::apply_window_action(&self.window, action);
         }
     }
 
