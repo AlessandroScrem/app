@@ -53,6 +53,7 @@ pub struct Runtime {
     pub editor_service: EditorService,
     last_ui_update: std::time::Instant,
     statistics_dt: f32,
+    cursor_position: Option<winit::dpi::PhysicalPosition<f64>>,
 }
 
 impl Runtime {
@@ -137,6 +138,7 @@ impl Runtime {
             editor_service,
             last_ui_update: std::time::Instant::now(),
             statistics_dt: 1.0 / 60.0,
+            cursor_position: None,
         }
     }
 
