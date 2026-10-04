@@ -1,6 +1,9 @@
 use imgui::{Drag, TreeNodeFlags, Ui};
 
-use crate::{editor::{EntityCommand, EntityId, TransformData}, ui::UiContext};
+use crate::{
+    editor::{EntityCommand, EntityId, TransformData},
+    ui::UiContext,
+};
 
 #[derive(Default)]
 struct TransformEdit {
@@ -9,13 +12,7 @@ struct TransformEdit {
     deactivated: bool,
 }
 
-
-pub fn draw(
-    ui: &Ui,
-    ctx: &UiContext,
-    entity: EntityId,
-    transform: &mut TransformData,
-) {
+pub fn draw(ui: &Ui, ctx: &UiContext, entity: EntityId, transform: &mut TransformData) {
     if !ui.collapsing_header(
         "Transform",
         TreeNodeFlags::DEFAULT_OPEN | TreeNodeFlags::ALLOW_ITEM_OVERLAP,
@@ -64,7 +61,6 @@ pub fn draw(
         reset_transform(ctx, entity, transform.clone());
     }
 }
-
 
 fn draw_transform_fields(ui: &Ui, transform: &mut TransformData) -> TransformEdit {
     ui.group(|| {

@@ -1,7 +1,10 @@
 use imgui::{Drag, Image, TreeNodeFlags, Ui};
 
-use crate::{assets::material_desc::{MaterialDesc, MaterialTextureSlot}, editor::{MaterialCommand, MaterialDto}, ui::UiContext};
-
+use crate::{
+    assets::material_desc::{MaterialDesc, MaterialTextureSlot},
+    editor::{MaterialCommand, MaterialDto},
+    ui::UiContext,
+};
 
 pub fn draw(ui: &Ui, ctx: &mut UiContext, materials: &mut [MaterialDto]) {
     if !ui.collapsing_header("Materials", TreeNodeFlags::DEFAULT_OPEN) {

@@ -43,10 +43,8 @@ impl App {
                 .entity_data(entity.as_raw_u64())
                 .map(|d| d.name)
                 .unwrap_or_else(|| "<unnamed>".into());
-            let visible = !crate::ecs::components::hierarchy::is_hidden(
-                &self.current_scene.world,
-                *entity,
-            );
+            let visible =
+                !crate::ecs::components::hierarchy::is_hidden(&self.current_scene.world, *entity);
             let is_light = entry
                 .as_ref()
                 .map(|e| e.get_component::<LightComponent>().is_ok())

@@ -1,12 +1,12 @@
 use legion::EntityStore;
 
 use crate::EntityRawU64;
+use crate::app::domain::events::DomainEvent::Selection;
+use crate::app::domain::events::SelectionEvent;
 use crate::app::{
     App,
     domain::events::{AssetEvent, CameraEvent, DomainEvent, EntityEvent, GlobalEvent, SceneEvent},
 };
-use crate::app::domain::events::DomainEvent::Selection;
-use crate::app::domain::events::SelectionEvent;
 use crate::ecs::components::{LightComponent, TagComponent, TransformComponent};
 use crate::editor::{
     EditorCommand, EditorEvent, EntityCommand, MaterialCommand, PickCommand, TransformData,
@@ -146,11 +146,7 @@ impl App {
         }
     }
 
-    fn selection_command(
-        &mut self,
-        command: crate::editor::SelectionCommand,
-        bus: &mut EventBus,
-    ) {
+    fn selection_command(&mut self, command: crate::editor::SelectionCommand, bus: &mut EventBus) {
         use crate::editor::SelectionCommand;
 
         match command {
