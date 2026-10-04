@@ -77,6 +77,10 @@ fn is_minimized(window: &WindowHandle) -> bool {
     window.is_minimized().unwrap_or(false)
 }
 
+pub(crate) fn set_window_title(window: &WindowHandle, title: &str) {
+    window.set_title(title);
+}
+
 impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.engine.runtime.is_some() {
