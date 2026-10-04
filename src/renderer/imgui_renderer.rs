@@ -157,7 +157,7 @@ impl ImguiRender {
 
         let codicon_font = context.fonts().add_font(&[imgui::FontSource::TtfData {
             data: include_bytes!(asset_path!("fonts/codicon.ttf")),
-            size_pixels: 9.0,
+            size_pixels: 12.0,
             config: Some(imgui::FontConfig {
                 name: Some("Codicons".into()),
                 pixel_snap_h: true,
