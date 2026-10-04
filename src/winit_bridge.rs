@@ -56,6 +56,8 @@ pub(crate) struct MyApplication<A: RuntimeApp + Default> {
     engine: Engine<A>,
     size: PhysicalSize<u32>,
     cursor_position: Option<PhysicalPosition<f64>>,
+    #[cfg(target_os = "macos")]
+    macos_resize: macos_resize::ResizeSession,
 }
 
 impl<A: RuntimeApp + Default> MyApplication<A> {
@@ -109,6 +111,189 @@ fn is_minimized(window: &WindowHandle) -> bool {
     window.is_minimized().unwrap_or(false)
 }
 
+#[cfg(target_os = "macos")]
+mod macos_resize {
+    use super::{PhysicalPosition, PhysicalSize, WindowHandle};
+
+    const BORDER: f64 = 6.0;
+    const MIN_WIDTH: f64 = 320.0;
+    const MIN_HEIGHT: f64 = 200.0;
+
+    #[derive(Clone, Copy)]
+    enum Edge {
+        North,
+        South,
+        West,
+        East,
+        NorthWest,
+        NorthEast,
+        SouthWest,
+        SouthEast,
+    }
+
+    #[derive(Clone, Copy)]
+    struct ActiveResize {
+        edge: Edge,
+        cursor: PhysicalPosition<f64>,
+        outer: PhysicalPosition<i32>,
+        size: PhysicalSize<u32>,
+    }
+
+    #[derive(Default)]
+    pub(crate) struct ResizeSession {
+        active: Option<ActiveResize>,
+    }
+
+    impl ResizeSession {
+        pub(crate) fn begin(
+            &mut self,
+            window: &WindowHandle,
+            cursor: PhysicalPosition<f64>,
+        ) {
+            if window.is_maximized() {
+                return;
+            }
+
+            let Some(edge) = edge_for(window, cursor) else {
+                return;
+            };
+            let Ok(outer) = window.outer_position() else {
+                return;
+            };
+
+            let absolute_cursor = PhysicalPosition::new(
+                outer.x as f64 + cursor.x,
+                outer.y as f64 + cursor.y,
+            );
+
+            self.active = Some(ActiveResize {
+                edge,
+                cursor: absolute_cursor,
+                outer,
+                size: window.inner_size(),
+            });
+        }
+
+        pub(crate) fn update(
+            &mut self,
+            window: &WindowHandle,
+            cursor: PhysicalPosition<f64>,
+        ) {
+            let Some(active) = self.active else {
+                return;
+            };
+            let Ok(outer) = window.outer_position() else {
+                return;
+            };
+
+            let absolute_cursor = PhysicalPosition::new(
+                outer.x as f64 + cursor.x,
+                outer.y as f64 + cursor.y,
+            );
+            let dx = absolute_cursor.x - active.cursor.x;
+            let dy = absolute_cursor.y - active.cursor.y;
+
+            let mut left = active.outer.x as f64;
+            let mut top = active.outer.y as f64;
+            let mut width = active.size.width as f64;
+            let mut height = active.size.height as f64;
+
+            match active.edge {
+                Edge::West | Edge::NorthWest | Edge::SouthWest => {
+                    let next_width = (active.size.width as f64 - dx).max(MIN_WIDTH);
+                    left += active.size.width as f64 - next_width;
+                    width = next_width;
+                }
+                Edge::East | Edge::NorthEast | Edge::SouthEast => {
+                    width = (active.size.width as f64 + dx).max(MIN_WIDTH);
+                }
+                _ => {}
+            }
+
+            match active.edge {
+                Edge::North | Edge::NorthWest | Edge::NorthEast => {
+                    let next_height = (active.size.height as f64 - dy).max(MIN_HEIGHT);
+                    top += active.size.height as f64 - next_height;
+                    height = next_height;
+                }
+                Edge::South | Edge::SouthWest | Edge::SouthEast => {
+                    height = (active.size.height as f64 + dy).max(MIN_HEIGHT);
+                }
+                _ => {}
+            }
+
+            window.set_outer_position(PhysicalPosition::new(
+                left.round() as i32,
+                top.round() as i32,
+            ));
+            let _ = window.request_inner_size(PhysicalSize::new(
+                width.round() as u32,
+                height.round() as u32,
+            ));
+        }
+
+        pub(crate) fn end(&mut self) {
+            self.active = None;
+        }
+
+        pub(crate) fn edge(
+            &self,
+            window: &WindowHandle,
+            cursor: PhysicalPosition<f64>,
+        ) -> Option<Edge> {
+            if self.active.is_some() {
+                return self.active.map(|active| active.edge);
+            }
+            edge_for(window, cursor)
+        }
+    }
+
+    fn edge_for(
+        window: &WindowHandle,
+        position: PhysicalPosition<f64>,
+    ) -> Option<Edge> {
+        if window.is_maximized() {
+            return None;
+        }
+
+        let size = window.inner_size();
+        let left = position.x <= BORDER;
+        let right = position.x >= size.width as f64 - BORDER;
+        let top = position.y <= BORDER;
+        let bottom = position.y >= size.height as f64 - BORDER;
+
+        match (left, right, top, bottom) {
+            (true, false, true, false) => Some(Edge::NorthWest),
+            (false, true, true, false) => Some(Edge::NorthEast),
+            (true, false, false, true) => Some(Edge::SouthWest),
+            (false, true, false, true) => Some(Edge::SouthEast),
+            (true, false, false, false) => Some(Edge::West),
+            (false, true, false, false) => Some(Edge::East),
+            (false, false, true, false) => Some(Edge::North),
+            (false, false, false, true) => Some(Edge::South),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn cursor_icon(
+        session: &ResizeSession,
+        window: &WindowHandle,
+        position: PhysicalPosition<f64>,
+    ) -> super::CursorIcon {
+        match session.edge(window, position) {
+            Some(Edge::North) => super::CursorIcon::NResize,
+            Some(Edge::South) => super::CursorIcon::SResize,
+            Some(Edge::West) => super::CursorIcon::WResize,
+            Some(Edge::East) => super::CursorIcon::EResize,
+            Some(Edge::NorthWest) => super::CursorIcon::NwseResize,
+            Some(Edge::NorthEast) => super::CursorIcon::NeswResize,
+            Some(Edge::SouthWest) => super::CursorIcon::NeswResize,
+            Some(Edge::SouthEast) => super::CursorIcon::NwseResize,
+            None => super::CursorIcon::Default,
+        }
+    }
+}
+
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) {
     window.set_cursor(resize_cursor(resize_direction(window, position)));
@@ -156,6 +341,14 @@ fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
         Some(ResizeDirection::SouthEast) => CursorIcon::NwseResize,
         None => CursorIcon::Default,
     }
+}
+#[cfg(target_os = "macos")]
+fn update_macos_resize_cursor(
+    session: &macos_resize::ResizeSession,
+    window: &WindowHandle,
+    position: PhysicalPosition<f64>,
+) {
+    window.set_cursor(macos_resize::cursor_icon(session, window, position));
 }
 
 pub(crate) fn set_window_title(window: &WindowHandle, title: &str) {
@@ -242,6 +435,11 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 self.cursor_position = Some(*position);
                 #[cfg(any(target_os = "windows", target_os = "linux"))]
                 update_resize_cursor(&runtime.window, *position);
+                #[cfg(target_os = "macos")]
+                {
+                    self.macos_resize.update(&runtime.window, *position);
+                    update_macos_resize_cursor(&self.macos_resize, &runtime.window, *position);
+                }
             }
             WindowEvent::CursorLeft { .. } => {
                 self.cursor_position = None;
@@ -252,12 +450,23 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 button: MouseButton::Left,
                 ..
             } => {
-                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 if let Some(position) = self.cursor_position {
+                    #[cfg(any(target_os = "windows", target_os = "linux"))]
                     if let Some(direction) = resize_direction(&runtime.window, position) {
                         let _ = runtime.window.drag_resize_window(direction);
                     }
+
+                    #[cfg(target_os = "macos")]
+                    self.macos_resize.begin(&runtime.window, position);
                 }
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Released,
+                button: MouseButton::Left,
+                ..
+            } => {
+                #[cfg(target_os = "macos")]
+                self.macos_resize.end();
             }
             _ => {}
         }
