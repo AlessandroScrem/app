@@ -31,7 +31,7 @@ use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::{UiLayer, WindowAction};
 use legion::Entity;
 use std::sync::Arc;
-use winit::{event::Event, window::Window};
+use winit::{\n    event::{ElementState, Event, MouseButton, WindowEvent},\n    window::{CursorIcon, ResizeDirection, Window},\n};
 
 pub struct Runtime {
     pub window: Arc<Window>,
@@ -141,12 +141,45 @@ impl Runtime {
     }
 
     pub fn handle_winit_event(&mut self, event: &Event<()>) {
+        self.handle_window_resize(event);
         self.uilayer.handle_event(&self.window, event);
         match event {
             Event::WindowEvent { .. } | Event::DeviceEvent { .. }
                 if !self.uilayer.want_capture_mouse() =>
             {
                 self.input.update_events(&event)
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_window_resize(&mut self, event: &Event<()>) {
+        let Event::WindowEvent { event, .. } = event else {
+            return;
+        };
+
+        match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_position = Some(*position);
+                self.window.set_cursor(resize_cursor(
+                    resize_direction(&self.window, *position),
+                ));
+            }
+            WindowEvent::CursorLeft { .. } => {
+                self.cursor_position = None;
+                self.window.set_cursor(CursorIcon::Default);
+            }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                button: MouseButton::Left,
+                ..
+            } => {
+                if let Some(direction) = self
+                    .cursor_position
+                    .and_then(|position| resize_direction(&self.window, position))
+                {
+                    let _ = self.window.drag_resize_window(direction);
+                }
             }
             _ => {}
         }
@@ -387,6 +420,11 @@ impl Runtime {
         self.material_preview_renderer
             .set_material(output.material_preview);
 
+        if let Some(position) = self.cursor_position {
+            self.window
+                .set_cursor(resize_cursor(resize_direction(&self.window, position)));
+        }
+
         if let Some(action) = output.window_action {
             match action {
                 WindowAction::Drag => {
@@ -397,9 +435,6 @@ impl Runtime {
                 }
                 WindowAction::ToggleMaximize => {
                     self.window.set_maximized(!self.window.is_maximized());
-                }
-                WindowAction::Resize(direction) => {
-                    let _ = self.window.drag_resize_window(direction);
                 }
             }
         }
@@ -506,5 +541,51 @@ impl Runtime {
             opaque_stats: frame.opaque_stats,
             tasks,
         }
+    }
+}
+
+fn resize_direction(
+    window: &Window,
+    position: winit::dpi::PhysicalPosition<f64>,
+) -> Option<ResizeDirection> {
+    const BORDER: f64 = 6.0;
+
+    if window.is_maximized() {
+        return None;
+    }
+
+    let size = window.inner_size();
+    let right = size.width as f64;
+    let bottom = size.height as f64;
+
+    let left = position.x <= BORDER;
+    let right_edge = position.x >= right - BORDER;
+    let top = position.y <= BORDER;
+    let bottom_edge = position.y >= bottom - BORDER;
+
+    match (left, right_edge, top, bottom_edge) {
+        (true, false, true, false) => Some(ResizeDirection::NorthWest),
+        (false, true, true, false) => Some(ResizeDirection::NorthEast),
+        (true, false, false, true) => Some(ResizeDirection::SouthWest),
+        (false, true, false, true) => Some(ResizeDirection::SouthEast),
+        (true, false, false, false) => Some(ResizeDirection::West),
+        (false, true, false, false) => Some(ResizeDirection::East),
+        (false, false, true, false) => Some(ResizeDirection::North),
+        (false, false, false, true) => Some(ResizeDirection::South),
+        _ => None,
+    }
+}
+
+fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
+    match direction {
+        Some(ResizeDirection::North) => CursorIcon::NResize,
+        Some(ResizeDirection::South) => CursorIcon::SResize,
+        Some(ResizeDirection::West) => CursorIcon::WResize,
+        Some(ResizeDirection::East) => CursorIcon::EResize,
+        Some(ResizeDirection::NorthWest) => CursorIcon::NwseResize,
+        Some(ResizeDirection::NorthEast) => CursorIcon::NeswResize,
+        Some(ResizeDirection::SouthWest) => CursorIcon::NeswResize,
+        Some(ResizeDirection::SouthEast) => CursorIcon::NwseResize,
+        None => CursorIcon::Default,
     }
 }
