@@ -132,26 +132,23 @@ impl Layer for TopBarUi {
                 }
 
                 let _spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
+
                 ui.set_cursor_pos([buttons_start, 4.0]);
                 window_button(ui, ICON_MINIMIZE, false, false, || {
                     *ctx.window_action = Some(WindowAction::Minimize);
                 });
 
                 ui.set_cursor_pos([buttons_start + WINDOW_BUTTON_SIZE[0], 4.0]);
-                window_button(
-                    ui,
-                    ICON_MAXIMIZE,
-                    false,
-                    ctx.maximize_hovered,
-                    || {
-                        *ctx.window_action = Some(WindowAction::ToggleMaximize);
-                    },
-                );
+                window_button(ui, ICON_MAXIMIZE, false, ctx.maximize_hovered, || {
+                    *ctx.window_action = Some(WindowAction::ToggleMaximize);
+                });
 
                 ui.set_cursor_pos([buttons_start + WINDOW_BUTTON_SIZE[0] * 2.0, 4.0]);
                 window_button(ui, ICON_CLOSE, true, false, || {
                     ctx.commands.send(EditorCommand::Exit);
                 });
+            });
+    }
 }
 
 fn handle_drag(ui: &Ui, ctx: &mut UiContext) {
@@ -195,4 +192,3 @@ fn window_button(
     hover.pop();
     button.pop();
 }
-
