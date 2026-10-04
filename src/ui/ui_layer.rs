@@ -155,7 +155,8 @@ impl UiLayer {
         self.stack.update(&self.commands);
 
         let ui = self.context.frame();
-        Self::build_dockspace(ui);
+        Self::set_main_viewport_work_area();
+        ui.dockspace_over_main_viewport();
 
         let command_client = self.commands.command_client();
         let mut output = UiOutput {
