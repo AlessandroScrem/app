@@ -17,7 +17,7 @@ use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
 
 pub(crate) type WindowHandle = Arc<Window>;
-pub(crate) type WinitEvent<T> = Event<T>;
+pub(crate) type WinitEvent = Event<()>;
 
 pub(crate) struct WinitUiPlatform {
     platform: WinitPlatform,
@@ -30,14 +30,14 @@ impl WinitUiPlatform {
         Self { platform }
     }
 
-    pub(crate) fn handle_event<T>(
+    pub(crate) fn handle_event(
         &mut self,
         context: &mut Context,
         window: &WindowHandle,
-        event: &Event<T>,
+        event: &WinitEvent,
     ) {
         self.platform
-            .handle_event::<T>(context.io_mut(), window, event);
+            .handle_event(context.io_mut(), window, event);
     }
 
     pub(crate) fn prepare_frame(&mut self, context: &mut Context, window: &WindowHandle) {
@@ -75,7 +75,7 @@ impl<A: RuntimeApp + Default> MyApplication<A> {
     }
 }
 
-pub trait CenterWindow {
+pub(crate) trait CenterWindow {
     fn try_fit_center_to_monitor(self) -> Self;
 }
 
@@ -252,11 +252,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 button: MouseButton::Left,
                 ..
             } => {
-                #[cfg(not(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "android",
-                )))]
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 if let Some(position) = self.cursor_position {
                     if let Some(direction) = resize_direction(&runtime.window, position) {
                         let _ = runtime.window.drag_resize_window(direction);
