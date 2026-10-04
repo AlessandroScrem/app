@@ -1,4 +1,5 @@
 use super::ui_commands::UiCommands;
+use super::title_bar::TitleBarUi;
 use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextures, ViewportUi};
 use crate::editor::EditorCommandClient;
 use crate::ui::tools;
@@ -12,10 +13,18 @@ pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
     pub textures: &'a UiTextures,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
+    pub window_action: &'a mut Option<WindowAction>,
 }
 
 pub struct UiOutput {
     pub material_preview: Option<crate::assets::MaterialId>,
+    pub window_action: Option<WindowAction>,
+}
+
+pub enum WindowAction {
+    Drag,
+    Minimize,
+    ToggleMaximize,
 }
 
 struct UiStack {
@@ -86,6 +95,7 @@ impl UiLayer {
         ui.push(EntityListUi::default());
         ui.push(PropertyUi::default());
         ui.push(SettingsUi::new(adapter_string));
+        ui.push(TitleBarUi);
 
         Self {
             context,
@@ -141,11 +151,13 @@ impl UiLayer {
         let command_client = self.commands.command_client();
         let mut output = UiOutput {
             material_preview: None,
+            window_action: None,
         };
         let mut ctx = UiContext {
             commands: command_client,
             textures,
             material_preview: &mut output.material_preview,
+            window_action: &mut output.window_action,
         };
 
         self.stack.build(ui, &mut ctx);
