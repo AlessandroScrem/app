@@ -183,8 +183,7 @@ mod tests {
     #[test]
     fn hidden_entity_is_hidden() {
         let mut world = World::default();
-        let entity = world.push((HierarchyComponent::default(),));
-        world.entry_mut(entity).unwrap().add_component(Hidden);
+        let entity = world.push((HierarchyComponent::default(), Hidden));
 
         assert!(is_hidden(&world, entity));
     }
@@ -197,10 +196,7 @@ mod tests {
             parent: Some(parent),
             children: Vec::new(),
         },));
-        world
-            .entry_mut(parent)
-            .unwrap()
-            .add_component(Hidden);
+        world.push((HierarchyComponent::default(), Hidden));
 
         assert!(is_hidden(&world, child));
     }
