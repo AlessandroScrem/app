@@ -91,6 +91,25 @@ pub struct EditorStatisticsData {
     pub transmission_instances: u32,
 }
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResourceStatsData {
+    pub count: usize,
+    pub estimated_bytes: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct EditorResourceStatsData {
+    pub textures: ResourceStatsData,
+    pub materials: ResourceStatsData,
+    pub meshes: ResourceStatsData,
+    pub ibl: ResourceStatsData,
+    pub gpu_textures: ResourceStatsData,
+    pub gpu_materials: ResourceStatsData,
+    pub gpu_meshes: ResourceStatsData,
+    pub gpu_shadows: ResourceStatsData,
+    pub gpu_ibl: ResourceStatsData,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct SceneSettingsData {
     pub recent: Vec<(String, String)>,
