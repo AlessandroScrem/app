@@ -7,13 +7,13 @@ use crate::ecs::components::{
     TransformComponent,
 };
 use crate::editor::{
-    BoundingBoxData, EntityData, EntityId, HierarchyData, HierarchyNode, IblData, InspectorData,
-    InspectorSection, LightData, MaterialDto, MeshData, SceneSettingsData, TransformData,
-    EditorSettingsData,
+    BoundingBoxData, EditorSettingsData, EntityData, EntityId, HierarchyData, HierarchyNode,
+    IblData, InspectorData, InspectorSection, LightData, MaterialDto, MeshData, SceneSettingsData,
+    TransformData,
 };
 
 impl App {
-    fn transform_for(&self, entity: Entity) -> Option<TransformComponent> {
+    pub(crate) fn transform_for(&self, entity: Entity) -> Option<TransformComponent> {
         self.current_scene
             .world
             .entry_ref(entity)
@@ -21,7 +21,7 @@ impl App {
             .and_then(|e| e.get_component::<TransformComponent>().ok().cloned())
     }
 
-    fn entity_data(&self, id: EntityId) -> Option<EntityData> {
+    pub(crate) fn entity_data(&self, id: EntityId) -> Option<EntityData> {
         let entry = self
             .current_scene
             .world
@@ -34,7 +34,7 @@ impl App {
         Some(EntityData { id, name })
     }
 
-    fn hierarchy_data(&self) -> HierarchyData {
+    pub(crate) fn hierarchy_data(&self) -> HierarchyData {
         let mut nodes = Vec::new();
         let mut query = <(Entity, &HierarchyComponent)>::query();
         for (entity, hierarchy) in query.iter(&self.current_scene.world) {
@@ -64,7 +64,7 @@ impl App {
         HierarchyData { nodes }
     }
 
-    fn children_data(&self, parent: EntityId) -> Vec<EntityData> {
+    pub(crate) fn children_data(&self, parent: EntityId) -> Vec<EntityData> {
         let Some(entry) = self
             .current_scene
             .world
@@ -83,7 +83,7 @@ impl App {
             .collect()
     }
 
-    fn inspector_data(&self, id: EntityId) -> Option<InspectorData> {
+    pub(crate) fn inspector_data(&self, id: EntityId) -> Option<InspectorData> {
         let entry = self
             .current_scene
             .world
@@ -187,7 +187,7 @@ impl App {
         })
     }
 
-    fn ibl_data(&self) -> Vec<IblData> {
+    pub(crate) fn ibl_data(&self) -> Vec<IblData> {
         self.asset_mgr
             .iter::<crate::assets::IblAsset>()
             .filter_map(|(id, asset)| {
@@ -207,7 +207,7 @@ impl App {
             .collect()
     }
 
-    fn editor_settings(&self) -> EditorSettingsData {
+    pub(crate) fn editor_settings(&self) -> EditorSettingsData {
         let (near, far) = self.camera.get_near_far();
         EditorSettingsData {
             light_enable: self.globals.light_enable,
@@ -230,7 +230,7 @@ impl App {
         }
     }
 
-    fn scene_settings(&self) -> SceneSettingsData {
+    pub(crate) fn scene_settings(&self) -> SceneSettingsData {
         let recent = self
             .settings
             .recent_files

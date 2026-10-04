@@ -6,13 +6,6 @@ use crate::ui::ui_commands::UiCommands;
 use crate::ui::ui_layer::{Layer, UiContext};
 use imgui::{Condition, Key, MouseButton, StyleColor, TreeNodeFlags, TreeNodeId, Ui};
 use std::collections::HashSet;
-use crate::editor::{
-    AssetCommand, EditorCommand, EntityCommand, EntityId, HierarchyData, HierarchyNode,
-    SelectionCommand,
-};
-use crate::ui::ui_layer::Layer;
-use imgui::*;
-use std::collections::HashSet;
 
 const ICON_LIGHTBULB: &str = "\u{EA61}";
 const ICON_TRASH: &str = "\u{EA81}";

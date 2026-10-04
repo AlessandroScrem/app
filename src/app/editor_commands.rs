@@ -1,3 +1,5 @@
+use legion::EntityStore;
+
 use crate::EntityRawU64;
 use crate::app::{
     App,
@@ -7,13 +9,12 @@ use crate::app::domain::events::DomainEvent::Selection;
 use crate::app::domain::events::SelectionEvent;
 use crate::ecs::components::{LightComponent, TagComponent, TransformComponent};
 use crate::editor::{
-    AssetCommand, CameraCommand, EditorCommand, EditorEvent, EntityCommand, GlobalCommand,
-    MaterialCommand, PickCommand, SelectionCommand, SceneCommand, TransformData,
+    EditorCommand, EditorEvent, EntityCommand, MaterialCommand, PickCommand, TransformData,
 };
 use crate::engine::engine::EventBus;
 
 impl App {
-    fn dispatch_editor_command(
+    pub(crate) fn dispatch_editor_command(
         &mut self,
         command: EditorCommand,
         bus: &mut EventBus,
@@ -54,7 +55,7 @@ impl App {
 
     fn entity_command(
         &mut self,
-        command: crate::editor::EntityCommand,
+        command: EntityCommand,
         bus: &mut EventBus,
     ) -> Option<EditorEvent> {
         match command {
@@ -145,8 +146,13 @@ impl App {
         }
     }
 
-    fn selection_command(&mut self, command: crate::editor::SelectionCommand, bus: &mut EventBus) {
+    fn selection_command(
+        &mut self,
+        command: crate::editor::SelectionCommand,
+        bus: &mut EventBus,
+    ) {
         use crate::editor::SelectionCommand;
+
         match command {
             SelectionCommand::Select { entities } => {
                 bus.send_domain(Selection(SelectionEvent::Select(entities)));
@@ -159,6 +165,7 @@ impl App {
 
     fn scene_command(&mut self, command: crate::editor::SceneCommand, bus: &mut EventBus) {
         use crate::editor::SceneCommand;
+
         match command {
             SceneCommand::Open(path) => bus.send_domain(DomainEvent::Scene(SceneEvent::Open(path))),
             SceneCommand::Save => bus.send_domain(DomainEvent::Scene(SceneEvent::Save)),
@@ -171,6 +178,7 @@ impl App {
 
     fn asset_command(&mut self, command: crate::editor::AssetCommand, bus: &mut EventBus) {
         use crate::editor::AssetCommand;
+
         match command {
             AssetCommand::LoadGltf(path) => {
                 bus.send_domain(DomainEvent::Assets(AssetEvent::LoadGltf(path)))
@@ -191,6 +199,7 @@ impl App {
 
     fn camera_command(&mut self, command: crate::editor::CameraCommand, bus: &mut EventBus) {
         use crate::editor::CameraCommand;
+
         match command {
             CameraCommand::Recenter => {
                 bus.send_domain(DomainEvent::Camera(CameraEvent::RecenterCamera))
@@ -209,6 +218,7 @@ impl App {
 
     fn global_command(&mut self, command: crate::editor::GlobalCommand, bus: &mut EventBus) {
         use crate::editor::GlobalCommand;
+
         match command {
             GlobalCommand::SetLightEnable(value) => {
                 bus.send_domain(DomainEvent::Global(GlobalEvent::LightEnable(value)))
@@ -252,4 +262,3 @@ impl App {
         }
     }
 }
-
