@@ -81,7 +81,7 @@ impl GpuTextureCache {
         if let Some(previous) = self.map.insert(id, texture) {
             self.stats.remove(previous.estimated_size);
         }
-        self.stats.add(self.map.get(&id).unwrap().estimated_size);
+        self.stats.add(self.map[&id].estimated_size);
         self.events.push(GpuTextureEvent::Added(id));
     }
 
