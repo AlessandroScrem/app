@@ -584,7 +584,7 @@ mod tests {
         assert!(commands.inspector().is_none());
         assert!(commands.scene_settings().recent.is_empty());
 
-        for _ in 0..6 {
+        for _ in 0..7 {
             let _ = service.query_rx.recv().expect("refresh query");
         }
     }
