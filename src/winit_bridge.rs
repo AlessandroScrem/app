@@ -67,7 +67,7 @@ fn create_window(event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) -> Windo
     let attrs = WindowAttributes::default()
         .with_inner_size(size)
         .with_window_icon(icon)
-        .with_title("App");
+        .with_title("Orbis");
 
     Arc::new(
         event_loop

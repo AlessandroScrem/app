@@ -176,40 +176,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "app_wgpu"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cgmath",
- "clap 2.34.0",
- "colored",
- "criterion",
- "env_logger",
- "gltf",
- "half",
- "image",
- "imgui",
- "imgui-wgpu",
- "imgui-winit-support",
- "legion",
- "log",
- "mikktspace",
- "pollster",
- "rayon",
- "rfd",
- "serde",
- "serde_json",
- "smol",
- "stb_image",
- "strum",
- "strum_macros",
- "thiserror 2.0.18",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "approx"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2788,6 +2754,40 @@ checksum = "12c6933ddbbd16539a7672e697bb8d41ac3a4e99ac43eeb40c07236bd7fcb2dd"
 dependencies = [
  "libc",
  "libredox",
+]
+
+[[package]]
+name = "orbis"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cgmath",
+ "clap 2.34.0",
+ "colored",
+ "criterion",
+ "env_logger",
+ "gltf",
+ "half",
+ "image",
+ "imgui",
+ "imgui-wgpu",
+ "imgui-winit-support",
+ "legion",
+ "log",
+ "mikktspace",
+ "pollster",
+ "rayon",
+ "rfd",
+ "serde",
+ "serde_json",
+ "smol",
+ "stb_image",
+ "strum",
+ "strum_macros",
+ "thiserror 2.0.18",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

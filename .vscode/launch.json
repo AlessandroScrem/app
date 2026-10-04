@@ -7,7 +7,7 @@
         "type": "cppvsdbg",
         "request": "launch",
         "stopAtEntry": false,
-        "program": "${workspaceRoot}/target/debug/app_wgpu",
+        "program": "${workspaceRoot}/target/debug/orbis",
         "cwd": "${workspaceFolder}",
     }
 ]

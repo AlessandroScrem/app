@@ -2,12 +2,12 @@ use std::path::Path;
 
 fn main() {
     let paths = vec![
-        Path::new(app_wgpu::asset_path!("skybox/right.png")),
-        Path::new(app_wgpu::asset_path!("skybox/left.png")),
-        Path::new(app_wgpu::asset_path!("skybox/top.png")),
-        Path::new(app_wgpu::asset_path!("skybox/bottom.png")),
-        Path::new(app_wgpu::asset_path!("skybox/front.png")),
-        Path::new(app_wgpu::asset_path!("skybox/back.png")),
+        Path::new(orbis::asset_path!("skybox/right.png")),
+        Path::new(orbis::asset_path!("skybox/left.png")),
+        Path::new(orbis::asset_path!("skybox/top.png")),
+        Path::new(orbis::asset_path!("skybox/bottom.png")),
+        Path::new(orbis::asset_path!("skybox/front.png")),
+        Path::new(orbis::asset_path!("skybox/back.png")),
     ];
 
     let start = std::time::Instant::now();

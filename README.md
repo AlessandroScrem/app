@@ -1,4 +1,4 @@
-# App
+# Orbis
 [![Rust Linux](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml)
 [![Rust Windows](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml)
 [![Rust macOS](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml)
@@ -65,7 +65,7 @@ cgmath = "0.18.0"
 ## Compiling and running
 
 ```bash
-git clone https://github.com/AlessandroScrem/app.git
+git clone https://github.com/AlessandroScrem/orbis.git
 cd app
 
 cargo build

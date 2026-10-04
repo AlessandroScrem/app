@@ -1,4 +1,4 @@
-use app_wgpu::Engine;
+use orbis::Engine;
 
 use std::thread;
 use std::time::Duration;
