@@ -29,6 +29,7 @@ use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
 use legion::Entity;
+use crate::prelude::info;
 use crate::winit_bridge::WindowHandle;
 
 pub struct Runtime {
@@ -201,6 +202,8 @@ impl Runtime {
                 RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus),
                 RuntimeEvent::SetWindowTitle(title) => {
                     self.uilayer.set_window_title(&title);
+                    crate::winit_bridge::set_window_title(&self.window, &title);
+                    info!("Set window title");
                 }
                 RuntimeEvent::UpdateIblMaps(id) => {
                     self.material_preview_renderer.invalidate_environment();
