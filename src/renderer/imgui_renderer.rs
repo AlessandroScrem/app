@@ -125,7 +125,6 @@ mod tests {
 pub struct ImguiRender {
     pub renderer: imgui_wgpu::Renderer,
     pub registry: ImGuiTextureRegistry,
-    pub codicon_font: imgui::FontId,
 }
 
 impl ImguiRender {
@@ -145,36 +144,35 @@ impl ImguiRender {
         println!("Scale factor {}", hidpi_factor);
         let font_size = (9.0 * hidpi_factor) as f32;
 
-        context.fonts().add_font(&[imgui::FontSource::DefaultFontData {
-            config: Some(imgui::FontConfig {
-                name: Some("Default".into()),
-                oversample_h: 1,
-                pixel_snap_h: true,
-                size_pixels: font_size,
-                ..Default::default()
-            }),
-        }]);
-
-        let codicon_font = context.fonts().add_font(&[imgui::FontSource::TtfData {
-            data: include_bytes!(asset_path!("fonts/codicon.ttf")),
-            size_pixels: 12.0,
-            config: Some(imgui::FontConfig {
-                name: Some("Codicons".into()),
-                pixel_snap_h: true,
-                oversample_h: 1,
-                glyph_ranges: imgui::FontGlyphRanges::from_slice(&[0xEA60, 0xEC1E, 0]),
-                ..imgui::FontConfig::default()
-            }),
-        }]);
+        context.fonts().add_font(&[
+            imgui::FontSource::DefaultFontData {
+                config: Some(imgui::FontConfig {
+                    name: Some("Default".into()),
+                    oversample_h: 1,
+                    pixel_snap_h: true,
+                    size_pixels: font_size,
+                    ..Default::default()
+                }),
+            },
+            imgui::FontSource::TtfData {
+                data: include_bytes!(asset_path!("fonts/codicon.ttf")),
+                size_pixels: 12.0,
+                config: Some(imgui::FontConfig {
+                    name: Some("Codicons".into()),
+                    pixel_snap_h: true,
+                    oversample_h: 1,
+                    glyph_ranges: imgui::FontGlyphRanges::from_slice(&[
+                        0xEA60, 0xEC1E, 0,
+                    ]),
+                    ..imgui::FontConfig::default()
+                }),
+            },
+        ]);
 
         let renderer = imgui_wgpu::Renderer::new(context, &device, &queue, renderer_config);
         let registry = ImGuiTextureRegistry::new();
 
-        Self {
-            renderer,
-            registry,
-            codicon_font,
-        }
+        Self { renderer, registry }
     }
 
     pub fn render(
