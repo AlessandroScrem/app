@@ -109,12 +109,12 @@ fn is_minimized(window: &WindowHandle) -> bool {
     window.is_minimized().unwrap_or(false)
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 fn update_resize_cursor(window: &WindowHandle, position: PhysicalPosition<f64>) {
     window.set_cursor(resize_cursor(resize_direction(window, position)));
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 fn resize_direction(
     window: &WindowHandle,
     position: PhysicalPosition<f64>,
@@ -143,7 +143,7 @@ fn resize_direction(
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 fn resize_cursor(direction: Option<ResizeDirection>) -> CursorIcon {
     match direction {
         Some(ResizeDirection::North) => CursorIcon::NResize,
@@ -240,6 +240,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         match &event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some(*position);
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 update_resize_cursor(&runtime.window, *position);
             }
             WindowEvent::CursorLeft { .. } => {
