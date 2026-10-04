@@ -4,14 +4,15 @@ use super::{EntityListUi, MenuBarUi, PropertyUi, SettingsUi, UiTextures, Viewpor
 use crate::editor::EditorCommandClient;
 use crate::ui::tools;
 
-use imgui::Ui;
 use crate::winit_bridge::{WindowHandle, WinitUiPlatform};
+use imgui::{StyleVar, Ui, WindowFlags};
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
     pub textures: &'a UiTextures,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
     pub window_action: &'a mut Option<WindowAction>,
+    pub maximize_hovered: bool,
 }
 
 pub struct UiOutput {
@@ -124,11 +125,45 @@ impl UiLayer {
             .update_delta_time(self.timestep.delta());
         self.platform.prepare_frame(&mut self.context, window);
 
-        const CHROME_HEIGHT: f32 = 60.0;
-        let viewport = self.context.main_viewport_mut();
-        viewport.work_pos[1] = viewport.pos[1] + CHROME_HEIGHT;
-        viewport.work_size[1] = (viewport.size[1] - CHROME_HEIGHT).max(0.0);
+
     }
+
+fn build_dockspace(ui: &Ui) {
+    const CHROME_HEIGHT: f32 = 60.0;
+    const DOCKSPACE_ID: imgui::sys::ImGuiID = 0xA11C_E001;
+
+    let [width, height] = ui.io().display_size;
+    let dock_height = (height - CHROME_HEIGHT).max(0.0);
+    if width <= 0.0 || dock_height <= 0.0 {
+        return;
+    }
+
+    let _padding = ui.push_style_var(StyleVar::WindowPadding([0.0, 0.0]));
+
+    ui.window("##MainDockSpace")
+        .position([0.0, CHROME_HEIGHT], imgui::Condition::Always)
+        .size([width, dock_height], imgui::Condition::Always)
+        .flags(
+            WindowFlags::NO_DECORATION
+                | WindowFlags::NO_SAVED_SETTINGS
+                | WindowFlags::NO_SCROLLBAR
+                | WindowFlags::NO_MOVE
+                | WindowFlags::NO_RESIZE
+                | WindowFlags::NO_BACKGROUND
+                | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS,
+        )
+        .build(|| unsafe {
+            imgui::sys::igDockSpace(
+                DOCKSPACE_ID,
+                imgui::sys::ImVec2 {
+                    x: width,
+                    y: dock_height,
+                },
+                imgui::sys::ImGuiDockNodeFlags_PassthruCentralNode as i32,
+                std::ptr::null(),
+            );
+        });
+}
 
     fn end_frame(&mut self) {
         if !self.ini_loaded {
@@ -147,7 +182,7 @@ impl UiLayer {
         self.stack.update(&self.commands);
 
         let ui = self.context.frame();
-        ui.dockspace_over_main_viewport();
+        build_dockspace(ui);
 
         let command_client = self.commands.command_client();
         let mut output = UiOutput {
@@ -159,7 +194,8 @@ impl UiLayer {
             textures,
             material_preview: &mut output.material_preview,
             window_action: &mut output.window_action,
-            };
+            maximize_hovered: crate::winit_bridge::maximize_button_hovered(window),
+        };
 
         self.stack.build(ui, &mut ctx);
         self.platform.prepare_render(ui, window);
