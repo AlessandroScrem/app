@@ -16,7 +16,7 @@ use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuInternalCounters, GpuManager,
+    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuManager,
     GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager,
     ShadowManager,
 };
@@ -28,7 +28,7 @@ use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
-use crate::ui::{InternalCounter, UiLayer};
+use crate::ui::UiLayer;
 use legion::Entity;
 use std::sync::Arc;
 use winit::{event::Event, window::Window};
