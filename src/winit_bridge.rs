@@ -23,7 +23,7 @@ pub(crate) struct WinitUiPlatform {
 }
 
 impl WinitUiPlatform {
-    fn new(context: &mut Context, window: &WindowHandle) -> Self {
+    pub(crate) fn new(context: &mut Context, window: &WindowHandle) -> Self {
         let mut platform = WinitPlatform::new(context);
         platform.attach_window(
             context.io_mut(),
@@ -33,18 +33,18 @@ impl WinitUiPlatform {
         Self { platform }
     }
 
-    fn handle_event<T>(&mut self, context: &mut Context, window: &WindowHandle, event: &Event<T>) {
+    pub(crate) fn handle_event<T>(&mut self, context: &mut Context, window: &WindowHandle, event: &Event<T>) {
         self.platform
             .handle_event::<T>(context.io_mut(), window, event);
     }
 
-    fn prepare_frame(&mut self, context: &mut Context, window: &WindowHandle) {
+    pub(crate) fn prepare_frame(&mut self, context: &mut Context, window: &WindowHandle) {
         self.platform
             .prepare_frame(context.io_mut(), window)
             .expect("failed to prepare frame");
     }
 
-    fn prepare_render(&mut self, ui: &Ui, window: &WindowHandle) {
+    pub(crate) fn prepare_render(&mut self, ui: &Ui, window: &WindowHandle) {
         self.platform.prepare_render(ui, window);
     }
 }
