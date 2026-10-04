@@ -4,7 +4,7 @@ use winit::window::WindowAttributes;
 use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 
 use super::Runtime;
-use super::winit_bridge::CenterWindow;
+use crate::winit_bridge::CenterWindow;
 use crate::app::RuntimeApp;
 use crate::app::domain::events::DomainEvent;
 use crate::engine::RuntimeEvent;
