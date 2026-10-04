@@ -40,6 +40,16 @@ impl EventBus {
     }
 }
 
+fn load_icon(bytes: &[u8]) -> Option<winit::window::Icon> {
+    let (icon_rgba, icon_width, icon_height) = {
+        let image = image::load_from_memory(bytes).unwrap().into_rgba8();
+        let (width, height) = image.dimensions();
+        let rgba = image.into_raw();
+        (rgba, width, height)
+    };
+    winit::window::Icon::from_rgba(icon_rgba, icon_width, icon_height).ok()
+}
+
 #[derive(Default)]
 pub struct Engine<A: RuntimeApp + Default> {
     pub app: A,
@@ -52,9 +62,12 @@ impl<A: RuntimeApp + Default> Engine<A> {
         if self.runtime.is_some() {
             return;
         }
+        let icon = load_icon(include_bytes!(crate::asset_path!("core/lightbulb-icon32.png")));
+
         debug!("App resumed");
         let attrs = WindowAttributes::default()
             .with_inner_size(size)
+            .with_window_icon(icon)
             .with_title("App");
         let window = Arc::new(
             event_loop
