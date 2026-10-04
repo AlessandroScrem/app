@@ -55,7 +55,8 @@ impl<A: RuntimeApp + Default> Engine<A> {
         debug!("App resumed");
         let attrs = WindowAttributes::default()
             .with_inner_size(size)
-            .with_title("App");
+            .with_title("App")
+            .with_decorations(false);
         let window = Arc::new(
             event_loop
                 .create_window(attrs)
