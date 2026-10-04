@@ -1,10 +1,6 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
-use winit::window::WindowAttributes;
-use winit::{dpi::PhysicalSize, event_loop::ActiveEventLoop};
 
 use super::Runtime;
-use super::winit_bridge::CenterWindow;
 use crate::app::RuntimeApp;
 use crate::app::domain::events::DomainEvent;
 use crate::engine::RuntimeEvent;
@@ -14,11 +10,13 @@ pub struct EventBus {
     domain: VecDeque<DomainEvent>,
     runtime: VecDeque<RuntimeEvent>,
 }
+
 impl Default for EventBus {
     fn default() -> Self {
         Self::new()
     }
 }
+
 impl EventBus {
     pub fn new() -> Self {
         Self {
@@ -26,28 +24,22 @@ impl EventBus {
             runtime: VecDeque::new(),
         }
     }
+
     pub fn send_domain(&mut self, event: DomainEvent) {
         self.domain.push_back(event);
     }
+
     pub fn send_runtime(&mut self, event: RuntimeEvent) {
         self.runtime.push_back(event);
     }
+
     pub fn drain_domain(&mut self) -> Vec<DomainEvent> {
         self.domain.drain(..).collect()
     }
+
     pub fn drain_runtime(&mut self) -> Vec<RuntimeEvent> {
         self.runtime.drain(..).collect()
     }
-}
-
-fn load_icon(bytes: &[u8]) -> Option<winit::window::Icon> {
-    let (icon_rgba, icon_width, icon_height) = {
-        let image = image::load_from_memory(bytes).unwrap().into_rgba8();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        (rgba, width, height)
-    };
-    winit::window::Icon::from_rgba(icon_rgba, icon_width, icon_height).ok()
 }
 
 #[derive(Default)]
@@ -58,41 +50,34 @@ pub struct Engine<A: RuntimeApp + Default> {
 }
 
 impl<A: RuntimeApp + Default> Engine<A> {
-    pub fn resume(&mut self, event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) {
+    pub(crate) fn resume(&mut self, window: crate::winit_bridge::WindowHandle) {
         if self.runtime.is_some() {
             return;
         }
-        let icon = load_icon(include_bytes!(crate::asset_path!(
-            "core/lightbulb-icon32.png"
-        )));
 
         debug!("App resumed");
-        let attrs = WindowAttributes::default()
-            .with_inner_size(size)
-            .with_window_icon(icon)
-            .with_title("App");
-        let window = Arc::new(
-            event_loop
-                .create_window(attrs)
-                .expect("Failed to create window")
-                .try_fit_center_to_monitor(),
-        );
         let Self { app, bus, .. } = self;
         app.init(bus);
-        self.runtime = Some(Runtime::new(window.clone()));
-        window.request_redraw();
+        self.runtime = Some(Runtime::new(window));
     }
 
-    pub fn tick(&mut self) {
+    pub(crate) fn tick(&mut self, minimized: bool) -> Option<String> {
         let Self { app, bus, runtime } = self;
         let Some(runtime) = runtime else {
-            return;
+            return None;
         };
+
         runtime.handle_input(bus);
-        runtime.handle_runtime_events(app, bus);
+        let window_title = runtime.handle_runtime_events(app, bus);
+
+        if minimized {
+            return window_title;
+        }
+
         app.on_update(bus);
         runtime.sync_gpu_assets(app.asset_mgr_mut(), bus);
         runtime.update_ui(app, bus);
         runtime.render(app);
+        window_title
     }
 }

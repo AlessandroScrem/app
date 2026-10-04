@@ -21,7 +21,6 @@ use crate::gpu::{
     GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
-use crate::prelude::info;
 use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
@@ -30,11 +29,11 @@ use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
 use legion::Entity;
-use std::sync::Arc;
-use winit::{event::Event, window::Window};
+use crate::prelude::info;
+use crate::winit_bridge::WindowHandle;
 
 pub struct Runtime {
-    pub window: Arc<Window>,
+    pub window: WindowHandle,
     pub gpu_context: GpuContext,
     pub gpu_surface: GpuSurface,
     pub gpu_cache: GpuCache,
@@ -70,7 +69,7 @@ impl Runtime {
         }
     }
 
-    pub fn new(window: Arc<Window>) -> Self {
+    pub(crate) fn new(window: WindowHandle) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
         let gpu_surface = GpuSurface::new(
@@ -140,18 +139,6 @@ impl Runtime {
         }
     }
 
-    pub fn handle_winit_event(&mut self, event: &Event<()>) {
-        self.uilayer.handle_event(&self.window, event);
-        match event {
-            Event::WindowEvent { .. } | Event::DeviceEvent { .. }
-                if !self.uilayer.want_capture_mouse() =>
-            {
-                self.input.update_events(&event)
-            }
-            _ => {}
-        }
-    }
-
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
         let input = &self.input;
@@ -195,12 +182,17 @@ impl Runtime {
         self.input.clear();
     }
 
-    pub fn handle_runtime_events<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn handle_runtime_events<A: Application>(
+        &mut self,
+        app: &mut A,
+        bus: &mut EventBus,
+    ) -> Option<String> {
+        let mut window_title = None;
         for event in bus.drain_runtime() {
             match event {
                 RuntimeEvent::Resize { width, height } => {
                     if width == 0 || height == 0 {
-                        return;
+                        return window_title;
                     }
                     self.gpu_manager
                         .resize_frame(&self.gpu_context.as_ref(), width, height);
@@ -214,7 +206,7 @@ impl Runtime {
                 }
                 RuntimeEvent::DroppedFile(path) => app.on_drop(path, bus),
                 RuntimeEvent::SetWindowTitle(title) => {
-                    self.window.set_title(&title);
+                    window_title = Some(title);
                     info!("Set window title");
                 }
                 RuntimeEvent::UpdateIblMaps(id) => {
@@ -237,6 +229,7 @@ impl Runtime {
                 }
             }
         }
+        window_title
     }
 
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
