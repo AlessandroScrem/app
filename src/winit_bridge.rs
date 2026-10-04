@@ -417,6 +417,7 @@ mod windows_snap_layout {
     unsafe extern "system" {
         fn ScreenToClient(hwnd: Hwnd, point: *mut Point) -> i32;
         fn GetClientRect(hwnd: Hwnd, rect: *mut Rect) -> i32;
+        fn GetCursorPos(point: *mut Point) -> i32;
         fn GetDpiForWindow(hwnd: Hwnd) -> u32;
     }
 
@@ -485,6 +486,19 @@ mod windows_snap_layout {
             && (point.x as f64) < rect.right as f64 - button
             && point.y as f64 >= 0.0
             && (point.y as f64) < titlebar
+    }
+}
+
+pub(crate) fn maximize_button_hovered(window: &WindowHandle) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        return windows_snap_layout::maximize_button_hovered(window);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        false
     }
 }
 
