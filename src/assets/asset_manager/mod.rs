@@ -5,4 +5,5 @@ mod dependency_graph;
 mod resource_stats;
 
 pub(crate) use asset_mgr_impl::{AssetEventKind, AssetManager};
+pub(crate) use resource_stats::ResourceStats;
 pub(crate) use asset_storage::Asset;
