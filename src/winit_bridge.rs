@@ -476,7 +476,6 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             runtime.input.update_events(&evt);
         }
 
-        drop(runtime);
 
         match event {
             WindowEvent::CloseRequested => {
