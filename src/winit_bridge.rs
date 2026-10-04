@@ -1,37 +1,45 @@
-use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, Event, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use std::sync::Arc;
+
+use winit::{
+    application::ApplicationHandler,
+    dpi::{PhysicalPosition, PhysicalSize},
+    event::{DeviceEvent, Event, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::{Window, WindowAttributes, WindowId},
+};
 
 use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
 
+pub(crate) type WindowHandle = Arc<Window>;
+
 #[derive(Default)]
-pub struct MyApplication<A: RuntimeApp + Default> {
+pub(crate) struct MyApplication<A: RuntimeApp + Default> {
     engine: Engine<A>,
-    size: winit::dpi::PhysicalSize<u32>,
+    size: PhysicalSize<u32>,
 }
 
 impl<A: RuntimeApp + Default> MyApplication<A> {
-    pub fn new_with_size(width: u32, height: u32) -> Self {
+    pub(crate) fn new_with_size(width: u32, height: u32) -> Self {
         Self {
-            size: winit::dpi::PhysicalSize::new(width, height),
+            size: PhysicalSize::new(width, height),
             ..Default::default()
         }
     }
-    pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let event_loop = winit::event_loop::EventLoop::new()?;
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
+    pub(crate) fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let event_loop = EventLoop::new()?;
+        event_loop.set_control_flow(ControlFlow::Poll);
         event_loop.run_app(&mut self)?;
         Ok(())
     }
 }
 
-pub trait CenterWindow {
+pub(crate) trait CenterWindow {
     fn try_fit_center_to_monitor(self) -> Self;
 }
 
-impl CenterWindow for winit::window::Window {
+impl CenterWindow for WindowHandle {
     fn try_fit_center_to_monitor(self) -> Self {
         if let Some(monitor) = self.current_monitor() {
             let screen_size = monitor.size();
@@ -40,15 +48,44 @@ impl CenterWindow for winit::window::Window {
             let safe_height = screen_size.height.min(window_size.height);
             let x = (screen_size.width.saturating_sub(safe_width)) as f32 / 2.0;
             let y = (screen_size.height.saturating_sub(safe_height)) as f32 / 2.0;
-            self.set_outer_position(winit::dpi::PhysicalPosition::new(x, y));
+            self.set_outer_position(PhysicalPosition::new(x, y));
         }
         self
     }
 }
 
+fn load_icon(bytes: &[u8]) -> Option<winit::window::Icon> {
+    let image = image::load_from_memory(bytes).ok()?.into_rgba8();
+    let (width, height) = image.dimensions();
+    winit::window::Icon::from_rgba(image.into_raw(), width, height).ok()
+}
+
+fn create_window(event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) -> WindowHandle {
+    let icon = load_icon(include_bytes!(crate::asset_path!(
+        "core/lightbulb-icon32.png"
+    )));
+    let attrs = WindowAttributes::default()
+        .with_inner_size(size)
+        .with_window_icon(icon)
+        .with_title("App");
+
+    Arc::new(event_loop.create_window(attrs).expect("Failed to create window"))
+        .try_fit_center_to_monitor()
+}
+
+fn is_minimized(window: &WindowHandle) -> bool {
+    window.is_minimized().unwrap_or(false)
+}
+
 impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.engine.resume(event_loop, self.size);
+        if self.engine.runtime.is_some() {
+            return;
+        }
+
+        let window = create_window(event_loop, self.size);
+        self.engine.resume(window.clone());
+        window.request_redraw();
     }
 
     fn device_event(
@@ -60,21 +97,28 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
+
         let event = Event::DeviceEvent { device_id, event };
-        runtime.handle_winit_event(&event);
+        runtime.uilayer.handle_event(&runtime.window, &event);
+        if !runtime.uilayer.want_capture_mouse() {
+            runtime.input.update_events(&event);
+        }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        let Some(runtime) = &mut self.engine.runtime else {
+        let Some(runtime) = &self.engine.runtime else {
             return;
         };
-        if runtime.window.is_minimized().unwrap_or(false) {
-            return;
-        }
+
         if runtime.wait_for_exit {
             event_loop.exit();
             return;
         }
+
+        if is_minimized(&runtime.window) {
+            return;
+        }
+
         runtime.window.request_redraw();
     }
 
@@ -87,27 +131,42 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
         let Some(runtime) = &mut self.engine.runtime else {
             return;
         };
-        {
-            let evt = Event::WindowEvent {
-                window_id,
-                event: event.clone(),
-            };
-            runtime.handle_winit_event(&evt);
+
+        let evt = Event::WindowEvent {
+            window_id,
+            event: event.clone(),
+        };
+        runtime.uilayer.handle_event(&runtime.window, &evt);
+        if !runtime.uilayer.want_capture_mouse() {
+            runtime.input.update_events(&evt);
         }
+
         match event {
             WindowEvent::CloseRequested => {
-                self.engine.bus.send_runtime(RuntimeEvent::CloseRequested)
+                self.engine.bus.send_runtime(RuntimeEvent::CloseRequested);
             }
-            WindowEvent::Resized(size) => self.engine.bus.send_runtime(RuntimeEvent::Resize {
-                width: size.width,
-                height: size.height,
-            }),
-            WindowEvent::RedrawRequested => self.engine.tick(),
-            WindowEvent::DroppedFile(path) => self
-                .engine
-                .bus
-                .send_runtime(RuntimeEvent::DroppedFile(path)),
-            _ => (),
+            WindowEvent::Resized(size) => {
+                self.engine.bus.send_runtime(RuntimeEvent::Resize {
+                    width: size.width,
+                    height: size.height,
+                });
+            }
+            WindowEvent::RedrawRequested => {
+                let minimized = self
+                    .engine
+                    .runtime
+                    .as_ref()
+                    .is_some_and(|runtime| is_minimized(&runtime.window));
+                if !minimized {
+                    self.engine.tick(false);
+                }
+            }
+            WindowEvent::DroppedFile(path) => {
+                self.engine
+                    .bus
+                    .send_runtime(RuntimeEvent::DroppedFile(path));
+            }
+            _ => {}
         }
     }
 }
