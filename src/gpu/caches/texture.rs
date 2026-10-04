@@ -48,16 +48,10 @@ impl GpuBuiltinTextures {
     }
 }
 
-pub enum GpuTextureEvent {
-    Added(ResourceId),
-    Removed(ResourceId),
-}
-
 pub struct GpuTextureCache {
     map: HashMap<ResourceId, GpuTexture>,
     builtin: GpuBuiltinTextures,
     stats: GpuResourceStats,
-    events: Vec<GpuTextureEvent>,
 }
 
 impl HasGpuStats for GpuTextureCache {
@@ -73,7 +67,6 @@ impl GpuTextureCache {
             map: HashMap::new(),
             stats: GpuResourceStats::default(),
             builtin,
-            events: Vec::new(),
         }
     }
 
@@ -82,7 +75,6 @@ impl GpuTextureCache {
             self.stats.remove(previous.estimated_size);
         }
         self.stats.add(self.map[&id].estimated_size);
-        self.events.push(GpuTextureEvent::Added(id));
     }
 
     pub fn get(&self, id: ResourceId) -> Option<&GpuTexture> {
@@ -97,13 +89,9 @@ impl GpuTextureCache {
     pub fn remove(&mut self, id: ResourceId) {
         if let Some(gpu_texture) = self.map.remove(&id) {
             self.stats.remove(gpu_texture.estimated_size);
-            self.events.push(GpuTextureEvent::Removed(id));
         }
     }
 
-    pub fn drain_events(&mut self) -> impl Iterator<Item = GpuTextureEvent> + '_ {
-        self.events.drain(..)
-    }
 }
 
 #[cfg(test)]
