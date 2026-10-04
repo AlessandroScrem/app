@@ -10,7 +10,7 @@ use winit::{
     window::{CursorIcon, Window, WindowAttributes, WindowId},
 };
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use winit::window::ResizeDirection;
 
 use crate::app::RuntimeApp;
