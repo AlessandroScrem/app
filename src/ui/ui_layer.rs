@@ -12,7 +12,6 @@ pub struct UiContext<'a> {
     pub textures: &'a UiTextures,
     pub material_preview: &'a mut Option<crate::assets::MaterialId>,
     pub window_action: &'a mut Option<WindowAction>,
-    pub codicon_font: imgui::FontId,
 }
 
 pub struct UiOutput {
@@ -62,7 +61,6 @@ impl Layer for UiStack {
 pub struct UiLayer {
     context: imgui::Context,
     platform: WinitUiPlatform,
-    codicon_font: imgui::FontId,
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
@@ -75,7 +73,6 @@ impl UiLayer {
         mut context: imgui::Context,
         adapter_string: String,
         connection: crate::editor::EditorConnection,
-        codicon_font: imgui::FontId,
     ) -> Self {
         tools::set_dark_theme_colors(context.style_mut());
         let io = context.io_mut();
@@ -136,8 +133,9 @@ impl UiLayer {
 
     fn end_frame(&mut self) {
         if !self.ini_loaded {
-            self.context.set_ini_filename(Some("imgui.ini".into()));
-            if let Ok(content) = std::fs::read_to_string("imgui.ini") {
+            const INI_FILE: &str = "imgui_custom_titlebar.ini";
+            self.context.set_ini_filename(Some(INI_FILE.into()));
+            if let Ok(content) = std::fs::read_to_string(INI_FILE) {
                 self.context.load_ini_settings(&content);
             }
             self.ini_loaded = true;
@@ -162,8 +160,7 @@ impl UiLayer {
             textures,
             material_preview: &mut output.material_preview,
             window_action: &mut output.window_action,
-            codicon_font: self.codicon_font,
-        };
+            };
 
         self.stack.build(ui, &mut ctx);
         self.platform.prepare_render(ui, window);
