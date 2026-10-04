@@ -1,8 +1,7 @@
 use super::ui_layer::{Layer, UiContext};
 use crate::editor::{
     AssetCommand, CameraCommand, EditorResourceStatsData, EditorSettingsData, EditorStatisticsData,
-    GlobalCommand, IblData,
-    SelectionCommand,
+    GlobalCommand, IblData, SelectionCommand,
 };
 use imgui::{Drag, SliderFlags, TreeNodeFlags, Ui};
 

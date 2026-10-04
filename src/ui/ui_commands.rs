@@ -1,8 +1,8 @@
 use crate::editor::{
     EditorCommandClient, EditorConnection, EditorEvent, EditorResourceStatsData,
-    EditorSettingsData, EditorStatisticsData,
-    EntityId, HierarchyData, IblData, InspectorData, InspectorSection, LightData, Query, QueryId,
-    QueryResponse, QueryResult, SceneSettingsData, TransformData,
+    EditorSettingsData, EditorStatisticsData, EntityId, HierarchyData, IblData, InspectorData,
+    InspectorSection, LightData, Query, QueryId, QueryResponse, QueryResult, SceneSettingsData,
+    TransformData,
 };
 use std::collections::HashMap;
 
@@ -303,9 +303,8 @@ mod tests {
     use super::{QuerySlot, UiCommands};
     use crate::editor::{
         EditorConnection, EditorEvent, EditorResourceStatsData, EditorSettingsData, EntityId,
-    HierarchyData, InspectorData,
-        InspectorSection, LightData, Query, QueryResponse, QueryResult, SceneSettingsData,
-        TransformData,
+        HierarchyData, InspectorData, InspectorSection, LightData, Query, QueryResponse,
+        QueryResult, SceneSettingsData, TransformData,
     };
 
     fn inspector(entity: EntityId, name: &str) -> InspectorData {

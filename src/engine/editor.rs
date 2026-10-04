@@ -1,7 +1,6 @@
 use crate::editor::{
     EditorCommand, EditorEvent, EditorResourceStatsData, EditorServiceChannels,
-    EditorStatisticsData, EntityId, Query,
-    QueryResponse, QueryResult,
+    EditorStatisticsData, EntityId, Query, QueryResponse, QueryResult,
 };
 use crate::engine::engine::EventBus;
 
@@ -52,7 +51,10 @@ impl EditorService {
     pub fn set_resource_stats(&mut self, stats: EditorResourceStatsData) {
         if self.resource_stats != stats {
             self.resource_stats = stats;
-            let _ = self.channels.event_tx.send(EditorEvent::ResourceStatsChanged);
+            let _ = self
+                .channels
+                .event_tx
+                .send(EditorEvent::ResourceStatsChanged);
         }
     }
 
