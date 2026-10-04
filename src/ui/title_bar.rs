@@ -152,57 +152,6 @@ impl Layer for TopBarUi {
                 window_button(ui, ICON_CLOSE, true, false, || {
                     ctx.commands.send(EditorCommand::Exit);
                 });
-                let title_size = ui.calc_text_size(ctx.window_title);
-                let title_x = ((width - title_size[0]) * 0.5).max(0.0);
-                ui.set_cursor_pos([title_x, (TOP_BAR_HEIGHT - title_size[1]) * 0.5]);
-                ui.text_colored([0.82, 0.84, 0.88, 1.0], ctx.window_title);
-
-                let drag_width = (width - DRAG_START - WINDOW_BUTTONS_WIDTH).max(0.0);
-                if drag_width > 0.0 {
-                    ui.set_cursor_pos([DRAG_START, 4.0]);
-                    ui.invisible_button("##WindowDrag", [drag_width, 28.0]);
-
-                    if ui.is_item_hovered() {
-                        ui.set_mouse_cursor(Some(MouseCursor::Arrow));
-                    }
-
-                    if ui.is_item_hovered()
-                        && ui.is_mouse_double_clicked(MouseButton::Left)
-                    {
-                        *ctx.window_action = Some(WindowAction::ToggleMaximize);
-                    } else if ui.is_item_active()
-                        && ui.is_mouse_dragging(MouseButton::Left)
-                    {
-                        *ctx.window_action = Some(WindowAction::Drag);
-                    }
-                }
-
-                let _spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
-                let buttons_start = (width - WINDOW_BUTTONS_WIDTH).max(0.0);
-                ui.set_cursor_pos([buttons_start, 4.0]);
-                window_button(ui, ICON_MINIMIZE, false, false, || {
-                    *ctx.window_action = Some(WindowAction::Minimize);
-                });
-
-                ui.set_cursor_pos([buttons_start + WINDOW_BUTTON_SIZE[0], 4.0]);
-                window_button(
-                    ui,
-                    ICON_MAXIMIZE,
-                    false,
-                    ctx.maximize_hovered,
-                    || {
-                        *ctx.window_action = Some(WindowAction::ToggleMaximize);
-                    },
-                );
-
-                ui.set_cursor_pos(
-                    [buttons_start + WINDOW_BUTTON_SIZE[0] * 2.0, 4.0],
-                );
-                window_button(ui, ICON_CLOSE, true, false, || {
-                    ctx.commands.send(EditorCommand::Exit);
-                });
-            });
-    }
 }
 
 fn handle_drag(ui: &Ui, ctx: &mut UiContext) {
