@@ -5,9 +5,7 @@ use crate::editor::EditorCommandClient;
 use crate::ui::tools;
 
 use imgui::Ui;
-use imgui_winit_support::WinitPlatform;
-use winit::event::Event;
-use winit::window::Window;
+use crate::winit_bridge::{WindowHandle, WinitUiPlatform};
 
 pub struct UiContext<'a> {
     pub commands: &'a EditorCommandClient,
@@ -62,7 +60,7 @@ impl Layer for UiStack {
 
 pub struct UiLayer {
     context: imgui::Context,
-    pub platform: WinitPlatform,
+    pub platform: WinitUiPlatform,
     ini_loaded: bool,
     timestep: crate::timestep::Timestep,
     stack: UiStack,
@@ -71,7 +69,7 @@ pub struct UiLayer {
 
 impl UiLayer {
     pub fn new(
-        window: &Window,
+        window: &WindowHandle,
         mut context: imgui::Context,
         adapter_string: String,
         connection: crate::editor::EditorConnection,
@@ -82,12 +80,7 @@ impl UiLayer {
         io.config_flags.insert(imgui::ConfigFlags::VIEWPORTS_ENABLE);
         context.set_ini_filename(None);
 
-        let mut platform = WinitPlatform::new(&mut context);
-        platform.attach_window(
-            context.io_mut(),
-            window,
-            imgui_winit_support::HiDpiMode::Default,
-        );
+        let platform = WinitUiPlatform::new(&mut context, window);
 
         let mut ui = UiStack::new();
         ui.push(ViewportUi::default());
@@ -111,23 +104,25 @@ impl UiLayer {
         self.context.io().want_capture_mouse
     }
 
-    pub fn handle_event<T>(&mut self, window: &Window, event: &Event<T>) {
+    pub fn handle_event<T>(
+        &mut self,
+        window: &WindowHandle,
+        event: &winit::event::Event<T>,
+    ) {
         self.platform
-            .handle_event::<T>(self.context.io_mut(), window, event);
+            .handle_event(self.context, window, event);
     }
 
     pub fn get_draw_data(&mut self) -> &imgui::DrawData {
         self.context.render()
     }
 
-    fn begin_frame(&mut self, window: &Window) {
+    fn begin_frame(&mut self, window: &WindowHandle) {
         self.timestep.update();
         self.context
             .io_mut()
             .update_delta_time(self.timestep.delta());
-        self.platform
-            .prepare_frame(self.context.io_mut(), window)
-            .expect("failed to prepare frame");
+        self.platform.prepare_frame(&mut self.context, window);
     }
 
     fn end_frame(&mut self) {
