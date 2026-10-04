@@ -1,5 +1,6 @@
 use crate::editor::{
-    EditorCommandClient, EditorConnection, EditorEvent, EditorSettingsData, EditorStatisticsData,
+    EditorCommandClient, EditorConnection, EditorEvent, EditorResourceStatsData,
+    EditorSettingsData, EditorStatisticsData,
     EntityId, HierarchyData, IblData, InspectorData, InspectorSection, LightData, Query, QueryId,
     QueryResponse, QueryResult, SceneSettingsData, TransformData,
 };
@@ -12,6 +13,7 @@ enum QuerySlot {
     Inspector,
     Settings,
     Statistics,
+    ResourceStats,
     SceneSettings,
     Ibls,
 }
