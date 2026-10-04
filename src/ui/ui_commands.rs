@@ -311,6 +311,7 @@ mod tests {
         InspectorData {
             entity,
             name: name.to_string(),
+            visible: true,
             sections: vec![
                 InspectorSection::Transform(TransformData {
                     translation: [0.0; 3],

@@ -473,9 +473,15 @@ impl App {
             sections.push(InspectorSection::Light(light));
         }
 
+        let visible = !crate::ecs::components::hierarchy::is_hidden(
+            &self.current_scene.world,
+            EntityRawU64::from_raw_u64(id),
+        );
+
         Some(InspectorData {
             entity: id,
             name,
+            visible,
             sections,
         })
     }

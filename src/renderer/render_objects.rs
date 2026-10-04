@@ -1,12 +1,9 @@
-use legion::{Entity, EntityStore, World};
+use legion::{Entity, World};
 
 use crate::{
     EntityRawU64, Globals,
     assets::MeshId,
-    ecs::components::{
-        BoundingBoxComponent, GlobalModelComponent, Hidden, HierarchyComponent, LightComponent,
-        MeshComponent,
-    },
+    ecs::components::{BoundingBoxComponent, GlobalModelComponent, LightComponent, MeshComponent},
     math::{Mat4, Point3f, Vec3, Vec4},
     renderer::uniform::LightUniform,
 };
@@ -95,34 +92,13 @@ impl RenderObjects {
     }
 }
 
-fn is_hidden(world: &World, entity: Entity) -> bool {
-    let Ok(entry) = world.entry_ref(entity) else {
-        return false;
-    };
-    // check if has Hidden component
-    if entry.get_component::<Hidden>().is_ok() {
-        return true;
-    }
-
-    let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() else {
-        return false;
-    };
-
-    // recurse to parent
-    if let Some(parent) = hierarchy.parent {
-        return is_hidden(world, parent);
-    }
-
-    false
-}
-
 fn extract_meshes(world: &World) -> Vec<MeshRenderObject> {
     use legion::IntoQuery;
     let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
 
     let mut meshes = Vec::new();
     for (entity, mesh, transform) in query.iter(world) {
-        if is_hidden(world, *entity) {
+        if crate::ecs::components::hierarchy::is_hidden(world, *entity) {
             continue;
         }
         meshes.push(MeshRenderObject {
@@ -140,7 +116,7 @@ fn extract_lights(world: &World) -> Vec<LightRenderObject> {
 
     let mut lights = Vec::new();
     for (entity, light, transform) in query.iter(world) {
-        if is_hidden(world, *entity) {
+        if crate::ecs::components::hierarchy::is_hidden(world, *entity) {
             continue;
         }
 

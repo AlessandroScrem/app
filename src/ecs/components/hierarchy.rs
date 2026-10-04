@@ -21,6 +21,27 @@ pub(crate) fn disable_entity(entity: Entity, world: &mut legion::World, disable:
     }
 }
 
+pub(crate) fn is_hidden(world: &World, entity: Entity) -> bool {
+    let Ok(entry) = world.entry_ref(entity) else {
+        return false;
+    };
+    // check if has Hidden component
+    if entry.get_component::<Hidden>().is_ok() {
+        return true;
+    }
+
+    let Ok(hierarchy) = entry.get_component::<HierarchyComponent>() else {
+        return false;
+    };
+
+    // recurse to parent
+    if let Some(parent) = hierarchy.parent {
+        return is_hidden(world, parent);
+    }
+
+    false
+}
+
 pub(crate) fn add_parent(entity: Entity, world: &mut legion::World) {
     // if not root node do nothing
     if !is_root(entity, world) {

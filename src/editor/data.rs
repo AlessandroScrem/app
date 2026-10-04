@@ -25,6 +25,7 @@ pub struct HierarchyNode {
 pub struct InspectorData {
     pub entity: EntityId,
     pub name: String,
+    pub visible: bool,
     pub sections: Vec<InspectorSection>,
 }
 
