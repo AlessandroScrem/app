@@ -178,7 +178,7 @@ fn collect_mesh_entities_from_root(entity: Entity, world: &mut legion::World) ->
 mod tests {
     use super::is_hidden;
     use crate::ecs::components::{Hidden, HierarchyComponent};
-    use legion::World;
+    use legion::{EntityStore, World};
 
     #[test]
     fn hidden_entity_is_hidden() {
