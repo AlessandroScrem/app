@@ -15,6 +15,9 @@ impl Layer for TitleBarUi {
 
     fn build(&mut self, ui: &Ui, ctx: &mut UiContext) {
         let [width, height] = ui.io().display_size;
+        if width <= 0.0 || height <= 0.0 {
+            return;
+        }
 
         ui.window("##TitleBar")
             .position([0.0, 0.0], Condition::Always)
@@ -68,6 +71,7 @@ impl Layer for TitleBarUi {
 
                 resize_handle(
                     ui,
+                    "##ResizeNorthWest",
                     [0.0, 0.0],
                     [edge, edge],
                     ResizeDirection::NorthWest,
@@ -75,6 +79,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeNorth",
                     [edge, 0.0],
                     [horizontal, edge],
                     ResizeDirection::North,
@@ -82,6 +87,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeNorthEast",
                     [width - edge, 0.0],
                     [edge, edge],
                     ResizeDirection::NorthEast,
@@ -89,6 +95,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeWest",
                     [0.0, edge],
                     [edge, vertical],
                     ResizeDirection::West,
@@ -96,6 +103,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeEast",
                     [width - edge, edge],
                     [edge, vertical],
                     ResizeDirection::East,
@@ -103,6 +111,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeSouthWest",
                     [0.0, height - edge],
                     [edge, edge],
                     ResizeDirection::SouthWest,
@@ -110,6 +119,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeSouth",
                     [edge, height - edge],
                     [horizontal, edge],
                     ResizeDirection::South,
@@ -117,6 +127,7 @@ impl Layer for TitleBarUi {
                 );
                 resize_handle(
                     ui,
+                    "##ResizeSouthEast",
                     [width - edge, height - edge],
                     [edge, edge],
                     ResizeDirection::SouthEast,
@@ -128,14 +139,15 @@ impl Layer for TitleBarUi {
 
 fn resize_handle(
     ui: &Ui,
+    id: &str,
     position: [f32; 2],
     size: [f32; 2],
     direction: ResizeDirection,
     ctx: &mut UiContext,
 ) {
     ui.set_cursor_pos(position);
-    ui.invisible_button("##ResizeHandle", size);
-    if ui.is_item_active() && ui.is_mouse_clicked(MouseButton::Left) {
+    ui.invisible_button(id, size);
+    if ui.is_item_clicked() {
         *ctx.window_action = Some(WindowAction::Resize(direction));
     }
 }
