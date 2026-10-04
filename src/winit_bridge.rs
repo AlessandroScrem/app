@@ -16,6 +16,7 @@ use crate::app::RuntimeApp;
 use crate::engine::{Engine, RuntimeEvent};
 
 pub type WindowHandle = Arc<Window>;
+pub type WinitEvent<T> = Event<T>;
 
 pub struct WinitUiPlatform {
     platform: WinitPlatform,
