@@ -58,8 +58,7 @@ impl<A: RuntimeApp + Default> Engine<A> {
         debug!("App resumed");
         let Self { app, bus, .. } = self;
         app.init(bus);
-        self.runtime = Some(Runtime::new(window.clone()));
-        window.request_redraw();
+        self.runtime = Some(Runtime::new(window));
     }
 
     pub fn tick(&mut self, minimized: bool) {
