@@ -1,5 +1,6 @@
 use crate::editor::{
-    EditorCommand, EditorEvent, EditorServiceChannels, EditorStatisticsData, EntityId, Query,
+    EditorCommand, EditorEvent, EditorResourceStatsData, EditorServiceChannels,
+    EditorStatisticsData, EntityId, Query,
     QueryResponse, QueryResult,
 };
 use crate::engine::engine::EventBus;
@@ -22,6 +23,7 @@ pub struct EditorService {
     last_selection: Vec<EntityId>,
     last_ibl_revision: u64,
     statistics: EditorStatisticsData,
+    resource_stats: EditorResourceStatsData,
 }
 
 impl EditorService {
@@ -32,6 +34,7 @@ impl EditorService {
             last_selection: Vec::new(),
             last_ibl_revision: 0,
             statistics: EditorStatisticsData::default(),
+            resource_stats: EditorResourceStatsData::default(),
         }
     }
 
@@ -43,6 +46,13 @@ impl EditorService {
         if self.statistics != statistics {
             self.statistics = statistics;
             let _ = self.channels.event_tx.send(EditorEvent::StatisticsChanged);
+        }
+    }
+
+    pub fn set_resource_stats(&mut self, stats: EditorResourceStatsData) {
+        if self.resource_stats != stats {
+            self.resource_stats = stats;
+            let _ = self.channels.event_tx.send(EditorEvent::ResourceStatsChanged);
         }
     }
 
@@ -64,6 +74,7 @@ impl EditorService {
         while let Ok(request) = self.channels.query_rx.try_recv() {
             let result = match &request.query {
                 Query::Statistics => QueryResult::Statistics(self.statistics.clone()),
+                Query::ResourceStats => QueryResult::ResourceStats(self.resource_stats.clone()),
                 _ => backend.query(&request.query),
             };
             let _ = self.channels.response_tx.send(QueryResponse {
