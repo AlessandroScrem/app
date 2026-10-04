@@ -21,6 +21,7 @@ use crate::gpu::{
     GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
+use crate::prelude::info;
 use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
@@ -28,9 +29,8 @@ use crate::renderer::scene_renderer::SceneRenderContext;
 use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
-use legion::Entity;
-use crate::prelude::info;
 use crate::winit_bridge::WindowHandle;
+use legion::Entity;
 
 pub struct Runtime {
     pub window: WindowHandle,

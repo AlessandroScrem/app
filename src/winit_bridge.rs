@@ -69,8 +69,12 @@ fn create_window(event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) -> Windo
         .with_window_icon(icon)
         .with_title("App");
 
-    Arc::new(event_loop.create_window(attrs).expect("Failed to create window"))
-        .try_fit_center_to_monitor()
+    Arc::new(
+        event_loop
+            .create_window(attrs)
+            .expect("Failed to create window"),
+    )
+    .try_fit_center_to_monitor()
 }
 
 fn is_minimized(window: &WindowHandle) -> bool {
