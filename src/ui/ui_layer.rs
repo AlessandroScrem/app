@@ -25,6 +25,7 @@ pub enum WindowAction {
     Drag,
     Minimize,
     ToggleMaximize,
+    Resize(winit::window::ResizeDirection),
 }
 
 struct UiStack {
