@@ -266,7 +266,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
             runtime.input.update_events(&evt);
         }
 
-        let redraw_requested = matches!(event, WindowEvent::RedrawRequested);
+        let redraw_requested = matches!(&event, WindowEvent::RedrawRequested);
         drop(runtime);
 
         match event {
@@ -277,7 +277,7 @@ impl<A: RuntimeApp + Default> ApplicationHandler for MyApplication<A> {
                 width: size.width,
                 height: size.height,
             }),
-            WindowEvent::RedrawRequested if redraw_requested => {
+            WindowEvent::RedrawRequested => {
                 let minimized = self
                     .engine
                     .runtime
