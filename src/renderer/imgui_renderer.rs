@@ -4,77 +4,31 @@ use crate::gpu::*;
 use crate::prelude::*;
 use crate::ui::UiTextures;
 use imgui_wgpu::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wgpu::*;
 
 pub struct ImGuiTextureRegistry {
     textures: HashMap<ResourceId, imgui::TextureId>,
+    asset_ids: HashSet<ResourceId>,
 }
 
 impl ImGuiTextureRegistry {
     pub fn new() -> Self {
         Self {
             textures: HashMap::new(),
+            asset_ids: HashSet::new(),
         }
     }
 
-    pub fn add(
-        &mut self,
-        renderer: &mut imgui_wgpu::Renderer,
-        device: &Device,
-        resource_id: ResourceId,
-        texture: &GpuTexture,
-    ) -> imgui::TextureId {
-        let texture_config = RawTextureConfig {
-            label: None,
-            sampler_desc: wgpu::SamplerDescriptor {
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                ..Default::default()
-            },
-        };
-        let imgui_texture = imgui_wgpu::Texture::from_raw_parts(
-            device,
-            renderer,
-            texture.inner.clone(),
-            texture.view.clone(),
-            None,
-            Some(&texture_config),
-            texture.extent,
-        );
-
-        if let Some(id) = self.textures.get(&resource_id).copied() {
-            renderer.textures.replace(id, imgui_texture);
-            id
-        } else {
-            let id = renderer.textures.insert(imgui_texture);
-            self.textures.insert(resource_id, id);
-            id
-        }
-    }
-
-    pub fn remove(
-        &mut self,
-        renderer: &mut imgui_wgpu::Renderer,
-        resource_id: ResourceId,
-    ) -> bool {
-        let Some(id) = self.textures.remove(&resource_id) else {
-            return false;
-        };
-
-        renderer.textures.remove(id);
-        true
-    }
-
-    pub fn get(&self, resource_id: ResourceId) -> Option<imgui::TextureId> {
-        self.textures.get(&resource_id).copied()
-    }
-
-    pub fn ui_textures(&self) -> UiTextures {
-        UiTextures::new(self.textures.clone())
+    pub fn ui_textures(&self, shadow_map: ResourceId, material_preview: ResourceId) -> UiTextures {
+        UiTextures::new(
+            self.textures.clone(),
+            self.textures.get(&shadow_map).copied(),
+            self.textures.get(&material_preview).copied(),
+        )
     }
 }
+
 pub struct ImguiRender {
     pub renderer: imgui_wgpu::Renderer,
     pub registry: ImGuiTextureRegistry,
@@ -163,36 +117,136 @@ impl ImguiRender {
 }
 
 impl ImguiRender {
-    pub fn sync_imgui_texture_cache(
+    pub fn sync_imgui_asset_textures(
         &mut self,
         gpu_context: &GpuContext,
-        texture_cache: &mut GpuTextureCache,
+        texture_cache: &GpuTextureCache,
     ) {
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry;
         let device = &gpu_context.device;
-        let events: Vec<_> = texture_cache.drain_events().collect();
 
-        for event in events {
-            match event {
-                GpuTextureEvent::Added(resource_id) => {
-                    if let Some(texture) = texture_cache.get(resource_id) {
-                        self.registry
-                            .add(&mut self.renderer, device, resource_id, texture);
-                    }
-                }
-                GpuTextureEvent::Removed(resource_id) => {
-                    self.registry.remove(&mut self.renderer, resource_id);
-                }
+        debug!("Sync_with_registry: ");
+
+        use imgui_wgpu::RawTextureConfig;
+        for (gpu_id, tex) in texture_cache.iter() {
+            if !registry.textures.contains_key(gpu_id) {
+                let texture_config = RawTextureConfig {
+                    label: None,
+                    sampler_desc: wgpu::SamplerDescriptor {
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::MipmapFilterMode::Linear,
+                        ..Default::default()
+                    },
+                };
+                let id = renderer
+                    .textures
+                    .insert(imgui_wgpu::Texture::from_raw_parts(
+                        device,
+                        renderer,
+                        tex.inner.clone(),
+                        tex.view.clone(),
+                        None,
+                        Some(&texture_config),
+                        tex.extent,
+                    ));
+                registry.textures.insert(*gpu_id, id);
+                registry.asset_ids.insert(*gpu_id);
+                debug!("add to registry texture with id {}", id.id());
             }
         }
+
+        registry.asset_ids.retain(|gpu_id| {
+            if texture_cache.contains_key(gpu_id) {
+                true
+            } else {
+                if let Some(id) = registry.textures.remove(gpu_id) {
+                    renderer.textures.remove(id);
+                    debug!("remove from registry texture with id {}", id.id());
+                }
+                false
+            }
+        });
     }
 
     pub fn sync_imgui_texture(
         &mut self,
         gpu_context: &GpuContext,
         resource_id: ResourceId,
+        texture: std::sync::Arc<wgpu::Texture>,
+        view: std::sync::Arc<wgpu::TextureView>,
+        extent: wgpu::Extent3d,
+    ) {
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry.textures;
+        let device = &gpu_context.device;
+
+        let texture_config = RawTextureConfig {
+            label: Some("Material Preview"),
+            sampler_desc: wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::MipmapFilterMode::Linear,
+                ..Default::default()
+            },
+        };
+
+        let updated_texture = imgui_wgpu::Texture::from_raw_parts(
+            device,
+            renderer,
+            texture,
+            view,
+            None,
+            Some(&texture_config),
+            extent,
+        );
+
+        if let Some(id) = registry.get(&resource_id).copied() {
+            renderer.textures.replace(id, updated_texture);
+        } else {
+            let id = renderer.textures.insert(updated_texture);
+            registry.insert(resource_id, id);
+        }
+    }
+
+    pub fn sync_imgui_texture_from_gpu(
+        &mut self,
+        gpu_context: &GpuContext,
+        resource_id: ResourceId,
         texture: &GpuTexture,
     ) {
-        self.registry
-            .add(&mut self.renderer, &gpu_context.device, resource_id, texture);
+        let renderer = &mut self.renderer;
+        let registry = &mut self.registry.textures;
+        let device = &gpu_context.device;
+
+        let texture_config = RawTextureConfig {
+            label: None,
+            sampler_desc: wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+                ..Default::default()
+            },
+        };
+        let updated_texture = imgui_wgpu::Texture::from_raw_parts(
+            device,
+            renderer,
+            texture.inner.clone(),
+            texture.view.clone(),
+            None,
+            Some(&texture_config),
+            texture.extent,
+        );
+
+        if let Some(id) = registry.get(&resource_id).copied() {
+            renderer.textures.replace(id, updated_texture);
+        } else {
+            let id = renderer.textures.insert(updated_texture);
+            registry.insert(resource_id, id);
+        }
     }
 }
