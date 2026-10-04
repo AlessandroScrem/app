@@ -6,6 +6,10 @@ use crate::ui::ui_layer::{Layer, UiContext, WindowAction};
 const TITLE_BAR_HEIGHT: f32 = 36.0;
 const WINDOW_BUTTON_SIZE: [f32; 2] = [36.0, 28.0];
 
+const ICON_MINIMIZE: &str = "\u{EABA}";
+const ICON_MAXIMIZE: &str = "\u{EAB9}";
+const ICON_CLOSE: &str = "\u{EAB8}";
+
 #[derive(Default)]
 pub struct TitleBarUi;
 
@@ -52,20 +56,23 @@ impl Layer for TitleBarUi {
 
                 ui.same_line();
 
-                window_button(ui, "—", false, || {
+                let _codicons = ui.push_font(ctx.codicon_font);
+                window_button(ui, ICON_MINIMIZE, false, || {
                     *ctx.window_action = Some(WindowAction::Minimize);
                 });
                 ui.same_line();
 
-                window_button(ui, "□", false, || {
+                window_button(ui, ICON_MAXIMIZE, false, || {
                     *ctx.window_action = Some(WindowAction::ToggleMaximize);
                 });
                 ui.same_line();
 
-                window_button(ui, "×", true, || {
+                window_button(ui, ICON_CLOSE, true, || {
                     ctx.commands.send(EditorCommand::Exit);
                 });
             });
+            // Keep the icon font scoped to the window controls only.
+        }
     }
 }
 
