@@ -115,6 +115,7 @@ impl Runtime {
             imgui_context,
             gpu_context.get_adapter_string(),
             connection,
+            imgui_render.codicon_font,
         );
         Self {
             window: window.clone(),
