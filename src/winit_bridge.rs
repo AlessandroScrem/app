@@ -458,6 +458,44 @@ mod windows_snap_layout {
         result
     }
 
+    pub(crate) fn maximize_button_hovered(window: &WindowHandle) -> bool {
+        let Ok(handle) = window.window_handle() else {
+            return false;
+        };
+        let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+            return false;
+        };
+
+        let hwnd = handle.hwnd.get() as Hwnd;
+        let mut point = Point { x: 0, y: 0 };
+        if unsafe { GetCursorPos(&mut point) } == 0 {
+            return false;
+        }
+        if unsafe { ScreenToClient(hwnd, &mut point) } == 0 {
+            return false;
+        }
+
+        let mut rect = Rect {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        };
+        if unsafe { GetClientRect(hwnd, &mut rect) } == 0 {
+            return false;
+        }
+
+        let dpi = unsafe { GetDpiForWindow(hwnd) }.max(96) as f64;
+        let scale = dpi / 96.0;
+        let button = BUTTON_WIDTH * scale;
+        let titlebar = TITLE_BAR_HEIGHT * scale;
+
+        (point.x as f64) >= rect.right as f64 - button * 2.0
+            && (point.x as f64) < rect.right as f64 - button
+            && (point.y as f64) >= 0.0
+            && (point.y as f64) < titlebar
+    }
+
     fn in_maximize_button(hwnd: Hwnd, lparam: isize) -> bool {
         let mut point = Point {
             x: (lparam as i32 & 0xFFFF) as i16 as i32,
