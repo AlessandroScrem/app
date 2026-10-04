@@ -1,6 +1,5 @@
 mod entity_list;
 mod main_wnd;
-mod menu_bar;
 mod properties;
 mod properties_material;
 mod properties_transform;
@@ -16,6 +15,6 @@ pub(crate) use ui_layer::{UiContext, UiLayer, WindowAction};
 
 use entity_list::EntityListUi;
 use main_wnd::ViewportUi;
-use menu_bar::MenuBarUi;
 use properties::PropertyUi;
 use settings::SettingsUi;
+use title_bar::TopBarUi;
