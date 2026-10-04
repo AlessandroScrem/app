@@ -213,7 +213,7 @@ impl Runtime {
                 }
                 RuntimeEvent::SyncImguiTextures => {
                     self.imgui_render
-                        .sync_imgui_asset_textures(&self.gpu_context, &mut self.gpu_cache.textures);
+                        .sync_imgui_texture_cache(&self.gpu_context, &mut self.gpu_cache.textures);
                 }
 
                 RuntimeEvent::UpdateIblMaps(id) => {
