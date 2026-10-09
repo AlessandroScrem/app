@@ -53,6 +53,10 @@ impl GpuSurface {
     }
 
     pub fn resize_frame(&mut self, device: &Device, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
         self.surface_config.width = width;
         self.surface_config.height = height;
 
