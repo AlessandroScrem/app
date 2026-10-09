@@ -789,7 +789,7 @@ mod test_api {
 
 #[cfg(test)]
 mod lifecycle_tests {
-    use super::*;
+    use super::{Asset, AssetEventKind, AssetManager};
 
     struct LifecycleAsset {
         key: String,
