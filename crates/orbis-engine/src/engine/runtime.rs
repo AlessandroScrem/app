@@ -1,4 +1,5 @@
 use super::RuntimeEvent;
+use super::gpu_sync::TextureLoadService;
 use crate::EntityRawU64;
 use crate::app::Application;
 use crate::app::application::AppRenderData;
@@ -50,6 +51,7 @@ pub struct Runtime {
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
     pub editor_service: EditorService,
+    texture_loader: TextureLoadService,
     last_ui_update: std::time::Instant,
     statistics_dt: f32,
 }
@@ -134,6 +136,7 @@ impl Runtime {
             wait_for_exit: false,
             readback: ReadbackManager::default(),
             editor_service,
+            texture_loader: TextureLoadService::new(),
             last_ui_update: std::time::Instant::now(),
             statistics_dt: 1.0 / 60.0,
         }
@@ -238,6 +241,7 @@ impl Runtime {
             bus,
             &self.gpu_context,
             &mut self.gpu_cache,
+            &mut self.texture_loader,
             &mut self.gpu_manager,
             &mut self.ibl_manager,
             &mut self.imgui_render,
