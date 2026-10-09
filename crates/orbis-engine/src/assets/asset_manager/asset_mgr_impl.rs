@@ -221,21 +221,21 @@ impl AssetManager {
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
-        let Some(previous_size) = self
+        let Some((previous_size, previous_dependencies)) = self
             .storage::<T>()
             .get_by_id(id)
-            .map(|asset| asset.estimated_size())
+            .map(|asset| (asset.estimated_size(), asset.dependencies()))
         else {
             return;
         };
 
         let handle = AssetHandle::<T>::new(id);
-        let updated_size = {
+        let (updated_size, updated_dependencies) = {
             let Some(existing) = self.storage_mut::<T>().get_mut(handle) else {
                 return;
             };
             f(existing);
-            existing.estimated_size()
+            (existing.estimated_size(), existing.dependencies())
         };
 
         if previous_size != updated_size {
@@ -244,6 +244,16 @@ impl AssetManager {
                 .estimated_bytes
                 .saturating_sub(previous_size)
                 .saturating_add(updated_size);
+        }
+
+        if previous_dependencies != updated_dependencies {
+            self.graph.replace_dependencies(id, &updated_dependencies);
+            for dependency in &updated_dependencies {
+                self.retain(*dependency);
+            }
+            for dependency in previous_dependencies {
+                self.release(dependency);
+            }
         }
 
         self.events.push_back(AssetEvent {
@@ -494,6 +504,45 @@ mod tests {
 
         assert!(manager.get::<Owner>(owner).is_none());
         assert!(manager.get::<Texture>(dependency).is_none());
+    }
+
+    #[test]
+    fn updating_asset_dependencies_releases_old_and_retains_new() {
+        #[derive(Clone)]
+        struct Owner {
+            key: String,
+            dependency: ResourceId,
+        }
+
+        impl Asset for Owner {
+            type Key = String;
+
+            fn key(&self) -> &Self::Key {
+                &self.key
+            }
+
+            fn dependencies(&self) -> Vec<ResourceId> {
+                vec![self.dependency]
+            }
+        }
+
+        let mut manager = AssetManager::new();
+        let first = manager.add(Texture { name: "first".into() });
+        let second = manager.add(Texture { name: "second".into() });
+        let owner = manager.add(Owner {
+            key: "owner".into(),
+            dependency: first,
+        });
+
+        manager.update::<Owner>(owner, |asset| asset.dependency = second);
+
+        assert!(manager.get::<Texture>(first).is_none());
+        assert!(manager.get::<Texture>(second).is_some());
+        assert_eq!(manager.ref_count.get(&second), Some(&1));
+        assert_eq!(manager.graph.dependencies_of(owner), vec![second]);
+
+        manager.remove(owner);
+        assert!(manager.get::<Texture>(second).is_none());
     }
 
     #[test]
