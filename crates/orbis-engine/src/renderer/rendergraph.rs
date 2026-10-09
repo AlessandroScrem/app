@@ -61,10 +61,17 @@ struct PassNode<'a> {
 }
 
 #[derive(Clone, Copy)]
+enum EdgeKind {
+    ReadAfterWrite,
+    WriterOrder,
+}
+
+#[derive(Clone, Copy)]
 struct Edge {
     from: usize,
     to: usize,
     resource: ResourceId,
+    kind: EdgeKind,
 }
 
 // =========================
@@ -141,7 +148,7 @@ impl RenderGraph {
                 println!("⚠️ Resource {} read but never written", res.id);
             }
 
-            //For each writer and for each reader make one edge
+            // Readers depend on every writer so all writes complete first.
             for &writer in &res.writers {
                 for &reader in &res.readers {
                     if reader != writer {
@@ -149,8 +156,24 @@ impl RenderGraph {
                             from: reader,
                             to: writer,
                             resource: res.id,
+                            kind: EdgeKind::ReadAfterWrite,
                         });
                     }
+                }
+            }
+
+            // Multiple writers are intentionally ordered by pass registration.
+            // This preserves the renderer's existing accumulation/compositing order.
+            for writers in res.writers.windows(2) {
+                let earlier = writers[0];
+                let later = writers[1];
+                if earlier != later {
+                    deps[later].push(Edge {
+                        from: later,
+                        to: earlier,
+                        resource: res.id,
+                        kind: EdgeKind::WriterOrder,
+                    });
                 }
             }
         }
@@ -198,12 +221,20 @@ impl RenderGraph {
                     let cycle_lines = stack[cycle_start..]
                         .iter()
                         .map(|edge| {
-                            format!(
-                                "{} reads {} -> depends on {}",
-                                passes[edge.from].name(),
-                                edge.resource,
-                                passes[edge.to].name()
-                            )
+                            match edge.kind {
+                                EdgeKind::ReadAfterWrite => format!(
+                                    "{} reads {} -> depends on {}",
+                                    passes[edge.from].name(),
+                                    edge.resource,
+                                    passes[edge.to].name()
+                                ),
+                                EdgeKind::WriterOrder => format!(
+                                    "{} writes {} after {}",
+                                    passes[edge.from].name(),
+                                    edge.resource,
+                                    passes[edge.to].name()
+                                ),
+                            }
                         })
                         .collect::<Vec<_>>();
 
@@ -397,6 +428,52 @@ mod tests {
         for _ in 0..32 {
             assert_eq!(graph.compile_names().unwrap(), expected);
         }
+    }
+
+
+    #[test]
+    fn multiple_writers_preserve_registration_order() {
+        struct Pass {
+            name: &'static str,
+            reads: Vec<ResourceId>,
+            writes: Vec<ResourceId>,
+        }
+
+        impl RenderPass for Pass {
+            fn name(&self) -> &'static str {
+                self.name
+            }
+
+            fn reads(&self) -> &[ResourceId] {
+                &self.reads
+            }
+
+            fn writes(&self) -> &[ResourceId] {
+                &self.writes
+            }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Pass {
+            name: "First writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
+        graph.add_pass(Pass {
+            name: "Second writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
+        graph.add_pass(Pass {
+            name: "Reader",
+            reads: vec![ResourceId::HDR],
+            writes: vec![],
+        });
+
+        assert_eq!(
+            graph.compile_names().unwrap(),
+            vec!["First writer", "Second writer", "Reader"]
+        );
     }
 
     #[test]
