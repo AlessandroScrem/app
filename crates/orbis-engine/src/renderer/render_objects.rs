@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use legion::{Entity, World};
+use legion::{Entity, EntityStore, World};
 
 use crate::{
     EntityRawU64, Globals,
