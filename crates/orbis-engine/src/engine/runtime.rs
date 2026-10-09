@@ -479,7 +479,6 @@ impl Runtime {
     }
 }
 
-
 fn register_gpu_texture(
     cache: &mut GpuTextureCache,
     imgui: &mut ImguiRender,
