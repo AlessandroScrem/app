@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 use super::*;
+use crate::renderer::framebuilder::FrameData;
+use crate::renderer::scene_renderer::RenderContext;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
@@ -78,16 +80,16 @@ struct Edge {
 // RenderGraph
 // =========================
 
-struct RenderGraph {
+pub(crate) struct RenderGraph {
     passes: Vec<Box<dyn RenderPass>>,
 }
 
 impl RenderGraph {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { passes: Vec::new() }
     }
 
-    pub fn add_pass<P: RenderPass + 'static>(&mut self, pass: P) {
+    pub(crate) fn add_pass<P: RenderPass + 'static>(&mut self, pass: P) {
         self.passes.push(Box::new(pass));
     }
 
@@ -143,15 +145,21 @@ impl RenderGraph {
         resources: &HashMap<ResourceId, ResourceNode>,
     ) -> Vec<Vec<Edge>> {
         let mut deps = vec![Vec::new(); passes.len()];
-        for res in resources.values() {
-            if res.writers.is_empty() && !res.readers.is_empty() {
-                println!("⚠️ Resource {} read but never written", res.id);
-            }
 
-            // Readers depend on every writer so all writes complete first.
-            for &writer in &res.writers {
-                for &reader in &res.readers {
-                    if reader != writer {
+        for res in resources.values() {
+            // Writers are ordered by registration. A reader observes the latest
+            // preceding writer; if none exists, it depends on the first writer.
+            for &reader in &res.readers {
+                let writer = res
+                    .writers
+                    .iter()
+                    .copied()
+                    .take_while(|writer| *writer < reader)
+                    .last()
+                    .or_else(|| res.writers.first().copied());
+
+                if let Some(writer) = writer {
+                    if writer != reader {
                         deps[reader].push(Edge {
                             from: reader,
                             to: writer,
@@ -162,19 +170,16 @@ impl RenderGraph {
                 }
             }
 
-            // Multiple writers are intentionally ordered by pass registration.
-            // This preserves the renderer's existing accumulation/compositing order.
+            // Preserve the declared order for multiple writes to the same resource.
             for writers in res.writers.windows(2) {
                 let earlier = writers[0];
                 let later = writers[1];
-                if earlier != later {
-                    deps[later].push(Edge {
-                        from: later,
-                        to: earlier,
-                        resource: res.id,
-                        kind: EdgeKind::WriterOrder,
-                    });
-                }
+                deps[later].push(Edge {
+                    from: later,
+                    to: earlier,
+                    resource: res.id,
+                    kind: EdgeKind::WriterOrder,
+                });
             }
         }
 
@@ -184,6 +189,14 @@ impl RenderGraph {
                     .to_string()
                     .cmp(&right.resource.to_string())
                     .then_with(|| left.to.cmp(&right.to))
+                    .then_with(|| match (left.kind, right.kind) {
+                        (EdgeKind::ReadAfterWrite, EdgeKind::WriterOrder) => std::cmp::Ordering::Less,
+                        (EdgeKind::WriterOrder, EdgeKind::ReadAfterWrite) => std::cmp::Ordering::Greater,
+                        _ => std::cmp::Ordering::Equal,
+                    })
+            });
+            edges.dedup_by(|left, right| {
+                left.from == right.from && left.to == right.to && left.resource == right.resource
             });
         }
 
@@ -196,6 +209,13 @@ impl RenderGraph {
     // -------------------------
     pub fn compile(&self) -> Result<Vec<usize>, String> {
         let (passes, resources) = self.build_graph();
+
+        if let Some(resource) = resources
+            .values()
+            .find(|resource| !resource.readers.is_empty() && resource.writers.is_empty())
+        {
+            return Err(format!("Resource {} is read but never written", resource.id));
+        }
 
         let deps = self.build_dependencies(&passes, &resources);
 
@@ -265,19 +285,19 @@ impl RenderGraph {
     }
 
     // -------------------------
-    // Execute with no failure
+    // Execute passes in dependency order
     // -------------------------
-    pub fn execute(&self) {
-        match self.compile() {
-            Err(e) => println!("{}", e),
-            Ok(order) => {
-                for idx in order {
-                    let pass = &self.passes[idx];
-                    println!("{}", pass.name());
-                    // pass.execute(ctx);
-                }
-            }
+    pub(crate) fn execute(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        ctx: &mut RenderContext,
+        frame: &FrameData,
+    ) -> Result<(), String> {
+        let order = self.compile()?;
+        for idx in order {
+            self.passes[idx].execute(encoder, ctx, frame);
         }
+        Ok(())
     }
 }
 
@@ -474,6 +494,45 @@ mod tests {
             graph.compile_names().unwrap(),
             vec!["First writer", "Second writer", "Reader"]
         );
+    }
+
+    #[test]
+    fn reader_between_writers_observes_the_preceding_write() {
+        struct Pass {
+            name: &'static str,
+            reads: Vec<ResourceId>,
+            writes: Vec<ResourceId>,
+        }
+
+        impl RenderPass for Pass {
+            fn name(&self) -> &'static str { self.name }
+            fn reads(&self) -> &[ResourceId] { &self.reads }
+            fn writes(&self) -> &[ResourceId] { &self.writes }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Pass { name: "First writer", reads: vec![], writes: vec![ResourceId::HDR] });
+        graph.add_pass(Pass { name: "Reader", reads: vec![ResourceId::HDR], writes: vec![] });
+        graph.add_pass(Pass { name: "Second writer", reads: vec![], writes: vec![ResourceId::HDR] });
+
+        assert_eq!(
+            graph.compile_names().unwrap(),
+            vec!["First writer", "Reader", "Second writer"]
+        );
+    }
+
+    #[test]
+    fn read_without_any_writer_is_reported_as_an_error() {
+        struct Reader;
+        impl RenderPass for Reader {
+            fn name(&self) -> &'static str { "Reader" }
+            fn reads(&self) -> &[ResourceId] { &[ResourceId::PICKBUFFER] }
+            fn writes(&self) -> &[ResourceId] { &[] }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Reader);
+        assert!(graph.compile().unwrap_err().contains("PickBuffer is read but never written"));
     }
 
     #[test]
