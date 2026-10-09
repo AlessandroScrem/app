@@ -269,6 +269,50 @@ impl Runtime {
                         id,
                         texture,
                     );
+
+                    // A texture replacement invalidates bind groups that captured
+                    // its previous view. Rebuild only materials that reference it.
+                    let dependent_materials = asset_mgr
+                        .iter::<MaterialAsset>()
+                        .filter(|(_, material)| material.desc.get_textures().contains(&id))
+                        .map(|(material_id, _)| material_id)
+                        .collect::<Vec<_>>();
+                    for material_id in dependent_materials {
+                        if let Some(material) = asset_mgr.get::<MaterialAsset>(material_id) {
+                            let layout =
+                                gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
+                            material_cache.insert(
+                                material_id,
+                                GpuMaterial::new(
+                                    texture_cache,
+                                    &material.desc,
+                                    &gpu_context.device,
+                                    layout,
+                                ),
+                            );
+                        }
+                    }
+
+                    // Rebuild any IBL environment derived from this HDR texture.
+                    let affected_ibl = self
+                        .hdr_vec
+                        .iter()
+                        .copied()
+                        .filter(|(hdr_id, _)| *hdr_id == id)
+                        .collect::<Vec<_>>();
+                    for (hdr_id, ibl_id) in affected_ibl {
+                        if let Some(hdr) = texture_cache.get(hdr_id) {
+                            let ibl = ibl_manager.create(hdr, &gpu_context.as_ref());
+                            ibl_manager.insert(ibl_id, ibl);
+                            gpu_manager.replace_pbrmap_skybox_bindgroup(
+                                ibl_manager.get(&ibl_id),
+                                &self.shadow_manager,
+                                &gpu_context.device,
+                            );
+                            self.material_preview_renderer.invalidate_environment();
+                            bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
+                        }
+                    }
                 }
             }
             AssetEventKind::Removed => events.iter().for_each(|ev| {
