@@ -22,6 +22,26 @@ impl DependencyGraph {
         self.forward.get(&owner).cloned().unwrap_or_default()
     }
 
+    pub fn replace_dependencies(&mut self, owner: ResourceId, dependencies: &[ResourceId]) {
+        if let Some(previous) = self.forward.remove(&owner) {
+            for dependency in previous {
+                if let Some(users) = self.reverse.get_mut(&dependency) {
+                    users.retain(|user| *user != owner);
+                    if users.is_empty() {
+                        self.reverse.remove(&dependency);
+                    }
+                }
+            }
+        }
+
+        if !dependencies.is_empty() {
+            self.forward.insert(owner, dependencies.to_vec());
+            for dependency in dependencies {
+                self.reverse.entry(*dependency).or_default().push(owner);
+            }
+        }
+    }
+
     /*
     pub fn users_of(&self, dependency: ResourceId) -> Vec<ResourceId> {
         self.reverse.get(&dependency).cloned().unwrap_or_default()
