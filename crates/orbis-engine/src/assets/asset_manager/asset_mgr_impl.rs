@@ -461,6 +461,42 @@ mod tests {
     }
 
     #[test]
+    fn removing_owner_releases_its_asset_dependencies() {
+        #[derive(Clone)]
+        struct Owner {
+            key: String,
+            dependency: ResourceId,
+        }
+
+        impl Asset for Owner {
+            type Key = String;
+
+            fn key(&self) -> &Self::Key {
+                &self.key
+            }
+
+            fn dependencies(&self) -> Vec<ResourceId> {
+                vec![self.dependency]
+            }
+        }
+
+        let mut manager = AssetManager::new();
+        let dependency = manager.add(Texture { name: "dependency".into() });
+        let owner = manager.add(Owner {
+            key: "owner".into(),
+            dependency,
+        });
+
+        assert!(manager.get::<Texture>(dependency).is_some());
+        assert_eq!(manager.ref_count.get(&dependency), Some(&1));
+
+        manager.remove(owner);
+
+        assert!(manager.get::<Owner>(owner).is_none());
+        assert!(manager.get::<Texture>(dependency).is_none());
+    }
+
+    #[test]
     fn same_texture_same_id() {
         use crate::assets::texture_asset::*;
         let mut mgr = AssetManager::new();
