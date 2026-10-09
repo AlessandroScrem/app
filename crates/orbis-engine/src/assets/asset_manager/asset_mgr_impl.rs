@@ -221,21 +221,36 @@ impl AssetManager {
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
-        if self.storage::<T>().get_by_id(id).is_none() {
+        let Some(previous_size) = self
+            .storage::<T>()
+            .get_by_id(id)
+            .map(Asset::estimated_size)
+        else {
             return;
-        }
+        };
 
         let handle = AssetHandle::<T>::new(id);
-
-        if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
+        let updated_size = {
+            let Some(existing) = self.storage_mut::<T>().get_mut(handle) else {
+                return;
+            };
             f(existing);
+            existing.estimated_size()
+        };
 
-            self.events.push_back(AssetEvent {
-                id,
-                type_id: TypeId::of::<T>(),
-                kind: AssetEventKind::Updated,
-            });
+        if previous_size != updated_size {
+            let stats = self.stats_mut::<T>();
+            stats.estimated_bytes = stats
+                .estimated_bytes
+                .saturating_sub(previous_size)
+                .saturating_add(updated_size);
         }
+
+        self.events.push_back(AssetEvent {
+            id,
+            type_id: TypeId::of::<T>(),
+            kind: AssetEventKind::Updated,
+        });
     }
 
     #[allow(dead_code)]
@@ -802,6 +817,10 @@ mod lifecycle_tests {
         fn key(&self) -> &Self::Key {
             &self.key
         }
+
+        fn estimated_size(&self) -> usize {
+            self.value as usize
+        }
     }
 
     #[test]
@@ -814,15 +833,21 @@ mod lifecycle_tests {
             value: 1,
         });
         assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 1);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 1);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 1);
         assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Created);
 
         manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 2);
         assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 2);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 2);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 1);
         assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Updated);
 
         manager.remove(original_id);
         assert!(manager.get::<LifecycleAsset>(original_id).is_none());
         assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Removed);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 0);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 0);
 
         let event_count_after_remove = manager.events.len();
         manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 3);
