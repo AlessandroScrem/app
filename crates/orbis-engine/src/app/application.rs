@@ -16,10 +16,11 @@ pub struct AppRenderData<'a> {
 pub trait HasAssetMgr {
     fn asset_mgr_mut(&mut self) -> &mut AssetManager;
 }
-pub trait RuntimeApp: Application + HasAssetMgr {}
-impl<T> RuntimeApp for T where T: Application + HasAssetMgr {}
 
-pub trait Application: EditorBackend {
+pub trait RuntimeApp: Application + HasAssetMgr + EditorBackend {}
+impl<T> RuntimeApp for T where T: Application + HasAssetMgr + EditorBackend {}
+
+pub trait Application {
     fn init(&mut self, bus: &mut EventBus);
     fn render_data(&self) -> AppRenderData<'_>;
     fn on_update(&mut self, bus: &mut EventBus);
