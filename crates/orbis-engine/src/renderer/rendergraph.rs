@@ -62,6 +62,7 @@ struct PassNode<'a> {
 
 #[derive(Clone, Copy)]
 struct Edge {
+    from: usize,
     to: usize,
     resource: ResourceId,
 }
@@ -145,6 +146,7 @@ impl RenderGraph {
                 for &reader in &res.readers {
                     if reader != writer {
                         deps[reader].push(Edge {
+                            from: reader,
                             to: writer,
                             resource: res.id,
                         });
@@ -180,19 +182,23 @@ impl RenderGraph {
             match state[i] {
                 VisitState::Visited => return Ok(()),
                 VisitState::Visiting => {
-                    // Costruisci il ciclo leggibile
-                    let mut cycle_lines = Vec::new();
+                    let cycle_start = stack
+                        .iter()
+                        .position(|edge| edge.from == i)
+                        .unwrap_or(0);
+                    let cycle_lines = stack[cycle_start..]
+                        .iter()
+                        .map(|edge| {
+                            format!(
+                                "{} reads {} -> depends on {}",
+                                passes[edge.from].name(),
+                                edge.resource,
+                                passes[edge.to].name()
+                            )
+                        })
+                        .collect::<Vec<_>>();
 
-                    for edge in stack.iter() {
-                        cycle_lines.push(format!(
-                            "{} reads {} -> depends on {}",
-                            passes[edge.to].name(), // chi scrive la risorsa
-                            edge.resource,
-                            passes[edge.to].name() // writer corretto
-                        ));
-                    }
-
-                    return Err(format!("❌ Cycle detected:\n{}", cycle_lines.join("\n")));
+                    return Err(format!("Cycle detected:\n{}", cycle_lines.join("\n")));
                 }
                 VisitState::NotVisited => {}
             }
@@ -330,7 +336,9 @@ mod tests {
         graph.add_pass(PassA);
         graph.add_pass(PassB);
 
-        assert!(graph.compile().is_err());
-        graph.execute();
+        let error = graph.compile().unwrap_err();
+
+        assert!(error.contains("Pass A reads LDR -> depends on Pass B"));
+        assert!(error.contains("Pass B reads DEPTH -> depends on Pass A"));
     }
 }
