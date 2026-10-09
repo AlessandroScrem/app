@@ -339,6 +339,7 @@ mod tests {
         let error = graph.compile().unwrap_err();
 
         assert!(error.contains("Pass A reads LDR -> depends on Pass B"));
-        assert!(error.contains("Pass B reads DEPTH -> depends on Pass A"));
+        assert!(error.contains("Pass B reads Depth -> depends on Pass A"));
+        assert_eq!(error.lines().count(), 3, "diagnostic should contain only the cycle");
     }
 }
