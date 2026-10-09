@@ -233,10 +233,10 @@ mod tests {
     fn visibility_cache_inherits_hidden_state_from_parent() {
         let mut world = World::default();
         let parent = world.push((HierarchyComponent::default(), Hidden));
-        let child = world.push(HierarchyComponent {
+        let child = world.push((HierarchyComponent {
             parent: Some(parent),
             children: Vec::new(),
-        });
+        },));
         let mut cache = HashMap::new();
 
         assert!(is_hidden_cached(&world, child, &mut cache));
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn visibility_cache_reuses_ancestor_results() {
         let mut world = World::default();
-        let parent = world.push(HierarchyComponent::default());
+        let parent = world.push((HierarchyComponent::default(),));
         let child = world.push(HierarchyComponent {
             parent: Some(parent),
             children: Vec::new(),
