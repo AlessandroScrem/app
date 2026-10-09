@@ -330,6 +330,7 @@ mod tests {
         let linearizepass = LinearizePass {};
         let outlinepass = OutlinePass {};
 
+        graph.add_pass(ShadowPass {});
         graph.add_pass(meshpass);
         graph.add_pass(skyboxpass);
         graph.add_pass(build_mipmaps);
@@ -346,6 +347,7 @@ mod tests {
                 assert_eq!(
                     order,
                     vec![
+                        "ShadowPass Opaque",
                         "MeshPass Opaque",
                         "SkyboxPass",
                         "BuildMipmapsPass",
