@@ -785,3 +785,53 @@ mod test_api {
         assert_eq!(mesh1, mesh2);
     }
 }
+
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    struct LifecycleAsset {
+        key: String,
+        value: u32,
+    }
+
+    impl Asset for LifecycleAsset {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.key
+        }
+    }
+
+    #[test]
+    fn create_update_remove_and_stale_id_lifecycle() {
+        let mut manager = AssetManager::new();
+        let key = "lifecycle".to_owned();
+
+        let original_id = manager.add(LifecycleAsset {
+            key: key.clone(),
+            value: 1,
+        });
+        assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 1);
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Created);
+
+        manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 2);
+        assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 2);
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Updated);
+
+        manager.remove(original_id);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Removed);
+
+        let event_count_after_remove = manager.events.len();
+        manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 3);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.events.len(), event_count_after_remove);
+
+        let replacement_id = manager.add(LifecycleAsset { key, value: 4 });
+        assert_ne!(replacement_id, original_id);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.get::<LifecycleAsset>(replacement_id).unwrap().value, 4);
+    }
+}
