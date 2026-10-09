@@ -369,6 +369,67 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct TestAsset {
+        key: String,
+        value: u32,
+    }
+
+    impl Asset for TestAsset {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.key
+        }
+    }
+
+    #[test]
+    fn update_changes_asset_and_emits_updated_event() {
+        let mut mgr = AssetManager::new();
+        let id = mgr.add(TestAsset {
+            key: "asset".into(),
+            value: 1,
+        });
+
+        mgr.update::<TestAsset>(id, |asset| asset.value = 2);
+
+        assert_eq!(mgr.get::<TestAsset>(id).map(|asset| asset.value), Some(2));
+        let event = mgr.events.back().unwrap();
+        assert_eq!(event.id, id);
+        assert_eq!(event.kind, AssetEventKind::Updated);
+    }
+
+    #[test]
+    fn removed_asset_id_stays_stale_after_readding_same_key() {
+        let mut mgr = AssetManager::new();
+        let old_id = mgr.add(Texture { name: "tex".into() });
+
+        mgr.remove(old_id);
+        assert!(mgr.get::<Texture>(old_id).is_none());
+
+        let new_id = mgr.add(Texture { name: "tex".into() });
+
+        assert_ne!(old_id, new_id);
+        assert!(mgr.get::<Texture>(old_id).is_none());
+        assert!(mgr.get::<Texture>(new_id).is_some());
+    }
+
+    #[test]
+    fn update_ignores_removed_asset_id() {
+        let mut mgr = AssetManager::new();
+        let id = mgr.add(TestAsset {
+            key: "asset".into(),
+            value: 1,
+        });
+        mgr.remove(id);
+        let event_count = mgr.events.len();
+
+        mgr.update::<TestAsset>(id, |asset| asset.value = 2);
+
+        assert!(mgr.get::<TestAsset>(id).is_none());
+        assert_eq!(mgr.events.len(), event_count);
+    }
+
     #[test]
     fn add_dedup_and_refcount() {
         let mut mgr = AssetManager::new();
