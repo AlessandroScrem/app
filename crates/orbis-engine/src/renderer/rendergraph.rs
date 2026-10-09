@@ -302,6 +302,50 @@ mod tests {
     }
 
     #[test]
+    fn dependencies_compile_writer_before_reader() {
+        struct Writer;
+        struct Reader;
+
+        impl RenderPass for Writer {
+            fn name(&self) -> &'static str {
+                "Writer"
+            }
+
+            fn reads(&self) -> &[ResourceId] {
+                &[]
+            }
+
+            fn writes(&self) -> &[ResourceId] {
+                &[ResourceId::HDR]
+            }
+        }
+
+        impl RenderPass for Reader {
+            fn name(&self) -> &'static str {
+                "Reader"
+            }
+
+            fn reads(&self) -> &[ResourceId] {
+                &[ResourceId::HDR]
+            }
+
+            fn writes(&self) -> &[ResourceId] {
+                &[]
+            }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Reader);
+        graph.add_pass(Writer);
+
+        let order = graph.compile_names().unwrap();
+        let writer = order.iter().position(|name| *name == "Writer").unwrap();
+        let reader = order.iter().position(|name| *name == "Reader").unwrap();
+
+        assert!(writer < reader, "writer must run before its reader: {order:?}");
+    }
+
+    #[test]
     fn should_find_cycles() {
         struct PassA;
         struct PassB;
