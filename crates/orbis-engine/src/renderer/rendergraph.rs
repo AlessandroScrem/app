@@ -141,7 +141,6 @@ impl RenderGraph {
     // -------------------------
     fn build_dependencies(
         &self,
-        passes: &Vec<PassNode>,
         resources: &HashMap<ResourceId, ResourceNode>,
     ) -> Vec<Vec<Edge>> {
         let mut deps = vec![Vec::new(); passes.len()];
@@ -210,14 +209,16 @@ impl RenderGraph {
     pub fn compile(&self) -> Result<Vec<usize>, String> {
         let (passes, resources) = self.build_graph();
 
-        if let Some(resource) = resources
+        if let Some(resource_name) = resources
             .values()
-            .find(|resource| !resource.readers.is_empty() && resource.writers.is_empty())
+            .filter(|resource| !resource.readers.is_empty() && resource.writers.is_empty())
+            .map(|resource| resource.id.to_string())
+            .min()
         {
-            return Err(format!("Resource {} is read but never written", resource.id));
+            return Err(format!("Resource {resource_name} is read but never written"));
         }
 
-        let deps = self.build_dependencies(&passes, &resources);
+        let deps = self.build_dependencies(&resources);
 
         let mut state = vec![VisitState::NotVisited; self.passes.len()];
         let mut result = Vec::new();
@@ -302,7 +303,7 @@ impl RenderGraph {
 }
 
 impl RenderGraph {
-    fn compile_names(&self) -> Result<Vec<String>, String> {
+    pub(crate) fn compile_names(&self) -> Result<Vec<String>, String> {
         let order = self.compile()?;
 
         Ok(order
