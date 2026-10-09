@@ -221,22 +221,46 @@ impl AssetManager {
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
-        let Some((previous_size, previous_dependencies)) = self
+        let Some((previous_size, previous_dependencies, previous_key)) = self
             .storage::<T>()
             .get_by_id(id)
-            .map(|asset| (asset.estimated_size(), asset.dependencies()))
+            .map(|asset| {
+                (
+                    asset.estimated_size(),
+                    asset.dependencies(),
+                    asset.key().clone(),
+                )
+            })
         else {
             return;
         };
 
         let handle = AssetHandle::<T>::new(id);
-        let (updated_size, updated_dependencies) = {
+        let (updated_size, updated_dependencies, updated_key) = {
             let Some(existing) = self.storage_mut::<T>().get_mut(handle) else {
                 return;
             };
             f(existing);
-            (existing.estimated_size(), existing.dependencies())
+            (
+                existing.estimated_size(),
+                existing.dependencies(),
+                existing.key().clone(),
+            )
         };
+
+        if previous_key != updated_key {
+            self.key_index.remove(id);
+            match self.key_index.get::<T>(&updated_key) {
+                Some(existing_id) if existing_id != id => {
+                    log::warn!(
+                        "Asset update produced a duplicate key for resource {}; key remains indexed to resource {}",
+                        id.raw(),
+                        existing_id.raw()
+                    );
+                }
+                _ => self.key_index.insert::<T>(updated_key, id),
+            }
+        }
 
         if previous_size != updated_size {
             let stats = self.stats_mut::<T>();
@@ -906,6 +930,22 @@ mod lifecycle_tests {
         fn estimated_size(&self) -> usize {
             self.value as usize
         }
+    }
+
+    #[test]
+    fn updating_asset_key_keeps_key_index_consistent() {
+        let mut manager = AssetManager::new();
+        let original_key = "original".to_owned();
+        let updated_key = "updated".to_owned();
+        let id = manager.add(LifecycleAsset {
+            key: original_key.clone(),
+            value: 1,
+        });
+
+        manager.update::<LifecycleAsset>(id, |asset| asset.key = updated_key.clone());
+
+        assert_eq!(manager.key_index.get::<LifecycleAsset>(&original_key), None);
+        assert_eq!(manager.key_index.get::<LifecycleAsset>(&updated_key), Some(id));
     }
 
     #[test]
