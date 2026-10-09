@@ -12,7 +12,7 @@ use crate::editor::{
     EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData,
     ResourceStatsData, SelectionCommand,
 };
-use crate::engine::editor::EditorService;
+use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
@@ -334,7 +334,7 @@ impl Runtime {
         });
     }
 
-    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn update_ui<A: Application + EditorBackend>(&mut self, app: &mut A, bus: &mut EventBus) {
         let now = std::time::Instant::now();
         let dt = now
             .duration_since(self.last_ui_update)
