@@ -25,13 +25,6 @@ pub(crate) fn sync_gpu_assets(
     shadow_manager: &ShadowManager,
     material_preview_renderer: &mut MaterialPreviewRenderer,
 ) {
-        use crate::assets::asset_manager::AssetEventKind;
-        use crate::assets::material_asset::MaterialAsset;
-        use crate::assets::mesh_asset::MeshAsset;
-        use crate::assets::texture_asset::{TextureAsset, TextureDesc};
-        use crate::assets::texture_upload::load_cpu_textures_par;
-        use crate::gpu::texture::GpuTextureBuilder;
-        use crate::gpu::{GpuMaterial, GpuMesh};
         let texture_cache = &mut gpu_cache.textures;
         let material_cache = &mut gpu_cache.material;
         let mesh_cache = &mut gpu_cache.mesh;
