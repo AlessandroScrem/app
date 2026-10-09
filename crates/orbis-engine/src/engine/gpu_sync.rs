@@ -96,24 +96,55 @@ pub(crate) fn sync_gpu_assets(
             }
         }
         AssetEventKind::Removed => events.iter().for_each(|ev| {
-            remove_gpu_texture(texture_cache, &mut imgui_render, ev.id);
+            remove_gpu_texture(texture_cache, imgui_render, ev.id);
+
+            // Materials may still refer to an explicitly removed texture. Rebuild
+            // their bind groups so the cache resolves that slot to a built-in fallback.
+            let dependent_materials = asset_mgr
+                .iter::<MaterialAsset>()
+                .filter(|(_, material)| material.desc.get_textures().contains(&ev.id))
+                .map(|(material_id, _)| material_id)
+                .collect::<Vec<_>>();
+            for material_id in dependent_materials {
+                if let Some(material) = asset_mgr.get::<MaterialAsset>(material_id) {
+                    let layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
+                    material_cache.insert(
+                        material_id,
+                        GpuMaterial::new(
+                            texture_cache,
+                            &material.desc,
+                            &gpu_context.device,
+                            layout,
+                        ),
+                    );
+                }
+            }
         }),
         _ => {}
     });
-    grouped.process_type::<IblAsset, _>(|kind, events| {
-        if let AssetEventKind::Created = kind {
+    grouped.process_type::<IblAsset, _>(|kind, events| match kind {
+        AssetEventKind::Created | AssetEventKind::Updated => {
             events
                 .iter()
                 .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|a| (ev.id, a)))
                 .for_each(|(id, asset)| {
                     if let Some(hdr) = texture_cache.get(asset.hrd_id) {
                         ibl_manager.insert(id, ibl_manager.create(hdr, &gpu_context.as_ref()));
+                        hdr_vec.retain(|(_, existing_id)| *existing_id != id);
                         hdr_vec.push((asset.hrd_id, id));
+                        material_preview_renderer.invalidate_environment();
                         bus.send_domain(Selection(SelectIbl(id)));
                         bus.send_runtime(RuntimeEvent::UpdateIblMaps(id));
                     }
                 });
         }
+        AssetEventKind::Removed => {
+            for event in events {
+                ibl_manager.remove(event.id);
+                hdr_vec.retain(|(_, ibl_id)| *ibl_id != event.id);
+            }
+        }
+        _ => {}
     });
     grouped.process_type::<MaterialAsset, _>(|kind, events| match kind {
         AssetEventKind::Created | AssetEventKind::Updated => events
