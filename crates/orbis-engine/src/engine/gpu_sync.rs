@@ -4,7 +4,10 @@ use crate::assets::asset_manager::{AssetEventKind, AssetManager};
 use crate::assets::material_asset::MaterialAsset;
 use crate::assets::mesh_asset::MeshAsset;
 use crate::assets::texture_asset::{TextureAsset, TextureDesc};
-use crate::assets::texture_upload::load_cpu_textures_par;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::{self, Receiver, Sender};
+use crate::assets::texture_upload::{load_and_decode, TextureData};
 use crate::assets::{IblAsset, IblId, TextureId};
 use crate::engine::engine::EventBus;
 use crate::engine::RuntimeEvent;
@@ -15,11 +18,75 @@ use crate::gpu::{
 };
 use crate::renderer::{ImguiRender, MaterialPreviewRenderer};
 
+
+type DecodedTexture = (TextureId, u64, TextureData);
+
+pub(crate) struct TextureLoadService {
+    sender: Sender<Vec<DecodedTexture>>,
+    receiver: Receiver<Vec<DecodedTexture>>,
+    generations: HashMap<TextureId, u64>,
+    next_generation: u64,
+}
+
+impl TextureLoadService {
+    pub(crate) fn new() -> Self {
+        let (sender, receiver) = mpsc::channel();
+        Self {
+            sender,
+            receiver,
+            generations: HashMap::new(),
+            next_generation: 0,
+        }
+    }
+
+    fn request(&mut self, jobs: Vec<(TextureId, TextureDesc)>) {
+        let jobs = jobs
+            .into_iter()
+            .map(|(id, desc)| {
+                self.next_generation = self.next_generation.wrapping_add(1);
+                let generation = self.next_generation;
+                self.generations.insert(id, generation);
+                (id, generation, desc)
+            })
+            .collect::<Vec<_>>();
+
+        if jobs.is_empty() {
+            return;
+        }
+
+        let sender = self.sender.clone();
+        std::thread::spawn(move || {
+            let decoded = jobs
+                .into_par_iter()
+                .filter_map(|(id, generation, desc)| {
+                    load_and_decode(desc).map(|data| (id, generation, data))
+                })
+                .collect();
+            let _ = sender.send(decoded);
+        });
+    }
+
+    fn invalidate(&mut self, id: TextureId) {
+        self.generations.remove(&id);
+    }
+
+    fn poll(&mut self) -> Vec<(TextureId, TextureData)> {
+        let mut ready = Vec::new();
+        while let Ok(batch) = self.receiver.try_recv() {
+            ready.extend(batch.into_iter().filter_map(|(id, generation, data)| {
+                (self.generations.get(&id) == Some(&generation)).then_some((id, data))
+            }));
+        }
+        ready
+    }
+}
+
 pub(crate) fn sync_gpu_assets(
     asset_mgr: &mut AssetManager,
     bus: &mut EventBus,
     gpu_context: &GpuContext,
     gpu_cache: &mut GpuCache,
+    texture_loader: &mut TextureLoadService,
     gpu_manager: &mut GpuManager,
     ibl_manager: &mut IblManager,
     imgui_render: &mut ImguiRender,
@@ -41,62 +108,20 @@ pub(crate) fn sync_gpu_assets(
                         .map(|a| (ev.id, a.desc.clone()))
                 })
                 .collect();
-            for (id, data) in load_cpu_textures_par(jobs) {
-                let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
-                register_gpu_texture(
-                    texture_cache,
-                    imgui_render,
-                    &gpu_context.device,
-                    id,
-                    texture,
-                );
-
-                // A texture replacement invalidates bind groups that captured
-                // its previous view. Rebuild only materials that reference it.
-                let dependent_materials = asset_mgr
-                    .iter::<MaterialAsset>()
-                    .filter(|(_, material)| material.desc.get_textures().contains(&id))
-                    .map(|(material_id, _)| material_id)
-                    .collect::<Vec<_>>();
-                for material_id in dependent_materials {
-                    if let Some(material) = asset_mgr.get::<MaterialAsset>(material_id) {
-                        let layout =
-                            gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
-                        material_cache.insert(
-                            material_id,
-                            GpuMaterial::new(
-                                texture_cache,
-                                &material.desc,
-                                &gpu_context.device,
-                                layout,
-                            ),
-                        );
-                    }
-                }
-
-                // Rebuild any IBL environment derived from this HDR texture.
-                let affected_ibl = hdr_vec
-                    .iter()
-                    .copied()
-                    .filter(|(hdr_id, _)| *hdr_id == id)
-                    .collect::<Vec<_>>();
-                for (hdr_id, ibl_id) in affected_ibl {
-                    if let Some(hdr) = texture_cache.get(hdr_id) {
-                        let ibl = ibl_manager.create(hdr, &gpu_context.as_ref());
-                        ibl_manager.insert(ibl_id, ibl);
-                        gpu_manager.replace_pbrmap_skybox_bindgroup(
-                            ibl_manager.get(&ibl_id),
-                            &shadow_manager,
-                            &gpu_context.device,
-                        );
-                        material_preview_renderer.invalidate_environment();
-                        bus.send_runtime(RuntimeEvent::UpdateIblMaps(ibl_id));
-                    }
-                }
-            }
+            texture_loader.request(jobs);
         }
         AssetEventKind::Removed => events.iter().for_each(|ev| {
+            texture_loader.invalidate(ev.id);
             remove_gpu_texture(texture_cache, imgui_render, ev.id);
+            let removed_ibl = hdr_vec
+                .iter()
+                .filter(|(hdr_id, _)| *hdr_id == ev.id)
+                .map(|(_, ibl_id)| *ibl_id)
+                .collect::<Vec<_>>();
+            for ibl_id in removed_ibl {
+                ibl_manager.remove(ibl_id);
+                hdr_vec.retain(|(_, existing_id)| *existing_id != ibl_id);
+            }
 
             // Materials may still refer to an explicitly removed texture. Rebuild
             // their bind groups so the cache resolves that slot to a built-in fallback.
@@ -122,30 +147,71 @@ pub(crate) fn sync_gpu_assets(
         }),
         _ => {}
     });
-    grouped.process_type::<IblAsset, _>(|kind, events| match kind {
-        AssetEventKind::Created | AssetEventKind::Updated => {
-            events
-                .iter()
-                .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|a| (ev.id, a)))
-                .for_each(|(id, asset)| {
-                    if let Some(hdr) = texture_cache.get(asset.hrd_id) {
-                        ibl_manager.insert(id, ibl_manager.create(hdr, &gpu_context.as_ref()));
-                        hdr_vec.retain(|(_, existing_id)| *existing_id != id);
-                        hdr_vec.push((asset.hrd_id, id));
-                        material_preview_renderer.invalidate_environment();
-                        bus.send_domain(Selection(SelectIbl(id)));
-                        bus.send_runtime(RuntimeEvent::UpdateIblMaps(id));
-                    }
-                });
+    let mut changed_textures = HashSet::new();
+    for (id, data) in texture_loader.poll() {
+        let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
+        register_gpu_texture(
+            texture_cache,
+            imgui_render,
+            &gpu_context.device,
+            id,
+            texture,
+        );
+        changed_textures.insert(id);
+
+        let dependent_materials = asset_mgr
+            .iter::<MaterialAsset>()
+            .filter(|(_, material)| material.desc.get_textures().contains(&id))
+            .map(|(material_id, _)| material_id)
+            .collect::<Vec<_>>();
+        for material_id in dependent_materials {
+            if let Some(material) = asset_mgr.get::<MaterialAsset>(material_id) {
+                let layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
+                material_cache.insert(
+                    material_id,
+                    GpuMaterial::new(
+                        texture_cache,
+                        &material.desc,
+                        &gpu_context.device,
+                        layout,
+                    ),
+                );
+            }
         }
-        AssetEventKind::Removed => {
+    }
+
+    grouped.process_type::<IblAsset, _>(|kind, events| {
+        if let AssetEventKind::Removed = kind {
             for event in events {
                 ibl_manager.remove(event.id);
                 hdr_vec.retain(|(_, ibl_id)| *ibl_id != event.id);
             }
         }
-        _ => {}
     });
+
+    // Create or refresh environments once their HDR texture is available.
+    for (id, asset) in asset_mgr.iter::<IblAsset>() {
+        let current_hdr = hdr_vec
+            .iter()
+            .find(|(_, ibl_id)| *ibl_id == id)
+            .map(|(hdr_id, _)| *hdr_id);
+        let needs_refresh = current_hdr != Some(asset.hrd_id)
+            || changed_textures.contains(&asset.hrd_id);
+        if !needs_refresh {
+            continue;
+        }
+
+        let Some(hdr) = texture_cache.get(asset.hrd_id) else {
+            continue;
+        };
+        let gpu_ibl = ibl_manager.create(hdr, &gpu_context.as_ref());
+        ibl_manager.insert(id, gpu_ibl);
+        hdr_vec.retain(|(_, ibl_id)| *ibl_id != id);
+        hdr_vec.push((asset.hrd_id, id));
+        material_preview_renderer.invalidate_environment();
+        bus.send_domain(Selection(SelectIbl(id)));
+        bus.send_runtime(RuntimeEvent::UpdateIblMaps(id));
+    }
     grouped.process_type::<MaterialAsset, _>(|kind, events| match kind {
         AssetEventKind::Created | AssetEventKind::Updated => events
             .iter()
@@ -177,6 +243,35 @@ pub(crate) fn sync_gpu_assets(
         AssetEventKind::Removed => events.iter().for_each(|ev| mesh_cache.remove(ev.id)),
         _ => {}
     });
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::{DecodedTexture, TextureLoadService};
+    use crate::assets::TextureId;
+    use crate::assets::texture_asset::ColorSpace;
+
+    #[test]
+    fn stale_texture_load_results_are_discarded() {
+        let mut loader = TextureLoadService::new();
+        let id = TextureId::new();
+        loader.generations.insert(id, 2);
+        let data = crate::assets::texture_upload::TextureData {
+            width: 1,
+            height: 1,
+            pixels: vec![0; 4],
+            format: ColorSpace::Rgba8,
+        };
+
+        let stale: Vec<DecodedTexture> = vec![(id, 1, data.clone())];
+        loader.sender.send(stale).unwrap();
+        assert!(loader.poll().is_empty());
+
+        let current: Vec<DecodedTexture> = vec![(id, 2, data)];
+        loader.sender.send(current).unwrap();
+        assert_eq!(loader.poll().len(), 1);
+    }
 }
 
 fn register_gpu_texture(
