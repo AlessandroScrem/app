@@ -155,6 +155,15 @@ impl RenderGraph {
             }
         }
 
+        for edges in &mut deps {
+            edges.sort_by(|left, right| {
+                left.resource
+                    .to_string()
+                    .cmp(&right.resource.to_string())
+                    .then_with(|| left.to.cmp(&right.to))
+            });
+        }
+
         deps
     }
 
@@ -343,6 +352,51 @@ mod tests {
         let reader = order.iter().position(|name| *name == "Reader").unwrap();
 
         assert!(writer < reader, "writer must run before its reader: {order:?}");
+    }
+
+    #[test]
+    fn dependency_order_is_deterministic() {
+        struct Writer(ResourceId, &'static str);
+        struct Reader(ResourceId, &'static str);
+
+        impl RenderPass for Writer {
+            fn name(&self) -> &'static str {
+                self.1
+            }
+
+            fn reads(&self) -> &[ResourceId] {
+                &[]
+            }
+
+            fn writes(&self) -> &[ResourceId] {
+                std::slice::from_ref(&self.0)
+            }
+        }
+
+        impl RenderPass for Reader {
+            fn name(&self) -> &'static str {
+                self.1
+            }
+
+            fn reads(&self) -> &[ResourceId] {
+                std::slice::from_ref(&self.0)
+            }
+
+            fn writes(&self) -> &[ResourceId] {
+                &[]
+            }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Reader(ResourceId::LDR, "Reader LDR"));
+        graph.add_pass(Reader(ResourceId::HDR, "Reader HDR"));
+        graph.add_pass(Writer(ResourceId::LDR, "Writer LDR"));
+        graph.add_pass(Writer(ResourceId::HDR, "Writer HDR"));
+
+        let expected = graph.compile_names().unwrap();
+        for _ in 0..32 {
+            assert_eq!(graph.compile_names().unwrap(), expected);
+        }
     }
 
     #[test]
