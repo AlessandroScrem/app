@@ -2,7 +2,7 @@
   "version": 1,
   "scenes": [
     {
-      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app/assets/Lantern/Lantern.gltf",
+      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\orbis/assets/Lantern/Lantern.gltf",
       "transform": {
         "position": [
           0.0,
@@ -22,7 +22,7 @@
       }
     },
     {
-      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\app\\assets\\cube\\cube.gltf",
+      "path": "C:\\Users\\aless\\source\\Rust\\wgpu\\orbis\\assets\\cube\\cube.gltf",
       "transform": {
         "position": [
           0.0,

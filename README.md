@@ -1,11 +1,16 @@
-# Orbis
-[![Rust Linux](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-linux.yml)
-[![Rust Windows](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-windows.yml)
-[![Rust macOS](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/orbis/actions/workflows/rust-macos.yml)
+<div align="center">
+  <img src="etc/320_orbit_logo.png" width="320" alt="Orbis logo">
+<h1>Orbis - a modern Rust game engine</h1>
+</div>
 
-# Simple Renderer Wgpu 
 
-A modern 3D/2D render engine that uses wgpu
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT.txt)
+[![Rust Linux](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-linux.yml)
+[![Rust Windows](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-windows.yml)
+[![Rust macOS](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml/badge.svg)](https://github.com/AlessandroScrem/app/actions/workflows/rust-macos.yml)
+
+# A modern 3D/2D render engine that uses wgpu 
 
 ```toml
 [dependencies]
