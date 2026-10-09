@@ -224,7 +224,7 @@ impl AssetManager {
         let Some(previous_size) = self
             .storage::<T>()
             .get_by_id(id)
-            .map(Asset::estimated_size)
+            .map(|asset| asset.estimated_size())
         else {
             return;
         };
