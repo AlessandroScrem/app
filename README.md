@@ -71,20 +71,20 @@ cgmath = "0.18.0"
 
 ```bash
 git clone https://github.com/AlessandroScrem/orbis.git
-cd app
+cd orbis
 
 cargo build
-cargo test --lib
-cargo run --release -- -v
+cargo test --workspace --lib
+cargo run -p orbis --release -- -v
 
 // run with options 
-cargo run --release -- --help
-cargo run --release -- -w<WIDTH> -h<HEIGHT> --verbose
+cargo run -p orbis --release -- --help
+cargo run -p orbis --release -- -w<WIDTH> -h<HEIGHT> --verbose
 ```
 
 
 ## Screenshots
-![Hello PBR Cube](/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
+![Hello PBR Cube](/crates/orbis-engine/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |

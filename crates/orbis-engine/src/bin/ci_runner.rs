@@ -1,4 +1,4 @@
-use orbis::Engine;
+use orbis_engine::Engine;
 
 use std::thread;
 use std::time::Duration;

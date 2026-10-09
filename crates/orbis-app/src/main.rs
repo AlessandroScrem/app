@@ -1,4 +1,4 @@
-use orbis::Engine;
+use orbis_engine::Engine;
 
 use clap::crate_version;
 use clap::{AppSettings, Arg};
@@ -32,7 +32,7 @@ fn init_logger(verbose_count: u64) {
     // Costruiamo un logger senza usare env::set_var
     env_logger::Builder::new()
         // Imposta filtri per crate specifici
-        .filter_module("app_wgpu", level) // tuo crate
+        .filter_module("orbis_engine", level) // tuo crate
         .filter_module("wgpu", LevelFilter::Warn) // wgpu log
         .filter_module("naga", LevelFilter::Warn) // silenzia info/debug di naga
         .format(|buf, record| {
@@ -54,7 +54,7 @@ fn init_logger(verbose_count: u64) {
                     level_str,
                     record
                         .module_path()
-                        .filter(|m| !m.contains("app_wgpu"))
+                        .filter(|m| !m.contains("orbis_engine"))
                         .unwrap_or(""),
                     record.file().unwrap_or(""),
                     record.line().unwrap_or(0),

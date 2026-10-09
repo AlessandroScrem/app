@@ -2760,13 +2760,21 @@ dependencies = [
 name = "orbis"
 version = "0.1.0"
 dependencies = [
+ "clap 2.34.0",
+ "colored",
+ "env_logger",
+ "log",
+ "orbis-engine",
+]
+
+[[package]]
+name = "orbis-engine"
+version = "0.1.0"
+dependencies = [
  "anyhow",
  "bytemuck",
  "cgmath",
- "clap 2.34.0",
- "colored",
  "criterion",
- "env_logger",
  "gltf",
  "half",
  "image",

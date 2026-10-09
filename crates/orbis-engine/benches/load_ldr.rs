@@ -39,7 +39,7 @@ fn load_stb_image(buffer: &[u8]) -> (Vec<u8>, u32, u32) {
 
 // Benchmark
 fn bench_loaders(c: &mut Criterion) {
-    let path = orbis::asset_path!("avocado/Avocado_baseColor.png");
+    let path = orbis_engine::asset_path!("avocado/Avocado_baseColor.png");
     let raw_u8 = load_ldr_to_buffer_u8(path);
 
     c.bench_function("load mage_rs ", |b| b.iter(|| load_image_rs(&raw_u8)));
