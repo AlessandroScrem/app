@@ -262,12 +262,9 @@ impl Runtime {
                     .collect();
                 for (id, data) in load_cpu_textures_par(jobs) {
                     let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
-                    texture_cache.insert(id, texture);
-                    let texture = texture_cache
-                        .get(id)
-                        .expect("inserted GPU texture must be available");
-                    self.imgui_render.registry.add(
-                        &mut self.imgui_render.renderer,
+                    register_gpu_texture(
+                        texture_cache,
+                        &mut self.imgui_render,
                         &gpu_context.device,
                         id,
                         texture,
@@ -275,10 +272,7 @@ impl Runtime {
                 }
             }
             AssetEventKind::Removed => events.iter().for_each(|ev| {
-                texture_cache.remove(ev.id);
-                self.imgui_render
-                    .registry
-                    .remove(&mut self.imgui_render.renderer, ev.id);
+                remove_gpu_texture(texture_cache, &mut self.imgui_render, ev.id);
             }),
             _ => {}
         });
@@ -483,4 +477,24 @@ impl Runtime {
             tasks,
         }
     }
+}
+
+
+fn register_gpu_texture(
+    cache: &mut GpuTextureCache,
+    imgui: &mut ImguiRender,
+    device: &wgpu::Device,
+    id: TextureId,
+    texture: crate::gpu::texture::GpuTexture,
+) {
+    cache.insert(id, texture);
+    let texture = cache
+        .get(id)
+        .expect("registered GPU texture must be available");
+    imgui.registry.add(&mut imgui.renderer, device, id, texture);
+}
+
+fn remove_gpu_texture(cache: &mut GpuTextureCache, imgui: &mut ImguiRender, id: TextureId) {
+    cache.remove(id);
+    imgui.registry.remove(&mut imgui.renderer, id);
 }
