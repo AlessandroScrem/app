@@ -231,3 +231,27 @@ fn create_skybox_blur_bindgroup(
         entries: &entries,
     })
 }
+
+
+#[cfg(test)]
+mod resize_tests {
+    use super::*;
+    use crate::test_utils;
+
+    #[test]
+    fn zero_sized_resize_keeps_valid_framebuffers() {
+        let gpu = test_utils::get_gpu_context_test();
+        let mut manager = GpuManager::new(&gpu, 4, 4);
+
+        manager.resize_frame(&gpu, 0, 0);
+
+        assert_eq!(
+            manager.get_framebuffer_texture(FramebufferKind::Hdr).width(),
+            4
+        );
+        assert_eq!(
+            manager.get_framebuffer_texture(FramebufferKind::Hdr).height(),
+            4
+        );
+    }
+}
