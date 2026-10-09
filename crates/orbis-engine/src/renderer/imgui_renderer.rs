@@ -83,6 +83,9 @@ mod tests {
     use super::*;
     use crate::gpu::{GpuTextureBuilder, GpuTextureUsage};
     use crate::test_utils;
+    use std::sync::Mutex;
+
+    static IMGUI_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn create_renderer(
         context: &mut imgui::Context,
@@ -102,6 +105,9 @@ mod tests {
 
     #[test]
     fn replacing_texture_preserves_registry_id() {
+        let _guard = IMGUI_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let gpu = test_utils::get_gpu_context_test();
         let mut context = imgui::Context::create();
         let mut renderer = create_renderer(&mut context, gpu.device, gpu.queue);
@@ -124,6 +130,9 @@ mod tests {
 
     #[test]
     fn remove_returns_registered_texture_id() {
+        let _guard = IMGUI_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let gpu = test_utils::get_gpu_context_test();
         let mut context = imgui::Context::create();
         let mut renderer = create_renderer(&mut context, gpu.device, gpu.queue);
