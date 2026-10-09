@@ -22,8 +22,10 @@ impl HasGpuStats for GpuMeshCache {
 
 impl GpuMeshCache {
     pub fn insert(&mut self, id: ResourceId, gpu_mesh: GpuMesh) {
-        self.stats.add(gpu_mesh.estimated_size);
-        self.map.insert(id, gpu_mesh);
+        if let Some(previous) = self.map.insert(id, gpu_mesh) {
+            self.stats.remove(previous.estimated_size);
+        }
+        self.stats.add(self.map[&id].estimated_size);
     }
 
     pub fn get(&self, id: &ResourceId) -> Option<&GpuMesh> {
@@ -63,7 +65,8 @@ impl GpuMesh {
         });
 
         let indexcount = indices.len() as u32;
-        let estimated_size = vertices.len() + indices.len();
+        let estimated_size = vertices.len() * size_of::<MeshVertexData>()
+            + indices.len() * size_of::<u32>();
 
         GpuMesh {
             vertexbuffer,
