@@ -56,7 +56,12 @@ impl RenderPass for MeshPass {
     fn reads(&self) -> &[ResourceId] {
         match self.config.mode {
             MeshPassMode::Opaque => &[],
-            MeshPassMode::Transmission => &[ResourceId::OPAQUE],
+            MeshPassMode::Transmission => &[
+                ResourceId::HDR,
+                ResourceId::OPAQUE,
+                ResourceId::ENTITY,
+                ResourceId::DEPTH,
+            ],
         }
     }
     fn writes(&self) -> &[ResourceId] {
