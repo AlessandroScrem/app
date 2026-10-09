@@ -251,7 +251,7 @@ impl Runtime {
         let mesh_cache = &mut self.gpu_cache.mesh;
         let grouped = asset_mgr.drain_grouped_events();
         grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => {
+            AssetEventKind::Created | AssetEventKind::Updated => {
                 let jobs: Vec<(TextureId, TextureDesc)> = events
                     .iter()
                     .filter_map(|ev| {
@@ -292,7 +292,7 @@ impl Runtime {
             }
         });
         grouped.process_type::<MaterialAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => events
+            AssetEventKind::Created | AssetEventKind::Updated => events
                 .iter()
                 .filter_map(|ev| asset_mgr.get::<MaterialAsset>(ev.id).map(|a| (ev.id, a)))
                 .for_each(|(id, asset)| {
@@ -302,21 +302,11 @@ impl Runtime {
                         GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, layout),
                     );
                 }),
-            AssetEventKind::Updated => events
-                .iter()
-                .filter_map(|ev| {
-                    asset_mgr
-                        .get::<MaterialAsset>(ev.id)
-                        .map(|a| (ev.id, &a.desc))
-                })
-                .for_each(|(id, desc)| {
-                    material_cache.update(&id, |m| m.update_uniform(&gpu_context.queue, desc))
-                }),
             AssetEventKind::Removed => events.iter().for_each(|ev| material_cache.remove(ev.id)),
             _ => {}
         });
         grouped.process_type::<MeshAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => events
+            AssetEventKind::Created | AssetEventKind::Updated => events
                 .iter()
                 .filter_map(|ev| asset_mgr.get::<MeshAsset>(ev.id).map(|a| (ev.id, a)))
                 .for_each(|(id, asset)| {
