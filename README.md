@@ -74,7 +74,7 @@ git clone https://github.com/AlessandroScrem/orbis.git
 cd orbis
 
 cargo build
-cargo test --lib
+cargo test --workspace --lib
 cargo run -p orbis --release -- -v
 
 // run with options 
@@ -84,7 +84,7 @@ cargo run -p orbis --release -- -w<WIDTH> -h<HEIGHT> --verbose
 
 
 ## Screenshots
-![Hello PBR Cube](/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
+![Hello PBR Cube](/crates/orbis-engine/assets/screenshots/hello_cube-2025-09-27.jpg?raw=true "Hello PBR cube!")
 
 ## Known issues
 | Fixed    | Prioriry |              Description                                                   |
