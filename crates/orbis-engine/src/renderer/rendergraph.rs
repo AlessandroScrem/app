@@ -143,7 +143,7 @@ impl RenderGraph {
         &self,
         resources: &HashMap<ResourceId, ResourceNode>,
     ) -> Vec<Vec<Edge>> {
-        let mut deps = vec![Vec::new(); passes.len()];
+        let mut deps = vec![Vec::new(); self.passes.len()];
 
         for res in resources.values() {
             // Writers are ordered by registration. A reader observes the latest
