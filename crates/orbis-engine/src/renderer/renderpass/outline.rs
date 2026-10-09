@@ -8,7 +8,7 @@ impl RenderPass for OutlinePass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[ResourceId::ENTITY]
+        &[ResourceId::ENTITY, ResourceId::LDR]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::LDR]
