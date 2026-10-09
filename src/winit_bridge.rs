@@ -62,7 +62,8 @@ fn load_icon(bytes: &[u8]) -> Option<winit::window::Icon> {
 
 fn create_window(event_loop: &ActiveEventLoop, size: PhysicalSize<u32>) -> WindowHandle {
     let icon = load_icon(include_bytes!(crate::asset_path!(
-        "core/lightbulb-icon32.png"
+        // "core/lightbulb-icon32.png"
+        "../etc/icon.ico"
     )));
     let attrs = WindowAttributes::default()
         .with_inner_size(size)
