@@ -205,7 +205,17 @@ impl FrameBuilder {
         batches: &mut Vec<InstanceBatch>,
         instances: &mut Vec<VertexInstance>,
     ) {
-        for (key, batch_instances) in map {
+        let mut ordered = map.into_iter().collect::<Vec<_>>();
+        ordered.sort_by_key(|(key, _)| {
+            (
+                key.mesh.raw(),
+                key.material.raw(),
+                key.index_start,
+                key.index_end,
+            )
+        });
+
+        for (key, batch_instances) in ordered {
             let start = instances.len() as u32;
             let count = batch_instances.len() as u32;
 
@@ -241,5 +251,48 @@ impl FrameBuilder {
                 lights_uniform.count = (i + 1) as u32;
                 lights_uniform.lights[i] = LightUniform::from(light_object);
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BatchKey, FrameBuilder, InstanceBatch};
+    use crate::assets::{MaterialId, MeshId, VertexInstance};
+    use std::collections::HashMap;
+
+    #[test]
+    fn batches_are_sorted_deterministically() {
+        let mesh_a = MeshId::new();
+        let mesh_b = MeshId::new();
+        let material = MaterialId::new();
+        let mut map = HashMap::new();
+
+        map.insert(
+            BatchKey {
+                mesh: mesh_b,
+                material,
+                index_start: 0,
+                index_end: 3,
+            },
+            Vec::<VertexInstance>::new(),
+        );
+        map.insert(
+            BatchKey {
+                mesh: mesh_a,
+                material,
+                index_start: 0,
+                index_end: 3,
+            },
+            Vec::<VertexInstance>::new(),
+        );
+
+        let mut batches: Vec<InstanceBatch> = Vec::new();
+        let mut instances = Vec::new();
+        FrameBuilder::flush_batches(map, &mut batches, &mut instances);
+
+        assert_eq!(
+            batches.iter().map(|batch| batch.mesh.raw()).collect::<Vec<_>>(),
+            vec![mesh_a.raw(), mesh_b.raw()]
+        );
     }
 }
