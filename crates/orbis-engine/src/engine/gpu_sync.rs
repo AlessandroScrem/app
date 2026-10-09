@@ -1,3 +1,5 @@
+use crate::app::domain::events::DomainEvent::Selection;
+use crate::app::domain::events::SelectionEvent::SelectIbl;
 use crate::assets::asset_manager::{AssetEventKind, AssetManager};
 use crate::assets::material_asset::MaterialAsset;
 use crate::assets::mesh_asset::MeshAsset;
@@ -43,7 +45,7 @@ pub(crate) fn sync_gpu_assets(
                     let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
                     register_gpu_texture(
                         texture_cache,
-                        &mut imgui_render,
+                        imgui_render,
                         &gpu_context.device,
                         id,
                         texture,
@@ -73,8 +75,7 @@ pub(crate) fn sync_gpu_assets(
                     }
 
                     // Rebuild any IBL environment derived from this HDR texture.
-                    let affected_ibl = self
-                        .hdr_vec
+                    let affected_ibl = hdr_vec
                         .iter()
                         .copied()
                         .filter(|(hdr_id, _)| *hdr_id == id)
@@ -122,7 +123,7 @@ pub(crate) fn sync_gpu_assets(
                     let layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                     material_cache.insert(
                         id,
-                        GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, layout),
+                        GpuMaterial::new(texture_cache, &asset.desc, &gpu_context.device, layout),
                     );
                 }),
             AssetEventKind::Removed => events.iter().for_each(|ev| material_cache.remove(ev.id)),
