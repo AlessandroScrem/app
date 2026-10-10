@@ -120,6 +120,7 @@ pub struct MaterialPreviewRenderer {
     index_count: u32,
     environment_revision: u64,
     active_material: Option<MaterialId>,
+    displayed_material: Option<MaterialId>,
     camera_buffer: wgpu::Buffer,
     globals_buffer: wgpu::Buffer,
     lights_buffer: wgpu::Buffer,
@@ -207,6 +208,7 @@ impl MaterialPreviewRenderer {
             index_count,
             environment_revision: 0,
             active_material: None,
+            displayed_material: None,
             camera_buffer,
             globals_buffer,
             lights_buffer,
@@ -249,8 +251,8 @@ impl MaterialPreviewRenderer {
             if preview.material_revision == revision
                 && preview.environment_revision == self.environment_revision
             {
-                if self.active_material != Some(material) {
-                    self.active_material = Some(material);
+                if needs_publish_cached_preview(self.displayed_material, material) {
+                    self.displayed_material = Some(material);
                     return Some(preview.target.texture(&gpu_context.device));
                 }
                 return None;
@@ -396,6 +398,7 @@ impl MaterialPreviewRenderer {
             },
         );
         self.active_material = Some(material);
+        self.displayed_material = Some(material);
         Some(preview)
     }
 }
@@ -411,4 +414,22 @@ fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgp
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::needs_publish_cached_preview;
+    use crate::assets::MaterialId;
+
+    #[test]
+    fn cached_preview_is_published_when_selection_changes() {
+        let first = MaterialId::new();
+        let second = MaterialId::new();
+
+        assert!(needs_publish_cached_preview(Some(first), second));
+        assert!(needs_publish_cached_preview(Some(second), first));
+        assert!(!needs_publish_cached_preview(Some(first), first));
+        assert!(needs_publish_cached_preview(None, first));
+    }
 }
