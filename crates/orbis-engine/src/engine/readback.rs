@@ -218,7 +218,10 @@ mod tests {
             }
         };
 
-        assert!(result.is_some(), "expected a non-zero entity ID from the readback");
+        assert!(
+            result.is_some(),
+            "expected a non-zero entity ID from the readback"
+        );
     }
 
     #[test]
@@ -229,8 +232,20 @@ mod tests {
         let bytes = [low, high].concat();
 
         assert_eq!(decode_entity_id(&bytes), Some(expected));
-        assert_eq!(PickObject::decode(ReadbackResult { bytes: bytes.clone(), size: (1, 1) }), Some(expected));
-        assert_eq!(Select::decode(ReadbackResult { bytes: [bytes.clone(), bytes].concat(), size: (2, 1) }), vec![expected]);
+        assert_eq!(
+            PickObject::decode(ReadbackResult {
+                bytes: bytes.clone(),
+                size: (1, 1),
+            }),
+            Some(expected)
+        );
+        assert_eq!(
+            Select::decode(ReadbackResult {
+                bytes: [bytes.clone(), bytes].concat(),
+                size: (2, 1),
+            }),
+            vec![expected]
+        );
     }
 
     #[test]
