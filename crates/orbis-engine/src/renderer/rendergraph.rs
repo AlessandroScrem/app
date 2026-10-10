@@ -420,7 +420,9 @@ impl RenderGraph {
     ) -> Result<(), String> {
         let order = self.compile()?;
         for idx in order {
-            self.passes[idx].execute(encoder, ctx, frame);
+            let pass = &mut self.passes[idx];
+            ctx.begin_pass(pass.reads(), pass.writes());
+            pass.execute(encoder, ctx, frame);
         }
         Ok(())
     }
