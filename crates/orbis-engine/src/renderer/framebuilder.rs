@@ -10,6 +10,8 @@ use crate::assets::{
 };
 
 use crate::globals::Globals;
+use crate::gpu::GpuCache;
+use crate::engine::gpu_sync::TextureLoadService;
 
 use crate::prelude::trace;
 use crate::renderer::line_builder::{
@@ -96,11 +98,11 @@ pub struct FrameBuilder {
 }
 
 impl FrameBuilder {
-    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals) -> Self {
+    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals, gpu_cache: &GpuCache, texture_loader: &TextureLoadService) -> Self {
         let mut frame = FrameBuilder::default();
 
         // create batches & instances for meshes
-        Self::prepare_meshes(&objects.meshes, assets, &mut frame);
+        Self::prepare_meshes(&objects.meshes, assets, gpu_cache, texture_loader, &mut frame);
 
         // create uniform for lights
         Self::prepare_light_uniform(&objects.lights, &mut frame, globals.light_enable);
@@ -156,15 +158,32 @@ impl FrameBuilder {
     fn prepare_meshes(
         meshes: &[MeshRenderObject],
         assets: &AssetManager,
+        gpu_cache: &GpuCache,
+        texture_loader: &TextureLoadService,
         frame: &mut FrameBuilder,
     ) {
         let mut opaque: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
         let mut transmission: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
 
         for object in meshes {
+            // Publish a whole object only when its mesh and every submesh material
+            // are ready. Failed textures count as resolved because their material
+            // bind groups use the built-in white fallback.
+            if gpu_cache.mesh.get(&object.mesh).is_none() {
+                continue;
+            }
             let Some(mesh) = assets.get::<MeshAsset>(object.mesh) else {
                 continue;
             };
+            let materials_ready = mesh.desc.submeshes.iter().all(|submesh| {
+                assets.get::<MaterialAsset>(submesh.material).is_some_and(|material| {
+                    gpu_cache.material.get(&submesh.material).is_some()
+                        && texture_loader.is_material_ready(&material.desc)
+                })
+            });
+            if !materials_ready {
+                continue;
+            }
 
             for submesh in &mesh.desc.submeshes {
                 let Some(material) = assets.get::<MaterialAsset>(submesh.material) else {

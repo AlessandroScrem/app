@@ -342,7 +342,7 @@ impl Runtime {
             globals,
             selected,
         } = render_data;
-        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals);
+        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals, &self.gpu_cache, &self.texture_loader);
         let camera_uniform = CameraUniform::from_camera_size(
             camera,
             (
