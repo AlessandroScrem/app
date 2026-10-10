@@ -306,6 +306,31 @@ mod tests {
     }
 
     #[test]
+    fn invalidated_texture_load_results_are_discarded() {
+        let mut loader = TextureLoadService::new();
+        let id = TextureId::new();
+        loader.generations.insert(id, 7);
+        loader.states.insert(id, super::TextureLoadState::Pending);
+
+        let data = crate::assets::texture_upload::TextureData {
+            width: 1,
+            height: 1,
+            pixels: vec![0; 4],
+            format: ColorSpace::Rgba8,
+        };
+        loader.sender.send(vec![(id, 7, Ok(data))]).unwrap();
+
+        loader.invalidate(id);
+
+        assert!(loader.poll().is_empty());
+        assert_eq!(
+            loader.states.get(&id),
+            Some(&super::TextureLoadState::Failed)
+        );
+        assert!(!loader.generations.contains_key(&id));
+    }
+
+    #[test]
     fn stale_texture_load_results_are_discarded() {
         let mut loader = TextureLoadService::new();
         let id = TextureId::new();

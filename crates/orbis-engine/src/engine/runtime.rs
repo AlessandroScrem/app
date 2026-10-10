@@ -1,37 +1,30 @@
 use super::RuntimeEvent;
 use super::gpu_sync::TextureLoadService;
-use crate::EntityRawU64;
 use crate::app::Application;
-use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
-use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::Hovered;
+use crate::app::domain::events::DomainEvent::Camera;
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::asset_manager::ResourceStats;
 use crate::assets::{IblId, TextureId};
-use crate::editor::{
-    EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData,
-    ResourceStatsData, SelectionCommand,
-};
+use crate::editor::EditorConnection;
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
-use crate::engine::readback::{QueryResult, ReadbackManager};
+use crate::engine::frame_preparation;
+use crate::engine::picking::PickingService;
+use crate::engine::presentation;
+use crate::engine::readback::ReadbackManager;
+use crate::engine::ui_statistics::UiStatistics;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
-    GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+    IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::prelude::info;
-use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
-use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
 use crate::winit_bridge::WindowHandle;
-use legion::Entity;
 
 pub struct Runtime {
     pub window: WindowHandle,
@@ -42,7 +35,8 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
-    pub readback: ReadbackManager,
+    readback: ReadbackManager,
+    picking: PickingService,
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
@@ -52,25 +46,10 @@ pub struct Runtime {
     pub wait_for_exit: bool,
     pub editor_service: EditorService,
     texture_loader: TextureLoadService,
-    last_ui_update: std::time::Instant,
-    statistics_dt: f32,
+    ui_statistics: UiStatistics,
 }
 
 impl Runtime {
-    fn asset_stats(stats: ResourceStats) -> ResourceStatsData {
-        ResourceStatsData {
-            count: stats.count,
-            estimated_bytes: stats.estimated_bytes,
-        }
-    }
-
-    fn gpu_stats(stats: crate::gpu::GpuResourceStats) -> ResourceStatsData {
-        ResourceStatsData {
-            count: stats.count,
-            estimated_bytes: stats.estimated_bytes,
-        }
-    }
-
     pub(crate) fn new(window: WindowHandle) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
@@ -135,38 +114,27 @@ impl Runtime {
             hdr_vec: Vec::new(),
             wait_for_exit: false,
             readback: ReadbackManager::default(),
+            picking: PickingService::default(),
             editor_service,
             texture_loader: TextureLoadService::new(),
-            last_ui_update: std::time::Instant::now(),
-            statistics_dt: 1.0 / 60.0,
+            ui_statistics: UiStatistics::default(),
         }
     }
 
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
+        let entity_id_texture = self
+            .gpu_manager
+            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+        self.picking.handle_input(
+            &mut self.readback,
+            &self.input,
+            &self.gpu_context.as_ref(),
+            entity_id_texture,
+            bus,
+            &self.editor_service,
+        );
         let input = &self.input;
-        if let Some(result) = self.readback.poll_results() {
-            match result {
-                QueryResult::Pick(id) => {
-                    bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
-                }
-                QueryResult::Selection(ids) => {
-                    self.editor_service.send_command(EditorCommand::Selection(
-                        SelectionCommand::Select { entities: ids },
-                    ));
-                }
-            }
-        }
-        if input.is_cursor_moved() {
-            self.readback.request_pick(
-                &self.gpu_context.as_ref(),
-                &self
-                    .gpu_manager
-                    .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
-                (input.mouse_position.x as u32, input.mouse_position.y as u32),
-            );
-        }
-
         if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() {
             bus.send_domain(Camera(CameraOrbit(
                 input.mouse_delta.x as f64,
@@ -197,10 +165,13 @@ impl Runtime {
                     if width == 0 || height == 0 {
                         return window_title;
                     }
-                    self.gpu_manager
-                        .resize_frame(&self.gpu_context.as_ref(), width, height);
-                    self.gpu_surface
-                        .resize_frame(&self.gpu_context.device, width, height);
+                    presentation::resize(
+                        &self.gpu_context,
+                        &mut self.gpu_surface,
+                        &mut self.gpu_manager,
+                        width,
+                        height,
+                    );
                     app.on_resize(width, height);
                 }
                 RuntimeEvent::CloseRequested => {
@@ -221,7 +192,8 @@ impl Runtime {
                     );
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
-                    self.readback.request_selection(
+                    PickingService::request_selection(
+                        &mut self.readback,
                         &self.gpu_context.as_ref(),
                         &self
                             .gpu_manager
@@ -251,36 +223,15 @@ impl Runtime {
     }
 
     pub fn update_ui<A: Application + EditorBackend>(&mut self, app: &mut A, bus: &mut EventBus) {
-        let now = std::time::Instant::now();
-        let dt = now
-            .duration_since(self.last_ui_update)
-            .as_secs_f32()
-            .clamp(1.0 / 1000.0, 0.25);
-        self.last_ui_update = now;
-        self.statistics_dt = self.statistics_dt * 0.9 + dt * 0.1;
-        let frame = self.scene_renderer.get_render_stats();
-        self.editor_service.set_statistics(EditorStatisticsData {
-            fps: 1.0 / self.statistics_dt,
-            frametime: self.statistics_dt,
-            opaque_draw_calls: frame.opaque.draw_calls,
-            opaque_instances: frame.opaque.instances,
-            transmission_draw_calls: frame.transmission.draw_calls,
-            transmission_instances: frame.transmission.instances,
-        });
-
         let asset_mgr = app.render_data().asset_mgr;
-        self.editor_service
-            .set_resource_stats(EditorResourceStatsData {
-                textures: Self::asset_stats(asset_mgr.get_stats::<crate::assets::TextureAsset>()),
-                materials: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MaterialAsset>()),
-                meshes: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MeshAsset>()),
-                ibl: Self::asset_stats(asset_mgr.get_stats::<crate::assets::IblAsset>()),
-                gpu_textures: Self::gpu_stats(self.gpu_cache.textures.get_stats()),
-                gpu_materials: Self::gpu_stats(self.gpu_cache.material.get_stats()),
-                gpu_meshes: Self::gpu_stats(self.gpu_cache.mesh.get_stats()),
-                gpu_shadows: Self::gpu_stats(self.shadow_manager.get_stats()),
-                gpu_ibl: Self::gpu_stats(self.ibl_manager.get_stats()),
-            });
+        self.ui_statistics.update(
+            &mut self.editor_service,
+            &self.scene_renderer,
+            asset_mgr,
+            &self.gpu_cache,
+            &self.shadow_manager,
+            &self.ibl_manager,
+        );
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
@@ -295,7 +246,14 @@ impl Runtime {
         let mut encoder = self.gpu_context.create_encoder();
         if let Some(frame) = self.gpu_surface.get_frame() {
             let target = frame.texture.create_view(&Default::default());
-            let frame_data = self.prepare_frame_data(app.render_data());
+            let frame_data = frame_preparation::prepare_frame_data(
+                app.render_data(),
+                &self.gpu_context,
+                &self.gpu_surface,
+                &self.gpu_cache,
+                &self.texture_loader,
+                &self.gpu_manager,
+            );
             let context = SceneRenderContext {
                 gpu_context: &self.gpu_context,
                 gpu_manager: &self.gpu_manager,
@@ -330,73 +288,6 @@ impl Runtime {
             );
             self.gpu_context.queue.submit([encoder.finish()]);
             frame.present();
-        }
-    }
-
-    fn prepare_frame_data(&mut self, render_data: AppRenderData) -> FrameData {
-        let AppRenderData {
-            render_objects,
-            asset_mgr,
-            camera,
-            globals,
-            selected,
-        } = render_data;
-        let frame = FrameBuilder::prepare(
-            render_objects,
-            asset_mgr,
-            globals,
-            &self.gpu_cache,
-            &self.texture_loader,
-        );
-        let camera_uniform = CameraUniform::from_camera_size(
-            camera,
-            (
-                self.gpu_surface.get_config().width,
-                self.gpu_surface.get_config().height,
-            ),
-        );
-        let global_uniform =
-            GlobalUniform::from_global_id(globals, selected.map(|id| id.as_raw_u64()).unwrap_or(0));
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Lights,
-            std::slice::from_ref(&frame.light_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Camera,
-            std::slice::from_ref(&camera_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Globals,
-            std::slice::from_ref(&global_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Instances,
-            frame.instances.as_slice(),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Lines,
-            frame.lines.as_slice(),
-        );
-        let tasks = FrameTasks {
-            axis_enable: globals.axis_enable,
-            build_mips_cp: globals.mips_cp,
-            entity_selected: selected,
-            skybox_enable: globals.skybox_enable,
-            skybox_blur: globals.skybox_enable_blur,
-        };
-        FrameData {
-            opaque_batches: frame.opaque_batches,
-            transmission_batches: frame.transmission_batches,
-            transmission_stats: frame.transmission_stats,
-            lights: Some(frame.light_uniform),
-            lines: frame.lines,
-            opaque_stats: frame.opaque_stats,
-            tasks,
         }
     }
 }
