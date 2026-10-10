@@ -1,8 +1,7 @@
 use crate::assets::asset_manager::{AssetManager, ResourceStats};
 use crate::assets::{IblAsset, MaterialAsset, MeshAsset, TextureAsset};
-use crate::editor::{
-    EditorResourceStatsData, EditorService, EditorStatisticsData, ResourceStatsData,
-};
+use crate::editor::{EditorResourceStatsData, EditorStatisticsData, ResourceStatsData};
+use crate::engine::editor::EditorService;
 use crate::gpu::{GpuCache, HasGpuStats, IblManager, ShadowManager};
 use crate::renderer::SceneRenderer;
 
