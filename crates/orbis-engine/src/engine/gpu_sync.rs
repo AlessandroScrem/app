@@ -19,12 +19,20 @@ use crate::gpu::{
 use crate::renderer::{ImguiRender, MaterialPreviewRenderer};
 
 
-type DecodedTexture = (TextureId, u64, TextureData);
+type DecodedTexture = (TextureId, u64, Result<TextureData, ()>);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TextureLoadState {
+    Pending,
+    Ready,
+    Failed,
+}
 
 pub(crate) struct TextureLoadService {
     sender: Sender<Vec<DecodedTexture>>,
     receiver: Receiver<Vec<DecodedTexture>>,
     generations: HashMap<TextureId, u64>,
+    states: HashMap<TextureId, TextureLoadState>,
     next_generation: u64,
 }
 
@@ -35,6 +43,7 @@ impl TextureLoadService {
             sender,
             receiver,
             generations: HashMap::new(),
+            states: HashMap::new(),
             next_generation: 0,
         }
     }
@@ -46,6 +55,7 @@ impl TextureLoadService {
                 self.next_generation = self.next_generation.wrapping_add(1);
                 let generation = self.next_generation;
                 self.generations.insert(id, generation);
+                self.states.insert(id, TextureLoadState::Pending);
                 (id, generation, desc)
             })
             .collect::<Vec<_>>();
@@ -59,7 +69,7 @@ impl TextureLoadService {
             let decoded = jobs
                 .into_par_iter()
                 .filter_map(|(id, generation, desc)| {
-                    load_and_decode(desc).map(|data| (id, generation, data))
+                    (id, generation, load_and_decode(desc).ok_or(()))
                 })
                 .collect();
             let _ = sender.send(decoded);
@@ -68,14 +78,28 @@ impl TextureLoadService {
 
     fn invalidate(&mut self, id: TextureId) {
         self.generations.remove(&id);
+        self.states.remove(&id);
     }
 
-    fn poll(&mut self) -> Vec<(TextureId, TextureData)> {
+    fn is_material_ready(&self, desc: &crate::assets::material_desc::MaterialDesc) -> bool {
+        desc.get_textures().iter().all(|id| {
+            matches!(self.states.get(id), Some(TextureLoadState::Ready | TextureLoadState::Failed))
+        })
+    }
+
+    fn poll(&mut self) -> Vec<(TextureId, Result<TextureData, ()>)> {
         let mut ready = Vec::new();
         while let Ok(batch) = self.receiver.try_recv() {
-            ready.extend(batch.into_iter().filter_map(|(id, generation, data)| {
-                (self.generations.get(&id) == Some(&generation)).then_some((id, data))
-            }));
+            for (id, generation, result) in batch {
+                if self.generations.get(&id) != Some(&generation) {
+                    continue;
+                }
+                self.states.insert(
+                    id,
+                    if result.is_ok() { TextureLoadState::Ready } else { TextureLoadState::Failed },
+                );
+                ready.push((id, result));
+            }
         }
         ready
     }
@@ -148,15 +172,19 @@ pub(crate) fn sync_gpu_assets(
         _ => {}
     });
     let mut changed_textures = HashSet::new();
-    for (id, data) in texture_loader.poll() {
-        let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
-        register_gpu_texture(
-            texture_cache,
-            imgui_render,
-            &gpu_context.device,
-            id,
-            texture,
-        );
+    for (id, result) in texture_loader.poll() {
+        if let Ok(data) = result {
+            let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
+            register_gpu_texture(
+                texture_cache,
+                imgui_render,
+                &gpu_context.device,
+                id,
+                texture,
+            );
+        }
+        // Failed loads are terminal too: materials resolve the missing slot to
+        // the built-in white fallback and can be published without waiting forever.
         changed_textures.insert(id);
 
         let dependent_materials = asset_mgr
@@ -264,13 +292,18 @@ mod tests {
             format: ColorSpace::Rgba8,
         };
 
-        let stale: Vec<DecodedTexture> = vec![(id, 1, data.clone())];
+        let stale: Vec<DecodedTexture> = vec![(id, 1, Ok(data.clone()))];
         loader.sender.send(stale).unwrap();
         assert!(loader.poll().is_empty());
 
-        let current: Vec<DecodedTexture> = vec![(id, 2, data)];
+        let current: Vec<DecodedTexture> = vec![(id, 2, Ok(data))];
         loader.sender.send(current).unwrap();
         assert_eq!(loader.poll().len(), 1);
+        assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Ready));
+
+        loader.sender.send(vec![(id, 2, Err(()) )]).unwrap();
+        assert_eq!(loader.poll().len(), 1);
+        assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Failed));
     }
 }
 
