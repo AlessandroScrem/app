@@ -330,9 +330,9 @@ impl RenderGraph {
 
     /// Compiles the graph and derives resource lifetimes in execution-order indices.
     ///
-    /// This is planning metadata only: render passes currently bind framebuffer
-    /// resources through GpuManager, so it must not be treated as physical GPU
-    /// allocation/aliasing until pass resource access is routed through a resolver.
+    /// The framebuffer cache consumes these lifetimes to resolve logical targets
+    /// to retained pool allocations before execution. RenderContext then checks
+    /// each pass's declared resource access while exposing those resolved targets.
     pub(crate) fn compile_lifetimes(
         &self,
     ) -> Result<(Vec<usize>, Vec<ResourceLifetime>), String> {
