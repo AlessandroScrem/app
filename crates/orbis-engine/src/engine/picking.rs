@@ -6,7 +6,6 @@ use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::context::GpuContextRef;
 use crate::input::Input;
-use crate::EntityRawU64;
 use legion::Entity;
 
 /// Owns asynchronous GPU readback and translates picking results into app/editor events.
