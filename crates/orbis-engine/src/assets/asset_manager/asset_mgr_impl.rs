@@ -134,19 +134,6 @@ impl AssetManager {
         AssetManager::default()
     }
 
-    fn storage<T: Asset>(&self) -> &AssetStorage<T> {
-        let id = TypeId::of::<T>();
-
-        &self
-            .storages
-            .get(&id)
-            .unwrap()
-            .as_any()
-            .downcast_ref::<TypedStorage<T>>()
-            .unwrap()
-            .inner
-    }
-
     fn storage_mut<T: Asset>(&mut self) -> &mut AssetStorage<T> {
         let id = TypeId::of::<T>();
 
@@ -212,18 +199,24 @@ impl AssetManager {
         id
     }
 
-    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> {
-        self.storage::<T>().iter()
+    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> + '_ {
+        self.storages
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| storage.as_any().downcast_ref::<TypedStorage<T>>())
+            .into_iter()
+            .flat_map(|storage| storage.inner.iter())
     }
 
     pub fn get<T: Asset>(&self, id: ResourceId) -> Option<&T> {
-        self.storage::<T>().get_by_id(id)
+        self.storages
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| storage.as_any().downcast_ref::<TypedStorage<T>>())
+            .and_then(|storage| storage.inner.get_by_id(id))
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
         let Some((previous_size, previous_dependencies, previous_key)) = self
-            .storage::<T>()
-            .get_by_id(id)
+            .get::<T>(id)
             .map(|asset| {
                 (
                     asset.estimated_size(),
@@ -946,6 +939,18 @@ mod lifecycle_tests {
 
         assert_eq!(manager.key_index.get::<LifecycleAsset>(&original_key), None);
         assert_eq!(manager.key_index.get::<LifecycleAsset>(&updated_key), Some(id));
+    }
+
+    #[test]
+    fn missing_asset_type_returns_empty_results() {
+        let mut manager = AssetManager::new();
+
+        assert!(manager.get::<LifecycleAsset>(ResourceId::new()).is_none());
+        assert_eq!(manager.iter::<LifecycleAsset>().count(), 0);
+
+        manager.update::<LifecycleAsset>(ResourceId::new(), |_| unreachable!());
+
+        assert_eq!(manager.iter::<LifecycleAsset>().count(), 0);
     }
 
     #[test]
