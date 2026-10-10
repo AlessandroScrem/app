@@ -14,6 +14,7 @@ use crate::editor::{
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
 use crate::engine::picking::PickingService;
+use crate::engine::readback::ReadbackManager;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
@@ -39,6 +40,7 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
+    readback: ReadbackManager,
     picking: PickingService,
     pub uilayer: UiLayer,
     pub input: Input,
@@ -131,6 +133,7 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
+            readback: ReadbackManager::default(),
             picking: PickingService::default(),
             editor_service,
             texture_loader: TextureLoadService::new(),
@@ -145,6 +148,7 @@ impl Runtime {
             .gpu_manager
             .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
         self.picking.handle_input(
+            &mut self.readback,
             &self.input,
             &self.gpu_context.as_ref(),
             entity_id_texture,
@@ -207,6 +211,7 @@ impl Runtime {
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
                     self.picking.request_selection(
+                        &mut self.readback,
                         &self.gpu_context.as_ref(),
                         &self
                             .gpu_manager
