@@ -22,7 +22,7 @@ impl Default for UiStatistics {
 impl UiStatistics {
     pub(crate) fn update(
         &mut self,
-        editor_service: &EditorService,
+        editor_service: &mut EditorService,
         scene_renderer: &SceneRenderer,
         asset_mgr: &AssetManager,
         gpu_cache: &GpuCache,
