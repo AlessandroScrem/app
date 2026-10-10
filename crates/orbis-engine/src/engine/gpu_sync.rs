@@ -161,9 +161,12 @@ pub(crate) fn sync_gpu_assets(
                 .filter(|(hdr_id, _)| *hdr_id == ev.id)
                 .map(|(_, ibl_id)| *ibl_id)
                 .collect::<Vec<_>>();
-            for ibl_id in removed_ibl {
-                ibl_manager.remove(ibl_id);
-                hdr_vec.retain(|(_, existing_id)| *existing_id != ibl_id);
+            for ibl_id in &removed_ibl {
+                ibl_manager.remove(*ibl_id);
+                hdr_vec.retain(|(_, existing_id)| existing_id != ibl_id);
+            }
+            if !removed_ibl.is_empty() {
+                select_fallback_ibl(hdr_vec, bus);
             }
 
             rebuild_materials_using_texture(
@@ -209,14 +212,19 @@ pub(crate) fn sync_gpu_assets(
         }
     }
 
+    let mut removed_ibl_asset = false;
     grouped.process_type::<IblAsset, _>(|kind, events| {
         if let AssetEventKind::Removed = kind {
             for event in events {
                 ibl_manager.remove(event.id);
                 hdr_vec.retain(|(_, ibl_id)| *ibl_id != event.id);
+                removed_ibl_asset = true;
             }
         }
     });
+    if removed_ibl_asset {
+        select_fallback_ibl(hdr_vec, bus);
+    }
 
     // Create or refresh environments once their HDR texture is available.
     for (id, asset) in asset_mgr.iter::<IblAsset>() {
@@ -355,6 +363,15 @@ mod tests {
             loader.states.get(&id),
             Some(&super::TextureLoadState::Failed)
         );
+    }
+}
+
+fn select_fallback_ibl(hdr_vec: &[(TextureId, IblId)], bus: &mut EventBus) {
+    if let Some((_, id)) = hdr_vec.first() {
+        bus.send_domain(Selection(SelectIbl(*id)));
+        bus.send_runtime(RuntimeEvent::UpdateIblMaps(*id));
+    } else {
+        bus.send_runtime(RuntimeEvent::ClearIblMaps);
     }
 }
 
