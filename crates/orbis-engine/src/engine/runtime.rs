@@ -210,7 +210,7 @@ impl Runtime {
                     );
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
-                    self.picking.request_selection(
+                    PickingService::request_selection(
                         &mut self.readback,
                         &self.gpu_context.as_ref(),
                         &self
