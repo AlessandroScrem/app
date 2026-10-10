@@ -11,7 +11,6 @@ use legion::Entity;
 
 /// Owns asynchronous GPU readback and translates picking results into app/editor events.
 #[derive(Default)]
-#[derive(Default)]
 pub(crate) struct PickingService;
 
 impl PickingService {
