@@ -1,8 +1,6 @@
 use super::RuntimeEvent;
 use super::gpu_sync::TextureLoadService;
 use crate::app::Application;
-use crate::ecs::entity_id::EntityRawU64;
-use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::Camera;
 use crate::assets::asset_manager::AssetManager;
@@ -13,20 +11,18 @@ use crate::editor::{
 };
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
+use crate::engine::frame_preparation;
 use crate::engine::picking::PickingService;
 use crate::engine::readback::ReadbackManager;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
     GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::prelude::info;
-use crate::renderer::FrameData;
 use crate::renderer::ImguiRender;
-use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
 use crate::renderer::scene_renderer::SceneRenderContext;
-use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
 use crate::winit_bridge::WindowHandle;
@@ -285,7 +281,14 @@ impl Runtime {
         let mut encoder = self.gpu_context.create_encoder();
         if let Some(frame) = self.gpu_surface.get_frame() {
             let target = frame.texture.create_view(&Default::default());
-            let frame_data = self.prepare_frame_data(app.render_data());
+            let frame_data = frame_preparation::prepare_frame_data(
+                app.render_data(),
+                &self.gpu_context,
+                &self.gpu_surface,
+                &self.gpu_cache,
+                &self.texture_loader,
+                &self.gpu_manager,
+            );
             let context = SceneRenderContext {
                 gpu_context: &self.gpu_context,
                 gpu_manager: &self.gpu_manager,
@@ -323,70 +326,4 @@ impl Runtime {
         }
     }
 
-    fn prepare_frame_data(&mut self, render_data: AppRenderData) -> FrameData {
-        let AppRenderData {
-            render_objects,
-            asset_mgr,
-            camera,
-            globals,
-            selected,
-        } = render_data;
-        let frame = FrameBuilder::prepare(
-            render_objects,
-            asset_mgr,
-            globals,
-            &self.gpu_cache,
-            &self.texture_loader,
-        );
-        let camera_uniform = CameraUniform::from_camera_size(
-            camera,
-            (
-                self.gpu_surface.get_config().width,
-                self.gpu_surface.get_config().height,
-            ),
-        );
-        let global_uniform =
-            GlobalUniform::from_global_id(globals, selected.map(|id| id.as_raw_u64()).unwrap_or(0));
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Lights,
-            std::slice::from_ref(&frame.light_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Camera,
-            std::slice::from_ref(&camera_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Globals,
-            std::slice::from_ref(&global_uniform),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Instances,
-            frame.instances.as_slice(),
-        );
-        self.gpu_manager.update_buffer(
-            &self.gpu_context.queue,
-            BufferKind::Lines,
-            frame.lines.as_slice(),
-        );
-        let tasks = FrameTasks {
-            axis_enable: globals.axis_enable,
-            build_mips_cp: globals.mips_cp,
-            entity_selected: selected,
-            skybox_enable: globals.skybox_enable,
-            skybox_blur: globals.skybox_enable_blur,
-        };
-        FrameData {
-            opaque_batches: frame.opaque_batches,
-            transmission_batches: frame.transmission_batches,
-            transmission_stats: frame.transmission_stats,
-            lights: Some(frame.light_uniform),
-            lines: frame.lines,
-            opaque_stats: frame.opaque_stats,
-            tasks,
-        }
-    }
 }
