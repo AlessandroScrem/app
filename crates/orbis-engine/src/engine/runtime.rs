@@ -15,7 +15,8 @@ use crate::editor::{
 };
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
-use crate::engine::readback::{QueryResult, ReadbackManager};
+use crate::engine::picking::PickingService;
+use crate::engine::readback::QueryResult;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
@@ -42,7 +43,7 @@ pub struct Runtime {
     pub ibl_manager: IblManager,
     pub pipeline_manager: PipelineManager,
     pub shadow_manager: ShadowManager,
-    pub readback: ReadbackManager,
+    picking: PickingService,
     pub uilayer: UiLayer,
     pub input: Input,
     pub scene_renderer: SceneRenderer,
@@ -134,7 +135,7 @@ impl Runtime {
             shadow_manager,
             hdr_vec: Vec::new(),
             wait_for_exit: false,
-            readback: ReadbackManager::default(),
+            picking: PickingService::default(),
             editor_service,
             texture_loader: TextureLoadService::new(),
             last_ui_update: std::time::Instant::now(),
@@ -145,7 +146,7 @@ impl Runtime {
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
         let input = &self.input;
-        if let Some(result) = self.readback.poll_results() {
+        if let Some(result) = self.picking.poll_results() {
             match result {
                 QueryResult::Pick(id) => {
                     bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
@@ -158,7 +159,7 @@ impl Runtime {
             }
         }
         if input.is_cursor_moved() {
-            self.readback.request_pick(
+            self.picking.request_pick(
                 &self.gpu_context.as_ref(),
                 &self
                     .gpu_manager
@@ -221,7 +222,7 @@ impl Runtime {
                     );
                 }
                 RuntimeEvent::ReadbackSelection(pos, size) => {
-                    self.readback.request_selection(
+                    self.picking.request_selection(
                         &self.gpu_context.as_ref(),
                         &self
                             .gpu_manager
