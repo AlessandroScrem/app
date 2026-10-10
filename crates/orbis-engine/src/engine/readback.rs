@@ -53,13 +53,7 @@ impl PickObject {
     }
 
     fn decode(results: ReadbackResult) -> Option<u64> {
-        let id = u32::from_le_bytes([
-            results.bytes[0],
-            results.bytes[1],
-            results.bytes[2],
-            results.bytes[3],
-        ]);
-        if id == 0 { None } else { Some(id as u64) }
+        decode_entity_id(&results.bytes)
     }
 }
 
@@ -136,14 +130,21 @@ impl Select {
     fn decode(results: ReadbackResult) -> Vec<u64> {
         results
             .bytes
-            .chunks_exact(4)
-            .map(|pixel| pixel[0] as u64)
-            .filter(|&id| id != 0)
-            // .map(EntityRawU64::from_raw_u64)
+            .chunks_exact(8)
+            .filter_map(decode_entity_id)
             .collect::<HashSet<u64>>()
             .into_iter()
             .collect()
     }
+}
+
+fn decode_entity_id(bytes: &[u8]) -> Option<u64> {
+    let pixel: [u8; 8] = bytes.get(..8)?.try_into().ok()?;
+    let low = u32::from_le_bytes(pixel[..4].try_into().ok()?);
+    let high = u32::from_le_bytes(pixel[4..].try_into().ok()?);
+    let id = (u64::from(high) << 32) | u64::from(low);
+
+    (id != 0).then_some(id)
 }
 
 pub enum QueryResult {
@@ -217,6 +218,31 @@ mod tests {
             }
         };
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn decode_entity_id_preserves_both_u32_components() {
+        let expected = (0x1234_5678_u64 << 32) | 0x9abc_def0_u64;
+        let low = (expected as u32).to_le_bytes();
+        let high = ((expected >> 32) as u32).to_le_bytes();
+        let bytes = [low, high].concat();
+
+        assert_eq!(decode_entity_id(&bytes), Some(expected));
+        assert_eq!(PickObject::decode(ReadbackResult { bytes: bytes.clone(), size: (1, 1) }), Some(expected));
+        assert_eq!(Select::decode(ReadbackResult { bytes: [bytes.clone(), bytes].concat(), size: (2, 1) }), vec![expected]);
+    }
+
+    #[test]
+    fn decode_entity_id_ignores_zero_and_incomplete_pixels() {
+        assert_eq!(decode_entity_id(&[0; 8]), None);
+        assert_eq!(decode_entity_id(&[1, 2, 3, 4]), None);
+
+        let zero_low = 0_u32.to_le_bytes();
+        let zero_high = 0_u32.to_le_bytes();
+        assert_eq!(Select::decode(ReadbackResult {
+            bytes: [zero_low, zero_high].concat(),
+            size: (1, 1),
+        }), Vec::<u64>::new());
     }
 
     #[test]
