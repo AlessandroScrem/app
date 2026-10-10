@@ -22,6 +22,51 @@ pub struct RenderContext<'a> {
     pub shadow_mgr: &'a ShadowManager,
     pub pip_mgr: &'a PipelineManager,
     pub target: &'a wgpu::TextureView,
+    active_pass_reads: Vec<ResourceId>,
+    active_pass_writes: Vec<ResourceId>,
+}
+
+impl RenderContext<'_> {
+    pub(crate) fn begin_pass(&mut self, reads: &[ResourceId], writes: &[ResourceId]) {
+        self.active_pass_reads.clear();
+        self.active_pass_reads.extend_from_slice(reads);
+        self.active_pass_writes.clear();
+        self.active_pass_writes.extend_from_slice(writes);
+    }
+
+    fn assert_framebuffer_access(&self, kind: FramebufferKind) {
+        let resource = match kind {
+            FramebufferKind::Hdr => ResourceId::HDR,
+            FramebufferKind::OpaqueWithMips => ResourceId::OPAQUE,
+            FramebufferKind::EntityId => ResourceId::ENTITY,
+            FramebufferKind::Depth => ResourceId::DEPTH,
+        };
+        assert!(
+            self.active_pass_reads.contains(&resource)
+                || self.active_pass_writes.contains(&resource),
+            "render pass accessed undeclared framebuffer resource {resource}"
+        );
+    }
+
+    pub(crate) fn framebuffer_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
+        self.assert_framebuffer_access(kind);
+        self.gpu_mgr.get_framebuffer_view(kind)
+    }
+
+    pub(crate) fn framebuffer_texture(&self, kind: FramebufferKind) -> &wgpu::Texture {
+        self.assert_framebuffer_access(kind);
+        self.gpu_mgr.get_framebuffer_texture(kind)
+    }
+
+    pub(crate) fn framebuffer_sampler(&self, kind: FramebufferKind) -> &wgpu::Sampler {
+        self.assert_framebuffer_access(kind);
+        self.gpu_mgr.get_framebuffer_sampler(kind)
+    }
+
+    pub(crate) fn framebuffer_bind_group(&self, kind: FramebufferKind) -> &wgpu::BindGroup {
+        self.assert_framebuffer_access(kind);
+        self.gpu_mgr.get_framebuffer_bg(kind)
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -107,6 +152,8 @@ impl SceneRenderer {
             shadow_mgr: shadow_manager,
             pip_mgr: pipeline_manager,
             target,
+            active_pass_reads: Vec::new(),
+            active_pass_writes: Vec::new(),
         };
 
         if let Err(error) = self.render_graph.execute(encoder, &mut ctx, frame) {
