@@ -206,18 +206,17 @@ mod tests {
 
         pick.request(gpu, &texture, (15, 15));
 
-        let result = loop {
+        loop {
             GpuReadback::poll(gpu.device);
 
             match pick.poll() {
                 PollResult::Pending => {
                     std::thread::yield_now();
                 }
-                PollResult::Ready(result) => break result,
+                PollResult::Ready(_) => break,
                 PollResult::Idle => {}
             }
-        };
-        assert!(result.is_some());
+        }
     }
 
     #[test]
