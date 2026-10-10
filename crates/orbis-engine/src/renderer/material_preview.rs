@@ -400,6 +400,10 @@ impl MaterialPreviewRenderer {
     }
 }
 
+fn needs_publish_cached_preview(displayed: Option<MaterialId>, requested: MaterialId) -> bool {
+    displayed != Some(requested)
+}
+
 fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgpu::Buffer {
     device.create_buffer(&wgpu::BufferDescriptor {
         label: Some(label),
