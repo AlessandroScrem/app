@@ -11,7 +11,7 @@ impl RenderPass for LightsIconPass {
         &[ResourceId::HDR, ResourceId::ENTITY, ResourceId::DEPTH]
     }
     fn writes(&self) -> &[ResourceId] {
-        &[ResourceId::HDR, ResourceId::DEPTH]
+        &[ResourceId::HDR, ResourceId::ENTITY, ResourceId::DEPTH]
     }
 
     fn execute(
