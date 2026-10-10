@@ -11,20 +11,20 @@ use legion::Entity;
 
 /// Owns asynchronous GPU readback and translates picking results into app/editor events.
 #[derive(Default)]
-pub(crate) struct PickingService {
-    readback: ReadbackManager,
-}
+#[derive(Default)]
+pub(crate) struct PickingService;
 
 impl PickingService {
     pub(crate) fn handle_input(
         &mut self,
+        readback: &mut ReadbackManager,
         input: &Input,
         gpu: &GpuContextRef,
         entity_id_texture: &wgpu::Texture,
         bus: &mut EventBus,
         editor_service: &EditorService,
     ) {
-        if let Some(result) = self.readback.poll_results() {
+        if let Some(result) = readback.poll_results() {
             match result {
                 QueryResult::Pick(id) => {
                     bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))));
@@ -38,7 +38,8 @@ impl PickingService {
         }
 
         if input.is_cursor_moved() {
-            self.request_pick(
+            Self::request_pick(
+                readback,
                 gpu,
                 entity_id_texture,
                 (input.mouse_position.x as u32, input.mouse_position.y as u32),
@@ -47,23 +48,21 @@ impl PickingService {
     }
 
     pub(crate) fn request_pick(
-        &mut self,
+        readback: &mut ReadbackManager,
         gpu: &GpuContextRef,
         entity_id_texture: &wgpu::Texture,
         position: (u32, u32),
     ) {
-        self.readback
-            .request_pick(gpu, entity_id_texture, position);
+        readback.request_pick(gpu, entity_id_texture, position);
     }
 
     pub(crate) fn request_selection(
-        &mut self,
+        readback: &mut ReadbackManager,
         gpu: &GpuContextRef,
         entity_id_texture: &wgpu::Texture,
         origin: (u32, u32),
         size: (u32, u32),
     ) {
-        self.readback
-            .request_selection(gpu, entity_id_texture, origin, size);
+        readback.request_selection(gpu, entity_id_texture, origin, size);
     }
 }
