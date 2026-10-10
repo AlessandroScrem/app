@@ -76,3 +76,14 @@ impl RenderPass for LightsIconPass {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declares_entity_id_attachment_as_written() {
+        let pass = LightsIconPass {};
+        assert!(pass.writes().contains(&ResourceId::ENTITY));
+    }
+}
