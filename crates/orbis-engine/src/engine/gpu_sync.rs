@@ -68,7 +68,7 @@ impl TextureLoadService {
         std::thread::spawn(move || {
             let decoded = jobs
                 .into_par_iter()
-                .filter_map(|(id, generation, desc)| {
+                .map(|(id, generation, desc)| {
                     (id, generation, load_and_decode(desc).ok_or(()))
                 })
                 .collect();
@@ -284,6 +284,26 @@ mod tests {
     use super::{DecodedTexture, TextureLoadService};
     use crate::assets::TextureId;
     use crate::assets::texture_asset::ColorSpace;
+    use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
+
+    #[test]
+    fn material_waits_for_textures_and_accepts_failed_texture_fallback() {
+        let mut loader = TextureLoadService::new();
+        let id = TextureId::new();
+        let mut material = MaterialDesc::default();
+        material.set_texture(Some(id), MaterialTextureSlot::BaseColor, 0, None);
+
+        assert!(!loader.is_material_ready(&material));
+
+        loader.states.insert(id, super::TextureLoadState::Pending);
+        assert!(!loader.is_material_ready(&material));
+
+        loader.states.insert(id, super::TextureLoadState::Ready);
+        assert!(loader.is_material_ready(&material));
+
+        loader.states.insert(id, super::TextureLoadState::Failed);
+        assert!(loader.is_material_ready(&material));
+    }
 
     #[test]
     fn stale_texture_load_results_are_discarded() {
@@ -306,7 +326,7 @@ mod tests {
         assert_eq!(loader.poll().len(), 1);
         assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Ready));
 
-        loader.sender.send(vec![(id, 2, Err(()) )]).unwrap();
+        loader.sender.send(vec![(id, 2, Err(()))]).unwrap();
         assert_eq!(loader.poll().len(), 1);
         assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Failed));
     }
