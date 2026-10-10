@@ -78,10 +78,10 @@ impl TextureLoadService {
 
     fn invalidate(&mut self, id: TextureId) {
         self.generations.remove(&id);
-        self.states.remove(&id);
+        self.states.insert(id, TextureLoadState::Failed);
     }
 
-    fn is_material_ready(&self, desc: &crate::assets::material_desc::MaterialDesc) -> bool {
+    pub(crate) fn is_material_ready(&self, desc: &crate::assets::material_desc::MaterialDesc) -> bool {
         desc.get_textures().iter().all(|id| {
             matches!(self.states.get(id), Some(TextureLoadState::Ready | TextureLoadState::Failed))
         })
@@ -132,6 +132,11 @@ pub(crate) fn sync_gpu_assets(
                         .map(|a| (ev.id, a.desc.clone()))
                 })
                 .collect();
+            // Do not expose an old GPU version while a replacement is loading.
+            // If decoding fails, the material will be rebuilt against the white fallback.
+            for (id, _) in &jobs {
+                remove_gpu_texture(texture_cache, imgui_render, *id);
+            }
             texture_loader.request(jobs);
         }
         AssetEventKind::Removed => events.iter().for_each(|ev| {
