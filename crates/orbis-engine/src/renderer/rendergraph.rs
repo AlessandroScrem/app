@@ -82,6 +82,7 @@ struct PassNode<'a> {
 #[derive(Clone, Copy)]
 enum EdgeKind {
     ReadAfterWrite,
+    WriteAfterRead,
     WriterOrder,
 }
 
@@ -168,29 +169,6 @@ impl RenderGraph {
         let mut deps = vec![Vec::new(); self.passes.len()];
 
         for res in resources.values() {
-            // Writers are ordered by registration. A reader observes the latest
-            // preceding writer; if none exists, it depends on the first writer.
-            for &reader in &res.readers {
-                let writer = res
-                    .writers
-                    .iter()
-                    .copied()
-                    .take_while(|writer| *writer < reader)
-                    .last()
-                    .or_else(|| res.writers.first().copied());
-
-                if let Some(writer) = writer {
-                    if writer != reader {
-                        deps[reader].push(Edge {
-                            from: reader,
-                            to: writer,
-                            resource: res.id,
-                            kind: EdgeKind::ReadAfterWrite,
-                        });
-                    }
-                }
-            }
-
             // Preserve the declared order for multiple writes to the same resource.
             for writers in res.writers.windows(2) {
                 let earlier = writers[0];
@@ -201,6 +179,42 @@ impl RenderGraph {
                     resource: res.id,
                     kind: EdgeKind::WriterOrder,
                 });
+            }
+
+            // A reader observes the latest preceding writer. If it is registered
+            // before every writer, it observes the first writer instead. In either
+            // case, force the reader to finish before the next write so unrelated
+            // dependencies cannot move a clobbering write ahead of that read.
+            for &reader in &res.readers {
+                let preceding_writer = res
+                    .writers
+                    .iter()
+                    .copied()
+                    .take_while(|writer| *writer < reader)
+                    .last();
+                let observed_writer = preceding_writer.or_else(|| res.writers.first().copied());
+
+                if let Some(writer) = observed_writer {
+                    if writer != reader {
+                        deps[reader].push(Edge {
+                            from: reader,
+                            to: writer,
+                            resource: res.id,
+                            kind: EdgeKind::ReadAfterWrite,
+                        });
+                    }
+                }
+
+                if let Some(next_writer) = res.writers.iter().copied().find(|writer| {
+                    *writer > reader && Some(*writer) != observed_writer
+                }) {
+                    deps[next_writer].push(Edge {
+                        from: next_writer,
+                        to: reader,
+                        resource: res.id,
+                        kind: EdgeKind::WriteAfterRead,
+                    });
+                }
             }
         }
 
@@ -269,6 +283,12 @@ impl RenderGraph {
                         .map(|edge| match edge.kind {
                             EdgeKind::ReadAfterWrite => format!(
                                 "{} reads {} -> depends on {}",
+                                passes[edge.from].name(),
+                                edge.resource,
+                                passes[edge.to].name()
+                            ),
+                            EdgeKind::WriteAfterRead => format!(
+                                "{} writes {} after reader {}",
                                 passes[edge.from].name(),
                                 edge.resource,
                                 passes[edge.to].name()
