@@ -33,7 +33,7 @@ impl RenderPass for LightsIconPass {
                 label: Some("LightIcon Render Pass"),
                 color_attachments: &[
                     Some(wgpu::RenderPassColorAttachment {
-                        view: gpu_manager.get_framebuffer_view(FramebufferKind::Hdr),
+                        view: ctx.framebuffer_view(FramebufferKind::Hdr),
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
@@ -43,7 +43,7 @@ impl RenderPass for LightsIconPass {
                     }),
                     // 1: entity ID
                     Some(wgpu::RenderPassColorAttachment {
-                        view: gpu_manager.get_framebuffer_view(FramebufferKind::EntityId),
+                        view: ctx.framebuffer_view(FramebufferKind::EntityId),
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
                             store: wgpu::StoreOp::Store,
@@ -53,7 +53,7 @@ impl RenderPass for LightsIconPass {
                     }),
                 ],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: gpu_manager.get_framebuffer_view(FramebufferKind::Depth),
+                    view: ctx.framebuffer_view(FramebufferKind::Depth),
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
