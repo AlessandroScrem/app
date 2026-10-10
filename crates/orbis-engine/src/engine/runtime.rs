@@ -225,7 +225,7 @@ impl Runtime {
     pub fn update_ui<A: Application + EditorBackend>(&mut self, app: &mut A, bus: &mut EventBus) {
         let asset_mgr = app.render_data().asset_mgr;
         self.ui_statistics.update(
-            &self.editor_service,
+            &mut self.editor_service,
             &self.scene_renderer,
             asset_mgr,
             &self.gpu_cache,
