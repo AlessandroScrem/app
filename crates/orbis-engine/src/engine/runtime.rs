@@ -1,22 +1,18 @@
 use super::RuntimeEvent;
 use super::gpu_sync::TextureLoadService;
-use crate::EntityRawU64;
 use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
-use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::Hovered;
+use crate::app::domain::events::DomainEvent::Camera;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::asset_manager::ResourceStats;
 use crate::assets::{IblId, TextureId};
 use crate::editor::{
-    EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData,
-    ResourceStatsData, SelectionCommand,
+    EditorConnection, EditorResourceStatsData, EditorStatisticsData, ResourceStatsData,
 };
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
 use crate::engine::picking::PickingService;
-use crate::engine::readback::QueryResult;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
     BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
@@ -32,7 +28,6 @@ use crate::renderer::uniform::{CameraUniform, GlobalUniform};
 use crate::renderer::{MaterialPreviewRenderer, SceneRenderer};
 use crate::ui::UiLayer;
 use crate::winit_bridge::WindowHandle;
-use legion::Entity;
 
 pub struct Runtime {
     pub window: WindowHandle,
@@ -145,29 +140,17 @@ impl Runtime {
 
     pub fn handle_input(&mut self, bus: &mut EventBus) {
         use crate::input::MouseButton;
+        let entity_id_texture = self
+            .gpu_manager
+            .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId);
+        self.picking.handle_input(
+            &self.input,
+            &self.gpu_context.as_ref(),
+            entity_id_texture,
+            bus,
+            &self.editor_service,
+        );
         let input = &self.input;
-        if let Some(result) = self.picking.poll_results() {
-            match result {
-                QueryResult::Pick(id) => {
-                    bus.send_domain(Selection(Hovered(id.map(Entity::from_raw_u64))))
-                }
-                QueryResult::Selection(ids) => {
-                    self.editor_service.send_command(EditorCommand::Selection(
-                        SelectionCommand::Select { entities: ids },
-                    ));
-                }
-            }
-        }
-        if input.is_cursor_moved() {
-            self.picking.request_pick(
-                &self.gpu_context.as_ref(),
-                &self
-                    .gpu_manager
-                    .get_framebuffer_texture(crate::gpu::FramebufferKind::EntityId),
-                (input.mouse_position.x as u32, input.mouse_position.y as u32),
-            );
-        }
-
         if input.is_mouse_dragging(MouseButton::Left) && input.any_key_down() {
             bus.send_domain(Camera(CameraOrbit(
                 input.mouse_delta.x as f64,
