@@ -626,6 +626,50 @@ mod tests {
     }
 
     #[test]
+    fn reader_is_ordered_before_the_next_writer() {
+        struct Pass {
+            name: &'static str,
+            reads: Vec<ResourceId>,
+            writes: Vec<ResourceId>,
+        }
+
+        impl RenderPass for Pass {
+            fn name(&self) -> &'static str { self.name }
+            fn reads(&self) -> &[ResourceId] { &self.reads }
+            fn writes(&self) -> &[ResourceId] { &self.writes }
+        }
+
+        let mut graph = RenderGraph::new();
+        graph.add_pass(Pass {
+            name: "First writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
+        graph.add_pass(Pass {
+            name: "Reader",
+            reads: vec![ResourceId::HDR],
+            writes: vec![],
+        });
+        graph.add_pass(Pass {
+            name: "Second writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
+
+        let (_, resources) = graph.build_graph();
+        let dependencies = graph.build_dependencies(&resources);
+        assert!(dependencies[2].iter().any(|edge| {
+            edge.to == 1
+                && edge.resource == ResourceId::HDR
+                && matches!(edge.kind, EdgeKind::WriteAfterRead)
+        }));
+        assert_eq!(
+            graph.compile_names().unwrap(),
+            vec!["First writer", "Reader", "Second writer"]
+        );
+    }
+
+    #[test]
     fn reader_between_writers_observes_the_preceding_write() {
         struct Pass {
             name: &'static str,
