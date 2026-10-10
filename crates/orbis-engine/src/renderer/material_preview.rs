@@ -120,6 +120,7 @@ pub struct MaterialPreviewRenderer {
     index_count: u32,
     environment_revision: u64,
     active_material: Option<MaterialId>,
+    displayed_material: Option<MaterialId>,
     camera_buffer: wgpu::Buffer,
     globals_buffer: wgpu::Buffer,
     lights_buffer: wgpu::Buffer,
@@ -207,6 +208,7 @@ impl MaterialPreviewRenderer {
             index_count,
             environment_revision: 0,
             active_material: None,
+            displayed_material: None,
             camera_buffer,
             globals_buffer,
             lights_buffer,
@@ -249,8 +251,7 @@ impl MaterialPreviewRenderer {
             if preview.material_revision == revision
                 && preview.environment_revision == self.environment_revision
             {
-                if self.active_material != Some(material) {
-                    self.active_material = Some(material);
+                if publish_cached_preview(&mut self.displayed_material, material) {
                     return Some(preview.target.texture(&gpu_context.device));
                 }
                 return None;
@@ -396,8 +397,18 @@ impl MaterialPreviewRenderer {
             },
         );
         self.active_material = Some(material);
+        self.displayed_material = Some(material);
         Some(preview)
     }
+}
+
+fn publish_cached_preview(displayed: &mut Option<MaterialId>, requested: MaterialId) -> bool {
+    if *displayed == Some(requested) {
+        return false;
+    }
+
+    *displayed = Some(requested);
+    true
 }
 
 fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgpu::Buffer {
@@ -407,4 +418,28 @@ fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgp
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::publish_cached_preview;
+    use crate::assets::MaterialId;
+
+    #[test]
+    fn cached_preview_is_published_when_selection_changes() {
+        let first = MaterialId::new();
+        let second = MaterialId::new();
+        let mut displayed = None;
+
+        assert!(publish_cached_preview(&mut displayed, first));
+        assert_eq!(displayed, Some(first));
+        assert!(!publish_cached_preview(&mut displayed, first));
+
+        assert!(publish_cached_preview(&mut displayed, second));
+        assert_eq!(displayed, Some(second));
+
+        assert!(publish_cached_preview(&mut displayed, first));
+        assert_eq!(displayed, Some(first));
+        assert!(!publish_cached_preview(&mut displayed, first));
+    }
 }

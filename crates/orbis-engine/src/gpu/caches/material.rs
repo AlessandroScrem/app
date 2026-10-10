@@ -62,8 +62,10 @@ impl HasGpuStats for GpuMaterialCache {
 }
 
 impl GpuMaterialCache {
-    pub fn insert(&mut self, id: ResourceId, gpu_material: GpuMaterial) {
-        if !self.map.contains_key(&id) {
+    pub fn insert(&mut self, id: ResourceId, mut gpu_material: GpuMaterial) {
+        if let Some(previous) = self.map.get(&id) {
+            gpu_material.revision = previous.revision.wrapping_add(1);
+        } else {
             self.stats.add(GpuMaterial::estimated_size());
         }
         self.map.insert(id, gpu_material);
@@ -197,4 +199,40 @@ pub fn create_material_uniform_from_desc(
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
     uniform_buffer
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::{GpuMaterial, GpuMaterialCache};
+    use crate::ResourceId;
+
+    #[test]
+    fn replacing_material_increments_revision() {
+        let mut cache = GpuMaterialCache::default();
+        let id = ResourceId::new();
+
+        cache.insert(id, GpuMaterial::default());
+        assert_eq!(cache.get(&id).unwrap().revision(), 0);
+
+        cache.insert(id, GpuMaterial::default());
+        assert_eq!(cache.get(&id).unwrap().revision(), 1);
+
+        cache.insert(id, GpuMaterial::default());
+        assert_eq!(cache.get(&id).unwrap().revision(), 2);
+    }
+
+    #[test]
+    fn inserting_another_material_starts_its_revision_at_zero() {
+        let mut cache = GpuMaterialCache::default();
+        let first = ResourceId::new();
+        let second = ResourceId::new();
+
+        cache.insert(first, GpuMaterial::default());
+        cache.insert(first, GpuMaterial::default());
+        cache.insert(second, GpuMaterial::default());
+
+        assert_eq!(cache.get(&first).unwrap().revision(), 1);
+        assert_eq!(cache.get(&second).unwrap().revision(), 0);
+    }
 }
