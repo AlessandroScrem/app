@@ -56,15 +56,16 @@ impl FramebufferCache {
         layouts: &BindgroupLayoutCache,
         width: u32,
         height: u32,
-    ) {
+    ) -> bool {
         if width == 0 || height == 0 || (self.width == width && self.height == height) {
-            return;
+            return false;
         }
 
         self.width = width;
         self.height = height;
         self.transient_pool.clear();
         self.recreate_framebuffers(gpu, layouts);
+        true
     }
 
     /// Allocates the frame's logical framebuffer resources according to RenderGraph lifetimes.
