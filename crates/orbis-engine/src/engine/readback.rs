@@ -194,33 +194,64 @@ mod tests {
     use crate::test_utils::get_gpu_context_test;
 
     #[test]
-    fn should_complete_pick_readback_without_entity_id() {
+    fn should_read_pick() {
         let gpu = &get_gpu_context_test();
+        let expected = (0x1234_5678_u64 << 32) | 0x9abc_def0_u64;
+        let pixel = [
+            (expected as u32).to_le_bytes(),
+            ((expected >> 32) as u32).to_le_bytes(),
+        ]
+        .concat();
 
-        let gpu_texture =
-            GpuTextureBuilder::from_static(&static_textures::LIGHTBULB_STATIC_TEXTURE).build(gpu);
+        let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("pick readback test texture"),
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rg32Uint,
+            usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
 
-        let texture = gpu_texture.inner;
+        gpu.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &pixel,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(8),
+                rows_per_image: Some(1),
+            },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+        );
 
         let mut pick = PickObject::default();
-
-        pick.request(gpu, &texture, (15, 15));
+        pick.request(gpu, &texture, (0, 0));
 
         let result = loop {
             GpuReadback::poll(gpu.device);
 
             match pick.poll() {
-                PollResult::Pending => {
-                    std::thread::yield_now();
-                }
+                PollResult::Pending => std::thread::yield_now(),
                 PollResult::Ready(result) => break result,
                 PollResult::Idle => std::thread::yield_now(),
             }
         };
 
-        // This fixture is a regular static texture, not an entity-ID render target.
-        // The GPU readback should complete, but decoding its zero-valued bytes yields no ID.
-        assert_eq!(result, None);
+        assert_eq!(result, Some(expected));
     }
 
     #[test]
