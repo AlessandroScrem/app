@@ -4,20 +4,19 @@ use crate::app::Application;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::Camera;
 use crate::assets::asset_manager::AssetManager;
-use crate::assets::asset_manager::ResourceStats;
 use crate::assets::{IblId, TextureId};
-use crate::editor::{
-    EditorConnection, EditorResourceStatsData, EditorStatisticsData, ResourceStatsData,
-};
+use crate::editor::EditorConnection;
 use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
 use crate::engine::frame_preparation;
 use crate::engine::picking::PickingService;
+use crate::engine::presentation;
 use crate::engine::readback::ReadbackManager;
+use crate::engine::ui_statistics::UiStatistics;
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
-    GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
+    GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface, GpuTextureCache,
+    IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::prelude::info;
@@ -47,25 +46,10 @@ pub struct Runtime {
     pub wait_for_exit: bool,
     pub editor_service: EditorService,
     texture_loader: TextureLoadService,
-    last_ui_update: std::time::Instant,
-    statistics_dt: f32,
+    ui_statistics: UiStatistics,
 }
 
 impl Runtime {
-    fn asset_stats(stats: ResourceStats) -> ResourceStatsData {
-        ResourceStatsData {
-            count: stats.count,
-            estimated_bytes: stats.estimated_bytes,
-        }
-    }
-
-    fn gpu_stats(stats: crate::gpu::GpuResourceStats) -> ResourceStatsData {
-        ResourceStatsData {
-            count: stats.count,
-            estimated_bytes: stats.estimated_bytes,
-        }
-    }
-
     pub(crate) fn new(window: WindowHandle) -> Self {
         let mut imgui_context = imgui::Context::create();
         let gpu_context = GpuContext::default();
@@ -133,8 +117,7 @@ impl Runtime {
             picking: PickingService::default(),
             editor_service,
             texture_loader: TextureLoadService::new(),
-            last_ui_update: std::time::Instant::now(),
-            statistics_dt: 1.0 / 60.0,
+            ui_statistics: UiStatistics::default(),
         }
     }
 
@@ -182,10 +165,13 @@ impl Runtime {
                     if width == 0 || height == 0 {
                         return window_title;
                     }
-                    self.gpu_manager
-                        .resize_frame(&self.gpu_context.as_ref(), width, height);
-                    self.gpu_surface
-                        .resize_frame(&self.gpu_context.device, width, height);
+                    presentation::resize(
+                        &self.gpu_context,
+                        &mut self.gpu_surface,
+                        &mut self.gpu_manager,
+                        width,
+                        height,
+                    );
                     app.on_resize(width, height);
                 }
                 RuntimeEvent::CloseRequested => {
@@ -237,36 +223,15 @@ impl Runtime {
     }
 
     pub fn update_ui<A: Application + EditorBackend>(&mut self, app: &mut A, bus: &mut EventBus) {
-        let now = std::time::Instant::now();
-        let dt = now
-            .duration_since(self.last_ui_update)
-            .as_secs_f32()
-            .clamp(1.0 / 1000.0, 0.25);
-        self.last_ui_update = now;
-        self.statistics_dt = self.statistics_dt * 0.9 + dt * 0.1;
-        let frame = self.scene_renderer.get_render_stats();
-        self.editor_service.set_statistics(EditorStatisticsData {
-            fps: 1.0 / self.statistics_dt,
-            frametime: self.statistics_dt,
-            opaque_draw_calls: frame.opaque.draw_calls,
-            opaque_instances: frame.opaque.instances,
-            transmission_draw_calls: frame.transmission.draw_calls,
-            transmission_instances: frame.transmission.instances,
-        });
-
         let asset_mgr = app.render_data().asset_mgr;
-        self.editor_service
-            .set_resource_stats(EditorResourceStatsData {
-                textures: Self::asset_stats(asset_mgr.get_stats::<crate::assets::TextureAsset>()),
-                materials: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MaterialAsset>()),
-                meshes: Self::asset_stats(asset_mgr.get_stats::<crate::assets::MeshAsset>()),
-                ibl: Self::asset_stats(asset_mgr.get_stats::<crate::assets::IblAsset>()),
-                gpu_textures: Self::gpu_stats(self.gpu_cache.textures.get_stats()),
-                gpu_materials: Self::gpu_stats(self.gpu_cache.material.get_stats()),
-                gpu_meshes: Self::gpu_stats(self.gpu_cache.mesh.get_stats()),
-                gpu_shadows: Self::gpu_stats(self.shadow_manager.get_stats()),
-                gpu_ibl: Self::gpu_stats(self.ibl_manager.get_stats()),
-            });
+        self.ui_statistics.update(
+            &self.editor_service,
+            &self.scene_renderer,
+            asset_mgr,
+            &self.gpu_cache,
+            &self.shadow_manager,
+            &self.ibl_manager,
+        );
         self.editor_service.process(app, bus);
         let textures = self.imgui_render.registry.ui_textures(
             self.shadow_manager.get_rgba_id(),
