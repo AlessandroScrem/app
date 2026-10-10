@@ -37,10 +37,21 @@ impl RenderContext<'_> {
     fn assert_framebuffer_access(&self, kind: FramebufferKind) {
         let resource = Self::resource_for_framebuffer(kind);
         assert!(
-            self.active_pass_reads.contains(&resource)
-                || self.active_pass_writes.contains(&resource),
+            Self::resource_is_declared(
+                resource,
+                &self.active_pass_reads,
+                &self.active_pass_writes,
+            ),
             "render pass accessed undeclared framebuffer resource {resource}"
         );
+    }
+
+    fn resource_is_declared(
+        resource: ResourceId,
+        reads: &[ResourceId],
+        writes: &[ResourceId],
+    ) -> bool {
+        reads.contains(&resource) || writes.contains(&resource)
     }
 
     fn resource_for_framebuffer(kind: FramebufferKind) -> ResourceId {
@@ -248,5 +259,28 @@ mod render_context_tests {
             ResourceId::ENTITY
         );
         assert_eq!(RenderContext::resource_for_framebuffer(FramebufferKind::Depth), ResourceId::DEPTH);
+    }
+
+    #[test]
+    fn declared_reads_and_writes_allow_framebuffer_access() {
+        assert!(RenderContext::resource_is_declared(
+            ResourceId::HDR,
+            &[ResourceId::HDR],
+            &[],
+        ));
+        assert!(RenderContext::resource_is_declared(
+            ResourceId::ENTITY,
+            &[],
+            &[ResourceId::ENTITY],
+        ));
+    }
+
+    #[test]
+    fn undeclared_framebuffer_access_is_rejected() {
+        assert!(!RenderContext::resource_is_declared(
+            ResourceId::DEPTH,
+            &[ResourceId::HDR],
+            &[ResourceId::ENTITY],
+        ));
     }
 }
