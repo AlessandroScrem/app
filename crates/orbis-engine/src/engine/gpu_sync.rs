@@ -128,6 +128,7 @@ pub(crate) fn sync_gpu_assets(
     let material_cache = &mut gpu_cache.material;
     let mesh_cache = &mut gpu_cache.mesh;
     let grouped = asset_mgr.drain_grouped_events();
+    let mut removed_ibl_from_texture = false;
     grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
         AssetEventKind::Created | AssetEventKind::Updated => {
             let jobs: Vec<(TextureId, TextureDesc)> = events
@@ -165,9 +166,7 @@ pub(crate) fn sync_gpu_assets(
                 ibl_manager.remove(*ibl_id);
                 hdr_vec.retain(|(_, existing_id)| existing_id != ibl_id);
             }
-            if !removed_ibl.is_empty() {
-                select_fallback_ibl(hdr_vec, bus);
-            }
+            removed_ibl_from_texture |= !removed_ibl.is_empty();
 
             rebuild_materials_using_texture(
                 asset_mgr,
@@ -222,7 +221,7 @@ pub(crate) fn sync_gpu_assets(
             }
         }
     });
-    if removed_ibl_asset {
+    if removed_ibl_asset || removed_ibl_from_texture {
         select_fallback_ibl(hdr_vec, bus);
     }
 
