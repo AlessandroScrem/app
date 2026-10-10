@@ -906,8 +906,7 @@ mod test_api {
 
 #[cfg(test)]
 mod lifecycle_tests {
-    use super::{Asset, AssetEventKind, AssetManager};
-    use crate::assets::asset_manager::ResourceId;
+    use super::{Asset, AssetEventKind, AssetManager, ResourceId};
 
     struct LifecycleAsset {
         key: String,
