@@ -3,7 +3,6 @@ use crate::assets::{IblAsset, MaterialAsset, MeshAsset, TextureAsset};
 use crate::editor::{
     EditorResourceStatsData, EditorService, EditorStatisticsData, ResourceStatsData,
 };
-use crate::engine::editor::EditorBackend;
 use crate::gpu::{GpuCache, HasGpuStats, IblManager, ShadowManager};
 use crate::renderer::SceneRenderer;
 
