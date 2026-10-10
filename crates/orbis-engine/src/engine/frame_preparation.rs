@@ -29,10 +29,11 @@ pub(crate) fn prepare_frame_data(
         texture_loader,
     );
     let config = gpu_surface.get_config();
-    let camera_uniform =
-        CameraUniform::from_camera_size(camera, (config.width, config.height));
-    let global_uniform =
-        GlobalUniform::from_global_id(globals, selected.map(|id| id.as_raw_u64()).unwrap_or(0));
+    let camera_uniform = CameraUniform::from_camera_size(camera, (config.width, config.height));
+    let global_uniform = GlobalUniform::from_global_id(
+        globals,
+        selected.map(|id| id.as_raw_u64()).unwrap_or(0),
+    );
 
     gpu_manager.update_buffer(
         &gpu_context.queue,
