@@ -251,8 +251,7 @@ impl MaterialPreviewRenderer {
             if preview.material_revision == revision
                 && preview.environment_revision == self.environment_revision
             {
-                if needs_publish_cached_preview(self.displayed_material, material) {
-                    self.displayed_material = Some(material);
+                if publish_cached_preview(&mut self.displayed_material, material) {
                     return Some(preview.target.texture(&gpu_context.device));
                 }
                 return None;
@@ -403,8 +402,13 @@ impl MaterialPreviewRenderer {
     }
 }
 
-fn needs_publish_cached_preview(displayed: Option<MaterialId>, requested: MaterialId) -> bool {
-    displayed != Some(requested)
+fn publish_cached_preview(displayed: &mut Option<MaterialId>, requested: MaterialId) -> bool {
+    if *displayed == Some(requested) {
+        return false;
+    }
+
+    *displayed = Some(requested);
+    true
 }
 
 fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgpu::Buffer {
@@ -416,20 +420,26 @@ fn create_preview_buffer(device: &wgpu::Device, size: usize, label: &str) -> wgp
     })
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::needs_publish_cached_preview;
+    use super::publish_cached_preview;
     use crate::assets::MaterialId;
 
     #[test]
     fn cached_preview_is_published_when_selection_changes() {
         let first = MaterialId::new();
         let second = MaterialId::new();
+        let mut displayed = None;
 
-        assert!(needs_publish_cached_preview(Some(first), second));
-        assert!(needs_publish_cached_preview(Some(second), first));
-        assert!(!needs_publish_cached_preview(Some(first), first));
-        assert!(needs_publish_cached_preview(None, first));
+        assert!(publish_cached_preview(&mut displayed, first));
+        assert_eq!(displayed, Some(first));
+        assert!(!publish_cached_preview(&mut displayed, first));
+
+        assert!(publish_cached_preview(&mut displayed, second));
+        assert_eq!(displayed, Some(second));
+
+        assert!(publish_cached_preview(&mut displayed, first));
+        assert_eq!(displayed, Some(first));
+        assert!(!publish_cached_preview(&mut displayed, first));
     }
 }
