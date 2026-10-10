@@ -325,5 +325,4 @@ impl Runtime {
             frame.present();
         }
     }
-
 }
