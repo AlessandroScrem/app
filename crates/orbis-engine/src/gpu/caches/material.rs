@@ -142,7 +142,7 @@ pub fn create_material_bindgroup_from_desc(
             texture_cache.get_or(desc.texture(MetallicRoughness), CacheTextureSlot::White),
             texture_cache.get_or(desc.texture(Emissive), CacheTextureSlot::White),
             texture_cache.get_or(desc.texture(Occlusion), CacheTextureSlot::White),
-            texture_cache.get_or(desc.texture(Transmission), CacheTextureSlot::Black),
+            texture_cache.get_or(desc.texture(Transmission), CacheTextureSlot::White),
             texture_cache.get_or(desc.texture(Volume), CacheTextureSlot::White),
         ])
     }
