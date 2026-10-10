@@ -1,6 +1,7 @@
 pub(crate) mod editor;
 pub(crate) mod engine;
 pub(crate) mod events;
+pub(crate) mod frame_preparation;
 pub(crate) mod gpu_sync;
 pub(crate) mod picking;
 pub(crate) mod readback;
