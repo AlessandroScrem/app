@@ -206,17 +206,19 @@ mod tests {
 
         pick.request(gpu, &texture, (15, 15));
 
-        loop {
+        let result = loop {
             GpuReadback::poll(gpu.device);
 
             match pick.poll() {
                 PollResult::Pending => {
                     std::thread::yield_now();
                 }
-                PollResult::Ready(_) => break,
-                PollResult::Idle => {}
+                PollResult::Ready(result) => break result,
+                PollResult::Idle => std::thread::yield_now(),
             }
-        }
+        };
+
+        assert!(result.is_some(), "expected a non-zero entity ID from the readback");
     }
 
     #[test]
@@ -238,10 +240,43 @@ mod tests {
 
         let zero_low = 0_u32.to_le_bytes();
         let zero_high = 0_u32.to_le_bytes();
-        assert_eq!(Select::decode(ReadbackResult {
-            bytes: [zero_low, zero_high].concat(),
-            size: (1, 1),
-        }), Vec::<u64>::new());
+        assert_eq!(
+            Select::decode(ReadbackResult {
+                bytes: [zero_low, zero_high].concat(),
+                size: (1, 1),
+            }),
+            Vec::<u64>::new()
+        );
+    }
+
+    #[test]
+    fn rectangular_selection_decodes_multiple_ids_and_ignores_zero_and_trailing_bytes() {
+        let first = (0x0000_0002_u64 << 32) | 0x0000_0003_u64;
+        let second = (0x1234_5678_u64 << 32) | 0x9abc_def0_u64;
+
+        let encode = |id: u64| {
+            [
+                (id as u32).to_le_bytes(),
+                ((id >> 32) as u32).to_le_bytes(),
+            ]
+            .concat()
+        };
+
+        let mut bytes = encode(first);
+        bytes.extend_from_slice(&encode(0));
+        bytes.extend_from_slice(&encode(second));
+        bytes.extend_from_slice(&encode(first));
+        bytes.extend_from_slice(&[0xaa, 0xbb, 0xcc]); // incomplete trailing pixel
+
+        let mut actual = Select::decode(ReadbackResult {
+            bytes,
+            size: (5, 1),
+        });
+        actual.sort_unstable();
+
+        let mut expected = vec![first, second];
+        expected.sort_unstable();
+        assert_eq!(actual, expected);
     }
 
     #[test]
