@@ -1,4 +1,5 @@
 use crate::app::application::AppRenderData;
+use crate::ecs::entity_id::EntityRawU64;
 use crate::engine::gpu_sync::TextureLoadService;
 use crate::gpu::{BufferKind, GpuCache, GpuContext, GpuManager, GpuSurface};
 use crate::renderer::framebuilder::{FrameBuilder, FrameTasks};
