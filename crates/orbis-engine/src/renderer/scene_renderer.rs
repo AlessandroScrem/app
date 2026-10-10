@@ -35,17 +35,21 @@ impl RenderContext<'_> {
     }
 
     fn assert_framebuffer_access(&self, kind: FramebufferKind) {
-        let resource = match kind {
-            FramebufferKind::Hdr => ResourceId::HDR,
-            FramebufferKind::OpaqueWithMips => ResourceId::OPAQUE,
-            FramebufferKind::EntityId => ResourceId::ENTITY,
-            FramebufferKind::Depth => ResourceId::DEPTH,
-        };
+        let resource = Self::resource_for_framebuffer(kind);
         assert!(
             self.active_pass_reads.contains(&resource)
                 || self.active_pass_writes.contains(&resource),
             "render pass accessed undeclared framebuffer resource {resource}"
         );
+    }
+
+    fn resource_for_framebuffer(kind: FramebufferKind) -> ResourceId {
+        match kind {
+            FramebufferKind::Hdr => ResourceId::HDR,
+            FramebufferKind::OpaqueWithMips => ResourceId::OPAQUE,
+            FramebufferKind::EntityId => ResourceId::ENTITY,
+            FramebufferKind::Depth => ResourceId::DEPTH,
+        }
     }
 
     pub(crate) fn framebuffer_view(&self, kind: FramebufferKind) -> &wgpu::TextureView {
@@ -224,5 +228,25 @@ mod tests {
                 "OutlinePass",
             ]
         );
+    }
+}
+
+
+#[cfg(test)]
+mod render_context_tests {
+    use super::*;
+
+    #[test]
+    fn framebuffer_kinds_map_to_their_graph_resources() {
+        assert_eq!(RenderContext::resource_for_framebuffer(FramebufferKind::Hdr), ResourceId::HDR);
+        assert_eq!(
+            RenderContext::resource_for_framebuffer(FramebufferKind::OpaqueWithMips),
+            ResourceId::OPAQUE
+        );
+        assert_eq!(
+            RenderContext::resource_for_framebuffer(FramebufferKind::EntityId),
+            ResourceId::ENTITY
+        );
+        assert_eq!(RenderContext::resource_for_framebuffer(FramebufferKind::Depth), ResourceId::DEPTH);
     }
 }
