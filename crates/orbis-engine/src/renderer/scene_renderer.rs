@@ -2,6 +2,7 @@ use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{GpuCache, GpuContext, GpuManager, ShadowManager};
 use crate::prelude::{debug, info};
 use crate::renderer::framebuilder::{DrawStats, FrameData};
+use crate::renderer::rendergraph::RenderGraph;
 use crate::renderer::renderpass::*;
 use wgpu::Device;
 
@@ -30,7 +31,7 @@ pub struct FrameStats {
 }
 
 pub struct SceneRenderer {
-    default_pass: Vec<RenderPassEnum>,
+    render_graph: RenderGraph,
     stats: FrameStats,
 }
 
@@ -41,21 +42,20 @@ impl SceneRenderer {
 
         debug!("Renderer initialized in {} ms", timer.elapsed().as_millis());
 
-        let default_pass = vec![
-            RenderPassEnum::Shadow(ShadowPass {}),
-            RenderPassEnum::Mesh(MeshPass::opaque()),
-            RenderPassEnum::Skybox(SkyboxPass {}),
-            RenderPassEnum::BuildMipmaps(BuildMipmapsPass {}),
-            RenderPassEnum::Transmission(MeshPass::transmission()),
-            RenderPassEnum::LightsIcon(LightsIconPass {}),
-            RenderPassEnum::Axis(AxisPass {}),
-            RenderPassEnum::Lines(LinesPass {}),
-            RenderPassEnum::Linearize(LinearizePass {}),
-            RenderPassEnum::Outline(OutlinePass {}),
-        ];
+        let mut render_graph = RenderGraph::new();
+        render_graph.add_pass(RenderPassEnum::Shadow(ShadowPass {}));
+        render_graph.add_pass(RenderPassEnum::Mesh(MeshPass::opaque()));
+        render_graph.add_pass(RenderPassEnum::Skybox(SkyboxPass {}));
+        render_graph.add_pass(RenderPassEnum::BuildMipmaps(BuildMipmapsPass {}));
+        render_graph.add_pass(RenderPassEnum::Transmission(MeshPass::transmission()));
+        render_graph.add_pass(RenderPassEnum::LightsIcon(LightsIconPass {}));
+        render_graph.add_pass(RenderPassEnum::Axis(AxisPass {}));
+        render_graph.add_pass(RenderPassEnum::Lines(LinesPass {}));
+        render_graph.add_pass(RenderPassEnum::Linearize(LinearizePass {}));
+        render_graph.add_pass(RenderPassEnum::Outline(OutlinePass {}));
 
         Self {
-            default_pass,
+            render_graph,
             stats: FrameStats::default(),
         }
     }
@@ -88,13 +88,41 @@ impl SceneRenderer {
             target,
         };
 
-        for pass in &mut self.default_pass {
-            pass.execute(encoder, &mut ctx, &frame);
+        if let Err(error) = self.render_graph.execute(encoder, &mut ctx, frame) {
+            log::error!("Render graph compilation failed; frame rendering skipped: {error}");
+            return;
         }
 
         self.stats = FrameStats {
             opaque: frame.opaque_stats,
             transmission: frame.transmission_stats,
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SceneRenderer;
+
+    #[test]
+    fn default_render_graph_compiles_in_pass_order() {
+        let renderer = SceneRenderer::new();
+        let order = renderer.render_graph.compile_names().unwrap();
+
+        assert_eq!(
+            order,
+            vec![
+                "ShadowPass Opaque",
+                "MeshPass Opaque",
+                "SkyboxPass",
+                "BuildMipmapsPass",
+                "MeshPass Transmission",
+                "LightPass",
+                "AxisPass",
+                "BoundingboxPass",
+                "LinearizePass",
+                "OutlinePass",
+            ]
+        );
     }
 }

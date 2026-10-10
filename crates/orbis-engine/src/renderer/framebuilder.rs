@@ -10,6 +10,8 @@ use crate::assets::{
 };
 
 use crate::globals::Globals;
+use crate::gpu::GpuCache;
+use crate::engine::gpu_sync::TextureLoadService;
 
 use crate::prelude::trace;
 use crate::renderer::line_builder::{
@@ -96,11 +98,11 @@ pub struct FrameBuilder {
 }
 
 impl FrameBuilder {
-    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals) -> Self {
+    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals, gpu_cache: &GpuCache, texture_loader: &TextureLoadService) -> Self {
         let mut frame = FrameBuilder::default();
 
         // create batches & instances for meshes
-        Self::prepare_meshes(&objects.meshes, assets, &mut frame);
+        Self::prepare_meshes(&objects.meshes, assets, gpu_cache, texture_loader, &mut frame);
 
         // create uniform for lights
         Self::prepare_light_uniform(&objects.lights, &mut frame, globals.light_enable);
@@ -156,15 +158,32 @@ impl FrameBuilder {
     fn prepare_meshes(
         meshes: &[MeshRenderObject],
         assets: &AssetManager,
+        gpu_cache: &GpuCache,
+        texture_loader: &TextureLoadService,
         frame: &mut FrameBuilder,
     ) {
         let mut opaque: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
         let mut transmission: HashMap<BatchKey, Vec<VertexInstance>> = HashMap::new();
 
         for object in meshes {
+            // Publish a whole object only when its mesh and every submesh material
+            // are ready. Failed textures count as resolved because their material
+            // bind groups use the built-in white fallback.
+            if gpu_cache.mesh.get(&object.mesh).is_none() {
+                continue;
+            }
             let Some(mesh) = assets.get::<MeshAsset>(object.mesh) else {
                 continue;
             };
+            let materials_ready = mesh.desc.submeshes.iter().all(|submesh| {
+                assets.get::<MaterialAsset>(submesh.material).is_some_and(|material| {
+                    gpu_cache.material.get(&submesh.material).is_some()
+                        && texture_loader.is_material_ready(&material.desc)
+                })
+            });
+            if !materials_ready {
+                continue;
+            }
 
             for submesh in &mesh.desc.submeshes {
                 let Some(material) = assets.get::<MaterialAsset>(submesh.material) else {
@@ -205,7 +224,17 @@ impl FrameBuilder {
         batches: &mut Vec<InstanceBatch>,
         instances: &mut Vec<VertexInstance>,
     ) {
-        for (key, batch_instances) in map {
+        let mut ordered = map.into_iter().collect::<Vec<_>>();
+        ordered.sort_by_key(|(key, _)| {
+            (
+                key.mesh.raw(),
+                key.material.raw(),
+                key.index_start,
+                key.index_end,
+            )
+        });
+
+        for (key, batch_instances) in ordered {
             let start = instances.len() as u32;
             let count = batch_instances.len() as u32;
 
@@ -241,5 +270,48 @@ impl FrameBuilder {
                 lights_uniform.count = (i + 1) as u32;
                 lights_uniform.lights[i] = LightUniform::from(light_object);
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BatchKey, FrameBuilder, InstanceBatch};
+    use crate::assets::{MaterialId, MeshId, VertexInstance};
+    use std::collections::HashMap;
+
+    #[test]
+    fn batches_are_sorted_deterministically() {
+        let mesh_a = MeshId::new();
+        let mesh_b = MeshId::new();
+        let material = MaterialId::new();
+        let mut map = HashMap::new();
+
+        map.insert(
+            BatchKey {
+                mesh: mesh_b,
+                material,
+                index_start: 0,
+                index_end: 3,
+            },
+            Vec::<VertexInstance>::new(),
+        );
+        map.insert(
+            BatchKey {
+                mesh: mesh_a,
+                material,
+                index_start: 0,
+                index_end: 3,
+            },
+            Vec::<VertexInstance>::new(),
+        );
+
+        let mut batches: Vec<InstanceBatch> = Vec::new();
+        let mut instances = Vec::new();
+        FrameBuilder::flush_batches(map, &mut batches, &mut instances);
+
+        assert_eq!(
+            batches.iter().map(|batch| batch.mesh.raw()).collect::<Vec<_>>(),
+            vec![mesh_a.raw(), mesh_b.raw()]
+        );
     }
 }

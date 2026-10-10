@@ -8,7 +8,7 @@ impl RenderPass for AxisPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        &[ResourceId::HDR]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDR]

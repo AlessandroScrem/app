@@ -1,4 +1,5 @@
 use super::RuntimeEvent;
+use super::gpu_sync::TextureLoadService;
 use crate::EntityRawU64;
 use crate::app::Application;
 use crate::app::application::AppRenderData;
@@ -7,17 +8,17 @@ use crate::app::domain::events::DomainEvent::{Camera, Selection};
 use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::asset_manager::ResourceStats;
-use crate::assets::{IblAsset, IblId, TextureId};
+use crate::assets::{IblId, TextureId};
 use crate::editor::{
     EditorCommand, EditorConnection, EditorResourceStatsData, EditorStatisticsData,
     ResourceStatsData, SelectionCommand,
 };
-use crate::engine::editor::EditorService;
+use crate::engine::editor::{EditorBackend, EditorService};
 use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BindgroupLayoutKind, BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache,
+    BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache,
     GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
@@ -50,6 +51,7 @@ pub struct Runtime {
     pub hdr_vec: Vec<(TextureId, IblId)>,
     pub wait_for_exit: bool,
     pub editor_service: EditorService,
+    texture_loader: TextureLoadService,
     last_ui_update: std::time::Instant,
     statistics_dt: f32,
 }
@@ -134,6 +136,7 @@ impl Runtime {
             wait_for_exit: false,
             readback: ReadbackManager::default(),
             editor_service,
+            texture_loader: TextureLoadService::new(),
             last_ui_update: std::time::Instant::now(),
             statistics_dt: 1.0 / 60.0,
         }
@@ -233,114 +236,22 @@ impl Runtime {
     }
 
     pub fn sync_gpu_assets(&mut self, asset_mgr: &mut AssetManager, bus: &mut EventBus) {
-        use crate::assets::asset_manager::AssetEventKind;
-        use crate::assets::material_asset::MaterialAsset;
-        use crate::assets::mesh_asset::MeshAsset;
-        use crate::assets::texture_asset::{TextureAsset, TextureDesc};
-        use crate::assets::texture_upload::load_cpu_textures_par;
-        use crate::gpu::texture::GpuTextureBuilder;
-        use crate::gpu::{GpuMaterial, GpuMesh};
-        let Self {
-            gpu_context,
-            ibl_manager,
-            gpu_manager,
-            ..
-        } = self;
-        let texture_cache = &mut self.gpu_cache.textures;
-        let material_cache = &mut self.gpu_cache.material;
-        let mesh_cache = &mut self.gpu_cache.mesh;
-        let grouped = asset_mgr.drain_grouped_events();
-        grouped.process_type::<TextureAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => {
-                let jobs: Vec<(TextureId, TextureDesc)> = events
-                    .iter()
-                    .filter_map(|ev| {
-                        asset_mgr
-                            .get::<TextureAsset>(ev.id)
-                            .map(|a| (ev.id, a.desc.clone()))
-                    })
-                    .collect();
-                for (id, data) in load_cpu_textures_par(jobs) {
-                    let texture = GpuTextureBuilder::from_cpu(data).build(&gpu_context.as_ref());
-                    texture_cache.insert(id, texture);
-                    let texture = texture_cache
-                        .get(id)
-                        .expect("inserted GPU texture must be available");
-                    self.imgui_render.registry.add(
-                        &mut self.imgui_render.renderer,
-                        &gpu_context.device,
-                        id,
-                        texture,
-                    );
-                }
-            }
-            AssetEventKind::Removed => events.iter().for_each(|ev| {
-                texture_cache.remove(ev.id);
-                self.imgui_render
-                    .registry
-                    .remove(&mut self.imgui_render.renderer, ev.id);
-            }),
-            _ => {}
-        });
-        grouped.process_type::<IblAsset, _>(|kind, events| {
-            if let AssetEventKind::Created = kind {
-                events
-                    .iter()
-                    .filter_map(|ev| asset_mgr.get::<IblAsset>(ev.id).map(|a| (ev.id, a)))
-                    .for_each(|(id, asset)| {
-                        if let Some(hdr) = texture_cache.get(asset.hrd_id) {
-                            ibl_manager.insert(id, ibl_manager.create(hdr, &gpu_context.as_ref()));
-                            self.hdr_vec.push((asset.hrd_id, id));
-                            bus.send_domain(Selection(SelectIbl(id)));
-                            bus.send_runtime(RuntimeEvent::UpdateIblMaps(id));
-                        }
-                    });
-            }
-        });
-        grouped.process_type::<MaterialAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => events
-                .iter()
-                .filter_map(|ev| asset_mgr.get::<MaterialAsset>(ev.id).map(|a| (ev.id, a)))
-                .for_each(|(id, asset)| {
-                    let layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
-                    material_cache.insert(
-                        id,
-                        GpuMaterial::new(&texture_cache, &asset.desc, &gpu_context.device, layout),
-                    );
-                }),
-            AssetEventKind::Updated => events
-                .iter()
-                .filter_map(|ev| {
-                    asset_mgr
-                        .get::<MaterialAsset>(ev.id)
-                        .map(|a| (ev.id, &a.desc))
-                })
-                .for_each(|(id, desc)| {
-                    material_cache.update(&id, |m| m.update_uniform(&gpu_context.queue, desc))
-                }),
-            AssetEventKind::Removed => events.iter().for_each(|ev| material_cache.remove(ev.id)),
-            _ => {}
-        });
-        grouped.process_type::<MeshAsset, _>(|kind, events| match kind {
-            AssetEventKind::Created => events
-                .iter()
-                .filter_map(|ev| asset_mgr.get::<MeshAsset>(ev.id).map(|a| (ev.id, a)))
-                .for_each(|(id, asset)| {
-                    mesh_cache.insert(
-                        id,
-                        GpuMesh::new(
-                            &gpu_context.device,
-                            &asset.desc.vertices,
-                            &asset.desc.indices,
-                        ),
-                    )
-                }),
-            AssetEventKind::Removed => events.iter().for_each(|ev| mesh_cache.remove(ev.id)),
-            _ => {}
-        });
+        super::gpu_sync::sync_gpu_assets(
+            asset_mgr,
+            bus,
+            &self.gpu_context,
+            &mut self.gpu_cache,
+            &mut self.texture_loader,
+            &mut self.gpu_manager,
+            &mut self.ibl_manager,
+            &mut self.imgui_render,
+            &mut self.hdr_vec,
+            &self.shadow_manager,
+            &mut self.material_preview_renderer,
+        );
     }
 
-    pub fn update_ui<A: Application>(&mut self, app: &mut A, bus: &mut EventBus) {
+    pub fn update_ui<A: Application + EditorBackend>(&mut self, app: &mut A, bus: &mut EventBus) {
         let now = std::time::Instant::now();
         let dt = now
             .duration_since(self.last_ui_update)
@@ -431,7 +342,7 @@ impl Runtime {
             globals,
             selected,
         } = render_data;
-        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals);
+        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals, &self.gpu_cache, &self.texture_loader);
         let camera_uniform = CameraUniform::from_camera_size(
             camera,
             (
@@ -484,3 +395,4 @@ impl Runtime {
         }
     }
 }
+

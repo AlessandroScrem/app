@@ -83,6 +83,9 @@ mod tests {
     use super::*;
     use crate::gpu::{GpuTextureBuilder, GpuTextureUsage};
     use crate::test_utils;
+    use std::sync::Mutex;
+
+    static IMGUI_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn create_renderer(
         context: &mut imgui::Context,
@@ -101,7 +104,35 @@ mod tests {
     }
 
     #[test]
+    fn replacing_texture_preserves_registry_id() {
+        let _guard = IMGUI_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let gpu = test_utils::get_gpu_context_test();
+        let mut context = imgui::Context::create();
+        let mut renderer = create_renderer(&mut context, gpu.device, gpu.queue);
+        let mut registry = ImGuiTextureRegistry::new();
+        let resource_id = ResourceId::new();
+        let first = GpuTextureBuilder::from_empty(1, 1)
+            .usage(GpuTextureUsage::RenderTarget)
+            .build(&gpu);
+        let second = GpuTextureBuilder::from_empty(2, 2)
+            .usage(GpuTextureUsage::RenderTarget)
+            .build(&gpu);
+
+        let first_id = registry.add(&mut renderer, gpu.device, resource_id, &first);
+        let second_id = registry.add(&mut renderer, gpu.device, resource_id, &second);
+
+        assert_eq!(second_id, first_id);
+        assert_eq!(registry.get(resource_id), Some(first_id));
+        assert_eq!(registry.remove(&mut renderer, resource_id), Some(first_id));
+    }
+
+    #[test]
     fn remove_returns_registered_texture_id() {
+        let _guard = IMGUI_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let gpu = test_utils::get_gpu_context_test();
         let mut context = imgui::Context::create();
         let mut renderer = create_renderer(&mut context, gpu.device, gpu.queue);

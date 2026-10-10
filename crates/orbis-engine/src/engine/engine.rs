@@ -61,23 +61,41 @@ impl<A: RuntimeApp + Default> Engine<A> {
         self.runtime = Some(Runtime::new(window));
     }
 
+    /// Runs one frame in this order:
+    /// 1. Collect input and process runtime events.
+    /// 2. If minimized, stop before application/GPU work.
+    /// 3. Update application state, synchronize GPU assets, update UI, and render.
+    ///
+    /// Window-system APIs remain in `winit_bridge`; this method only coordinates
+    /// the engine and runtime layers.
     pub(crate) fn tick(&mut self, minimized: bool) -> Option<String> {
         let Self { app, bus, runtime } = self;
         let Some(runtime) = runtime else {
             return None;
         };
 
-        runtime.handle_input(bus);
-        let window_title = runtime.handle_runtime_events(app, bus);
-
+        let window_title = Self::process_frame_events(app, bus, runtime);
         if minimized {
             return window_title;
         }
 
+        Self::update_and_render_frame(app, bus, runtime);
+        window_title
+    }
+
+    fn process_frame_events(
+        app: &mut A,
+        bus: &mut EventBus,
+        runtime: &mut Runtime,
+    ) -> Option<String> {
+        runtime.handle_input(bus);
+        runtime.handle_runtime_events(app, bus)
+    }
+
+    fn update_and_render_frame(app: &mut A, bus: &mut EventBus, runtime: &mut Runtime) {
         app.on_update(bus);
         runtime.sync_gpu_assets(app.asset_mgr_mut(), bus);
         runtime.update_ui(app, bus);
         runtime.render(app);
-        window_title
     }
 }

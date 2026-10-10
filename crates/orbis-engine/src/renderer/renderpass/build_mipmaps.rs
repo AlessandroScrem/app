@@ -11,7 +11,7 @@ impl RenderPass for BuildMipmapsPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        &[ResourceId::HDR]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::OPAQUE]

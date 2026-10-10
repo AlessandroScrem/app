@@ -46,6 +46,10 @@ impl FramebufferCache {
         width: u32,
         height: u32,
     ) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
         let framebuffers: Vec<Framebuffer> = FramebufferKind::iter()
             .map(|kind| Self::create(gpu, layouts, kind, width, height))
             .collect();

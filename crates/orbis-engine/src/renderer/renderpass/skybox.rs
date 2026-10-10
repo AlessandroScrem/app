@@ -8,7 +8,7 @@ impl RenderPass for SkyboxPass {
     }
 
     fn reads(&self) -> &[ResourceId] {
-        &[]
+        &[ResourceId::HDR, ResourceId::DEPTH]
     }
     fn writes(&self) -> &[ResourceId] {
         &[ResourceId::HDR, ResourceId::DEPTH]

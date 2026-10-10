@@ -20,7 +20,7 @@ impl Size for wgpu::Texture {
         let extent = self.size();
         let format = self.format();
 
-        (extent.height
+        (extent.width
             * extent.height
             * extent.depth_or_array_layers
             * format.target_pixel_byte_cost().unwrap_or(4)) as usize
@@ -88,10 +88,10 @@ impl IblManager {
     }
 
     pub fn insert(&mut self, id: IblId, gpu_ibl: GpuIbl) {
-        if !self.map.contains_key(&id) {
-            self.stats.add(gpu_ibl.estimated_size());
+        if let Some(previous) = self.map.insert(id, gpu_ibl) {
+            self.stats.remove(previous.estimated_size());
         }
-        self.map.insert(id, gpu_ibl);
+        self.stats.add(self.map[&id].estimated_size());
     }
 
     pub fn get(&self, id: &IblId) -> Option<&GpuIbl> {

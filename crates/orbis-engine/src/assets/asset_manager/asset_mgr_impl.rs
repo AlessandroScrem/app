@@ -134,19 +134,6 @@ impl AssetManager {
         AssetManager::default()
     }
 
-    fn storage<T: Asset>(&self) -> &AssetStorage<T> {
-        let id = TypeId::of::<T>();
-
-        &self
-            .storages
-            .get(&id)
-            .unwrap()
-            .as_any()
-            .downcast_ref::<TypedStorage<T>>()
-            .unwrap()
-            .inner
-    }
-
     fn storage_mut<T: Asset>(&mut self) -> &mut AssetStorage<T> {
         let id = TypeId::of::<T>();
 
@@ -212,30 +199,85 @@ impl AssetManager {
         id
     }
 
-    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> {
-        self.storage::<T>().iter()
+    pub fn iter<T: Asset>(&self) -> impl Iterator<Item = (ResourceId, &T)> + '_ {
+        self.storages
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| storage.as_any().downcast_ref::<TypedStorage<T>>())
+            .into_iter()
+            .flat_map(|storage| storage.inner.iter())
     }
 
     pub fn get<T: Asset>(&self, id: ResourceId) -> Option<&T> {
-        self.storage::<T>().get_by_id(id)
+        self.storages
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| storage.as_any().downcast_ref::<TypedStorage<T>>())
+            .and_then(|storage| storage.inner.get_by_id(id))
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
-        if self.storage::<T>().get_by_id(id).is_none() {
+        let Some((previous_size, previous_dependencies, previous_key)) = self
+            .get::<T>(id)
+            .map(|asset| {
+                (
+                    asset.estimated_size(),
+                    asset.dependencies(),
+                    asset.key().clone(),
+                )
+            })
+        else {
             return;
-        }
+        };
 
         let handle = AssetHandle::<T>::new(id);
-
-        if let Some(existing) = self.storage_mut::<T>().get_mut(handle) {
+        let (updated_size, updated_dependencies, updated_key) = {
+            let Some(existing) = self.storage_mut::<T>().get_mut(handle) else {
+                return;
+            };
             f(existing);
+            (
+                existing.estimated_size(),
+                existing.dependencies(),
+                existing.key().clone(),
+            )
+        };
 
-            self.events.push_back(AssetEvent {
-                id,
-                type_id: TypeId::of::<T>(),
-                kind: AssetEventKind::Updated,
-            });
+        if previous_key != updated_key {
+            self.key_index.remove(id);
+            match self.key_index.get::<T>(&updated_key) {
+                Some(existing_id) if existing_id != id => {
+                    log::warn!(
+                        "Asset update produced a duplicate key for resource {}; key remains indexed to resource {}",
+                        id.raw(),
+                        existing_id.raw()
+                    );
+                }
+                _ => self.key_index.insert::<T>(updated_key, id),
+            }
         }
+
+        if previous_size != updated_size {
+            let stats = self.stats_mut::<T>();
+            stats.estimated_bytes = stats
+                .estimated_bytes
+                .saturating_sub(previous_size)
+                .saturating_add(updated_size);
+        }
+
+        if previous_dependencies != updated_dependencies {
+            self.graph.replace_dependencies(id, &updated_dependencies);
+            for dependency in &updated_dependencies {
+                self.retain(*dependency);
+            }
+            for dependency in previous_dependencies {
+                self.release(dependency);
+            }
+        }
+
+        self.events.push_back(AssetEvent {
+            id,
+            type_id: TypeId::of::<T>(),
+            kind: AssetEventKind::Updated,
+        });
     }
 
     #[allow(dead_code)]
@@ -443,6 +485,81 @@ mod tests {
 
         // nessun crash
         assert!(mgr.ref_count.get(&id).is_none());
+    }
+
+    #[test]
+    fn removing_owner_releases_its_asset_dependencies() {
+        #[derive(Clone)]
+        struct Owner {
+            key: String,
+            dependency: ResourceId,
+        }
+
+        impl Asset for Owner {
+            type Key = String;
+
+            fn key(&self) -> &Self::Key {
+                &self.key
+            }
+
+            fn dependencies(&self) -> Vec<ResourceId> {
+                vec![self.dependency]
+            }
+        }
+
+        let mut manager = AssetManager::new();
+        let dependency = manager.add(Texture { name: "dependency".into() });
+        let owner = manager.add(Owner {
+            key: "owner".into(),
+            dependency,
+        });
+
+        assert!(manager.get::<Texture>(dependency).is_some());
+        assert_eq!(manager.ref_count.get(&dependency), Some(&1));
+
+        manager.remove(owner);
+
+        assert!(manager.get::<Owner>(owner).is_none());
+        assert!(manager.get::<Texture>(dependency).is_none());
+    }
+
+    #[test]
+    fn updating_asset_dependencies_releases_old_and_retains_new() {
+        #[derive(Clone)]
+        struct Owner {
+            key: String,
+            dependency: ResourceId,
+        }
+
+        impl Asset for Owner {
+            type Key = String;
+
+            fn key(&self) -> &Self::Key {
+                &self.key
+            }
+
+            fn dependencies(&self) -> Vec<ResourceId> {
+                vec![self.dependency]
+            }
+        }
+
+        let mut manager = AssetManager::new();
+        let first = manager.add(Texture { name: "first".into() });
+        let second = manager.add(Texture { name: "second".into() });
+        let owner = manager.add(Owner {
+            key: "owner".into(),
+            dependency: first,
+        });
+
+        manager.update::<Owner>(owner, |asset| asset.dependency = second);
+
+        assert!(manager.get::<Texture>(first).is_none());
+        assert!(manager.get::<Texture>(second).is_some());
+        assert_eq!(manager.ref_count.get(&second), Some(&1));
+        assert_eq!(manager.graph.dependencies_of(owner), vec![second]);
+
+        manager.remove(owner);
+        assert!(manager.get::<Texture>(second).is_none());
     }
 
     #[test]
@@ -783,5 +900,93 @@ mod test_api {
 
         // mesh dedup
         assert_eq!(mesh1, mesh2);
+    }
+}
+
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::{Asset, AssetEventKind, AssetManager, ResourceId};
+
+    struct LifecycleAsset {
+        key: String,
+        value: u32,
+    }
+
+    impl Asset for LifecycleAsset {
+        type Key = String;
+
+        fn key(&self) -> &Self::Key {
+            &self.key
+        }
+
+        fn estimated_size(&self) -> usize {
+            self.value as usize
+        }
+    }
+
+    #[test]
+    fn updating_asset_key_keeps_key_index_consistent() {
+        let mut manager = AssetManager::new();
+        let original_key = "original".to_owned();
+        let updated_key = "updated".to_owned();
+        let id = manager.add(LifecycleAsset {
+            key: original_key.clone(),
+            value: 1,
+        });
+
+        manager.update::<LifecycleAsset>(id, |asset| asset.key = updated_key.clone());
+
+        assert_eq!(manager.key_index.get::<LifecycleAsset>(&original_key), None);
+        assert_eq!(manager.key_index.get::<LifecycleAsset>(&updated_key), Some(id));
+    }
+
+    #[test]
+    fn missing_asset_type_returns_empty_results() {
+        let mut manager = AssetManager::new();
+
+        assert!(manager.get::<LifecycleAsset>(ResourceId::new()).is_none());
+        assert_eq!(manager.iter::<LifecycleAsset>().count(), 0);
+
+        manager.update::<LifecycleAsset>(ResourceId::new(), |_| unreachable!());
+
+        assert_eq!(manager.iter::<LifecycleAsset>().count(), 0);
+    }
+
+    #[test]
+    fn create_update_remove_and_stale_id_lifecycle() {
+        let mut manager = AssetManager::new();
+        let key = "lifecycle".to_owned();
+
+        let original_id = manager.add(LifecycleAsset {
+            key: key.clone(),
+            value: 1,
+        });
+        assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 1);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 1);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 1);
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Created);
+
+        manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 2);
+        assert_eq!(manager.get::<LifecycleAsset>(original_id).unwrap().value, 2);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 2);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 1);
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Updated);
+
+        manager.remove(original_id);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.events.back().unwrap().kind, AssetEventKind::Removed);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().estimated_bytes, 0);
+        assert_eq!(manager.get_stats::<LifecycleAsset>().count, 0);
+
+        let event_count_after_remove = manager.events.len();
+        manager.update::<LifecycleAsset>(original_id, |asset| asset.value = 3);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.events.len(), event_count_after_remove);
+
+        let replacement_id = manager.add(LifecycleAsset { key, value: 4 });
+        assert_ne!(replacement_id, original_id);
+        assert!(manager.get::<LifecycleAsset>(original_id).is_none());
+        assert_eq!(manager.get::<LifecycleAsset>(replacement_id).unwrap().value, 4);
     }
 }
