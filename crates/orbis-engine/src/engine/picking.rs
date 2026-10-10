@@ -9,7 +9,7 @@ use crate::gpu::context::GpuContextRef;
 use crate::input::Input;
 use legion::Entity;
 
-/// Owns asynchronous GPU readback and translates picking results into app/editor events.
+/// Translates picking results into app/editor events and routes picking requests.
 #[derive(Default)]
 pub(crate) struct PickingService;
 
