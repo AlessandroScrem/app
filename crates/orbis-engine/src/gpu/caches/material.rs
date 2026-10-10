@@ -201,7 +201,6 @@ pub fn create_material_uniform_from_desc(
     uniform_buffer
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{GpuMaterial, GpuMaterialCache};
