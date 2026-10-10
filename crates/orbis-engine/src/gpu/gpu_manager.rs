@@ -232,7 +232,6 @@ fn create_skybox_blur_bindgroup(
     })
 }
 
-
 #[cfg(test)]
 mod resize_tests {
     use super::*;
@@ -246,11 +245,15 @@ mod resize_tests {
         manager.resize_frame(&gpu, 0, 0);
 
         assert_eq!(
-            manager.get_framebuffer_texture(FramebufferKind::Hdr).width(),
+            manager
+                .get_framebuffer_texture(FramebufferKind::Hdr)
+                .width(),
             4
         );
         assert_eq!(
-            manager.get_framebuffer_texture(FramebufferKind::Hdr).height(),
+            manager
+                .get_framebuffer_texture(FramebufferKind::Hdr)
+                .height(),
             4
         );
     }

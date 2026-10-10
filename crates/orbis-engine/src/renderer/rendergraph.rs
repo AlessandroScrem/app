@@ -139,10 +139,7 @@ impl RenderGraph {
     // -------------------------
     // Build dependencies (with resource info)
     // -------------------------
-    fn build_dependencies(
-        &self,
-        resources: &HashMap<ResourceId, ResourceNode>,
-    ) -> Vec<Vec<Edge>> {
+    fn build_dependencies(&self, resources: &HashMap<ResourceId, ResourceNode>) -> Vec<Vec<Edge>> {
         let mut deps = vec![Vec::new(); self.passes.len()];
 
         for res in resources.values() {
@@ -189,8 +186,12 @@ impl RenderGraph {
                     .cmp(&right.resource.to_string())
                     .then_with(|| left.to.cmp(&right.to))
                     .then_with(|| match (left.kind, right.kind) {
-                        (EdgeKind::ReadAfterWrite, EdgeKind::WriterOrder) => std::cmp::Ordering::Less,
-                        (EdgeKind::WriterOrder, EdgeKind::ReadAfterWrite) => std::cmp::Ordering::Greater,
+                        (EdgeKind::ReadAfterWrite, EdgeKind::WriterOrder) => {
+                            std::cmp::Ordering::Less
+                        }
+                        (EdgeKind::WriterOrder, EdgeKind::ReadAfterWrite) => {
+                            std::cmp::Ordering::Greater
+                        }
                         _ => std::cmp::Ordering::Equal,
                     })
             });
@@ -207,7 +208,7 @@ impl RenderGraph {
     // Topological sort (DFS)
     // -------------------------
     pub fn compile(&self) -> Result<Vec<usize>, String> {
-        let (passes, resources) = self.build_graph();
+        let (_passes, resources) = self.build_graph();
 
         if let Some(resource_name) = resources
             .values()
@@ -215,7 +216,9 @@ impl RenderGraph {
             .map(|resource| resource.id.to_string())
             .min()
         {
-            return Err(format!("Resource {resource_name} is read but never written"));
+            return Err(format!(
+                "Resource {resource_name} is read but never written"
+            ));
         }
 
         let deps = self.build_dependencies(&resources);
@@ -235,27 +238,22 @@ impl RenderGraph {
             match state[i] {
                 VisitState::Visited => return Ok(()),
                 VisitState::Visiting => {
-                    let cycle_start = stack
-                        .iter()
-                        .position(|edge| edge.from == i)
-                        .unwrap_or(0);
+                    let cycle_start = stack.iter().position(|edge| edge.from == i).unwrap_or(0);
                     let cycle_lines = stack[cycle_start..]
                         .iter()
-                        .map(|edge| {
-                            match edge.kind {
-                                EdgeKind::ReadAfterWrite => format!(
-                                    "{} reads {} -> depends on {}",
-                                    passes[edge.from].name(),
-                                    edge.resource,
-                                    passes[edge.to].name()
-                                ),
-                                EdgeKind::WriterOrder => format!(
-                                    "{} writes {} after {}",
-                                    passes[edge.from].name(),
-                                    edge.resource,
-                                    passes[edge.to].name()
-                                ),
-                            }
+                        .map(|edge| match edge.kind {
+                            EdgeKind::ReadAfterWrite => format!(
+                                "{} reads {} -> depends on {}",
+                                passes[edge.from].name(),
+                                edge.resource,
+                                passes[edge.to].name()
+                            ),
+                            EdgeKind::WriterOrder => format!(
+                                "{} writes {} after {}",
+                                passes[edge.from].name(),
+                                edge.resource,
+                                passes[edge.to].name()
+                            ),
                         })
                         .collect::<Vec<_>>();
 
@@ -405,7 +403,10 @@ mod tests {
         let writer = order.iter().position(|name| *name == "Writer").unwrap();
         let reader = order.iter().position(|name| *name == "Reader").unwrap();
 
-        assert!(writer < reader, "writer must run before its reader: {order:?}");
+        assert!(
+            writer < reader,
+            "writer must run before its reader: {order:?}"
+        );
     }
 
     #[test]
@@ -452,7 +453,6 @@ mod tests {
             assert_eq!(graph.compile_names().unwrap(), expected);
         }
     }
-
 
     #[test]
     fn multiple_writers_preserve_registration_order() {
@@ -508,15 +508,33 @@ mod tests {
         }
 
         impl RenderPass for Pass {
-            fn name(&self) -> &'static str { self.name }
-            fn reads(&self) -> &[ResourceId] { &self.reads }
-            fn writes(&self) -> &[ResourceId] { &self.writes }
+            fn name(&self) -> &'static str {
+                self.name
+            }
+            fn reads(&self) -> &[ResourceId] {
+                &self.reads
+            }
+            fn writes(&self) -> &[ResourceId] {
+                &self.writes
+            }
         }
 
         let mut graph = RenderGraph::new();
-        graph.add_pass(Pass { name: "First writer", reads: vec![], writes: vec![ResourceId::HDR] });
-        graph.add_pass(Pass { name: "Reader", reads: vec![ResourceId::HDR], writes: vec![] });
-        graph.add_pass(Pass { name: "Second writer", reads: vec![], writes: vec![ResourceId::HDR] });
+        graph.add_pass(Pass {
+            name: "First writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
+        graph.add_pass(Pass {
+            name: "Reader",
+            reads: vec![ResourceId::HDR],
+            writes: vec![],
+        });
+        graph.add_pass(Pass {
+            name: "Second writer",
+            reads: vec![],
+            writes: vec![ResourceId::HDR],
+        });
 
         assert_eq!(
             graph.compile_names().unwrap(),
@@ -528,14 +546,25 @@ mod tests {
     fn read_without_any_writer_is_reported_as_an_error() {
         struct Reader;
         impl RenderPass for Reader {
-            fn name(&self) -> &'static str { "Reader" }
-            fn reads(&self) -> &[ResourceId] { &[ResourceId::PICKBUFFER] }
-            fn writes(&self) -> &[ResourceId] { &[] }
+            fn name(&self) -> &'static str {
+                "Reader"
+            }
+            fn reads(&self) -> &[ResourceId] {
+                &[ResourceId::PICKBUFFER]
+            }
+            fn writes(&self) -> &[ResourceId] {
+                &[]
+            }
         }
 
         let mut graph = RenderGraph::new();
         graph.add_pass(Reader);
-        assert!(graph.compile().unwrap_err().contains("PickBuffer is read but never written"));
+        assert!(
+            graph
+                .compile()
+                .unwrap_err()
+                .contains("PickBuffer is read but never written")
+        );
     }
 
     #[test]
@@ -577,6 +606,10 @@ mod tests {
 
         assert!(error.contains("Pass A reads LDR -> depends on Pass B"));
         assert!(error.contains("Pass B reads Depth -> depends on Pass A"));
-        assert_eq!(error.lines().count(), 3, "diagnostic should contain only the cycle");
+        assert_eq!(
+            error.lines().count(),
+            3,
+            "diagnostic should contain only the cycle"
+        );
     }
 }

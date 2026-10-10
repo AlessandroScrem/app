@@ -4,20 +4,19 @@ use crate::assets::asset_manager::{AssetEventKind, AssetManager};
 use crate::assets::material_asset::MaterialAsset;
 use crate::assets::mesh_asset::MeshAsset;
 use crate::assets::texture_asset::{TextureAsset, TextureDesc};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::{HashMap, HashSet};
-use std::sync::mpsc::{self, Receiver, Sender};
-use crate::assets::texture_upload::{load_and_decode, TextureData};
+use crate::assets::texture_upload::{TextureData, load_and_decode};
 use crate::assets::{IblAsset, IblId, TextureId};
-use crate::engine::engine::EventBus;
 use crate::engine::RuntimeEvent;
+use crate::engine::engine::EventBus;
 use crate::gpu::texture::GpuTextureBuilder;
 use crate::gpu::{
     BindgroupLayoutKind, GpuCache, GpuContext, GpuManager, GpuMaterial, GpuMesh, GpuTextureCache,
-    IblManager, ShadowManager,
+    IblManager,
 };
 use crate::renderer::{ImguiRender, MaterialPreviewRenderer};
-
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 type DecodedTexture = (TextureId, u64, Result<TextureData, ()>);
 
@@ -68,9 +67,7 @@ impl TextureLoadService {
         std::thread::spawn(move || {
             let decoded = jobs
                 .into_par_iter()
-                .map(|(id, generation, desc)| {
-                    (id, generation, load_and_decode(desc).ok_or(()))
-                })
+                .map(|(id, generation, desc)| (id, generation, load_and_decode(desc).ok_or(())))
                 .collect();
             let _ = sender.send(decoded);
         });
@@ -81,9 +78,15 @@ impl TextureLoadService {
         self.states.insert(id, TextureLoadState::Failed);
     }
 
-    pub(crate) fn is_material_ready(&self, desc: &crate::assets::material_desc::MaterialDesc) -> bool {
+    pub(crate) fn is_material_ready(
+        &self,
+        desc: &crate::assets::material_desc::MaterialDesc,
+    ) -> bool {
         desc.get_textures().iter().all(|id| {
-            matches!(self.states.get(id), Some(TextureLoadState::Ready | TextureLoadState::Failed))
+            matches!(
+                self.states.get(id),
+                Some(TextureLoadState::Ready | TextureLoadState::Failed)
+            )
         })
     }
 
@@ -96,7 +99,11 @@ impl TextureLoadService {
                 }
                 self.states.insert(
                     id,
-                    if result.is_ok() { TextureLoadState::Ready } else { TextureLoadState::Failed },
+                    if result.is_ok() {
+                        TextureLoadState::Ready
+                    } else {
+                        TextureLoadState::Failed
+                    },
                 );
                 ready.push((id, result));
             }
@@ -115,7 +122,6 @@ pub(crate) fn sync_gpu_assets(
     ibl_manager: &mut IblManager,
     imgui_render: &mut ImguiRender,
     hdr_vec: &mut Vec<(TextureId, IblId)>,
-    shadow_manager: &ShadowManager,
     material_preview_renderer: &mut MaterialPreviewRenderer,
 ) {
     let texture_cache = &mut gpu_cache.textures;
@@ -202,12 +208,7 @@ pub(crate) fn sync_gpu_assets(
                 let layout = gpu_manager.get_bindgroup_layout(BindgroupLayoutKind::Material);
                 material_cache.insert(
                     material_id,
-                    GpuMaterial::new(
-                        texture_cache,
-                        &material.desc,
-                        &gpu_context.device,
-                        layout,
-                    ),
+                    GpuMaterial::new(texture_cache, &material.desc, &gpu_context.device, layout),
                 );
             }
         }
@@ -228,8 +229,8 @@ pub(crate) fn sync_gpu_assets(
             .iter()
             .find(|(_, ibl_id)| *ibl_id == id)
             .map(|(hdr_id, _)| *hdr_id);
-        let needs_refresh = current_hdr != Some(asset.hrd_id)
-            || changed_textures.contains(&asset.hrd_id);
+        let needs_refresh =
+            current_hdr != Some(asset.hrd_id) || changed_textures.contains(&asset.hrd_id);
         if !needs_refresh {
             continue;
         }
@@ -278,13 +279,12 @@ pub(crate) fn sync_gpu_assets(
     });
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{DecodedTexture, TextureLoadService};
     use crate::assets::TextureId;
-    use crate::assets::texture_asset::ColorSpace;
     use crate::assets::material_desc::{MaterialDesc, MaterialTextureSlot};
+    use crate::assets::texture_asset::ColorSpace;
 
     #[test]
     fn material_waits_for_textures_and_accepts_failed_texture_fallback() {
@@ -324,11 +324,17 @@ mod tests {
         let current: Vec<DecodedTexture> = vec![(id, 2, Ok(data))];
         loader.sender.send(current).unwrap();
         assert_eq!(loader.poll().len(), 1);
-        assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Ready));
+        assert_eq!(
+            loader.states.get(&id),
+            Some(&super::TextureLoadState::Ready)
+        );
 
         loader.sender.send(vec![(id, 2, Err(()))]).unwrap();
         assert_eq!(loader.poll().len(), 1);
-        assert_eq!(loader.states.get(&id), Some(&super::TextureLoadState::Failed));
+        assert_eq!(
+            loader.states.get(&id),
+            Some(&super::TextureLoadState::Failed)
+        );
     }
 }
 

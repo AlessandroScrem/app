@@ -9,9 +9,9 @@ use crate::assets::{
     LinesVertexData, MaterialAsset, MaterialId, MeshAsset, MeshId, VertexInstance,
 };
 
+use crate::engine::gpu_sync::TextureLoadService;
 use crate::globals::Globals;
 use crate::gpu::GpuCache;
-use crate::engine::gpu_sync::TextureLoadService;
 
 use crate::prelude::trace;
 use crate::renderer::line_builder::{
@@ -98,11 +98,23 @@ pub struct FrameBuilder {
 }
 
 impl FrameBuilder {
-    pub fn prepare(objects: &RenderObjects, assets: &AssetManager, globals: &Globals, gpu_cache: &GpuCache, texture_loader: &TextureLoadService) -> Self {
+    pub fn prepare(
+        objects: &RenderObjects,
+        assets: &AssetManager,
+        globals: &Globals,
+        gpu_cache: &GpuCache,
+        texture_loader: &TextureLoadService,
+    ) -> Self {
         let mut frame = FrameBuilder::default();
 
         // create batches & instances for meshes
-        Self::prepare_meshes(&objects.meshes, assets, gpu_cache, texture_loader, &mut frame);
+        Self::prepare_meshes(
+            &objects.meshes,
+            assets,
+            gpu_cache,
+            texture_loader,
+            &mut frame,
+        );
 
         // create uniform for lights
         Self::prepare_light_uniform(&objects.lights, &mut frame, globals.light_enable);
@@ -176,10 +188,12 @@ impl FrameBuilder {
                 continue;
             };
             let materials_ready = mesh.desc.submeshes.iter().all(|submesh| {
-                assets.get::<MaterialAsset>(submesh.material).is_some_and(|material| {
-                    gpu_cache.material.get(&submesh.material).is_some()
-                        && texture_loader.is_material_ready(&material.desc)
-                })
+                assets
+                    .get::<MaterialAsset>(submesh.material)
+                    .is_some_and(|material| {
+                        gpu_cache.material.get(&submesh.material).is_some()
+                            && texture_loader.is_material_ready(&material.desc)
+                    })
             });
             if !materials_ready {
                 continue;
@@ -310,7 +324,10 @@ mod tests {
         FrameBuilder::flush_batches(map, &mut batches, &mut instances);
 
         assert_eq!(
-            batches.iter().map(|batch| batch.mesh.raw()).collect::<Vec<_>>(),
+            batches
+                .iter()
+                .map(|batch| batch.mesh.raw())
+                .collect::<Vec<_>>(),
             vec![mesh_a.raw(), mesh_b.raw()]
         );
     }

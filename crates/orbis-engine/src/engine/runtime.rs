@@ -5,7 +5,7 @@ use crate::app::Application;
 use crate::app::application::AppRenderData;
 use crate::app::domain::events::CameraEvent::{CameraOrbit, CameraPan, CameraZoom};
 use crate::app::domain::events::DomainEvent::{Camera, Selection};
-use crate::app::domain::events::SelectionEvent::{Hovered, SelectIbl};
+use crate::app::domain::events::SelectionEvent::Hovered;
 use crate::assets::asset_manager::AssetManager;
 use crate::assets::asset_manager::ResourceStats;
 use crate::assets::{IblId, TextureId};
@@ -18,8 +18,8 @@ use crate::engine::engine::EventBus;
 use crate::engine::readback::{QueryResult, ReadbackManager};
 use crate::gpu::pipeline_manager::PipelineManager;
 use crate::gpu::{
-    BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache,
-    GpuMeshCache, GpuSurface, GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
+    BufferKind, GpuCache, GpuContext, GpuManager, GpuMaterialCache, GpuMeshCache, GpuSurface,
+    GpuTextureCache, HasGpuStats, IblManager, ShadowManager,
 };
 use crate::input::Input;
 use crate::prelude::info;
@@ -246,7 +246,6 @@ impl Runtime {
             &mut self.ibl_manager,
             &mut self.imgui_render,
             &mut self.hdr_vec,
-            &self.shadow_manager,
             &mut self.material_preview_renderer,
         );
     }
@@ -342,7 +341,13 @@ impl Runtime {
             globals,
             selected,
         } = render_data;
-        let frame = FrameBuilder::prepare(render_objects, asset_mgr, globals, &self.gpu_cache, &self.texture_loader);
+        let frame = FrameBuilder::prepare(
+            render_objects,
+            asset_mgr,
+            globals,
+            &self.gpu_cache,
+            &self.texture_loader,
+        );
         let camera_uniform = CameraUniform::from_camera_size(
             camera,
             (
@@ -395,4 +400,3 @@ impl Runtime {
         }
     }
 }
-

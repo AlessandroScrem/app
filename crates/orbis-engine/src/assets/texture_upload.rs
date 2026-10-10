@@ -1,7 +1,3 @@
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
-
-use super::TextureId;
 use super::file;
 use crate::assets::texture_asset::{ColorSpace, TextureDesc};
 use crate::prelude::*;
@@ -16,18 +12,6 @@ pub struct TextureData {
     pub height: u32,
     pub pixels: Vec<u8>,
     pub format: ColorSpace,
-}
-
-pub fn load_cpu_textures_par<'a>(
-    jobs: Vec<(TextureId, TextureDesc)>,
-) -> Vec<(TextureId, TextureData)> {
-    // spawn decode on thread pool Rayon
-    let results: Vec<_> = jobs
-        .into_par_iter() // parallelo
-        .filter_map(|(id, desc)| load_and_decode(desc).map(|data| (id, data)))
-        .collect();
-
-    results
 }
 
 pub fn load_and_decode(desc: TextureDesc) -> Option<TextureData> {

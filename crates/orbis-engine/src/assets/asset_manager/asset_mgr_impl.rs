@@ -215,9 +215,8 @@ impl AssetManager {
     }
 
     pub fn update<T: Asset>(&mut self, id: ResourceId, f: impl FnOnce(&mut T)) {
-        let Some((previous_size, previous_dependencies, previous_key)) = self
-            .get::<T>(id)
-            .map(|asset| {
+        let Some((previous_size, previous_dependencies, previous_key)) =
+            self.get::<T>(id).map(|asset| {
                 (
                     asset.estimated_size(),
                     asset.dependencies(),
@@ -508,7 +507,9 @@ mod tests {
         }
 
         let mut manager = AssetManager::new();
-        let dependency = manager.add(Texture { name: "dependency".into() });
+        let dependency = manager.add(Texture {
+            name: "dependency".into(),
+        });
         let owner = manager.add(Owner {
             key: "owner".into(),
             dependency,
@@ -544,8 +545,12 @@ mod tests {
         }
 
         let mut manager = AssetManager::new();
-        let first = manager.add(Texture { name: "first".into() });
-        let second = manager.add(Texture { name: "second".into() });
+        let first = manager.add(Texture {
+            name: "first".into(),
+        });
+        let second = manager.add(Texture {
+            name: "second".into(),
+        });
         let owner = manager.add(Owner {
             key: "owner".into(),
             dependency: first,
@@ -903,7 +908,6 @@ mod test_api {
     }
 }
 
-
 #[cfg(test)]
 mod lifecycle_tests {
     use super::{Asset, AssetEventKind, AssetManager, ResourceId};
@@ -938,7 +942,10 @@ mod lifecycle_tests {
         manager.update::<LifecycleAsset>(id, |asset| asset.key = updated_key.clone());
 
         assert_eq!(manager.key_index.get::<LifecycleAsset>(&original_key), None);
-        assert_eq!(manager.key_index.get::<LifecycleAsset>(&updated_key), Some(id));
+        assert_eq!(
+            manager.key_index.get::<LifecycleAsset>(&updated_key),
+            Some(id)
+        );
     }
 
     #[test]
@@ -987,6 +994,9 @@ mod lifecycle_tests {
         let replacement_id = manager.add(LifecycleAsset { key, value: 4 });
         assert_ne!(replacement_id, original_id);
         assert!(manager.get::<LifecycleAsset>(original_id).is_none());
-        assert_eq!(manager.get::<LifecycleAsset>(replacement_id).unwrap().value, 4);
+        assert_eq!(
+            manager.get::<LifecycleAsset>(replacement_id).unwrap().value,
+            4
+        );
     }
 }

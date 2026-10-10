@@ -13,7 +13,6 @@ use wgpu::util::DeviceExt;
 #[derive(Default)]
 pub struct GpuMaterial {
     pub bind_group: Option<wgpu::BindGroup>,
-    uniform_buffer: Option<wgpu::Buffer>,
     revision: u64,
 }
 
@@ -41,17 +40,8 @@ impl GpuMaterial {
 
         GpuMaterial {
             bind_group: Some(bindgroup),
-            uniform_buffer: Some(uniform_buffer),
             revision: 0,
         }
-    }
-
-    pub fn update_uniform(&mut self, queue: &wgpu::Queue, material_desc: &MaterialDesc) {
-        let uniform = &MaterialUniform::from(material_desc);
-        if let Some(buffer) = &self.uniform_buffer {
-            queue.write_buffer(buffer, 0, bytemuck::bytes_of(uniform));
-        }
-        self.revision = self.revision.wrapping_add(1);
     }
 
     pub fn revision(&self) -> u64 {
@@ -81,14 +71,6 @@ impl GpuMaterialCache {
 
     pub fn get(&self, id: &ResourceId) -> Option<&GpuMaterial> {
         self.map.get(id)
-    }
-
-    pub fn update(&mut self, id: &ResourceId, f: impl FnOnce(&mut GpuMaterial)) {
-        if !self.map.contains_key(id) {
-            return;
-        }
-
-        self.map.entry(*id).and_modify(|v| f(v));
     }
 
     pub fn remove(&mut self, id: ResourceId) {

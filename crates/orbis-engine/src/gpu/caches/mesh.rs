@@ -65,8 +65,8 @@ impl GpuMesh {
         });
 
         let indexcount = indices.len() as u32;
-        let estimated_size = vertices.len() * size_of::<MeshVertexData>()
-            + indices.len() * size_of::<u32>();
+        let estimated_size =
+            vertices.len() * size_of::<MeshVertexData>() + indices.len() * size_of::<u32>();
 
         GpuMesh {
             vertexbuffer,

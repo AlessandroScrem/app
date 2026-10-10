@@ -6,7 +6,7 @@ use crate::{
     EntityRawU64, Globals,
     assets::MeshId,
     ecs::components::{
-        BoundingBoxComponent, GlobalModelComponent, HierarchyComponent, Hidden, LightComponent,
+        BoundingBoxComponent, GlobalModelComponent, Hidden, HierarchyComponent, LightComponent,
         MeshComponent,
     },
     math::{Mat4, Point3f, Vec3, Vec4},
@@ -100,11 +100,7 @@ impl RenderObjects {
     }
 }
 
-fn is_hidden_cached(
-    world: &World,
-    entity: Entity,
-    cache: &mut HashMap<Entity, bool>,
-) -> bool {
+fn is_hidden_cached(world: &World, entity: Entity, cache: &mut HashMap<Entity, bool>) -> bool {
     if let Some(hidden) = cache.get(&entity) {
         return *hidden;
     }
@@ -148,10 +144,7 @@ fn is_hidden_cached(
     hidden
 }
 
-fn extract_meshes(
-    world: &World,
-    visibility: &mut HashMap<Entity, bool>,
-) -> Vec<MeshRenderObject> {
+fn extract_meshes(world: &World, visibility: &mut HashMap<Entity, bool>) -> Vec<MeshRenderObject> {
     use legion::IntoQuery;
     let mut query = <(Entity, &MeshComponent, &GlobalModelComponent)>::query();
 
@@ -169,10 +162,7 @@ fn extract_meshes(
     meshes
 }
 
-fn extract_lights(
-    world: &World,
-    visibility: &mut HashMap<Entity, bool>,
-) -> Vec<LightRenderObject> {
+fn extract_lights(world: &World, visibility: &mut HashMap<Entity, bool>) -> Vec<LightRenderObject> {
     use legion::IntoQuery;
     let mut query = <(Entity, &LightComponent, &GlobalModelComponent)>::query();
 

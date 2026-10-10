@@ -73,11 +73,7 @@ impl RenderPass for MeshPass {
                 ResourceId::ENTITY,
                 ResourceId::DEPTH,
             ],
-            MeshPassMode::Transmission => &[
-                ResourceId::HDR,
-                ResourceId::ENTITY,
-                ResourceId::DEPTH,
-            ],
+            MeshPassMode::Transmission => &[ResourceId::HDR, ResourceId::ENTITY, ResourceId::DEPTH],
         }
     }
 
